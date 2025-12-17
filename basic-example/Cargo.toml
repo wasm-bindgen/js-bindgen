@@ -1,0 +1,11 @@
+[package]
+name = "basic-example"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+js-bindgen = { path = "../client/js-bindgen" }
+js-sys = { path = "../client/js-sys" }
