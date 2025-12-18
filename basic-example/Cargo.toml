@@ -7,5 +7,4 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-js-bindgen = { path = "../client/js-bindgen" }
-js-sys = { path = "../client/js-sys" }
+web-sys = { path = "../client/web-sys" }

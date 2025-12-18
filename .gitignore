@@ -1,2 +1,4 @@
 /client/target
+/client/Cargo.lock
 /host/target
+/host/Cargo.lock

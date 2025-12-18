@@ -1,11 +1,9 @@
 [package]
-name = "js-sys"
+name = "web-sys"
 version = "0.0.0"
 edition = "2021"
 rust-version = "1.59"
 
-[features]
-std = []
-
 [dependencies]
 js-bindgen = { path = "../js-bindgen" }
+js-sys = { path = "../js-sys" }

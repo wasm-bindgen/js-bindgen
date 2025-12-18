@@ -1,2 +1,2 @@
 [workspace]
-members = ["js-bindgen", "js-sys"]
+members = ["js-bindgen", "js-sys", "web-sys"]
