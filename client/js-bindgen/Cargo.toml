@@ -7,11 +7,14 @@ version = "0.0.0"
 [lib]
 proc-macro = true
 
-[target.'cfg(js_bindgen_bootstrap = "1")'.dependencies]
-ar_archive_writer = "0.5"
-proc-macro2 = { version = "1", features = ["span-locations"] }
-sanitize-filename = "=0.7.0-beta"
-syn = { version = "2", default-features = false, features = ["parsing", "proc-macro"] }
+[features]
+bootstrap = ["dep:ar_archive_writer", "dep:proc-macro2", "dep:sanitize-filename", "dep:syn"]
 
-[lints]
-workspace = true
+[dependencies]
+ar_archive_writer = { version = "0.5", optional = true }
+proc-macro2 = { version = "1", optional = true, features = ["span-locations"] }
+sanitize-filename = { version = "=0.7.0-beta", optional = true }
+syn = { version = "2", optional = true, default-features = false, features = [
+	"parsing",
+	"proc-macro",
+] }

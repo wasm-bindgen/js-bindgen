@@ -1,11 +1,9 @@
-# Workaround to not get overwritten by user configurations.
-# https://github.com/rust-lang/cargo/issues/5376
-[target.'cfg(all())']
-rustflags = ["--cfg", "js_bindgen_bootstrap=\"1\""]
+[build]
+target = "wasm32-unknown-unknown"
 
 [target.'cfg(all(target_family = "wasm", any(target_os = "none", target_os = "unknown")))']
-# Cargo requires a path to the binary and can't contain arbitrary commands like `cargo run`.
-# To solve this we added script files that call `cargo run -p js-bindgen-linker` for us.
-# On Linux and MacOS it will use the shell script `linker`.
-# On Windows it will use the batch file `linker.cmd`.
-linker = ".cargo/linker"
+linker = "../linker-shim/linker"
+
+[env]
+JS_BINDGEN_BOOTSTRAP_js-sys = "1"
+JS_BINDGEN_BOOTSTRAP_web-sys = "1"

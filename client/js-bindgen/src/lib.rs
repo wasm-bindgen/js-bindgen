@@ -1,6 +1,5 @@
-#[cfg(js_bindgen_bootstrap = "1")]
+#[cfg(feature = "bootstrap")]
 mod bootstrap;
-#[cfg(not(js_bindgen_bootstrap = "1"))]
 mod cache;
 
 use std::env;
@@ -9,18 +8,32 @@ use std::path::PathBuf;
 use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
 
 #[proc_macro]
-#[cfg(js_bindgen_bootstrap = "1")]
 pub fn cache_embed_asm(input: TokenStream) -> TokenStream {
-	match bootstrap::run(input) {
-		Ok(output) => output,
-		Err(error) => error.into_compile_error().into(),
-	}
-}
+	let library = Library::new();
 
-#[proc_macro]
-#[cfg(not(js_bindgen_bootstrap = "1"))]
-pub fn cache_embed_asm(input: TokenStream) -> TokenStream {
-	cache::run(input).unwrap_or_else(|e| e)
+	if env::var_os(format!("JS_BINDGEN_BOOTSTRAP_{}", library.package))
+		.filter(|value| value == "1")
+		.is_some()
+	{
+		#[cfg(feature = "bootstrap")]
+		{
+			match bootstrap::run(input, library) {
+				Ok(output) => output,
+				Err(error) => error.into_compile_error().into(),
+			}
+		}
+		#[cfg(not(feature = "bootstrap"))]
+		return cache::compile_error(
+			Span::mixed_site(),
+			format!(
+				"enabled bootstrap mode via environment variable for `{}` v{} but without \
+				 enabling the `bootstrap` crate feature",
+				library.package, library.version
+			),
+		);
+	} else {
+		cache::run(input, library).unwrap_or_else(|e| e)
+	}
 }
 
 struct Library {

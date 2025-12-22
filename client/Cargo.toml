@@ -1,6 +1,3 @@
 [workspace]
 members = ["bootstrap", "js-bindgen", "js-sys", "web-sys"]
 resolver = "2"
-
-[workspace.lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(js_bindgen_bootstrap, values("1"))'] }

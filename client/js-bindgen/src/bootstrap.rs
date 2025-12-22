@@ -15,7 +15,7 @@ use crate::Library;
 
 /// This parses the given assembly and converts them into archive files. These
 /// archive files are then imported via `#[link(...)] extern "C"`.
-pub(crate) fn run(input: TokenStream) -> Result<TokenStream, Error> {
+pub(crate) fn run(input: TokenStream, library: Library) -> Result<TokenStream, Error> {
 	let span = Span::mixed_site();
 	let InputParser { name, assembly } = Parser::parse(InputParser::parse, input)?;
 
@@ -30,7 +30,6 @@ pub(crate) fn run(input: TokenStream) -> Result<TokenStream, Error> {
 	let source_path = span
 		.local_file()
 		.ok_or_else(|| Error::new(span, "unable to get path to source file"))?;
-	let library = Library::new();
 	let library_file = library.file(&name.to_string());
 	let object_file_name = format!("lib{library_file}");
 	let object_file = format!("{object_file_name}.o");

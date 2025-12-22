@@ -1,4 +1,0 @@
-#!/bin/sh
-
-cargo run --manifest-path "../host/linker/Cargo.toml" -- "$@"
-exit $?

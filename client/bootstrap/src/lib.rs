@@ -14,12 +14,9 @@ pub fn bootstrap(cache_dir: &Path) {
 	);
 
 	// When bootstrapping we delete the old cache.
-	if env::var_os("CARGO_CFG_JS_BINDGEN_BOOTSTRAP")
-        .filter(|value| value == "1")
-        .is_some()
-        &&
-        // Proc-macros are unable to receive `cfg`s when cross-compiling.
-        env::var_os("HOST") == env::var_os("TARGET")
+	if env::var_os(format!("JS_BINDGEN_BOOTSTRAP_{name}"))
+		.filter(|value| value == "1")
+		.is_some()
 	{
 		match fs::remove_dir_all(cache_dir) {
 			Ok(()) => (),

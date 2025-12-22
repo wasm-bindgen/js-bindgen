@@ -6,7 +6,7 @@ use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenSt
 
 use crate::Library;
 
-pub(crate) fn run(input: TokenStream) -> Result<TokenStream, TokenStream> {
+pub(crate) fn run(input: TokenStream, library: Library) -> Result<TokenStream, TokenStream> {
 	let span = Span::mixed_site();
 	let mut input = input.into_iter();
 
@@ -49,7 +49,6 @@ pub(crate) fn run(input: TokenStream) -> Result<TokenStream, TokenStream> {
 		return Ok(TokenStream::new());
 	}
 
-	let library = Library::new();
 	let library_file = library.file(&name.to_string());
 
 	if env::var_os("JS_BINDGEN_CACHE_DISABLE_CHECK")
@@ -91,7 +90,7 @@ pub(crate) fn run(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	Ok(crate::output(span, &library_file))
 }
 
-fn compile_error<E: Display>(span: Span, error: E) -> TokenStream {
+pub(crate) fn compile_error<E: Display>(span: Span, error: E) -> TokenStream {
 	TokenStream::from_iter([
 		TokenTree::Punct(Punct::new(':', Spacing::Joint)),
 		TokenTree::Punct(Punct::new(':', Spacing::Alone)),
