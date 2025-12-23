@@ -12,6 +12,9 @@ use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::marker::PhantomData;
 
+#[cfg(not(target_feature = "reference-types"))]
+compile_error!("`js-sys` requires the `reference-types` target feature");
+
 macro_rules! thread_local {
     ($(static $name:ident: $ty:ty = $value:expr;)*) => {
         #[cfg(not(target_feature = "atomics"))]
@@ -47,8 +50,7 @@ impl<T: 'static> LocalKey<T> {
 	}
 }
 
-js_bindgen::cache_embed_asm!(
-	name = "externref",
+js_bindgen::embed_asm!(
 	"js_sys.externref.table:",
 	"    .tabletype js_sys.externref.table, externref",
 	"",

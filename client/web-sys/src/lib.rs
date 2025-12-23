@@ -7,8 +7,7 @@ pub mod console {
 	use super::*;
 
 	pub fn log(par1: &JsValue) {
-		js_bindgen::cache_embed_asm!(
-			name = "console.log",
+		js_bindgen::embed_asm!(
 			".functype js_sys.externref.get (i32) -> (externref)",
 			"",
 			".import_module web_sys.import.console.log, web_sys",

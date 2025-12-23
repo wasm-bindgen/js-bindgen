@@ -1,4 +1,10 @@
 [package]
 edition = "2024"
 name = "js-bindgen-linker"
+rust-version = "1.91"
 version = "0.0.0"
+
+[dependencies]
+object = { version = "0.38", default-features = false, features = ["archive", "read_core"] }
+wasm-encoder = { version = "0.243", default-features = false }
+wasmparser = { version = "0.243", default-features = false }

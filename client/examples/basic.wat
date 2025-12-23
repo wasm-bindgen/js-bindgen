@@ -1,10 +1,10 @@
-(module $basic-c8076c0831b4f91f.wasm
+(module $basic-e8c34c81cb2997c4.wasm
   (type (;0;) (func (param externref)))
   (type (;1;) (func))
-  (type (;2;) (func (param i32)))
-  (type (;3;) (func (param i32) (result externref)))
-  (import "web_sys" "console.log" (func $web_sys.import.console.log (;0;) (type 0)))
+  (type (;2;) (func (param i32) (result externref)))
+  (type (;3;) (func (param i32)))
   (import "js_sys" "const" (table (;0;) 0 externref))
+  (import "web_sys" "console.log" (func $web_sys.import.console.log (;0;) (type 0)))
   (table (;1;) 0 externref)
   (table (;2;) 1 1 funcref)
   (memory (;0;) 16)
@@ -19,12 +19,7 @@
     i32.const -1
     call $web_sys.console.log
   )
-  (func $web_sys.console.log (;2;) (type 2) (param i32)
-    local.get 0
-    call $js_sys.externref.get
-    call $web_sys.import.console.log
-  )
-  (func $js_sys.externref.get (;3;) (type 3) (param i32) (result externref)
+  (func $js_sys.externref.get (;2;) (type 2) (param i32) (result externref)
     local.get 0
     i32.const 0
     i32.ge_s
@@ -39,6 +34,11 @@
       i32.sub
       table.get 0
     end
+  )
+  (func $web_sys.console.log (;3;) (type 3) (param i32)
+    local.get 0
+    call $js_sys.externref.get
+    call $web_sys.import.console.log
   )
   (@producers
     (language "Rust" "")

@@ -7,8 +7,5 @@ version = "0.0.0"
 [features]
 std = []
 
-[build-dependencies]
-js-bindgen-bootstrap = { path = "../bootstrap" }
-
 [dependencies]
 js-bindgen = { path = "../js-bindgen" }

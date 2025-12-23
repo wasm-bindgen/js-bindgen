@@ -1,3 +1,14 @@
 [workspace]
-members = ["bootstrap", "js-bindgen", "js-sys", "web-sys"]
+members = ["js-bindgen", "js-sys", "web-sys"]
 resolver = "2"
+
+[package]
+edition = "2021"
+name = "examples"
+
+[dev-dependencies]
+web-sys = { path = "web-sys" }
+
+[[example]]
+crate-type = ["cdylib"]
+name = "basic"
