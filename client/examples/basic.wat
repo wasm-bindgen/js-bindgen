@@ -3,10 +3,9 @@
   (type (;1;) (func))
   (type (;2;) (func (param i32) (result externref)))
   (type (;3;) (func (param i32)))
-  (import "js_sys" "const" (table (;0;) 0 externref))
+  (import "js_sys" "externref.table" (table (;0;) 0 externref))
   (import "web_sys" "console.log" (func $web_sys.import.console.log (;0;) (type 0)))
-  (table (;1;) 0 externref)
-  (table (;2;) 1 1 funcref)
+  (table (;1;) 1 1 funcref)
   (memory (;0;) 16)
   (global $__stack_pointer (;0;) (mut i32) i32.const 1048576)
   (global (;1;) i32 i32.const 1048576)
@@ -16,24 +15,12 @@
   (export "__data_end" (global 1))
   (export "__heap_base" (global 2))
   (func $foo (;1;) (type 1)
-    i32.const -1
+    i32.const 0
     call $web_sys.console.log
   )
   (func $js_sys.externref.get (;2;) (type 2) (param i32) (result externref)
     local.get 0
-    i32.const 0
-    i32.ge_s
-    if (result externref) ;; label = @1
-      local.get 0
-      table.get 1
-    else
-      local.get 0
-      i32.const -1
-      i32.mul
-      i32.const 1
-      i32.sub
-      table.get 0
-    end
+    table.get 0
   )
   (func $web_sys.console.log (;3;) (type 3) (param i32)
     local.get 0

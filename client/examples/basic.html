@@ -5,10 +5,10 @@
     <script type=module>
         const importObject = {
             web_sys: { "console.log": (arg) => console.log(arg) },
-            js_sys: { const: new WebAssembly.Table({ initial: 1, element: "externref" }, undefined) }
+            js_sys: { "externref.table": new WebAssembly.Table({ initial: 1, element: "externref" }) }
         };
         const { module, instance } = await WebAssembly.instantiateStreaming(
-            fetch("target/wasm32-unknown-unknown/release/examples/basic.wasm"),
+            fetch("../target/wasm32-unknown-unknown/release/examples/basic.wasm"),
             importObject,
         )
         instance.exports.foo()

@@ -51,12 +51,9 @@ impl<T: 'static> LocalKey<T> {
 }
 
 js_bindgen::embed_asm!(
-	"js_sys.externref.table:",
-	"    .tabletype js_sys.externref.table, externref",
-	"",
-	".import_module js_sys.externref.const, js_sys",
-	".import_name js_sys.externref.const, const",
-	".tabletype js_sys.externref.const, externref",
+	".import_module js_sys.externref.table, js_sys",
+	".import_name js_sys.externref.table, externref.table",
+	".tabletype js_sys.externref.table, externref, 1",
 	"",
 	".globl js_sys.externref.grow",
 	"js_sys.externref.grow:",
@@ -69,20 +66,8 @@ js_bindgen::embed_asm!(
 	".globl js_sys.externref.get",
 	"js_sys.externref.get:",
 	"    .functype js_sys.externref.get (i32) -> (externref)",
-	"    local.get 0",
-	"    i32.const 0",
-	"    i32.ge_s",
-	"    if externref",
 	"        local.get 0",
 	"        table.get js_sys.externref.table",
-	"    else",
-	"        local.get 0",
-	"        i32.const -1",
-	"        i32.mul",
-	"        i32.const 1",
-	"        i32.sub",
-	"        table.get js_sys.externref.const",
-	"    end_if",
 	"    end_function",
 	"",
 	".globl js_sys.externref.remove",
@@ -107,7 +92,7 @@ pub struct JsValue {
 }
 
 impl JsValue {
-	pub const UNDEFINED: Self = Self::new(-1);
+	pub const UNDEFINED: Self = Self::new(0);
 
 	const fn new(index: i32) -> Self {
 		Self {
@@ -123,7 +108,7 @@ impl JsValue {
 
 impl Drop for JsValue {
 	fn drop(&mut self) {
-		if self.index >= 0 {
+		if self.index > 0 {
 			EXTERNREF_TABLE.with(|table| table.borrow_mut().remove(self.index));
 		}
 	}
