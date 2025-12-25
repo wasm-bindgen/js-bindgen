@@ -1,4 +1,7 @@
+use std::collections::HashMap;
+use std::ffi::{OsStr, OsString};
 use std::io::{Error, Write};
+use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::process::{self, Command, Stdio};
 use std::{env, fs};
@@ -8,44 +11,231 @@ use object::read::archive::ArchiveFile;
 use wasm_encoder::{EntityType, ImportSection, Module, RawSection, Section};
 use wasmparser::{Encoding, Parser, Payload};
 
+/// `wasm-ld`'s options and kinds.
+///
+/// How to generate:
+///
+/// ```sh
+/// llvm-tblgen --dump-json lld/wasm/Options.td -o options.json -I llvm/include
+/// ```
+///
+/// ```ignore
+/// let opt_table: BTreeMap<String, Value> =
+///     serde_json::from_slice(&std::fs::read("options.json").unwrap()).unwrap();
+/// let mut vec = Vec::new();
+/// for option in opt_table.values() {
+///     if let Some(name) = option.get("Name").and_then(|n| n.as_str())
+///         && let Some(kind) = option
+///             .get("Kind")
+///             .and_then(|def| def.get("def"))
+///             .and_then(|s| s.as_str())
+///     {
+///         if kind == "KIND_INPUT" || kind == "KIND_UNKNOWN" {
+///             continue;
+///         }
+///         vec.push((name, format!("OptKind::{kind}")));
+///     }
+/// }
+///
+/// println!("{vec:#?}");
+/// ```
+///
+/// And copy to here.
+static OPT_KIND: [(&str, OptKind); 149] = [
+	("Bdynamic", OptKind::KIND_FLAG),
+	("Bstatic", OptKind::KIND_FLAG),
+	("Bsymbolic", OptKind::KIND_FLAG),
+	("Map", OptKind::KIND_SEPARATE),
+	("Map=", OptKind::KIND_JOINED),
+	("O", OptKind::KIND_JOINED_OR_SEPARATE),
+	("allow-multiple-definition", OptKind::KIND_FLAG),
+	("allow-undefined", OptKind::KIND_FLAG),
+	("allow-undefined-file=", OptKind::KIND_JOINED),
+	("allow-undefined-file", OptKind::KIND_SEPARATE),
+	("e", OptKind::KIND_JOINED_OR_SEPARATE),
+	("entry=", OptKind::KIND_JOINED),
+	("library=", OptKind::KIND_JOINED),
+	("library-path", OptKind::KIND_SEPARATE),
+	("library-path=", OptKind::KIND_JOINED),
+	("M", OptKind::KIND_FLAG),
+	("r", OptKind::KIND_FLAG),
+	("s", OptKind::KIND_FLAG),
+	("S", OptKind::KIND_FLAG),
+	("t", OptKind::KIND_FLAG),
+	("y", OptKind::KIND_JOINED_OR_SEPARATE),
+	("u", OptKind::KIND_JOINED_OR_SEPARATE),
+	("call_shared", OptKind::KIND_FLAG),
+	("V", OptKind::KIND_FLAG),
+	("dy", OptKind::KIND_FLAG),
+	("dn", OptKind::KIND_FLAG),
+	("non_shared", OptKind::KIND_FLAG),
+	("static", OptKind::KIND_FLAG),
+	("E", OptKind::KIND_FLAG),
+	("i", OptKind::KIND_FLAG),
+	("library", OptKind::KIND_SEPARATE),
+	("build-id", OptKind::KIND_FLAG),
+	("build-id=", OptKind::KIND_JOINED),
+	("check-features", OptKind::KIND_FLAG),
+	("color-diagnostics", OptKind::KIND_FLAG),
+	("color-diagnostics=", OptKind::KIND_JOINED),
+	("compress-relocations", OptKind::KIND_FLAG),
+	("demangle", OptKind::KIND_FLAG),
+	("disable-verify", OptKind::KIND_FLAG),
+	("emit-relocs", OptKind::KIND_FLAG),
+	("end-lib", OptKind::KIND_FLAG),
+	("entry", OptKind::KIND_SEPARATE),
+	("error-limit", OptKind::KIND_SEPARATE),
+	("error-limit=", OptKind::KIND_JOINED),
+	("error-unresolved-symbols", OptKind::KIND_FLAG),
+	("experimental-pic", OptKind::KIND_FLAG),
+	("export", OptKind::KIND_SEPARATE),
+	("export-all", OptKind::KIND_FLAG),
+	("export-dynamic", OptKind::KIND_FLAG),
+	("export=", OptKind::KIND_JOINED),
+	("export-if-defined", OptKind::KIND_SEPARATE),
+	("export-if-defined=", OptKind::KIND_JOINED),
+	("export-memory", OptKind::KIND_FLAG),
+	("export-memory=", OptKind::KIND_JOINED),
+	("export-table", OptKind::KIND_FLAG),
+	("extra-features=", OptKind::KIND_COMMAJOINED),
+	("fatal-warnings", OptKind::KIND_FLAG),
+	("features=", OptKind::KIND_COMMAJOINED),
+	("gc-sections", OptKind::KIND_FLAG),
+	("global-base=", OptKind::KIND_JOINED),
+	("growable-table", OptKind::KIND_FLAG),
+	("help", OptKind::KIND_FLAG),
+	("import-memory", OptKind::KIND_FLAG),
+	("import-memory=", OptKind::KIND_JOINED),
+	("import-table", OptKind::KIND_FLAG),
+	("import-undefined", OptKind::KIND_FLAG),
+	("initial-heap=", OptKind::KIND_JOINED),
+	("initial-memory=", OptKind::KIND_JOINED),
+	("keep-section", OptKind::KIND_SEPARATE),
+	("keep-section=", OptKind::KIND_JOINED),
+	("l", OptKind::KIND_JOINED_OR_SEPARATE),
+	("L", OptKind::KIND_JOINED_OR_SEPARATE),
+	("lto-CGO", OptKind::KIND_JOINED),
+	("lto-O", OptKind::KIND_JOINED),
+	("lto-debug-pass-manager", OptKind::KIND_FLAG),
+	("lto-obj-path=", OptKind::KIND_JOINED),
+	("lto-partitions=", OptKind::KIND_JOINED),
+	("m", OptKind::KIND_JOINED_OR_SEPARATE),
+	("max-memory=", OptKind::KIND_JOINED),
+	("merge-data-segments", OptKind::KIND_FLAG),
+	("mllvm", OptKind::KIND_SEPARATE),
+	("mllvm=", OptKind::KIND_JOINED),
+	("no-allow-multiple-definition", OptKind::KIND_FLAG),
+	("no-check-features", OptKind::KIND_FLAG),
+	("no-color-diagnostics", OptKind::KIND_FLAG),
+	("no-demangle", OptKind::KIND_FLAG),
+	("no-entry", OptKind::KIND_FLAG),
+	("no-export-dynamic", OptKind::KIND_FLAG),
+	("no-fatal-warnings", OptKind::KIND_FLAG),
+	("no-gc-sections", OptKind::KIND_FLAG),
+	("no-growable-memory", OptKind::KIND_FLAG),
+	("no-merge-data-segments", OptKind::KIND_FLAG),
+	("no-pie", OptKind::KIND_FLAG),
+	("no-print-gc-sections", OptKind::KIND_FLAG),
+	("no-shlib-sigcheck", OptKind::KIND_FLAG),
+	("no-stack-first", OptKind::KIND_FLAG),
+	("no-whole-archive", OptKind::KIND_FLAG),
+	("noinhibit-exec", OptKind::KIND_FLAG),
+	("o", OptKind::KIND_JOINED_OR_SEPARATE),
+	("page-size=", OptKind::KIND_JOINED),
+	("pie", OptKind::KIND_FLAG),
+	("print-gc-sections", OptKind::KIND_FLAG),
+	("print-map", OptKind::KIND_FLAG),
+	("relocatable", OptKind::KIND_FLAG),
+	("reproduce", OptKind::KIND_SEPARATE),
+	("reproduce=", OptKind::KIND_JOINED),
+	("rpath", OptKind::KIND_SEPARATE),
+	("rpath=", OptKind::KIND_JOINED),
+	("rsp-quoting", OptKind::KIND_SEPARATE),
+	("rsp-quoting=", OptKind::KIND_JOINED),
+	("save-temps", OptKind::KIND_FLAG),
+	("shared", OptKind::KIND_FLAG),
+	("shared-memory", OptKind::KIND_FLAG),
+	("soname", OptKind::KIND_SEPARATE),
+	("soname=", OptKind::KIND_JOINED),
+	("stack-first", OptKind::KIND_FLAG),
+	("start-lib", OptKind::KIND_FLAG),
+	("strip-all", OptKind::KIND_FLAG),
+	("strip-debug", OptKind::KIND_FLAG),
+	("table-base=", OptKind::KIND_JOINED),
+	("thinlto-cache-dir=", OptKind::KIND_JOINED),
+	("thinlto-cache-policy", OptKind::KIND_SEPARATE),
+	("thinlto-cache-policy=", OptKind::KIND_JOINED),
+	("thinlto-emit-imports-files", OptKind::KIND_FLAG),
+	("thinlto-emit-index-files", OptKind::KIND_FLAG),
+	("thinlto-index-only", OptKind::KIND_FLAG),
+	("thinlto-index-only=", OptKind::KIND_JOINED),
+	("thinlto-jobs=", OptKind::KIND_JOINED),
+	("thinlto-object-suffix-replace=", OptKind::KIND_JOINED),
+	("thinlto-prefix-replace=", OptKind::KIND_JOINED),
+	("threads", OptKind::KIND_SEPARATE),
+	("threads=", OptKind::KIND_JOINED),
+	("trace", OptKind::KIND_FLAG),
+	("trace-symbol", OptKind::KIND_SEPARATE),
+	("trace-symbol=", OptKind::KIND_JOINED),
+	("undefined", OptKind::KIND_SEPARATE),
+	("undefined=", OptKind::KIND_JOINED),
+	("unresolved-symbols", OptKind::KIND_SEPARATE),
+	("unresolved-symbols=", OptKind::KIND_JOINED),
+	("v", OptKind::KIND_FLAG),
+	("verbose", OptKind::KIND_FLAG),
+	("version", OptKind::KIND_FLAG),
+	("warn-unresolved-symbols", OptKind::KIND_FLAG),
+	("whole-archive", OptKind::KIND_FLAG),
+	("why-extract=", OptKind::KIND_JOINED),
+	("wrap", OptKind::KIND_SEPARATE),
+	("wrap=", OptKind::KIND_JOINED),
+	("z", OptKind::KIND_JOINED_OR_SEPARATE),
+	// rust-lld
+	("flavor", OptKind::KIND_SEPARATE),
+];
+
+#[allow(non_camel_case_types)]
+#[derive(Clone, Copy)]
+enum OptKind {
+	// --extra-features=a,b,c
+	KIND_COMMAJOINED,
+	// --gc-sections
+	KIND_FLAG,
+	// --export=xx
+	KIND_JOINED,
+	// -ofoo.wasm OR -o foo.wasm
+	KIND_JOINED_OR_SEPARATE,
+	// --export xx
+	KIND_SEPARATE,
+}
+
+#[derive(Debug)]
+struct WasmLdArguments<'a> {
+	table: HashMap<&'a str, Vec<&'a OsStr>>,
+	inputs: Vec<&'a OsString>,
+}
+
 fn main() {
 	let args: Vec<_> = env::args_os().collect();
-
-	// TODO: This needs to more reliably parse LLD parameters.
+	let lld = extract_inputs(&args[1..]);
 
 	// With Wasm32 no argument is passed, but Wasm64 requires `-mwasm64`.
-	let arch = args
-		.iter()
-		.find_map(|a| {
-			a.to_str().and_then(|a| {
-				a.strip_prefix("-m")
-					.filter(|a| !a.starts_with('='))
-					.map(str::to_owned)
-			})
-		})
-		.unwrap_or_else(|| String::from("wasm32"));
+	let arch = if let Some(m) = lld.table.get("m") {
+		m[0].to_str().expect("-m value should be utf8")
+	} else {
+		"wasm32"
+	};
+
 	// The output parameter starts with `-o`, the argument after is the path.
-	let output_path = args
-		.iter()
-		.enumerate()
-		.find_map(|(i, a)| (a == "-o").then_some(i))
-		.and_then(|i| args.get(i + 1))
-		.map(Path::new)
-		.expect("output path argument should be present");
+	let output_path = Path::new(lld.table["o"][0]);
 
 	// Here we store additional files we want to pass to LLD as arguments.
 	let mut asm_args: Vec<PathBuf> = Vec::new();
 
-	for arg in &args {
-		// We keep away from any parameter argument until we have a proper argument
-		// parser.
-		if arg.as_encoded_bytes().starts_with(b"-") {
-			continue;
-		}
-
+	for input in &lld.inputs {
 		// We found a UNIX archive.
-		if arg.as_encoded_bytes().ends_with(b".rlib") {
-			let archive_path = Path::new(&arg);
+		if input.as_encoded_bytes().ends_with(b".rlib") {
+			let archive_path = Path::new(&input);
 			let archive_data = match fs::read(archive_path) {
 				Ok(archive_data) => archive_data,
 				Err(error) => {
@@ -80,14 +270,14 @@ fn main() {
 				};
 
 				process_object(
-					&arch,
+					arch,
 					&mut asm_args,
 					&archive_path.with_file_name(name),
 					data,
 				);
 			}
-		} else if arg.as_encoded_bytes().ends_with(b".o") {
-			let object_path = Path::new(&arg);
+		} else if input.as_encoded_bytes().ends_with(b".o") {
+			let object_path = Path::new(&input);
 			let object = match fs::read(object_path) {
 				Ok(object) => object,
 				Err(error) => {
@@ -96,7 +286,7 @@ fn main() {
 				}
 			};
 
-			process_object(&arch, &mut asm_args, object_path, &object);
+			process_object(arch, &mut asm_args, object_path, &object);
 		}
 	}
 
@@ -337,4 +527,65 @@ fn post_processing(output_path: &Path) {
 		js_output,
 	)
 	.expect("object file should be writable");
+}
+
+fn extract_inputs(args: &[OsString]) -> WasmLdArguments<'_> {
+	let mut args = args.iter();
+	let mut lld = WasmLdArguments {
+		table: HashMap::new(),
+		inputs: Vec::new(),
+	};
+
+	let option_table = HashMap::from(OPT_KIND);
+
+	loop {
+		let Some(arg) = args.next() else {
+			break;
+		};
+
+		let bytes = arg.as_encoded_bytes();
+
+		// In the LLVM Parser, if a value does not start with `-`, it is treated as INPUT.
+		let Some(stripped) = bytes
+			.strip_prefix(b"--")
+			.or_else(|| bytes.strip_prefix(b"-"))
+		else {
+			lld.inputs.push(arg);
+			continue;
+		};
+
+		// Find the longest substring and the option kind.
+		//
+		// TODO: optimize with binary search
+		for end in (0..=stripped.len()).rev() {
+			if let Ok(sub) = str::from_utf8(&stripped[0..end])
+				&& let Some(kind) = option_table.get(sub)
+			{
+				let mut next = || {
+					args.next()
+						.expect("separate kind should be have value")
+						.as_os_str()
+				};
+				let remain = || OsStr::from_bytes(&stripped[end..]);
+				let value = match kind {
+					OptKind::KIND_FLAG => None,
+					OptKind::KIND_SEPARATE => Some(next()),
+					OptKind::KIND_COMMAJOINED | OptKind::KIND_JOINED => Some(remain()),
+					OptKind::KIND_JOINED_OR_SEPARATE => Some(if stripped.len() == end {
+						next()
+					} else {
+						remain()
+					}),
+				};
+				if let Some(value) = value {
+					lld.table.entry(sub).or_default().push(value);
+				} else {
+					lld.table.insert(sub, Vec::new());
+				}
+				break;
+			}
+		}
+	}
+
+	lld
 }

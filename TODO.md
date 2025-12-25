@@ -7,8 +7,6 @@
 
 - Replace `llvm-mc` with `wasm-tools`. See
   https://github.com/bytecodealliance/wasm-tools/issues/2405.
-- Parse LLD CLI arguments via information from `lld/wasm/Options.td`. The current parsing is
-  extremely crude and will most likely break with any uncommon linker arguments.
 
 # High Priority
 
