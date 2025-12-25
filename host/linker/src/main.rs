@@ -1,3 +1,5 @@
+mod lld;
+
 use std::io::{Error, Write};
 use std::path::{Path, PathBuf};
 use std::process::{self, Command, Stdio};
@@ -8,44 +10,33 @@ use object::read::archive::ArchiveFile;
 use wasm_encoder::{EntityType, ImportSection, Module, RawSection, Section};
 use wasmparser::{Encoding, Parser, Payload};
 
+use crate::lld::WasmLdArguments;
+
 fn main() {
 	let args: Vec<_> = env::args_os().collect();
-
-	// TODO: This needs to more reliably parse LLD parameters.
+	let lld = WasmLdArguments::new(&args[1..]);
 
 	// With Wasm32 no argument is passed, but Wasm64 requires `-mwasm64`.
-	let arch = args
-		.iter()
-		.find_map(|a| {
-			a.to_str().and_then(|a| {
-				a.strip_prefix("-m")
-					.filter(|a| !a.starts_with('='))
-					.map(str::to_owned)
-			})
-		})
-		.unwrap_or_else(|| String::from("wasm32"));
-	// The output parameter starts with `-o`, the argument after is the path.
-	let output_path = args
-		.iter()
-		.enumerate()
-		.find_map(|(i, a)| (a == "-o").then_some(i))
-		.and_then(|i| args.get(i + 1))
-		.map(Path::new)
-		.expect("output path argument should be present");
+	let arch = if let Some(m) = lld.table.get(b"m".as_slice()) {
+		m[0].to_str()
+			.expect("`-m` value should be `wasm32` or `wasm64`")
+	} else {
+		"wasm32"
+	};
+
+	let output_path = Path::new(
+		lld.table
+			.get(b"o".as_slice())
+			.expect("output path argument should be present")[0],
+	);
 
 	// Here we store additional files we want to pass to LLD as arguments.
 	let mut asm_args: Vec<PathBuf> = Vec::new();
 
-	for arg in &args {
-		// We keep away from any parameter argument until we have a proper argument
-		// parser.
-		if arg.as_encoded_bytes().starts_with(b"-") {
-			continue;
-		}
-
+	for input in &lld.inputs {
 		// We found a UNIX archive.
-		if arg.as_encoded_bytes().ends_with(b".rlib") {
-			let archive_path = Path::new(&arg);
+		if input.as_encoded_bytes().ends_with(b".rlib") {
+			let archive_path = Path::new(&input);
 			let archive_data = match fs::read(archive_path) {
 				Ok(archive_data) => archive_data,
 				Err(error) => {
@@ -80,14 +71,14 @@ fn main() {
 				};
 
 				process_object(
-					&arch,
+					arch,
 					&mut asm_args,
 					&archive_path.with_file_name(name),
 					data,
 				);
 			}
-		} else if arg.as_encoded_bytes().ends_with(b".o") {
-			let object_path = Path::new(&arg);
+		} else if input.as_encoded_bytes().ends_with(b".o") {
+			let object_path = Path::new(&input);
 			let object = match fs::read(object_path) {
 				Ok(object) => object,
 				Err(error) => {
@@ -96,7 +87,7 @@ fn main() {
 				}
 			};
 
-			process_object(&arch, &mut asm_args, object_path, &object);
+			process_object(arch, &mut asm_args, object_path, &object);
 		}
 	}
 
