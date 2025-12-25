@@ -54,7 +54,7 @@ fn main() -> Result<()> {
 
 	let output = quote! {
 		static OPT_KIND: [(&[u8], OptKind); #length] = [
-			// lld used
+			// Relevant `lld` arguments.
 			(b"flavor", OptKind::KIND_SEPARATE),
 			// wasm-ld used
 			#((#arg_name, OptKind::#arg_flag)),*
