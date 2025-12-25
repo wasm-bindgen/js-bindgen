@@ -213,9 +213,67 @@ struct WasmLdArguments<'a> {
 	inputs: Vec<&'a String>,
 }
 
+impl WasmLdArguments<'_> {
+	fn new(args: &[String]) -> WasmLdArguments<'_> {
+		let mut args = args.iter();
+		let mut table = HashMap::new();
+		let mut inputs = Vec::new();
+
+		let option_table = HashMap::from(OPT_KIND);
+
+		loop {
+			let Some(arg) = args.next() else {
+				break;
+			};
+
+			// In the LLVM Parser, if a value does not start with `-`, it is treated as INPUT.
+			let Some(stripped) = arg.strip_prefix("--").or_else(|| arg.strip_prefix("-")) else {
+				inputs.push(arg);
+				continue;
+			};
+
+			// Find the longest prefix and the option kind.
+			let Some((kind, prefix, remain)) = (0..=stripped.len())
+				.rev()
+				.filter_map(|end| {
+					let (prefix, remain) = stripped.split_at_checked(end)?;
+					let kind = option_table.get(prefix)?;
+					Some((kind, prefix, remain))
+				})
+				.next()
+			else {
+				// unknown option
+				continue;
+			};
+
+			let mut next = || {
+				args.next()
+					.expect("kind separate should be have value")
+					.as_str()
+			};
+			let value = match kind {
+				OptKind::KIND_FLAG => None,
+				OptKind::KIND_SEPARATE => Some(next()),
+				OptKind::KIND_COMMAJOINED | OptKind::KIND_JOINED => Some(remain),
+				OptKind::KIND_JOINED_OR_SEPARATE => {
+					Some(if remain.is_empty() { next() } else { remain })
+				}
+			};
+
+			if let Some(value) = value {
+				table.entry(prefix).or_insert(Vec::new()).push(value);
+			} else {
+				table.insert(prefix, Vec::new());
+			}
+		}
+
+		WasmLdArguments { table, inputs }
+	}
+}
+
 fn main() {
 	let args: Vec<_> = env::args().collect();
-	let lld = extract_inputs(&args[1..]);
+	let lld = WasmLdArguments::new(&args[1..]);
 
 	// With Wasm32 no argument is passed, but Wasm64 requires `-mwasm64`.
 	let arch = if let Some(m) = lld.table.get("m") {
@@ -525,59 +583,4 @@ fn post_processing(output_path: &Path) {
 		js_output,
 	)
 	.expect("object file should be writable");
-}
-
-fn extract_inputs(args: &[String]) -> WasmLdArguments<'_> {
-	let mut args = args.iter();
-	let mut lld = WasmLdArguments {
-		table: HashMap::new(),
-		inputs: Vec::new(),
-	};
-
-	let option_table = HashMap::from(OPT_KIND);
-
-	loop {
-		let Some(arg) = args.next() else {
-			break;
-		};
-
-		// In the LLVM Parser, if a value does not start with `-`, it is treated as INPUT.
-		let Some(stripped) = arg.strip_prefix("--").or_else(|| arg.strip_prefix("-")) else {
-			lld.inputs.push(arg);
-			continue;
-		};
-
-		// Find the longest substring and the option kind.
-		//
-		// TODO: optimize with binary search
-		for end in (0..=stripped.len()).rev() {
-			if let Some((prefix, remain)) = stripped.split_at_checked(end)
-				&& let Some(kind) = option_table.get(prefix)
-			{
-				let mut next = || {
-					args.next()
-						.expect("separate kind should be have value")
-						.as_str()
-				};
-				let value = match kind {
-					OptKind::KIND_FLAG => None,
-					OptKind::KIND_SEPARATE => Some(next()),
-					OptKind::KIND_COMMAJOINED | OptKind::KIND_JOINED => Some(remain),
-					OptKind::KIND_JOINED_OR_SEPARATE => Some(if stripped.len() == end {
-						next()
-					} else {
-						remain
-					}),
-				};
-				if let Some(value) = value {
-					lld.table.entry(prefix).or_default().push(value);
-				} else {
-					lld.table.insert(prefix, Vec::new());
-				}
-				break;
-			}
-		}
-	}
-
-	lld
 }
