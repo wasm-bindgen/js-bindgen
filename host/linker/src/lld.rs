@@ -206,6 +206,9 @@ pub(crate) struct WasmLdArguments<'a> {
 }
 
 impl WasmLdArguments<'_> {
+	// Referencing part of the LLVM parser implementation:
+	//
+	// <https://github.com/llvm/llvm-project/blob/991455e69e93c0ce88e927eddd28a9ab34d1f8b2/llvm/lib/Option/OptTable.cpp#L438>
 	pub(crate) fn new(args: &[OsString]) -> WasmLdArguments<'_> {
 		let mut args = args.iter();
 		let mut table = HashMap::new();
