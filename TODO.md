@@ -47,3 +47,4 @@
     target features. https://github.com/rust-lang/rust/issues/113221
 - Can we remove custom sections in pre-processing by modifying `.rlib`s?
 - Re-evaluate caching via the linker.
+- Polish LLD linker argument parsing.

@@ -53,7 +53,7 @@ fn main() -> Result<()> {
 		.map(|(_, flag)| Ident::new(flag, Span::call_site()));
 
 	let output = quote! {
-		static OPT_KIND: [(&[u8], OptKind); #length] = [
+		const OPT_KIND: [(&[u8], OptKind); #length] = [
 			// Relevant `lld` arguments.
 			(b"flavor", OptKind::KIND_SEPARATE),
 			// `wasm-ld` arguments.
