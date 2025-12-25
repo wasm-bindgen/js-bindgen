@@ -1,7 +1,5 @@
 use std::collections::HashMap;
-use std::ffi::{OsStr, OsString};
 use std::io::{Error, Write};
-use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::process::{self, Command, Stdio};
 use std::{env, fs};
@@ -211,17 +209,17 @@ enum OptKind {
 
 #[derive(Debug)]
 struct WasmLdArguments<'a> {
-	table: HashMap<&'a str, Vec<&'a OsStr>>,
-	inputs: Vec<&'a OsString>,
+	table: HashMap<&'a str, Vec<&'a str>>,
+	inputs: Vec<&'a String>,
 }
 
 fn main() {
-	let args: Vec<_> = env::args_os().collect();
+	let args: Vec<_> = env::args().collect();
 	let lld = extract_inputs(&args[1..]);
 
 	// With Wasm32 no argument is passed, but Wasm64 requires `-mwasm64`.
 	let arch = if let Some(m) = lld.table.get("m") {
-		m[0].to_str().expect("-m value should be utf8")
+		m[0]
 	} else {
 		"wasm32"
 	};
@@ -234,7 +232,7 @@ fn main() {
 
 	for input in &lld.inputs {
 		// We found a UNIX archive.
-		if input.as_encoded_bytes().ends_with(b".rlib") {
+		if input.ends_with(".rlib") {
 			let archive_path = Path::new(&input);
 			let archive_data = match fs::read(archive_path) {
 				Ok(archive_data) => archive_data,
@@ -276,7 +274,7 @@ fn main() {
 					data,
 				);
 			}
-		} else if input.as_encoded_bytes().ends_with(b".o") {
+		} else if input.ends_with(".o") {
 			let object_path = Path::new(&input);
 			let object = match fs::read(object_path) {
 				Ok(object) => object,
@@ -529,7 +527,7 @@ fn post_processing(output_path: &Path) {
 	.expect("object file should be writable");
 }
 
-fn extract_inputs(args: &[OsString]) -> WasmLdArguments<'_> {
+fn extract_inputs(args: &[String]) -> WasmLdArguments<'_> {
 	let mut args = args.iter();
 	let mut lld = WasmLdArguments {
 		table: HashMap::new(),
@@ -543,13 +541,8 @@ fn extract_inputs(args: &[OsString]) -> WasmLdArguments<'_> {
 			break;
 		};
 
-		let bytes = arg.as_encoded_bytes();
-
 		// In the LLVM Parser, if a value does not start with `-`, it is treated as INPUT.
-		let Some(stripped) = bytes
-			.strip_prefix(b"--")
-			.or_else(|| bytes.strip_prefix(b"-"))
-		else {
+		let Some(stripped) = arg.strip_prefix("--").or_else(|| arg.strip_prefix("-")) else {
 			lld.inputs.push(arg);
 			continue;
 		};
@@ -558,29 +551,28 @@ fn extract_inputs(args: &[OsString]) -> WasmLdArguments<'_> {
 		//
 		// TODO: optimize with binary search
 		for end in (0..=stripped.len()).rev() {
-			if let Ok(sub) = str::from_utf8(&stripped[0..end])
-				&& let Some(kind) = option_table.get(sub)
+			if let Some((prefix, remain)) = stripped.split_at_checked(end)
+				&& let Some(kind) = option_table.get(prefix)
 			{
 				let mut next = || {
 					args.next()
 						.expect("separate kind should be have value")
-						.as_os_str()
+						.as_str()
 				};
-				let remain = || OsStr::from_bytes(&stripped[end..]);
 				let value = match kind {
 					OptKind::KIND_FLAG => None,
 					OptKind::KIND_SEPARATE => Some(next()),
-					OptKind::KIND_COMMAJOINED | OptKind::KIND_JOINED => Some(remain()),
+					OptKind::KIND_COMMAJOINED | OptKind::KIND_JOINED => Some(remain),
 					OptKind::KIND_JOINED_OR_SEPARATE => Some(if stripped.len() == end {
 						next()
 					} else {
-						remain()
+						remain
 					}),
 				};
 				if let Some(value) = value {
-					lld.table.entry(sub).or_default().push(value);
+					lld.table.entry(prefix).or_default().push(value);
 				} else {
-					lld.table.insert(sub, Vec::new());
+					lld.table.insert(prefix, Vec::new());
 				}
 				break;
 			}
