@@ -44,7 +44,7 @@ fn main() -> Result<()> {
 		}
 	}
 
-	let length = args.len();
+	let length = args.len() + 1;
 	let arg_name = args
 		.iter()
 		.map(|(name, _)| LitByteStr::new(name.as_bytes(), Span::call_site()));
@@ -54,6 +54,9 @@ fn main() -> Result<()> {
 
 	let output = quote! {
 		static OPT_KIND: [(&[u8], OptKind); #length] = [
+			// lld used
+			(b"flavor", OptKind::KIND_SEPARATE),
+			// wasm-ld used
 			#((#arg_name, OptKind::#arg_flag)),*
 		];
 	};
