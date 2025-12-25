@@ -17,15 +17,18 @@ fn main() {
 	let lld = WasmLdArguments::new(&args[1..]);
 
 	// With Wasm32 no argument is passed, but Wasm64 requires `-mwasm64`.
-	let arch = if let Some(m) = lld.table.get("m") {
+	let arch = if let Some(m) = lld.table.get(b"m".as_slice()) {
 		m[0].to_str()
 			.expect("`-m` value should be `wasm32` or `wasm64`")
 	} else {
 		"wasm32"
 	};
 
-	// The output parameter starts with `-o`, the argument after is the path.
-	let output_path = Path::new(lld.table["o"][0]);
+	let output_path = Path::new(
+		lld.table
+			.get(b"o".as_slice())
+			.expect("output path argument should be present")[0],
+	);
 
 	// Here we store additional files we want to pass to LLD as arguments.
 	let mut asm_args: Vec<PathBuf> = Vec::new();
