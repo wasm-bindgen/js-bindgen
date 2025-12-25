@@ -1,3 +1,5 @@
+use std::ffi::{OsStr, OsString};
+
 use hashbrown::HashMap;
 
 /// `wasm-ld`'s options and kinds.
@@ -199,12 +201,12 @@ enum OptKind {
 }
 
 pub(crate) struct WasmLdArguments<'a> {
-	pub(crate) table: HashMap<&'a str, Vec<&'a str>>,
-	pub(crate) inputs: Vec<&'a String>,
+	pub(crate) table: HashMap<&'a str, Vec<&'a OsStr>>,
+	pub(crate) inputs: Vec<&'a OsString>,
 }
 
 impl WasmLdArguments<'_> {
-	pub(crate) fn new(args: &[String]) -> WasmLdArguments<'_> {
+	pub(crate) fn new(args: &[OsString]) -> WasmLdArguments<'_> {
 		let mut args = args.iter();
 		let mut table = HashMap::new();
 		let mut inputs = Vec::new();
@@ -212,8 +214,12 @@ impl WasmLdArguments<'_> {
 		let option_table: HashMap<&str, OptKind> = HashMap::from(OPT_KIND);
 
 		while let Some(arg) = args.next() {
+			let bytes = arg.as_encoded_bytes();
 			// If a value does not start with `-`, it is treated as `INPUT``.
-			let Some(stripped) = arg.strip_prefix("--").or_else(|| arg.strip_prefix("-")) else {
+			let Some(stripped) = bytes
+				.strip_prefix(b"--")
+				.or_else(|| bytes.strip_prefix(b"-"))
+			else {
 				inputs.push(arg);
 				continue;
 			};
@@ -222,20 +228,27 @@ impl WasmLdArguments<'_> {
 			let Some((kind, prefix, remain)) = (0..=stripped.len())
 				.rev()
 				.filter_map(|end| {
-					let (prefix, remain) = stripped.split_at_checked(end)?;
+					let (prefix, remain) = stripped.split_at(end);
+					let prefix = str::from_utf8(prefix).ok()?;
 					let kind = option_table.get(prefix)?;
+					let remain = unsafe {
+						// SAFETY:
+						// - Each `word` only contains content that originated from `OsString::as_encoded_bytes`
+						// - `prefix is a valid UTF-8 string
+						OsStr::from_encoded_bytes_unchecked(remain)
+					};
 					Some((kind, prefix, remain))
 				})
 				.next()
 			else {
-				eprintln!("encountered unknown LLD option: {arg}");
+				eprintln!("encountered unknown LLD option: {arg:?}");
 				continue;
 			};
 
 			let mut next = || {
 				args.next()
-					.unwrap_or_else(|| panic!("`{arg}` argument should have a value"))
-					.as_str()
+					.unwrap_or_else(|| panic!("`{arg:?}` argument should have a value"))
+					.as_os_str()
 			};
 			let value = match kind {
 				OptKind::KIND_FLAG => None,
