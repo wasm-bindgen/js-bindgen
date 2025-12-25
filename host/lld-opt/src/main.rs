@@ -56,7 +56,7 @@ fn main() -> Result<()> {
 		static OPT_KIND: [(&[u8], OptKind); #length] = [
 			// Relevant `lld` arguments.
 			(b"flavor", OptKind::KIND_SEPARATE),
-			// wasm-ld used
+			// `wasm-ld` arguments.
 			#((#arg_name, OptKind::#arg_flag)),*
 		];
 	};
