@@ -23,6 +23,8 @@ pub mod console {
 			"    end_function",
 		);
 
+		js_bindgen::js_import!(name = "console.log", "(arg) => console.log(arg)");
+
 		extern "C" {
 			#[link_name = "web_sys.console.log"]
 			fn log(par1: i32);

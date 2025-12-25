@@ -79,6 +79,11 @@ js_bindgen::embed_asm!(
 	"    end_function",
 );
 
+js_bindgen::js_import!(
+	name = "externref.table",
+	"new WebAssembly.Table({ initial: 1, element: \"externref\" })",
+);
+
 extern "C" {
 	#[link_name = "js_sys.externref.grow"]
 	fn grow(size: i32) -> i32;

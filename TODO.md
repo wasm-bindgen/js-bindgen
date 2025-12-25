@@ -1,9 +1,14 @@
 # Current
 
-- Linker JS generation.
-- Basic runner.
 - Generate bindings via proc-macro.
-- Parse LLD CLI arguments via information from `lld/wasm/Options.td`.
+- Basic runner.
+
+# Critical Priority
+
+- Replace `llvm-mc` with `wasm-tools`. See
+  https://github.com/bytecodealliance/wasm-tools/issues/2405.
+- Parse LLD CLI arguments via information from `lld/wasm/Options.td`. The current parsing is
+  extremely crude and will most likely break with any uncommon linker arguments.
 
 # High Priority
 
@@ -17,8 +22,15 @@
   - Store them next to the output file.
   - Pass an environment variable from a `build.rs` pointing to the target folder and go from there.
     This seems to have failed. No build script instruction can reach the linker on Wasm.
+
+# Medium Priority
+
+- Optimize linker file interactions by using memory mapped files instead of reading and writing
+  everything into memory.
 - Run the assembly compiler on the proc-macro level so users see errors without having to engage the
   linker.
+- Parse the JS on the proc-macro level so users see errors. E.g. `oxc-parser`.
+- Use an AST for JS code generation so we don't play around with strings. E.g. `oxc-codegen`.
 
 # Low Priority
 

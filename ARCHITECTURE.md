@@ -94,12 +94,14 @@ LLVM and Rust to enable the compiler to make this optimization.
 
 [`walrus`]: https://github.com/wasm-bindgen/walrus
 
-### Why Don't We Compile the Assembly on the Proc-Macro Level?
+### Why Don't We Compile the Assembly Code on the Proc-Macro Level?
 
 This was one of the initial experiments of this project. However, it turned out to have some major
 issues:
 
-- We only need to compile the assembly when producing the final module, proc-macros however are
+- Most of our assembly code is put together by a proc-macro by accessing various traits. Proc-macros
+  can't read values off traits to actually extract the assembly code to compile.
+- We only need to compile assembly code when producing the final module, proc-macros however are
   running much more often. Especially Rust Analyzer would cause major issues with race-conditions
   trying to constantly re-generate files. While we have attempted various workarounds to detect Rust
   Analyzer and other race-conditions, ultimately there was no fool-proof way to solve this. It also
@@ -109,8 +111,8 @@ issues:
 
 ### Why Don't We Compile the Assembly in a Build Script?
 
-Crucially the assembly is put together by a proc-macro by accessing various traits and creating a
-long string that can be embedded into a custom section.
+Crucially the assembly code is put together by a proc-macro by accessing various traits and creating
+a long string that can be embedded into a custom section.
 
 While there has been some past work on evaluating single Rust files from build scripts, this would
 largely duplicate the compilers work and in many cases is just not feasible because of all the
