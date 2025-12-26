@@ -10,6 +10,8 @@
 
 # High Priority
 
+- Not clear yet how to separate the `js-bindgen` proc-macros from `js-sys`. Probably `js-bindgen`
+  needs to receive more powerful proc-macros.
 - Find a way to prevent users from accidentally using the default linker. Could be done by supplying
   an invalid object file that would be removed by our custom linker.
 - Also find a way to prevent users from accidentally using our linker with something else then Wasm.
@@ -37,14 +39,16 @@
 - We have a custom `LocalKey` replica for non-atomic or non-std builds. It differs because its
   methods don't take a `'static` lifetime. It would probably be easiest to just align actual Std's
   `LocalKey` unsafely to not require `'static`.
-- Support 64-bit `externref` tables. The default should remain 32-bit.
-  https://github.com/llvm/llvm-project/issues/172868
+- Support 64-bit `externref` tables. The default should remain 32-bit. See
+  https://github.com/llvm/llvm-project/issues/172868.
 - When we detect nightly, we should switch to `global_asm!` internally. However, this is awaiting a
   couple of bug fixes:
-  - On `wasm64` tables automatically use `i64` as the address type with no way to turn it off.
-    https://github.com/llvm/llvm-project/pull/173063#discussion_r2635871878
+  - On `wasm64` tables automatically use `i64` as the address type with no way to turn it off. See
+    https://github.com/llvm/llvm-project/pull/173063#discussion_r2635871878.
   - `global_asm!` simply doesn't work with Wasm right now when using instructions that require
-    target features. https://github.com/rust-lang/rust/issues/113221
+    target features. See https://github.com/rust-lang/rust/issues/113221.
+  - This will largely be blocked by not being able to pass in `&str`s verbatim. See
+    https://github.com/rust-lang/rust/issues/132083.
 - Can we remove custom sections in pre-processing by modifying `.rlib`s?
 - Re-evaluate caching via the linker.
 - Polish LLD linker argument parsing.

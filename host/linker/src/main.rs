@@ -160,6 +160,11 @@ fn assembly_to_object(arch: &str, assembly: &[u8]) -> Result<Vec<u8>, Error> {
 	if output.status.success() {
 		Ok(output.stdout)
 	} else {
+		eprintln!(
+			"------ llvm-mc input -------\n{}",
+			String::from_utf8_lossy(assembly)
+		);
+
 		if !output.stdout.is_empty() {
 			eprintln!(
 				"------ llvm-mc stdout ------\n{}",

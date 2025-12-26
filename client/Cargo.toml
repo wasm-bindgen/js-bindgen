@@ -12,3 +12,6 @@ web-sys = { path = "web-sys" }
 [[example]]
 crate-type = ["cdylib"]
 name = "basic"
+
+[workspace.lints.clippy]
+tabs_in_doc_comments = "allow"

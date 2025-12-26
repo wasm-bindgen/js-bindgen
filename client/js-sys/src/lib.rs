@@ -12,6 +12,8 @@ use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::marker::PhantomData;
 
+use crate::hazard::Input;
+
 #[cfg(not(target_feature = "reference-types"))]
 compile_error!("`js-sys` requires the `reference-types` target feature");
 
@@ -50,6 +52,23 @@ impl<T: 'static> LocalKey<T> {
 	}
 }
 
+pub mod hazard {
+	/// # Safety
+	///
+	/// This directly interacts with the assembly generator and therefor all
+	/// bets are off! (TODO)
+	pub unsafe trait Input {
+		const IMPORT_FUNC: &str;
+		const IMPORT_TYPE: &str;
+		const TYPE: &str;
+		const CONV: &str;
+
+		type Type;
+
+		fn as_raw(&self) -> Self::Type;
+	}
+}
+
 js_bindgen::embed_asm!(
 	".import_module js_sys.externref.table, js_sys",
 	".import_name js_sys.externref.table, externref.table",
@@ -81,7 +100,7 @@ js_bindgen::embed_asm!(
 
 js_bindgen::js_import!(
 	name = "externref.table",
-	"new WebAssembly.Table({ initial: 1, element: \"externref\" })",
+	"new WebAssembly.Table({{ initial: 1, element: \"externref\" }})",
 );
 
 extern "C" {
@@ -105,10 +124,6 @@ impl JsValue {
 			_local: PhantomData,
 		}
 	}
-
-	pub fn as_raw(&self) -> i32 {
-		self.index
-	}
 }
 
 impl Drop for JsValue {
@@ -116,6 +131,19 @@ impl Drop for JsValue {
 		if self.index > 0 {
 			EXTERNREF_TABLE.with(|table| table.borrow_mut().remove(self.index));
 		}
+	}
+}
+
+unsafe impl Input for JsValue {
+	const IMPORT_FUNC: &str = ".functype js_sys.externref.get (i32) -> (externref)";
+	const IMPORT_TYPE: &str = "externref";
+	const TYPE: &str = "i32";
+	const CONV: &str = "call js_sys.externref.get";
+
+	type Type = i32;
+
+	fn as_raw(&self) -> Self::Type {
+		self.index
 	}
 }
 
