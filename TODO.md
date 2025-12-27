@@ -1,6 +1,5 @@
 # Current
 
-- Generate bindings via proc-macro.
 - Basic runner.
 
 # Critical Priority
@@ -52,3 +51,16 @@
 - Can we remove custom sections in pre-processing by modifying `.rlib`s?
 - Re-evaluate caching via the linker.
 - Polish LLD linker argument parsing.
+
+# Upstream
+
+This is a list of upstream issues that could make our lives significantly easier:
+
+- Stable `asm!` support for Wasm: https://github.com/rust-lang/rust/issues/136382.
+- Verbatim `asm!` parameters: https://github.com/rust-lang/rust/issues/132083.
+- Better stable proc-macro support
+  - `quote!`: https://github.com/rust-lang/rust/issues/54722.
+  - Diagnostics: https://github.com/rust-lang/rust/issues/54140.
+- Elevate `wasm64-unknown-unknown` to tier 2: https://github.com/rust-lang/rust/issues/146944.
+- Safe slice to array conversion: https://github.com/rust-lang/rust/issues/133508.
+- A way to flag proc-macros as `unsafe`: https://github.com/rust-lang/rfcs/pull/3715.

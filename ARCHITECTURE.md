@@ -132,3 +132,63 @@ As this will likely be a performance improvement, even if just slightly, it woul
 improvement. We invite any expert on the topic to chime in on what we can and can't depend on about
 Rust's archive format and how we could modify and much more importantly parse its contents more
 reliably.
+
+### Why Do We Use WAT Instead of X?
+
+We have a couple of constraints to work under:
+
+- The compiler needs to be shipped to users.
+- Low maintenance.
+- Ability to transform the input.
+- Forward-compatibility with Rust's `asm!`.
+
+Ultimately we have decided to go with WAT and a `wasm-tools` toolchain. Below you will find a
+detailed evaluation of every scenario that has come up.
+
+#### GAS
+
+Rust's `asm!` uses GAS so it would be perfectly forward-compatible.
+
+It would also be very low maintenance because we can rely on LLVM to maintain it for us. But notably
+GAS is seriously behind on new proposals, which could turn this into very high-maintenance if it
+ends up requiring us contributing to LLVM.
+
+##### With `llvm-mc`
+
+`llvm-mc` would require compiling LLVM on the users machine during installation. Considering the
+build time requirements this is completely off the tables. We might consider shipping binaries,
+which is often very undesirable by users.
+
+We are already shipping LLVM and therefor can use their parser to transform the input.
+
+##### Rust's `asm!`
+
+At the time of writing it is unstable and therefor can't be shipped to users.
+
+We can't transform the input unless we build our own GAS parser.
+
+#### WAT
+
+We have high-quality parsers and code generators from `wasm-tools` that would help us easily
+transform the input.
+
+However, it will not be forward-compatible with Rust's `asm!` unless Rust decides to switch from GAS
+to WAT. We would have to write our own WAT to GAS compiler, which should be quite straightforward
+but nonetheless a big chunk of work.
+
+##### With `wat2wasm`
+
+Similarly to `llvm-mc` shipping this to users would require compiling WABT, the project `wat2wasm`
+lives in, on the users machine during installation. While the build time is orders of magnitude
+lower than LLVM, its still significant. Again we might consider shipping binaries, which is often
+very undesirable by users.
+
+Maintenance is currently an issue seeing that there are new proposals that are not yet supported by
+WABT.
+
+##### With `wasm-tools`
+
+Shipping this to users would be ideal because they are just Rust libraries.
+
+These tools are very well maintained, even though at the time of writing they are missing compiling
+relocatable object files which we would have to contribute.

@@ -1,3 +1,9 @@
+#[cfg(test)]
+extern crate proc_macro2 as proc_macro;
+
+#[cfg(test)]
+mod test;
+
 use std::borrow::Cow;
 use std::fmt::Display;
 use std::iter::Peekable;
@@ -8,7 +14,8 @@ use proc_macro::{
 };
 
 #[proc_macro]
-pub fn embed_asm(input: TokenStream) -> TokenStream {
+#[cfg(not(test))]
+pub fn unsafe_embed_asm(input: TokenStream) -> TokenStream {
 	embed_asm_internal(input).unwrap_or_else(|e| e)
 }
 
@@ -28,6 +35,7 @@ fn embed_asm_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 }
 
 #[proc_macro]
+#[cfg(not(test))]
 pub fn js_import(input: TokenStream) -> TokenStream {
 	js_import_internal(input).unwrap_or_else(|e| e)
 }
@@ -62,6 +70,7 @@ fn js_import_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 }
 
 #[proc_macro_attribute]
+#[cfg(not(test))]
 pub fn js_bindgen(attr: TokenStream, original_item: TokenStream) -> TokenStream {
 	js_bingen_internal(attr, original_item.clone()).unwrap_or_else(|mut e| {
 		e.extend(original_item);
@@ -101,7 +110,32 @@ fn js_bingen_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 	let mut fns = fns_group.stream().into_iter().peekable();
 	let mut output = TokenStream::new();
 
-	while fns.peek().is_some() {
+	while let Some(tok) = fns.peek() {
+		let mut real_name = None;
+
+		if let TokenTree::Punct(p) = tok {
+			if p.as_char() == '#' {
+				let hash =
+					expect_punct(&mut fns, '#', Span::mixed_site(), "`js_bindgen` attribute")?;
+				let meta = expect_group(&mut fns, Delimiter::Bracket, hash.span(), "`[...]`")?;
+				let mut inner = meta.stream().into_iter();
+				let js_bindgen =
+					expect_ident(&mut inner, "js_bindgen", meta.span(), "`js_bindgen(...)")?;
+				let meta = expect_group(
+					&mut inner,
+					Delimiter::Parenthesis,
+					js_bindgen.span(),
+					"`(...)`",
+				)?;
+				let mut inner = meta.stream().into_iter();
+				let name = expect_ident(&mut inner, "name", meta.span(), "`name = \"...\"`")?;
+				let equal = expect_punct(&mut inner, '=', name.span(), "`= \"...\"`")?;
+				let mut name = String::new();
+				parse_string_literal(&mut inner, equal.span(), &mut name)?;
+				real_name = Some(name);
+			}
+		}
+
 		let ExternFn {
 			visibility,
 			r#fn,
@@ -123,6 +157,15 @@ fn js_bingen_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 			)?;
 			let ty = parse_ty_or_value(&mut parms_stream, colon.span())?;
 
+			if parms_stream.peek().is_some() {
+				expect_punct(
+					&mut parms_stream,
+					',',
+					name.span(),
+					"`,` after parameter type",
+				)?;
+			}
+
 			parms.push((name, ty));
 		}
 
@@ -133,7 +176,10 @@ fn js_bingen_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 			name_string.clone()
 		};
 
+		#[cfg(not(test))]
 		let package = env::var("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` not found");
+		#[cfg(test)]
+		let package = String::from("test_crate");
 		let mut comp_parms = String::new();
 		let comp_ret = ret_ty.as_ref().map(|_| "{}").unwrap_or_default();
 
@@ -147,8 +193,8 @@ fn js_bingen_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 
 		let parms_input = parms.iter().enumerate().flat_map(|(index, _)| {
 			[
-				Cow::Owned(format!("    local.get {index}")),
-				Cow::Borrowed("    {}"),
+				Cow::Owned(format!("\tlocal.get {index}")),
+				Cow::Borrowed("\t{}"),
 			]
 		});
 
@@ -171,13 +217,13 @@ fn js_bingen_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 			Cow::Owned(format!(".globl {package}.{comp_name}")),
 			Cow::Owned(format!("{package}.{comp_name}:")),
 			Cow::Owned(format!(
-				"    .functype {package}.{comp_name} ({comp_parms}) -> ({comp_ret})",
+				"\t.functype {package}.{comp_name} ({comp_parms}) -> ({comp_ret})",
 			)),
 		])
 		.chain(parms_input)
 		.chain([
-			Cow::Owned(format!("    call {package}.import.{comp_name}")),
-			Cow::Borrowed("    end_function"),
+			Cow::Owned(format!("\tcall {package}.import.{comp_name}")),
+			Cow::Borrowed("\tend_function"),
 		]);
 
 		let import_fmt = parms.iter().flat_map(|(name, _)| {
@@ -188,14 +234,16 @@ fn js_bingen_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 			js_sys_input("IMPORT_FUNC", name.span())
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
-		let input_fmt = parms.iter().flat_map(|(name, _)| {
+		let type_fmt = parms.iter().flat_map(|(name, _)| {
 			js_sys_input("TYPE", name.span())
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
-				.chain(js_sys_input("CONV", name.span()))
+		});
+		let conv_fmt = parms.iter().flat_map(|(name, _)| {
+			js_sys_input("CONV", name.span())
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
 
-		let assembly = path(["js_bindgen", "embed_asm"], name.span()).chain([
+		let assembly = path(["js_bindgen", "unsafe_embed_asm"], name.span()).chain([
 			Punct::new('!', Spacing::Alone).into(),
 			Group::new(
 				Delimiter::Parenthesis,
@@ -209,22 +257,23 @@ fn js_bingen_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 						})
 						.chain(import_fmt)
 						.chain(parms_fmt)
-						.chain(input_fmt),
+						.chain(type_fmt)
+						.chain(conv_fmt),
 				),
 			)
 			.into(),
 			Punct::new(';', Spacing::Alone).into(),
 		]);
 
-		let mut comp_parms = String::new();
-
-		for (name, _) in &parms {
-			if comp_parms.is_empty() {
-				comp_parms = name.to_string();
+		let comp_real_name = if let Some(real_name) = real_name {
+			if let Some(namespace) = &namespace {
+				Cow::Owned(format!("{namespace}.{real_name}"))
 			} else {
-				comp_parms.extend([", ", &name.to_string()]);
+				Cow::Owned(real_name)
 			}
-		}
+		} else {
+			Cow::Borrowed(&comp_name)
+		};
 
 		let js_glue = path(["js_bindgen", "js_import"], name.span()).chain([
 			Punct::new('!', Spacing::Alone).into(),
@@ -235,7 +284,7 @@ fn js_bingen_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 					Punct::new('=', Spacing::Alone).into(),
 					Literal::string(&comp_name).into(),
 					Punct::new(',', Spacing::Alone).into(),
-					Literal::string(&format!("({comp_parms}) => {comp_name}({comp_parms})")).into(),
+					Literal::string(&comp_real_name).into(),
 				]),
 			)
 			.into(),
@@ -301,13 +350,13 @@ fn js_bingen_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 			Punct::new(';', Spacing::Alone).into(),
 		];
 
-		output.extend(visibility);
+		output.extend(visibility.map(TokenTree::from));
 		output.extend([TokenTree::from(r#fn), name.into(), parms_group.into()]);
 		output.extend(ret_ty);
-		output.extend(iter::once(Group::new(
+		output.extend(iter::once(TokenTree::from(Group::new(
 			Delimiter::Brace,
 			TokenStream::from_iter(assembly.chain(js_glue).chain(import).chain(call)),
-		)));
+		))));
 	}
 
 	Ok(output)
@@ -507,7 +556,14 @@ fn parse_string_literal(
 					'\\' => match chars.next().unwrap() {
 						'"' => string.push('"'),
 						'\\' => string.push('\\'),
-						_ => return Err(compile_error(span, "only escaping `\"` is supported")),
+						'n' => string.push('\n'),
+						't' => string.push('\t'),
+						c => {
+							return Err(compile_error(
+								span,
+								format!("escaping `{c}` is not supported"),
+							))
+						}
 					},
 					'\0' => return Err(compile_error(span, "null characters are not supported")),
 					c => string.push(c),
@@ -537,7 +593,7 @@ fn parse_meta_name_value(
 
 fn parse_ty_or_value(
 	mut stream: &mut Peekable<token_stream::IntoIter>,
-	mut previous_span: Span,
+	previous_span: Span,
 ) -> Result<Vec<TokenTree>, TokenStream> {
 	let mut ty = Vec::new();
 
@@ -547,45 +603,16 @@ fn parse_ty_or_value(
 		}
 	}
 
-	if let Some(TokenTree::Punct(p)) = stream.peek() {
-		if p.as_char() == '<' {
-			ty.extend(parse_angular(&mut stream, previous_span)?);
-			let colon1 = expect_punct(&mut stream, ':', previous_span, "`:` after qualified path")?;
-			let colon2 = expect_punct(&mut stream, ':', colon1.span(), "`:` after `:`")?;
-			previous_span = colon2.span();
-			ty.extend([colon1.into(), colon2.into()]);
-		}
-	}
-
-	let ident = parse_ident(&mut stream, previous_span, "identifier")?;
-	previous_span = ident.span();
-	ty.push(ident.into());
-
-	if let Some(TokenTree::Punct(p)) = stream.peek() {
-		if p.as_char() == '<' {
-			ty.extend(parse_angular(&mut stream, previous_span)?);
-		}
-	}
-
 	while let Some(tok) = stream.peek() {
 		match tok {
-			TokenTree::Punct(p) if p.as_char() == ':' => {
-				let p = stream.next().unwrap();
-				let colon = expect_punct(&mut stream, ':', p.span(), "`:` after `:`")?;
-				previous_span = colon.span();
-				ty.extend([p, colon.into()]);
+			TokenTree::Ident(_) | TokenTree::Group(_) => ty.push(stream.next().unwrap()),
+			TokenTree::Punct(p) if p.as_char() == '<' => {
+				ty.extend(parse_angular(&mut stream, previous_span)?)
+			}
+			TokenTree::Punct(p) if [':', '.'].contains(&p.as_char()) => {
+				ty.push(stream.next().unwrap())
 			}
 			_ => break,
-		};
-
-		let ident = parse_ident(&mut stream, previous_span, "identifier")?;
-		previous_span = ident.span();
-		ty.push(ident.into());
-
-		if let Some(TokenTree::Punct(p)) = stream.peek() {
-			if p.as_char() == '<' {
-				ty.extend(parse_angular(&mut stream, previous_span)?);
-			}
 		}
 	}
 
@@ -659,6 +686,7 @@ fn expect_ident(
 ) -> Result<Ident, TokenStream> {
 	let i = parse_ident(stream, previous_span, expected)?;
 
+	#[cfg_attr(test, allow(clippy::cmp_owned))]
 	if i.to_string() == ident {
 		Ok(i)
 	} else {
@@ -692,7 +720,7 @@ fn expect_punct(
 	}
 }
 
-/// ```
+/// ```"not rust"
 /// const _: () = {
 ///     #[repr(C)]
 /// 	struct Layout(#([u8; data.len()]),*);
@@ -960,7 +988,7 @@ fn path(
 	})
 }
 
-/// ```
+/// ```"not rust"
 /// ::core::compile_error!(error);
 /// ```
 fn compile_error<E: Display>(span: Span, error: E) -> TokenStream {

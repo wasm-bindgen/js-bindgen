@@ -9,5 +9,8 @@ pub mod console {
 	#[js_bindgen::js_bindgen(namespace = "console")]
 	extern "C" {
 		pub fn log(data: &JsValue);
+
+		#[js_bindgen(name = "log")]
+		pub fn log2(data1: &JsValue, data2: &JsValue);
 	}
 }

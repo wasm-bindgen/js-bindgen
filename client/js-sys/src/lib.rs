@@ -69,33 +69,33 @@ pub mod hazard {
 	}
 }
 
-js_bindgen::embed_asm!(
+js_bindgen::unsafe_embed_asm!(
 	".import_module js_sys.externref.table, js_sys",
 	".import_name js_sys.externref.table, externref.table",
 	".tabletype js_sys.externref.table, externref, 1",
 	"",
 	".globl js_sys.externref.grow",
 	"js_sys.externref.grow:",
-	"    .functype js_sys.externref.grow (i32) -> (i32)",
-	"    ref.null_extern",
-	"    local.get 0",
-	"    table.grow js_sys.externref.table",
-	"    end_function",
+	"	.functype js_sys.externref.grow (i32) -> (i32)",
+	"	ref.null_extern",
+	"	local.get 0",
+	"	table.grow js_sys.externref.table",
+	"	end_function",
 	"",
 	".globl js_sys.externref.get",
 	"js_sys.externref.get:",
-	"    .functype js_sys.externref.get (i32) -> (externref)",
-	"        local.get 0",
-	"        table.get js_sys.externref.table",
-	"    end_function",
+	"	.functype js_sys.externref.get (i32) -> (externref)",
+	"	local.get 0",
+	"	table.get js_sys.externref.table",
+	"	end_function",
 	"",
 	".globl js_sys.externref.remove",
 	"js_sys.externref.remove:",
-	"    .functype js_sys.externref.remove (i32) -> ()",
-	"    local.get 0",
-	"    ref.null_extern",
-	"    table.set js_sys.externref.table",
-	"    end_function",
+	"	.functype js_sys.externref.remove (i32) -> ()",
+	"	local.get 0",
+	"	ref.null_extern",
+	"	table.set js_sys.externref.table",
+	"	end_function",
 );
 
 js_bindgen::js_import!(
