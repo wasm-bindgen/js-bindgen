@@ -51,7 +51,7 @@ pub fn js_import(input: TokenStream) -> TokenStream {
 fn js_import_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let mut input = input.into_iter().peekable();
 
-	let name = parse_meta_name_value(&mut input, "name")?;
+	let name = expect_meta_name_value(&mut input, "name")?;
 
 	let package = env::var("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` not found");
 
@@ -411,6 +411,20 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		span,
 	)
 	.collect()
+}
+
+fn expect_meta_name_value(
+	mut stream: impl Iterator<Item = TokenTree>,
+	ident: &str,
+) -> Result<String, TokenStream> {
+	let expected = format!("`{ident} = \"...\"`");
+
+	let span = expect_ident(&mut stream, ident, Span::mixed_site(), &expected)?.span();
+	let span = expect_punct(&mut stream, '=', span, &expected)?.span();
+	let mut string = String::new();
+	parse_string_literal(stream, span, &mut string)?;
+
+	Ok(string)
 }
 
 fn r#const(

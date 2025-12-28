@@ -10,20 +10,6 @@ use proc_macro::{
 	token_stream, Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree,
 };
 
-pub fn parse_meta_name_value(
-	mut stream: impl Iterator<Item = TokenTree>,
-	ident: &str,
-) -> Result<String, TokenStream> {
-	let expected = format!("`{ident} = \"...\"`");
-
-	let span = expect_ident(&mut stream, ident, Span::mixed_site(), &expected)?.span();
-	let span = expect_punct(&mut stream, '=', span, &expected)?.span();
-	let mut string = String::new();
-	parse_string_literal(stream, span, &mut string)?;
-
-	Ok(string)
-}
-
 pub fn parse_ty_or_value(
 	mut stream: &mut Peekable<token_stream::IntoIter>,
 	previous_span: Span,
@@ -42,7 +28,7 @@ pub fn parse_ty_or_value(
 			TokenTree::Punct(p) if p.as_char() == '<' => {
 				ty.extend(parse_angular(&mut stream, previous_span)?)
 			}
-			TokenTree::Punct(p) if [':', '.'].contains(&p.as_char()) => {
+			TokenTree::Punct(p) if [':', '.', '!'].contains(&p.as_char()) => {
 				ty.push(stream.next().unwrap())
 			}
 			_ => break,

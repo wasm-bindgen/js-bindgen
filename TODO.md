@@ -9,6 +9,7 @@
 
 # High Priority
 
+- Allocate slots on the `externref` table in batches.
 - Not clear yet how to separate the `js-bindgen` proc-macros from `js-sys`. Probably `js-bindgen`
   needs to receive more powerful proc-macros.
 - Find a way to prevent users from accidentally using the default linker. Could be done by supplying
@@ -56,6 +57,8 @@
 
 This is a list of upstream issues that could make our lives significantly easier:
 
+- LLVM 22 delivers support for the GC proposal, with which we can implement the `externref` table
+  much more efficiently.
 - Stable `asm!` support for Wasm: https://github.com/rust-lang/rust/issues/136382.
 - Verbatim `asm!` parameters: https://github.com/rust-lang/rust/issues/132083.
 - Better stable proc-macro support
