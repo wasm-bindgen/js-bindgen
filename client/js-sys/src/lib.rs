@@ -160,7 +160,12 @@ impl JsValue {
 impl Drop for JsValue {
 	fn drop(&mut self) {
 		if self.index > 0 {
-			EXTERNREF_TABLE.with(|table| table.borrow_mut().remove(self.index));
+			EXTERNREF_TABLE.with(|table| {
+				table
+					.try_borrow_mut()
+					.unwrap_or_else(|_| panic(""))
+					.remove(self.index)
+			});
 		}
 	}
 }
@@ -207,13 +212,17 @@ impl Slab {
 			slot
 		} else {
 			match unsafe { grow(1) } {
-				-1 => panic!("`externref` table allocation failure"),
+				-1 => panic("`externref` table allocation failure"),
 				slot => slot,
 			}
 		}
 	}
 
 	fn remove(&mut self, index: i32) {
+		self.0
+			.try_reserve(1)
+			.unwrap_or_else(|_| panic("failure to grow memory"));
+
 		self.0.push(index);
 		unsafe { remove(index) }
 	}
@@ -221,11 +230,22 @@ impl Slab {
 
 #[export_name = "js_sys.externref.next"]
 extern "C" fn next() -> i32 {
-	EXTERNREF_TABLE.with(|slab| slab.borrow_mut().next())
+	EXTERNREF_TABLE.with(|slab| slab.try_borrow_mut().unwrap_or_else(|_| panic("")).next())
 }
 
 #[js_sys(js_sys = crate)]
 extern "C" {
 	#[js_sys(name = "isNaN")]
 	pub fn is_nan() -> JsValue;
+}
+
+#[cfg(debug_assertions)]
+fn panic(message: &str) -> ! {
+	panic!("{message}");
+}
+
+#[cfg(not(debug_assertions))]
+fn panic(_: &str) -> ! {
+	// TODO: print message.
+	core::arch::wasm32::unreachable();
 }

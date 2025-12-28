@@ -10,6 +10,7 @@
 # High Priority
 
 - Allocate slots on the `externref` table in batches.
+- Figure out what to do with the panic optimization.
 - Not clear yet how to separate the `js-bindgen` proc-macros from `js-sys`. Probably `js-bindgen`
   needs to receive more powerful proc-macros.
 - Find a way to prevent users from accidentally using the default linker. Could be done by supplying
@@ -65,6 +66,8 @@ This is a list of upstream issues that could make our lives significantly easier
   - `quote!`: https://github.com/rust-lang/rust/issues/54722.
   - Diagnostics: https://github.com/rust-lang/rust/issues/54140.
   - Execution in non-proc-macro crates: https://github.com/rust-lang/rust/issues/130856.
+- Link internal functions without exporting them: https://github.com/rust-lang/rust/issues/29603 or
+  https://github.com/rust-lang/rfcs/pull/3834.
 - Elevate `wasm64-unknown-unknown` to tier 2: https://github.com/rust-lang/rust/issues/146944.
 - Safe slice to array conversion: https://github.com/rust-lang/rust/issues/133508.
 - A way to flag proc-macros as `unsafe`: https://github.com/rust-lang/rfcs/pull/3715.
