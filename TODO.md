@@ -18,6 +18,8 @@
 
 - Allocate slots on the `externref` table in batches.
 - Figure out what to do with the panic optimization.
+- Validate and improve performance of `JsString` encoding/decoding. See [Emscripten's] or
+  [`wasm-bindgen`'s] implementation for inspiration.
 - Experiment if allocation is better for build times then iterator chaining in proc-macros.
 - Find a way to prevent users from accidentally using the default linker. Could be done by supplying
   an invalid object file that would be removed by our custom linker.
@@ -32,8 +34,6 @@
 
 # Medium Priority
 
-- Validate and improve performance of `JsString` encoding/decoding. See [Emscripten's] or
-  [`wasm-bindgen`'s] implementation for inspiration.
 - Provide an absolutely minimal allocator.
 - The `js_sys` proc-macro should remove the `extern "C" { ... }` part of the input on error to avoid
   triggering the `unsafe` requirement downstream.

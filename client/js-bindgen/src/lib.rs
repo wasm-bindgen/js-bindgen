@@ -51,9 +51,8 @@ pub fn js_import(input: TokenStream) -> TokenStream {
 fn js_import_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let mut input = input.into_iter().peekable();
 
-	let name = expect_meta_name_value(&mut input, "name")?;
-
 	let package = env::var("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` not found");
+	let name = expect_meta_name_value(&mut input, "name")?;
 
 	let comma = expect_punct(
 		&mut input,
