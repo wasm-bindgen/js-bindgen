@@ -34,9 +34,33 @@ fn main() {
 	// Here we store additional files we want to pass to LLD as arguments.
 	let mut lld_args: Vec<OsString> = Vec::new();
 
-	if lld.table.get(b"import-memory".as_slice()).is_none() {
-		lld_args.push(OsString::from("--import-memory=js_bindgen,memory"))
-	}
+	let main_memory = match lld
+		.table
+		.get(b"import-memory=".as_slice())
+		.map(Vec::as_slice)
+	{
+		Some([arg]) => {
+			let mut split = arg.as_encoded_bytes().splitn(2, |b| b == &b',');
+
+			if let Some(module) = split.next() {
+				if let Some(name) = split.next() {
+					(module, name)
+				} else {
+					(module, b"".as_slice())
+				}
+			} else {
+				(b"env".as_slice(), b"memory".as_slice())
+			}
+		}
+		Some(args) => panic!("expected only a single `--import-memory` argument: {args:?}"),
+		None => match lld.table.get(b"import-memory".as_slice()) {
+			Some(_) => (b"env".as_slice(), b"memory".as_slice()),
+			None => {
+				lld_args.push(OsString::from("--import-memory=js_bindgen,memory"));
+				(b"js_bindgen".as_slice(), b"memory".as_slice())
+			}
+		},
+	};
 
 	for input in &lld.inputs {
 		// We found a UNIX archive.
@@ -103,7 +127,7 @@ fn main() {
 		.unwrap();
 
 	if status.success() {
-		post_processing(output_path)
+		post_processing(output_path, main_memory)
 	}
 
 	process::exit(status.code().unwrap_or(1));
@@ -200,7 +224,7 @@ fn assembly_to_object(arch: &str, assembly: &[u8]) -> Result<Vec<u8>, Error> {
 }
 
 /// Currently this only entails dropping our custom sections.
-fn post_processing(output_path: &Path) {
+fn post_processing(output_path: &Path, main_memory: (&[u8], &[u8])) {
 	let package = env::var_os("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` should be present");
 	let wasm_input = fs::read(output_path).expect("output file should be readable");
 	let mut wasm_output = Vec::new();
@@ -234,8 +258,8 @@ fn post_processing(output_path: &Path) {
 					);
 
 					if let TypeRef::Memory(m) = import.ty
-						&& import.module == "js_bindgen"
-						&& import.name == "memory"
+						&& import.module.as_bytes() == main_memory.0
+						&& import.name.as_bytes() == main_memory.1
 					{
 						memory = Some(m);
 						continue;
