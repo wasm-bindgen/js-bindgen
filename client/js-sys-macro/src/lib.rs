@@ -76,8 +76,8 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 					));
 				}
 
-				let namespace = namespace.get_or_insert_with(String::new);
-				parse_string_literal(&mut attr, punct.span(), namespace)?;
+				let (_, string) = parse_string_literal(&mut attr, punct.span())?;
+				namespace = Some(string);
 			}
 			_ => {
 				return Err(compile_error(
@@ -130,8 +130,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 				let mut inner = meta.stream().into_iter();
 				let attribute = parse_ident(&mut inner, meta.span(), "`<attribute> = \"...\"`")?;
 				let equal = expect_punct(&mut inner, '=', attribute.span(), "`= \"...\"`")?;
-				let mut name = String::new();
-				parse_string_literal(&mut inner, equal.span(), &mut name)?;
+				let (_, name) = parse_string_literal(&mut inner, equal.span())?;
 
 				js_name = Some(match attribute.to_string().as_str() {
 					"js_name" => JsName::Name(name),
@@ -594,19 +593,6 @@ fn parse_punct(
 ) -> Result<Punct, TokenStream> {
 	match stream.next() {
 		Some(TokenTree::Punct(p)) => Ok(p),
-		Some(tok) => Err(compile_error(tok.span(), format!("expected {expected}"))),
-		None => Err(compile_error(previous_span, format!("expected {expected}"))),
-	}
-}
-
-fn expect_group(
-	mut stream: impl Iterator<Item = TokenTree>,
-	delimiter: Delimiter,
-	previous_span: Span,
-	expected: &str,
-) -> Result<Group, TokenStream> {
-	match stream.next() {
-		Some(TokenTree::Group(g)) if g.delimiter() == delimiter => Ok(g),
 		Some(tok) => Err(compile_error(tok.span(), format!("expected {expected}"))),
 		None => Err(compile_error(previous_span, format!("expected {expected}"))),
 	}

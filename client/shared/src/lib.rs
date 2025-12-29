@@ -79,8 +79,7 @@ fn parse_angular(
 pub fn parse_string_literal(
 	mut stream: impl Iterator<Item = TokenTree>,
 	previous_span: Span,
-	string: &mut String,
-) -> Result<Literal, TokenStream> {
+) -> Result<(Literal, String), TokenStream> {
 	match stream.next() {
 		Some(TokenTree::Literal(l)) => {
 			let span = l.span();
@@ -91,7 +90,7 @@ pub fn parse_string_literal(
 				return Err(compile_error(span, "expected a string literal"));
 			};
 
-			string.reserve(stripped.len());
+			let mut string = String::with_capacity(stripped.len());
 			let mut chars = stripped.chars();
 
 			while let Some(char) = chars.next() {
@@ -112,7 +111,7 @@ pub fn parse_string_literal(
 				}
 			}
 
-			Ok(l)
+			Ok((l, string))
 		}
 		Some(tok) => Err(compile_error(tok.span(), "expected a string literal")),
 		None => Err(compile_error(previous_span, "expected a string literal`")),
@@ -126,6 +125,19 @@ pub fn parse_ident(
 ) -> Result<Ident, TokenStream> {
 	match stream.next() {
 		Some(TokenTree::Ident(i)) => Ok(i),
+		Some(tok) => Err(compile_error(tok.span(), format!("expected {expected}"))),
+		None => Err(compile_error(previous_span, format!("expected {expected}"))),
+	}
+}
+
+pub fn expect_group(
+	mut stream: impl Iterator<Item = TokenTree>,
+	delimiter: Delimiter,
+	previous_span: Span,
+	expected: &str,
+) -> Result<Group, TokenStream> {
+	match stream.next() {
+		Some(TokenTree::Group(g)) if g.delimiter() == delimiter => Ok(g),
 		Some(tok) => Err(compile_error(tok.span(), format!("expected {expected}"))),
 		None => Err(compile_error(previous_span, format!("expected {expected}"))),
 	}

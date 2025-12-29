@@ -76,15 +76,24 @@ unsafe impl Output for JsValue {
 
 js_bindgen::js_import!(
 	name = "string.decode",
-	"(array, len) => {{",
-	"	array >>>= 0",
+	"(ptr, len) => {{",
+	#[cfg(target_arch = "wasm32")]
+	"	ptr >>>= 0",
+	#[cfg(target_arch = "wasm64")]
+	"	ptr = Number(ptr)",
+	#[cfg(target_arch = "wasm32")]
 	"	len >>>= 0",
+	#[cfg(target_arch = "wasm64")]
+	"	len = Number(len)",
 	"",
 	"	const decoder = new TextDecoder(\"utf-8\", {{",
 	"		fatal: false,",
 	"		ignoreBOM: false,",
 	"	}})",
-	"	const view = new Uint8Array(memory.buffer, array, len)",
+	#[cfg(not(target_feature = "atomics"))]
+	"	const view = new Uint8Array(memory.buffer, ptr, len)",
+	#[cfg(target_feature = "atomics")]
+	"	const view = new Uint8Array(memory.buffer).slice(ptr, ptr + len)",
 	"",
 	"	return decoder.decode(view)",
 	"}}",
@@ -93,7 +102,7 @@ js_bindgen::js_import!(
 #[js_sys(js_sys = crate)]
 extern "C" {
 	#[js_sys(js_import = "string.decode")]
-	fn string_decode(array: *const u8, len: u32) -> JsString;
+	fn string_decode(array: *const u8, len: usize) -> JsString;
 }
 
 #[repr(transparent)]
@@ -102,7 +111,7 @@ pub struct JsString(JsValue);
 impl JsString {
 	#[allow(clippy::should_implement_trait)]
 	pub fn from_str(string: &str) -> Self {
-		string_decode(string.as_ptr(), string.len().try_into().unwrap_throw())
+		string_decode(string.as_ptr(), string.len())
 	}
 }
 
@@ -140,10 +149,16 @@ unsafe impl Output for JsString {
 	}
 }
 
-unsafe impl Input for u32 {
+unsafe impl Input for usize {
 	const IMPORT_FUNC: &str = "";
+	#[cfg(target_arch = "wasm32")]
 	const IMPORT_TYPE: &str = "i32";
+	#[cfg(target_arch = "wasm64")]
+	const IMPORT_TYPE: &str = "i64";
+	#[cfg(target_arch = "wasm32")]
 	const TYPE: &str = "i32";
+	#[cfg(target_arch = "wasm64")]
+	const TYPE: &str = "i64";
 	const CONV: &str = "";
 
 	type Type = Self;
@@ -155,8 +170,14 @@ unsafe impl Input for u32 {
 
 unsafe impl Input for *const u8 {
 	const IMPORT_FUNC: &str = "";
+	#[cfg(target_arch = "wasm32")]
 	const IMPORT_TYPE: &str = "i32";
+	#[cfg(target_arch = "wasm64")]
+	const IMPORT_TYPE: &str = "i64";
+	#[cfg(target_arch = "wasm32")]
 	const TYPE: &str = "i32";
+	#[cfg(target_arch = "wasm64")]
+	const TYPE: &str = "i64";
 	const CONV: &str = "";
 
 	type Type = Self;

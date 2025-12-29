@@ -267,7 +267,15 @@ fn post_processing(output_path: &Path, main_memory: (&[u8], &[u8])) {
 				let mut import_section = ImportSection::new();
 
 				for i in i {
-					let import = i.expect("import should be parsable");
+					let mut import = i.expect("import should be parsable");
+
+					// TODO: This linker is supposed to be agnostic towards `js-sys`.
+					if let TypeRef::Table(t) = &mut import.ty
+						&& t.table64 && import.module == "js_sys"
+						&& import.name == "externref.table"
+					{
+						t.table64 = false;
+					}
 
 					import_section.import(
 						import.module,
@@ -382,16 +390,16 @@ fn post_processing(output_path: &Path, main_memory: (&[u8], &[u8])) {
 	js_output.extend_from_slice(b"const memory = new WebAssembly.Memory({ ");
 
 	if memory.memory64 {
-		writeln!(js_output, "initial: {}n", memory.initial).unwrap();
+		write!(js_output, "initial: {}n", memory.initial).unwrap();
 	} else {
-		writeln!(js_output, "initial: {}", memory.initial).unwrap();
+		write!(js_output, "initial: {}", memory.initial).unwrap();
 	}
 
 	if let Some(max) = memory.maximum {
 		if memory.memory64 {
-			writeln!(js_output, ", maximum: {max}n").unwrap();
+			write!(js_output, ", maximum: {max}n").unwrap();
 		} else {
-			writeln!(js_output, ", maximum: {max}").unwrap();
+			write!(js_output, ", maximum: {max}").unwrap();
 		}
 	}
 

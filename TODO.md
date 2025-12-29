@@ -3,8 +3,6 @@
 - Work some more on `embed_asm!`:
   - Implement external types.
   - Namespace `asm`.
-  - Don't allow `{}` across multiple strings.
-  - Implement `cfg` support.
 - Basic runner.
 
 # Critical Priority
@@ -57,7 +55,9 @@
   `LocalKey` unsafely to not require `'static`.
 - Can we remove custom sections in pre-processing by modifying `.rlib`s?
 - Re-evaluate caching via the linker.
-- Polish LLD linker argument parsing.
+- Polish LLD linker argument parsing. Maybe learn from [`wasm-component-ld`].
+
+[`wasm-component-ld`]: https://github.com/bytecodealliance/wasm-component-ld
 
 # Upstream
 

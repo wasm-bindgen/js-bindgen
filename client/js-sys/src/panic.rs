@@ -1,5 +1,9 @@
 #[cfg(not(debug_assertions))]
 use alloc::format;
+#[cfg(all(not(debug_assertions), target_arch = "wasm32"))]
+use core::arch::wasm32 as wasm;
+#[cfg(all(not(debug_assertions), target_arch = "wasm64"))]
+use core::arch::wasm64 as wasm;
 use core::fmt::Debug;
 
 pub trait UnwrapThrowExt<T> {
@@ -79,8 +83,5 @@ pub fn panic(message: &str) -> ! {
 #[cfg(not(debug_assertions))]
 pub fn panic(_: &str) -> ! {
 	// TODO: print message.
-	#[cfg(target_arch = "wasm32")]
-	core::arch::wasm32::unreachable();
-	#[cfg(target_arch = "wasm64")]
-	core::arch::wasm64::unreachable();
+	wasm::unreachable();
 }
