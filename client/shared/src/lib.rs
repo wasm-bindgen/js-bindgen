@@ -108,7 +108,6 @@ pub fn parse_string_literal(
 							))
 						}
 					},
-					'\0' => return Err(compile_error(span, "null characters are not supported")),
 					c => string.push(c),
 				}
 			}

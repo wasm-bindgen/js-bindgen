@@ -79,5 +79,8 @@ pub fn panic(message: &str) -> ! {
 #[cfg(not(debug_assertions))]
 pub fn panic(_: &str) -> ! {
 	// TODO: print message.
+	#[cfg(target_arch = "wasm32")]
 	core::arch::wasm32::unreachable();
+	#[cfg(target_arch = "wasm64")]
+	core::arch::wasm64::unreachable();
 }

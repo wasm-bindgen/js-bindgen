@@ -18,13 +18,13 @@ fn minimum() {
 		quote! { "" },
 		quote! {
 			const _: () = {
-				const ARR0: [u8; 1] = *b"\0";
+				const LEN: u32 = (0) as u32;
 
 				#[repr(C)]
-				struct Layout([u8; 1]);
+				struct Layout([u8; 4]);
 
 				#[link_section = "js_bindgen.assembly"]
-				static CUSTOM_SECTION: Layout = Layout(ARR0);
+				static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN));
 			};
 		},
 	);

@@ -1,8 +1,7 @@
 #![no_std]
+#![cfg_attr(target_arch = "wasm64", feature(simd_wasm64))]
 
 extern crate alloc;
-
-use core::arch::wasm32;
 
 use mini_alloc::MiniAlloc;
 use web_sys::console;
@@ -10,7 +9,10 @@ use web_sys::js_sys::JsString;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
-	wasm32::unreachable()
+	#[cfg(target_arch = "wasm32")]
+	core::arch::wasm32::unreachable();
+	#[cfg(target_arch = "wasm64")]
+	core::arch::wasm64::unreachable();
 }
 
 #[global_allocator]

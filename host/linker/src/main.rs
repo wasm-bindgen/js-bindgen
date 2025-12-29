@@ -151,7 +151,21 @@ fn process_object(arch: &str, asm_args: &mut Vec<OsString>, archive_path: &Path,
 		if let Payload::CustomSection(c) = payload
 			&& c.name() == "js_bindgen.assembly"
 		{
-			for assembly in c.data().split(|b| b == &b'\0').filter(|a| !a.is_empty()) {
+			let mut data = c.data();
+
+			while let Some(length) = data.get(..4) {
+				data = &data[4..];
+				let length = u32::from_le_bytes(length.try_into().unwrap()) as usize;
+
+				if length == 0 {
+					continue;
+				}
+
+				let assembly = data
+					.get(..length)
+					.expect("invalid length encoding for assembly");
+				data = &data[length..];
+
 				let asm_object =
 					assembly_to_object(arch, assembly).expect("compiling ASM should be valid");
 
@@ -161,6 +175,11 @@ fn process_object(arch: &str, asm_args: &mut Vec<OsString>, archive_path: &Path,
 
 				asm_args.push(asm_path.into());
 			}
+
+			assert!(
+				data.is_empty(),
+				"found left over bytes in assembly: {data:?}"
+			);
 		}
 	}
 }
@@ -290,29 +309,37 @@ fn post_processing(output_path: &Path, main_memory: (&[u8], &[u8])) {
 			}
 			Payload::CustomSection(c) if c.name() == "js_bindgen.assembly" => (),
 			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.import.") => {
-				let stripped = c.name().strip_prefix("js_bindgen.import.").unwrap();
+				let stripped = c
+					.name()
+					.strip_prefix("js_bindgen.import.")
+					.expect("custom section name should be formatted correctly");
 				let (module, name) = stripped
 					.split_once('.')
 					.expect("custom section name should be formatted correctly");
 
-				let mut glues = c.data().split(|b| b == &b'\0');
-				let glue = glues
-					.next()
-					.expect("`js_bindgen.import.*` should contain at least one JS glue code");
-				assert_eq!(
-					glues.next(),
-					Some(b"".as_slice()),
-					"`js_bindgen.import.*` should contain at a `\\0` at the end"
-				);
+				let mut data = c.data();
+				let length = data
+					.get(..4)
+					.unwrap_or_else(|| panic!("found empty JS glue for `{module}/{name}`"));
+				data = &data[4..];
+				let length = u32::from_le_bytes(length.try_into().unwrap()) as usize;
 
-				if let Some(other_glue) = glues.next() {
-					panic!(
-						"found duplicate JS glue for the same import:\n\tImport: \
-						 {module}/{name}\n\tJS Glue 1:\n{}\n\tJS Glue 2:\n{}",
-						String::from_utf8_lossy(glue),
-						String::from_utf8_lossy(other_glue),
-					);
+				if length == 0 {
+					panic!("found empty JS glue for `{module}.{name}`")
 				}
+
+				let glue = data.get(..length).unwrap_or_else(|| {
+					panic!("invalid length encoding for JS glue for `{module}/{name}`")
+				});
+				data = &data[length..];
+
+				assert!(
+					data.is_empty(),
+					"found multiple JS glues for the same import:\n\tImport: \
+					 {module}/{name}\n\tJS Glue 1:\n{}\n\tJS Glue 2:\n{}",
+					String::from_utf8_lossy(glue),
+					String::from_utf8_lossy(data),
+				);
 
 				if import_names
 					.get_mut(module)
@@ -352,24 +379,31 @@ fn post_processing(output_path: &Path, main_memory: (&[u8], &[u8])) {
 	fs::write(output_path, wasm_output).expect("object file should be writable");
 
 	let mut js_output = Vec::new();
-	write!(
-		js_output,
-		"const memory = new WebAssembly.Memory({{ initial: {}{}{}{} }})\n\n",
-		memory.initial,
-		memory
-			.maximum
-			.map(|max| format!(", maximum: {max}"))
-			.unwrap_or_default(),
-		memory
-			.memory64
-			.then_some(", address: 'i64'")
-			.unwrap_or_default(),
-		memory
-			.shared
-			.then_some(", shared: true")
-			.unwrap_or_default()
-	)
-	.unwrap();
+	js_output.extend_from_slice(b"const memory = new WebAssembly.Memory({ ");
+
+	if memory.memory64 {
+		writeln!(js_output, "initial: {}n", memory.initial).unwrap();
+	} else {
+		writeln!(js_output, "initial: {}", memory.initial).unwrap();
+	}
+
+	if let Some(max) = memory.maximum {
+		if memory.memory64 {
+			writeln!(js_output, ", maximum: {max}n").unwrap();
+		} else {
+			writeln!(js_output, ", maximum: {max}").unwrap();
+		}
+	}
+
+	if memory.memory64 {
+		js_output.extend_from_slice(b", address: 'i64'");
+	}
+
+	if memory.shared {
+		js_output.extend_from_slice(b", shared: true");
+	}
+
+	js_output.extend_from_slice(b" })\n");
 	js_output.extend_from_slice(b"export const importObject = {\n");
 	js_output.extend_from_slice(b"\tjs_bindgen: { memory },");
 

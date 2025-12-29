@@ -1,4 +1,4 @@
-(module $basic-367b2c3e98454eeb.wasm
+(module $basic-29989dcc21132e07.wasm
   (type (;0;) (func (param i32 i32) (result externref)))
   (type (;1;) (func (param externref)))
   (type (;2;) (func))
@@ -9,20 +9,20 @@
   (type (;7;) (func (param i32) (result i32)))
   (type (;8;) (func (param externref) (result i32)))
   (type (;9;) (func (param i32) (result externref)))
-  (import "js_bindgen" "memory" (memory (;0;) 17 65536))
+  (import "js_bindgen" "memory" (memory (;0;) 17))
   (import "js_sys" "string.decode" (func $js_sys.import.string.decode (;0;) (type 0)))
   (import "js_sys" "externref.table" (table (;0;) 0 externref))
   (import "web_sys" "console.log" (func $web_sys.import.console.log (;1;) (type 1)))
   (global $__stack_pointer (;0;) (mut i32) i32.const 1048576)
-  (global (;1;) i32 i32.const 1048608)
-  (global (;2;) i32 i32.const 1048608)
+  (global (;1;) i32 i32.const 1048624)
+  (global (;2;) i32 i32.const 1048616)
   (export "foo" (func $foo))
   (export "__heap_base" (global 1))
   (export "js_sys.externref.next" (func $js_sys.externref.next))
   (export "__data_end" (global 2))
   (start $__wasm_init_memory)
   (func $__wasm_init_memory (;2;) (type 2)
-    i32.const 1048588
+    i32.const 1048596
     i32.const 0
     i32.const 20
     memory.fill
@@ -35,7 +35,7 @@
     local.tee 0
     global.set $__stack_pointer
     i32.const 1048576
-    i32.const 8
+    i32.const 13
     call $js_sys.string_decode
     local.tee 1
     call $web_sys.console.log
@@ -47,19 +47,19 @@
           i32.lt_s
           br_if 0 (;@3;)
           i32.const 0
-          i32.load offset=1048588
+          i32.load offset=1048596
           br_if 2 (;@1;)
           i32.const 0
           i32.const -1
-          i32.store offset=1048588
+          i32.store offset=1048596
           i32.const 0
-          i32.load offset=1048584
+          i32.load offset=1048592
           local.set 2
           block ;; label = @4
             i32.const 0
-            i32.load offset=1048592
+            i32.load offset=1048600
             i32.const 0
-            i32.load offset=1048596
+            i32.load offset=1048604
             local.tee 3
             i32.ne
             br_if 0 (;@4;)
@@ -86,16 +86,16 @@
             local.get 0
             i32.load offset=8
             local.tee 2
-            i32.store offset=1048584
+            i32.store offset=1048592
             i32.const 0
             local.get 4
-            i32.store offset=1048592
+            i32.store offset=1048600
           end
           i32.const 0
           local.get 3
           i32.const 1
           i32.add
-          i32.store offset=1048596
+          i32.store offset=1048604
           local.get 2
           local.get 3
           i32.const 2
@@ -107,10 +107,10 @@
           call $js_sys.externref.remove
           i32.const 0
           i32.const 0
-          i32.load offset=1048588
+          i32.load offset=1048596
           i32.const 1
           i32.add
-          i32.store offset=1048588
+          i32.store offset=1048596
         end
         local.get 0
         i32.const 16
@@ -160,14 +160,14 @@
                       i32.eqz
                       br_if 0 (;@9;)
                       i32.const 0
-                      i32.load offset=1048600
+                      i32.load offset=1048608
                       local.tee 4
                       i32.eqz
                       br_if 1 (;@8;)
                       br 4 (;@5;)
                     end
                     i32.const 0
-                    i32.load offset=1048600
+                    i32.load offset=1048608
                     local.tee 1
                     i32.eqz
                     br_if 1 (;@7;)
@@ -177,34 +177,34 @@
                   local.set 5
                   i32.const 0
                   i32.const 0
-                  i32.const 1048608
+                  i32.const 1048624
                   i32.sub
                   local.tee 4
-                  i32.store offset=1048600
+                  i32.store offset=1048608
                   i32.const 0
                   i32.const 1
                   local.get 5
                   i32.const 16
                   i32.shl
                   i32.sub
-                  i32.store offset=1048604
+                  i32.store offset=1048612
                   br 2 (;@5;)
                 end
                 memory.size
                 local.set 2
                 i32.const 0
                 i32.const 0
-                i32.const 1048608
+                i32.const 1048624
                 i32.sub
                 local.tee 1
-                i32.store offset=1048600
+                i32.store offset=1048608
                 i32.const 0
                 i32.const 1
                 local.get 2
                 i32.const 16
                 i32.shl
                 i32.sub
-                i32.store offset=1048604
+                i32.store offset=1048612
               end
               local.get 1
               i32.const -4
@@ -215,7 +215,7 @@
               br_if 2 (;@3;)
               block ;; label = @6
                 i32.const 0
-                i32.load offset=1048604
+                i32.load offset=1048612
                 local.tee 2
                 local.get 4
                 local.get 3
@@ -245,11 +245,11 @@
                 i32.const 16
                 i32.shl
                 i32.sub
-                i32.store offset=1048604
+                i32.store offset=1048612
               end
               i32.const 0
               local.get 1
-              i32.store offset=1048600
+              i32.store offset=1048608
               local.get 0
               i32.const 8
               i32.add
@@ -276,7 +276,7 @@
             br_if 1 (;@3;)
             block ;; label = @5
               i32.const 0
-              i32.load offset=1048604
+              i32.load offset=1048612
               local.tee 6
               local.get 4
               local.get 3
@@ -306,11 +306,11 @@
               i32.const 16
               i32.shl
               i32.sub
-              i32.store offset=1048604
+              i32.store offset=1048612
             end
             i32.const 0
             local.get 5
-            i32.store offset=1048600
+            i32.store offset=1048608
             local.get 4
             i32.eqz
             br_if 1 (;@3;)
@@ -383,13 +383,13 @@
       block ;; label = @2
         block ;; label = @3
           i32.const 0
-          i32.load offset=1048588
+          i32.load offset=1048596
           br_if 0 (;@3;)
           i32.const 0
           i32.const -1
-          i32.store offset=1048588
+          i32.store offset=1048596
           i32.const 0
-          i32.load offset=1048596
+          i32.load offset=1048604
           local.tee 0
           br_if 1 (;@2;)
           block ;; label = @4
@@ -400,7 +400,7 @@
             i32.eq
             br_if 0 (;@4;)
             i32.const 0
-            i32.load offset=1048588
+            i32.load offset=1048596
             i32.const 1
             i32.add
             local.set 1
@@ -419,9 +419,9 @@
       i32.const -1
       i32.add
       local.tee 0
-      i32.store offset=1048596
+      i32.store offset=1048604
       i32.const 0
-      i32.load offset=1048584
+      i32.load offset=1048592
       local.get 0
       i32.const 2
       i32.shl
@@ -431,7 +431,7 @@
     end
     i32.const 0
     local.get 1
-    i32.store offset=1048588
+    i32.store offset=1048596
     local.get 0
   )
   (func $js_sys.string_decode (;8;) (type 6) (param i32 i32) (result i32)
@@ -467,8 +467,8 @@
     call $js_sys.externref.get
     call $web_sys.import.console.log
   )
-  (data $.rodata (;0;) (i32.const 1048576) "asdasdad")
-  (data $.data (;1;) (i32.const 1048584) "\04\00\00\00")
+  (data $.rodata (;0;) (i32.const 1048576) "Hello, World!")
+  (data $.data (;1;) (i32.const 1048592) "\04\00\00\00")
   (@producers
     (language "Rust" "")
     (processed-by "rustc" "1.92.0 (ded5c06cf 2025-12-08)")

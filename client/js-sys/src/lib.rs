@@ -3,6 +3,7 @@
 	all(target_feature = "atomics", not(feature = "std")),
 	feature(thread_local)
 )]
+#![cfg_attr(target_arch = "wasm64", feature(simd_wasm64))]
 
 extern crate alloc;
 #[cfg(feature = "std")]

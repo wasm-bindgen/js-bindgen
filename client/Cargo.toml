@@ -19,4 +19,6 @@ tabs_in_doc_comments = "allow"
 
 [patch.crates-io]
 # https://github.com/oli-obk/ui_test/issues/361
+mini-alloc = { git = "https://github.com/daxpedda/mini-alloc", branch = "wasm64" }
+# Wasm64 support.
 ui_test = { git = "https://github.com/daxpedda/ui_test", branch = "js-bindgen" }

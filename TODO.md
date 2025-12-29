@@ -3,7 +3,6 @@
 - Work some more on `embed_asm!`:
   - Implement external types.
   - Namespace `asm`.
-  - Replace `\0` delimiter with length prefix.
   - Don't allow `{}` across multiple strings.
   - Implement `cfg` support.
 - Basic runner.
