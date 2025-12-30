@@ -1,21 +1,29 @@
 # Critical Priority
 
 - Replace `llvm-mc` with `wasm-tools`. See [bytecodealliance/wasm-tools#2405].
+- Do we agree with the new name `js-bindgen`? Maybe `web-bindgen` is the most accurate?
 
 [bytecodealliance/wasm-tools#2405]: https://github.com/bytecodealliance/wasm-tools/issues/2405
 
 # High Priority
 
 - Allocate slots on the `externref` table in batches.
-- Figure out what to do with the panic optimization.
+- Determine what to do with `js_sys::UnwrapThrowExt`. Avoiding the panic machinery is nice for some
+  very niche use-cases but it might be very annoying for most users. Maybe hide it behind a `cfg`
+  flag?
 - Validate and improve performance of `JsString` encoding/decoding. See [Emscripten's] or
   [`wasm-bindgen`'s] implementation for inspiration.
 - Experiment if allocation is better for build times then iterator chaining in proc-macros.
-- Find a way to prevent users from accidentally using the default linker. Could be done by supplying
-  an invalid object file that would be removed by our custom linker.
+- Find a way to prevent users from accidentally using the default linker.
+  - Supply an invalid object file that would be removed by our custom linker.
+  - Check `RUSTC_LINKER` in a `build.rs`. Which would require a separate library crate for
+    `js-bindgen`.
 - Version all names to make packages compatible with other versions of itself.
 - Embed crate version to make linker capable of detecting unsupported versions.
 - Add tracking for ASM object files in the linker, so we don't re-generate them each time.
+  - The supplied object files already include a hash in their name, so maybe we don't need to do
+    much here.
+  - We still need to look into what happens with old files. We might need to delete them ourselves.
 - Evaluate the output folder of our ASM objet files. Some ideas:
   - Store them next to the output file.
   - Pass an environment variable from a `build.rs` pointing to the target folder and go from there.
