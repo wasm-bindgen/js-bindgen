@@ -1,7 +1,5 @@
 /client/target
 /client/Cargo.lock
-/client/js-bindgen/target
-/examples/target
-/examples/Cargo.lock
 /host/target
 /host/Cargo.lock
+/host/js-bindgen/target

@@ -9,6 +9,8 @@ use shared as js_bindgen_shared;
 // in dependencies, e.g. via crate features. Including the crate via a module is
 // what worked for now. `rust-analyzer` doesn't seem to like `path`s outside the
 // crate though, so we added a symlink.
+//
+// See https://github.com/rust-lang/rust-analyzer/issues/3898.
 #[cfg(test)]
 #[path = "shared/lib.rs"]
 mod shared;
@@ -285,7 +287,7 @@ fn parse_string_arguments(
 /// 		len as u32
 /// 	};
 ///
-///     #[repr(C)]
+/// 	#[repr(C)]
 /// 	struct Layout([u8; 4], #([u8; <argument>.len()]),*);
 ///
 /// 	#[link_section = name]

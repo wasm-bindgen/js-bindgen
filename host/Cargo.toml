@@ -1,7 +1,12 @@
 [workspace]
-members = ["ld", "wasm-ld-opt"]
+members = ["js-bindgen", "js-sys-macro", "ld", "shared", "wasm-ld-opt"]
 resolver = "2"
 
 [workspace.lints.clippy]
 obfuscated_if_else = "allow"
+tabs_in_doc_comments = "allow"
 undocumented_unsafe_blocks = "warn"
+
+[patch.crates-io]
+# Proc-macro bug: https://github.com/oli-obk/ui_test/issues/361.
+ui_test = { git = "https://github.com/daxpedda/ui_test", branch = "js-bindgen" }
