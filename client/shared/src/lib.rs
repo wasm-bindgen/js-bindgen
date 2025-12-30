@@ -267,13 +267,13 @@ pub fn compile_error(span: impl Into<SpanRange>, error: impl Display) -> TokenSt
 	)
 }
 
-pub fn punct(ch: char, spacing: Spacing, span: Span) -> Punct {
+fn punct(ch: char, spacing: Spacing, span: Span) -> Punct {
 	let mut p = Punct::new(ch, spacing);
 	p.set_span(span);
 	p
 }
 
-pub fn group(delimiter: Delimiter, span: Span, stream: impl Iterator<Item = TokenTree>) -> Group {
+fn group(delimiter: Delimiter, span: Span, stream: impl Iterator<Item = TokenTree>) -> Group {
 	let mut g = Group::new(delimiter, stream.collect());
 	g.set_span(span);
 	g
