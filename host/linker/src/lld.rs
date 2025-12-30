@@ -7,39 +7,43 @@ include!("lld-opt.rs");
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy)]
 enum OptKind {
-	// --extra-features=a,b,c
+	/// E.g. `--extra-features=a,b,c`.
 	KIND_COMMAJOINED,
-	// --gc-sections
+	/// E.g. `--gc-sections`.
 	KIND_FLAG,
-	// --export=xx
+	/// E.g. `--export=xx`.
 	KIND_JOINED,
-	// -ofoo.wasm OR -o foo.wasm
+	// E.g. `-ofoo.wasm` or `-o foo.wasm`.
 	KIND_JOINED_OR_SEPARATE,
-	// --export xx
+	// E.g. `--export xx`.
 	KIND_SEPARATE,
 }
 
 pub(crate) struct WasmLdArguments<'a> {
-	pub(crate) table: HashMap<&'a [u8], Vec<&'a OsStr>>,
-	pub(crate) inputs: Vec<&'a OsString>,
+	table: HashMap<&'a str, Vec<&'a OsStr>>,
+	inputs: Vec<&'a OsString>,
 }
 
 impl WasmLdArguments<'_> {
 	// See the LLVM parser implementation:
-	// https://github.com/llvm/llvm-project/blob/991455e69e93c0ce88e927eddd28a9ab34d1f8b2/llvm/lib/Option/OptTable.cpp#L438
+	// https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/llvm/lib/Option/OptTable.cpp#L436-L498.
 	pub(crate) fn new(args: &[OsString]) -> WasmLdArguments<'_> {
 		let mut args = args.iter();
 		let mut table = HashMap::new();
 		let mut inputs = Vec::new();
 
-		let option_table: HashMap<&[u8], OptKind> = HashMap::from(OPT_KIND);
+		let option_table: HashMap<&str, OptKind> = HashMap::from(OPT_KIND);
 
 		while let Some(arg) = args.next() {
 			let bytes = arg.as_encoded_bytes();
-			// If a value does not start with `-`, it is treated as `INPUT``.
+			// If a value does not start with `-`, it is treated as `INPUT`.
 			let Some(stripped) = bytes
 				.strip_prefix(b"--")
 				.or_else(|| bytes.strip_prefix(b"-"))
+				// SAFETY:
+				// - `bytes` originated from `OsStr::as_encoded_bytes`.
+				// - We only split by valid UTF-8 strings.
+				.map(|bytes| unsafe { OsStr::from_encoded_bytes_unchecked(bytes) })
 			else {
 				inputs.push(arg);
 				continue;
@@ -49,26 +53,26 @@ impl WasmLdArguments<'_> {
 			let Some((kind, prefix, remain)) = (0..=stripped.len())
 				.rev()
 				.filter_map(|end| {
-					let (prefix, remain) = stripped.split_at(end);
+					let (prefix, remain) = stripped.as_encoded_bytes().split_at(end);
+					let prefix = str::from_utf8(prefix).ok()?;
 					let kind = option_table.get(prefix)?;
-					let remain = unsafe {
-						// SAFETY:
-						// - Each `word` only contains content that originated from
-						//   `OsString::as_encoded_bytes`.
-						// - `prefix` is a valid UTF-8 string.
-						OsStr::from_encoded_bytes_unchecked(remain)
-					};
+					// SAFETY:
+					// - `remain` comes from `stripped`, which originated from
+					//   `OsStr::as_encoded_bytes`.
+					// - We only proceed when having split off a valid argument from `option_table`,
+					//   which are UTF-8 and therefore `remain` is a valid `OsStr`.
+					let remain = unsafe { OsStr::from_encoded_bytes_unchecked(remain) };
 					Some((kind, prefix, remain))
 				})
 				.next()
 			else {
-				eprintln!("encountered unknown LLD option: {arg:?}");
+				eprintln!("encountered unknown LLD option: `{}`", arg.display());
 				continue;
 			};
 
 			let mut next = || {
 				args.next()
-					.unwrap_or_else(|| panic!("`{arg:?}` argument should have a value"))
+					.unwrap_or_else(|| panic!("`{}` argument should have a value", arg.display()))
 					.as_os_str()
 			};
 			let value = match kind {
@@ -88,5 +92,26 @@ impl WasmLdArguments<'_> {
 		}
 
 		WasmLdArguments { table, inputs }
+	}
+
+	pub(crate) fn arg_single(&self, arg: &str) -> Option<&OsStr> {
+		match self.table.get(arg).map(Vec::as_slice) {
+			Some([value]) => Some(value),
+			Some([]) => panic!("found unexpected empty argument for `{arg}`"),
+			Some(_) => panic!("found unexpected multiple arguments of `{arg}`"),
+			None => None,
+		}
+	}
+
+	pub(crate) fn arg_flag(&self, arg: &str) -> bool {
+		match self.table.get(arg) {
+			Some(values) if values.is_empty() => true,
+			Some(_) => panic!("found unexpected values for argument `{arg}`"),
+			None => false,
+		}
+	}
+
+	pub(crate) fn inputs(&self) -> &[&OsString] {
+		&self.inputs
 	}
 }

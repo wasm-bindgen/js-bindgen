@@ -20,7 +20,6 @@
 - Experiment if allocation is better for build times then iterator chaining in proc-macros.
 - Find a way to prevent users from accidentally using the default linker. Could be done by supplying
   an invalid object file that would be removed by our custom linker.
-- Also find a way to prevent users from accidentally using our linker with something else then Wasm.
 - Version all names to make packages compatible with other versions of itself.
 - Embed crate version to make linker capable of detecting unsupported versions.
 - Add tracking for ASM object files in the linker, so we don't re-generate them each time.
@@ -52,7 +51,9 @@
   versions.
 - Can we remove custom sections in pre-processing by modifying `.rlib`s?
 - Re-evaluate caching via the linker.
-- Polish LLD linker argument parsing. Maybe learn from [`wasm-component-ld`].
+- Nicer error/warning messages from linker and when appropriate instruct users to file bug reports.
+- Polish LLD linker argument parsing. Maybe learn from [`wasm-component-ld`]. We need a way of
+  handling the same argument being passed multiple times.
 
 [`wasm-component-ld`]: https://github.com/bytecodealliance/wasm-component-ld
 
@@ -74,7 +75,8 @@ This is a list of upstream issues that could make our lives significantly easier
 - Elevate `wasm64-unknown-unknown` to tier 2: [rust-lang/rust#146944].
 - A way to flag proc-macros as `unsafe`: [rust-lang/rfcs#3715].
 - Link internal functions without exporting them: [rust-lang/rust#29603] or [rust-lang/rfcs#3834].
-- Safe slice to array conversion: [rust-lang/rust#133508]
+- Our linker warnings should show up for users: [rust-lang/rust#136096].
+- Safe slice to array conversion: [rust-lang/rust#133508].
 
 [llvm/llvm-project#136594]: https://github.com/llvm/llvm-project/issues/136594
 [rust-lang/rust#136382]: https://github.com/rust-lang/rust/issues/136382
@@ -88,4 +90,5 @@ This is a list of upstream issues that could make our lives significantly easier
 [rust-lang/rfcs#3715]: https://github.com/rust-lang/rfcs/pull/3715
 [rust-lang/rust#29603]: https://github.com/rust-lang/rust/issues/29603
 [rust-lang/rfcs#3834]: https://github.com/rust-lang/rfcs/pull/3834
+[rust-lang/rust#136096]: https://github.com/rust-lang/rust/issues/136096
 [rust-lang/rust#133508]: https://github.com/rust-lang/rust/issues/133508

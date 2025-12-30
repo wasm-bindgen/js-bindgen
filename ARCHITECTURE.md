@@ -52,7 +52,7 @@ This has several drawbacks:
 - Running the interpreter also added overhead to the overall post-processing, while not significant,
   it can be a non-trivial amount in very large projects.
 
-In `js-bindgen` we rely on encoding information via custom sections instead. These can easily be
+In `js-bindgen` we rely on embedding information via custom sections instead. These can easily be
 parsed and removed in post-processing without touching any Wasm instructions or relying on run-time
 behavior.
 
@@ -106,7 +106,7 @@ issues:
   trying to constantly re-generate files. While we have attempted various workarounds to detect Rust
   Analyzer and other race-conditions, ultimately there was no fool-proof way to solve this. It also
   hurts incremental compilation, where we want to cause as little overhead as possible.
-- Because we build our JS glue code via associated trait variables, which we can't evaluate in a
+- Because we build our JS code via associated trait variables, which we can't evaluate in a
   proc-macro, we are stuck doing post-processing anyway.
 
 ### Why Don't We Compile the Assembly in a Build Script?
@@ -125,8 +125,8 @@ cases, like with object files, it doesn't work easily with `*.rlib` archives. Cr
 format is not stable and it is unclear what we could break by modifying the containing archive
 members.
 
-It should also be noted that this wouldn't get rid of post-linker-processing as we require reading
-the resulting imports to determine dead-code elimination for the JS glue.
+It should also be noted that this wouldn't get rid of post-linker processing as we require reading
+the resulting imports to determine dead-code elimination for the JS code.
 
 As this will likely be a performance improvement, even if just slightly, it would still be a welcome
 improvement. We invite any expert on the topic to chime in on what we can and can't depend on about

@@ -14,8 +14,14 @@ web-sys = { path = "web-sys" }
 crate-type = ["cdylib"]
 name = "basic"
 
+[workspace.lints.rust]
+linker_messages = "warn"
+
 [workspace.lints.clippy]
 tabs_in_doc_comments = "allow"
+
+[lints]
+workspace = true
 
 [patch.crates-io]
 # https://github.com/oli-obk/ui_test/issues/361

@@ -1,13 +1,13 @@
 //! This program generates the LLD options we require to parse LLD arguments.
 //!
-//! The input is a `options.json` file produced by running:
+//! The input is a JSON file produced by running:
 //! ```sh
 //! llvm-tblgen --dump-json lld/wasm/Options.td -o options.json -I llvm/include
 //! ```
 //!
 //! Then you can run this program:
 //! ```sh
-//! cargo run -p lld-opt -- <path to your `options.json`>
+//! cargo run -p lld-opt -- <path to your JSON>
 //! ```
 
 use std::collections::BTreeMap;
@@ -20,11 +20,13 @@ use anyhow::Result;
 use proc_macro2::Span;
 use quote::quote;
 use serde_json::Value;
-use syn::{Ident, LitByteStr};
+use syn::{Ident, LitStr};
 
 fn main() -> Result<()> {
 	let opt_table: BTreeMap<String, Value> = serde_json::from_slice(&fs::read(
-		env::args_os().nth(1).expect("pass path to `options.json`"),
+		env::args_os()
+			.nth(1)
+			.expect("path to JSON file should be present"),
 	)?)?;
 	let mut args = Vec::new();
 
@@ -47,7 +49,7 @@ fn main() -> Result<()> {
 	let length = args.len() + 1;
 	let arg_name = args
 		.iter()
-		.map(|(name, _)| LitByteStr::new(name.as_bytes(), Span::call_site()));
+		.map(|(name, _)| LitStr::new(name, Span::call_site()));
 	let arg_flag = args
 		.iter()
 		.map(|(_, flag)| Ident::new(flag, Span::call_site()));
@@ -55,7 +57,7 @@ fn main() -> Result<()> {
 	let output = quote! {
 		const OPT_KIND: [(&[u8], OptKind); #length] = [
 			// Relevant `lld` arguments.
-			(b"flavor", OptKind::KIND_SEPARATE),
+			("flavor", OptKind::KIND_SEPARATE),
 			// `wasm-ld` arguments.
 			#((#arg_name, OptKind::#arg_flag)),*
 		];

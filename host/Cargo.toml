@@ -4,3 +4,4 @@ resolver = "2"
 
 [workspace.lints.clippy]
 obfuscated_if_else = "allow"
+undocumented_unsafe_blocks = "warn"

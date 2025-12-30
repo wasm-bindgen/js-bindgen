@@ -321,7 +321,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 				Punct::new(';', Spacing::Alone).into(),
 			]);
 
-		let js_glue = matches!(js_name, None | Some(JsName::Name(_))).then(|| {
+		let js_import = matches!(js_name, None | Some(JsName::Name(_))).then(|| {
 			let comp_js_name = match js_name {
 				Some(JsName::Name(name)) => {
 					if let Some(namespace) = &namespace {
@@ -457,7 +457,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 			Delimiter::Brace,
 			TokenStream::from_iter(
 				assembly
-					.chain(js_glue.into_iter().flatten())
+					.chain(js_import.into_iter().flatten())
 					.chain(import)
 					.chain(call),
 			),

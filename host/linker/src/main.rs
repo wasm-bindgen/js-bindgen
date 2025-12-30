@@ -1,6 +1,7 @@
 mod lld;
 
-use std::ffi::OsString;
+use std::borrow::Cow;
+use std::ffi::{OsStr, OsString};
 use std::io::{Error, Write};
 use std::path::Path;
 use std::process::{self, Command, Stdio};
@@ -15,93 +16,135 @@ use crate::lld::WasmLdArguments;
 
 fn main() {
 	let args: Vec<_> = env::args_os().collect();
-	let lld = WasmLdArguments::new(&args[1..]);
+	let lld_args = WasmLdArguments::new(&args[1..]);
+
+	if lld_args
+		.arg_single("flavor")
+		.filter(|v| *v == "wasm")
+		.is_none()
+	{
+		panic!("the `js-bindgen-linker` should only be used when compiling to a Wasm target")
+	}
 
 	// With Wasm32 no argument is passed, but Wasm64 requires `-mwasm64`.
-	let arch = if let Some(m) = lld.table.get(b"m".as_slice()) {
-		m[0].to_str()
-			.expect("`-m` value should be `wasm32` or `wasm64`")
+	let arch_str = if let Some(m) = lld_args.arg_single("m") {
+		if m == "wasm32" || m == "wasm64" {
+			Cow::Borrowed(m)
+		} else {
+			panic!("expected `-m` to either be `wasm32` or `wasm64");
+		}
 	} else {
-		"wasm32"
+		Cow::Owned("wasm32".into())
 	};
 
 	let output_path = Path::new(
-		lld.table
-			.get(b"o".as_slice())
-			.expect("output path argument should be present")[0],
+		lld_args
+			.arg_single("o")
+			.expect("output path argument should be present"),
 	);
 
-	// Here we store additional files we want to pass to LLD as arguments.
-	let mut lld_args: Vec<OsString> = Vec::new();
+	// Here we store additional arguments we want to pass to LLD.
+	let mut add_args: Vec<OsString> = Vec::new();
 
-	let main_memory = match lld
-		.table
-		.get(b"import-memory=".as_slice())
-		.map(Vec::as_slice)
-	{
-		Some([arg]) => {
-			let mut split = arg.as_encoded_bytes().splitn(2, |b| b == &b',');
+	// Extract path to the main memory if user-specified, otherwise force export
+	// with our own path.
+	let main_memory = match lld_args.arg_single("import-memory=") {
+		Some(arg) => {
+			let arg = arg
+				.to_str()
+				.expect("`--import-memory=` parameters should be valid UTF-8");
+			let mut split = arg.splitn(2, ',');
 
-			if let Some(module) = split.next() {
-				if let Some(name) = split.next() {
-					(module, name)
-				} else {
-					(module, b"".as_slice())
-				}
+			let module = split.next().expect("should yield something even if empty");
+
+			if let Some(name) = split.next() {
+				MainMemory { module, name }
 			} else {
-				(b"env".as_slice(), b"memory".as_slice())
+				MainMemory { module, name: "" }
 			}
 		}
-		Some(args) => panic!("expected only a single `--import-memory` argument: {args:?}"),
-		None => match lld.table.get(b"import-memory".as_slice()) {
-			Some(_) => (b"env".as_slice(), b"memory".as_slice()),
-			None => {
-				lld_args.push(OsString::from("--import-memory=js_bindgen,memory"));
-				(b"js_bindgen".as_slice(), b"memory".as_slice())
+		None => {
+			if lld_args.arg_flag("import-memory") {
+				eprintln!("found `--import-memory`");
+				eprintln!(
+					"`js-bindgen` already imports the main memory by default under \
+					 `js-bindgen:memory`"
+				);
+				MainMemory {
+					module: "env",
+					name: "memory",
+				}
+			} else {
+				add_args.push(OsString::from("--import-memory=js_bindgen,memory"));
+				MainMemory {
+					module: "js_bindgen",
+					name: "memory",
+				}
 			}
-		},
+		}
 	};
 
-	for input in &lld.inputs {
+	// Extract embedded assembly from object files.
+	for input in lld_args.inputs() {
 		// We found a UNIX archive.
 		if input.as_encoded_bytes().ends_with(b".rlib") {
 			let archive_path = Path::new(&input);
 			let archive_data = match fs::read(archive_path) {
 				Ok(archive_data) => archive_data,
 				Err(error) => {
-					eprintln!("failed to read archive file, most likely its not one: {error}");
+					eprintln!(
+						"failed to read archive file {}:\n{error}",
+						archive_path.display()
+					);
 					continue;
 				}
 			};
-			let archive =
-				ArchiveFile::parse(&*archive_data).expect("`*.rlib` should be a valid archive");
+			let archive = match ArchiveFile::parse(&*archive_data) {
+				Ok(archive_data) => archive_data,
+				Err(error) => {
+					eprintln!(
+						"failed to parse archive file {}:\n{error}",
+						archive_path.display()
+					);
+					continue;
+				}
+			};
 
 			for member in archive.members() {
 				let member = match member {
 					Ok(member) => member,
 					Err(error) => {
-						eprintln!("unable to parse archive member: {error}");
+						eprintln!(
+							"unable to parse archive member in {}:\n{error}",
+							archive_path.display()
+						);
 						continue;
 					}
 				};
 				let name = match str::from_utf8(member.name()) {
 					Ok(name) => name.to_owned(),
 					Err(error) => {
-						eprintln!("unable to convert archive member name to UTF-8: {error}");
+						eprintln!(
+							"unable to convert archive member name to UTF-8 in {}:\n{error}",
+							archive_path.display()
+						);
 						continue;
 					}
 				};
 				let data = match member.data(&*archive_data) {
 					Ok(object) => object,
 					Err(error) => {
-						eprintln!("unable to extract archive member data: {error}");
+						eprintln!(
+							"unable to extract archive member data from {}:\n{error}",
+							archive_path.display()
+						);
 						continue;
 					}
 				};
 
 				process_object(
-					arch,
-					&mut lld_args,
+					&arch_str,
+					&mut add_args,
 					&archive_path.with_file_name(name),
 					data,
 				);
@@ -111,18 +154,21 @@ fn main() {
 			let object = match fs::read(object_path) {
 				Ok(object) => object,
 				Err(error) => {
-					eprintln!("failed to read object file, most likely its not one: {error}");
+					eprintln!(
+						"failed to read object file {}:\n{error}",
+						object_path.display()
+					);
 					continue;
 				}
 			};
 
-			process_object(arch, &mut lld_args, object_path, &object);
+			process_object(&arch_str, &mut add_args, object_path, &object);
 		}
 	}
 
 	let status = Command::new("rust-lld")
 		.args(args.iter().skip(1))
-		.args(lld_args)
+		.args(add_args)
 		.status()
 		.unwrap();
 
@@ -133,16 +179,27 @@ fn main() {
 	process::exit(status.code().unwrap_or(1));
 }
 
+struct MainMemory<'a> {
+	module: &'a str,
+	name: &'a str,
+}
+
 /// Extracts any assembly instructions from `js-bindgen`, builds object files
 /// from them and passes them to the linker.
-fn process_object(arch: &str, asm_args: &mut Vec<OsString>, archive_path: &Path, object: &[u8]) {
-	let mut asm_counter = 0;
+fn process_object(
+	arch_str: &OsStr,
+	add_args: &mut Vec<OsString>,
+	archive_path: &Path,
+	object: &[u8],
+) {
+	// Multiple files from the same object file need different names.
+	let mut file_counter = 0;
 
 	for payload in Parser::new(0).parse_all(object) {
 		let payload = match payload {
 			Ok(payload) => payload,
 			Err(error) => {
-				eprintln!("unexpected file type in archive: {error}");
+				eprintln!("unexpected object file payload: {error}");
 				continue;
 			}
 		};
@@ -166,14 +223,15 @@ fn process_object(arch: &str, asm_args: &mut Vec<OsString>, archive_path: &Path,
 					.expect("invalid length encoding for assembly");
 				data = &data[length..];
 
-				let asm_object =
-					assembly_to_object(arch, assembly).expect("compiling ASM should be valid");
+				let asm_object = assembly_to_object(arch_str, assembly)
+					.expect("compiling assembly should be valid");
 
-				let asm_path = archive_path.with_added_extension(format!("asm.{asm_counter}.o"));
-				asm_counter += 1;
-				fs::write(&asm_path, asm_object).expect("writing ASM object file should succeed");
+				let asm_path = archive_path.with_added_extension(format!("asm.{file_counter}.o"));
+				file_counter += 1;
+				fs::write(&asm_path, asm_object)
+					.expect("writing assembly object file should succeed");
 
-				asm_args.push(asm_path.into());
+				add_args.push(asm_path.into());
 			}
 
 			assert!(
@@ -186,9 +244,9 @@ fn process_object(arch: &str, asm_args: &mut Vec<OsString>, archive_path: &Path,
 
 /// Currently this simply passes the LLVM s-format assembly to `llvm-mc` to
 /// convert to an object file the linker can consume.
-fn assembly_to_object(arch: &str, assembly: &[u8]) -> Result<Vec<u8>, Error> {
+fn assembly_to_object(arch_str: &OsStr, assembly: &[u8]) -> Result<Vec<u8>, Error> {
 	let mut child = Command::new("llvm-mc")
-		.arg(format!("-arch={arch}"))
+		.arg(format!("-arch={}", arch_str.display()))
 		// In the future we will switch to something supporting auto-detection.
 		.arg("-mattr=+reference-types,+call-indirect-overlong")
 		.arg("-filetype=obj")
@@ -236,21 +294,23 @@ fn assembly_to_object(arch: &str, assembly: &[u8]) -> Result<Vec<u8>, Error> {
 		}
 
 		Err(Error::other(format!(
-			"`llvm-mc` process failed with status: {}\n",
+			"`llvm-mc` process failed with status: {}",
 			output.status
 		)))
 	}
 }
 
-/// Currently this only entails dropping our custom sections.
-fn post_processing(output_path: &Path, main_memory: (&[u8], &[u8])) {
+/// This removes our custom sections and generates the JS import file.
+fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
+	// Unfortunately we don't receive the final output path adjustments Cargo makes.
+	// So for the JS file we just figure it out ourselves.
 	let package = env::var_os("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` should be present");
 	let wasm_input = fs::read(output_path).expect("output file should be readable");
 	let mut wasm_output = Vec::new();
 
-	let mut js_glue: HashMap<&str, HashMap<&str, &[u8]>> = HashMap::new();
-	let mut import_names: HashMap<&str, HashSet<&str>> = HashMap::new();
-	let mut import_js_glues: HashMap<&str, HashMap<&str, &[u8]>> = HashMap::new();
+	let mut found_import: HashMap<&str, HashMap<&str, &[u8]>> = HashMap::new();
+	let mut expected_import: HashMap<&str, HashSet<&str>> = HashMap::new();
+	let mut provided_import: HashMap<&str, HashMap<&str, &[u8]>> = HashMap::new();
 	let mut memory = None;
 
 	for payload in Parser::new(0).parse_all(&wasm_input) {
@@ -263,12 +323,15 @@ fn post_processing(output_path: &Path, main_memory: (&[u8], &[u8])) {
 					unimplemented!("objects with components are not supported")
 				}
 			}),
+			// Read what imports we need. This has already undergone dead-code elimination by LLD.
 			Payload::ImportSection(i) => {
 				let mut import_section = ImportSection::new();
 
 				for i in i {
 					let mut import = i.expect("import should be parsable");
 
+					// This is `llvm-mc` workaround for 32-bit tables when compiling to Wasm64.
+					// See https://github.com/llvm/llvm-project/issues/172907.
 					// TODO: This linker is supposed to be agnostic towards `js-sys`.
 					if let TypeRef::Table(t) = &mut import.ty
 						&& t.table64 && import.module == "js_sys"
@@ -284,29 +347,30 @@ fn post_processing(output_path: &Path, main_memory: (&[u8], &[u8])) {
 							.expect("`wasmparser` type should be convertible"),
 					);
 
+					// The main memory has its own dedicated output handling.
 					if let TypeRef::Memory(m) = import.ty
-						&& import.module.as_bytes() == main_memory.0
-						&& import.name.as_bytes() == main_memory.1
+						&& import.module == main_memory.module
+						&& import.name == main_memory.name
 					{
 						memory = Some(m);
 						continue;
 					}
 
-					if let Some(glue) = import_js_glues
+					if let Some(code) = provided_import
 						.get_mut(import.module)
 						.and_then(|names| names.remove(import.name))
 					{
-						js_glue
+						found_import
 							.entry(import.module)
 							.or_default()
-							.insert(import.name, glue);
+							.insert(import.name, code);
 					} else {
 						assert!(
-							import_names
+							expected_import
 								.entry(import.module)
 								.or_default()
 								.insert(import.name),
-							"found duplicate import: {}/{}",
+							"found duplicate import: `{}:{}`",
 							import.module,
 							import.name
 						);
@@ -315,12 +379,11 @@ fn post_processing(output_path: &Path, main_memory: (&[u8], &[u8])) {
 
 				import_section.append_to(&mut wasm_output);
 			}
+			// Don't write back our assembly sections.
 			Payload::CustomSection(c) if c.name() == "js_bindgen.assembly" => (),
+			// Extract all embedded imports.
 			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.import.") => {
-				let stripped = c
-					.name()
-					.strip_prefix("js_bindgen.import.")
-					.expect("custom section name should be formatted correctly");
+				let stripped = c.name().strip_prefix("js_bindgen.import.").unwrap();
 				let (module, name) = stripped
 					.split_once('.')
 					.expect("custom section name should be formatted correctly");
@@ -328,51 +391,54 @@ fn post_processing(output_path: &Path, main_memory: (&[u8], &[u8])) {
 				let mut data = c.data();
 				let length = data
 					.get(..4)
-					.unwrap_or_else(|| panic!("found empty JS glue for `{module}/{name}`"));
+					.unwrap_or_else(|| panic!("found no JS import for `{module}:{name}`"));
 				data = &data[4..];
 				let length = u32::from_le_bytes(length.try_into().unwrap()) as usize;
 
 				if length == 0 {
-					panic!("found empty JS glue for `{module}.{name}`")
+					panic!("found empty JS import for `{module}:{name}`")
 				}
 
-				let glue = data.get(..length).unwrap_or_else(|| {
-					panic!("invalid length encoding for JS glue for `{module}/{name}`")
+				let js = data.get(..length).unwrap_or_else(|| {
+					panic!("invalid length encoding in JS import for `{module}:{name}`")
 				});
 				data = &data[length..];
 
 				assert!(
 					data.is_empty(),
-					"found multiple JS glues for the same import:\n\tImport: \
-					 {module}/{name}\n\tJS Glue 1:\n{}\n\tJS Glue 2:\n{}",
-					String::from_utf8_lossy(glue),
+					"found multiple JS imports for `{module}:{name}`\n\tJS Import 1:\n{}\n\tJS \
+					 Import 2:\n{}",
+					String::from_utf8_lossy(js),
 					String::from_utf8_lossy(data),
 				);
 
-				if import_names
+				if expected_import
 					.get_mut(module)
 					.map(|names| names.remove(name))
 					.unwrap_or_default()
 				{
-					js_glue.entry(module).or_default().insert(name, glue);
-				} else {
-					assert!(
-						import_js_glues
-							.entry_ref(module)
-							.or_default()
-							.insert(name, glue)
-							.is_none(),
-						"found duplicate JS glue for the same import:\n\tImport: \
-						 {module}/{name}\n\tJS Glue:\n{}",
-						String::from_utf8_lossy(glue)
+					found_import.entry(module).or_default().insert(name, js);
+				} else if let Some(js_old) = provided_import
+					.entry_ref(module)
+					.or_default()
+					.insert(name, js)
+				{
+					panic!(
+						"found multiple JS imports for `{module}:{name}`\n\tJS Import \
+						 1:\n{}\n\tJS Import 2:\n{}",
+						String::from_utf8_lossy(js_old),
+						String::from_utf8_lossy(js)
 					);
 				}
 			}
 			Payload::CodeSectionEntry(_) | Payload::End(_) => (),
 			payload => {
-				let (id, range) = payload
-					.as_section()
-					.unwrap_or_else(|| panic!("payload should be parsable: {payload:?}"));
+				let (id, range) = payload.as_section().unwrap_or_else(|| {
+					panic!(
+						"expected parsable payload in {}:\n{payload:?}",
+						output_path.display()
+					)
+				});
 				RawSection {
 					id,
 					data: &wasm_input[range],
@@ -382,11 +448,13 @@ fn post_processing(output_path: &Path, main_memory: (&[u8], &[u8])) {
 		}
 	}
 
-	let memory = memory.expect("unable to find main memory");
+	let memory = memory.expect("main memory should be present");
 
-	fs::write(output_path, wasm_output).expect("object file should be writable");
+	fs::write(output_path, wasm_output).expect("output Wasm file should be writable");
 
 	let mut js_output = Vec::new();
+
+	// Create our `WebAssembly.Memory`.
 	js_output.extend_from_slice(b"const memory = new WebAssembly.Memory({ ");
 
 	if memory.memory64 {
@@ -412,15 +480,17 @@ fn post_processing(output_path: &Path, main_memory: (&[u8], &[u8])) {
 	}
 
 	js_output.extend_from_slice(b" })\n");
+
+	// Create our `importObject`.
 	js_output.extend_from_slice(b"export const importObject = {\n");
 	js_output.extend_from_slice(b"\tjs_bindgen: { memory },");
 
-	for (module, names) in js_glue {
+	for (module, names) in found_import {
 		writeln!(js_output, "\t{module}: {{").unwrap();
 
-		for (name, glue) in names {
+		for (name, js) in names {
 			write!(js_output, "\t\t\"{name}\": ").unwrap();
-			js_output.extend_from_slice(glue);
+			js_output.extend_from_slice(js);
 			js_output.extend_from_slice(b",\n");
 		}
 
@@ -433,5 +503,5 @@ fn post_processing(output_path: &Path, main_memory: (&[u8], &[u8])) {
 		output_path.with_file_name(package).with_extension("js"),
 		js_output,
 	)
-	.expect("object file should be writable");
+	.expect("output JS file should be writable");
 }
