@@ -15,8 +15,10 @@ mod shared;
 #[cfg(test)]
 mod test;
 
+#[cfg(not(test))]
+use std::env;
 use std::iter::Peekable;
-use std::{env, iter, mem};
+use std::{iter, mem};
 
 use js_bindgen_shared::*;
 use proc_macro::{
@@ -31,16 +33,7 @@ pub fn unsafe_embed_asm(input: TokenStream) -> TokenStream {
 fn embed_asm_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let mut input = input.into_iter().peekable();
 	let assembly = parse_string_arguments(&mut input, Span::mixed_site())?;
-	let output = custom_section("js_bindgen.assembly", &assembly);
-
-	if let Some(tok) = input.next() {
-		Err(compile_error(
-			tok.span(),
-			"expected no tokens after string literals and formatting parameters",
-		))
-	} else {
-		Ok(output)
-	}
+	Ok(custom_section("js_bindgen.assembly", &assembly))
 }
 
 #[cfg_attr(not(test), proc_macro)]
@@ -51,29 +44,24 @@ pub fn js_import(input: TokenStream) -> TokenStream {
 fn js_import_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let mut input = input.into_iter().peekable();
 
+	#[cfg(not(test))]
 	let package = env::var("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` not found");
+	#[cfg(test)]
+	let package = String::from("test_crate");
 	let name = expect_meta_name_value(&mut input, "name")?;
 
 	let comma = expect_punct(
 		&mut input,
 		',',
 		Span::mixed_site(),
-		"`,` and a list of string literals",
+		"`name = \"...\",` and a list of string literals",
+		false,
 	)?;
 
-	let output = custom_section(
+	Ok(custom_section(
 		&format!("js_bindgen.import.{package}.{name}"),
 		&parse_string_arguments(&mut input, comma.span())?,
-	);
-
-	if input.next().is_some() {
-		Err(compile_error(
-			Span::mixed_site(),
-			"expected no tokens after string literals and formatting parameters",
-		))
-	} else {
-		Ok(output)
-	}
+	))
 }
 
 struct Argument {
@@ -83,7 +71,7 @@ struct Argument {
 
 enum ArgumentKind {
 	String(String),
-	Type(Vec<TokenTree>),
+	Interpolate(Vec<TokenTree>),
 }
 
 fn parse_string_arguments(
@@ -95,8 +83,19 @@ fn parse_string_arguments(
 
 	while let Some(tok) = stream.peek() {
 		match tok {
-			TokenTree::Literal(_) => {
-				let (lit, string) = parse_string_literal(&mut stream, previous_span)?;
+			TokenTree::Literal(l) => {
+				let lit = l.to_string();
+
+				if lit
+					.strip_prefix('"')
+					.and_then(|lit| lit.strip_suffix('"'))
+					.is_none()
+				{
+					break;
+				}
+
+				let (lit, string) =
+					parse_string_literal(&mut stream, previous_span, "string literal", false)?;
 				previous_span = lit.span();
 
 				// Only insert newline when there are multiple strings.
@@ -110,6 +109,7 @@ fn parse_string_arguments(
 						',',
 						previous_span,
 						"a `,` after string literal",
+						false,
 					)?
 					.span();
 				}
@@ -117,21 +117,26 @@ fn parse_string_arguments(
 				strings.push((current_cfg.take(), string));
 			}
 			TokenTree::Punct(p) if p.as_char() == '#' => {
+				let punct = expect_punct(&mut stream, '#', previous_span, "`#`", false)?;
+				let group =
+					expect_group(&mut stream, Delimiter::Bracket, punct.span(), "`#[...]`")?;
+
 				if current_cfg.is_some() {
 					return Err(compile_error(
-						previous_span,
+						(previous_span, group.span()),
 						"multiple `cfg`s in a row not supported",
 					));
 				}
 
-				let punct = expect_punct(&mut stream, '#', previous_span, "`#`")?;
+				expect_ident(
+					group.stream().into_iter(),
+					"cfg",
+					group.span(),
+					"`cfg`",
+					false,
+				)?;
 				previous_span = punct.span();
-				let group =
-					expect_group(&mut stream, Delimiter::Bracket, previous_span, "`[...]`")?;
-				previous_span = group.span();
-				previous_span =
-					expect_ident(group.stream().into_iter(), "cfg", previous_span, "`cfg`")?.span();
-				// We don't want to parse the rest.
+				// We don't need to parse the rest.
 
 				current_cfg = Some([punct.into(), group.into()]);
 			}
@@ -141,7 +146,10 @@ fn parse_string_arguments(
 
 	if strings.is_empty() {
 		return Err(compile_error(
-			previous_span,
+			stream
+				.peek()
+				.map(TokenTree::span)
+				.unwrap_or_else(Span::mixed_site),
 			"requires at least a string argument",
 		));
 	};
@@ -151,8 +159,7 @@ fn parse_string_arguments(
 
 	// Apply argument formatting.
 	for (cfg, string) in strings {
-		// Something is leftover from the previous iteration but we now have a new `cfg`
-		// to contend with!
+		// Don't merge strings when dealing with a `cfg`.
 		if cfg.is_some() && !current_string.is_empty() {
 			arguments.push(Argument {
 				cfg: None,
@@ -165,6 +172,7 @@ fn parse_string_arguments(
 		while let Some(char) = chars.next() {
 			match char {
 				'{' => match chars.next() {
+					// Escaped `{`.
 					Some('{') => current_string.push('{'),
 					Some('}') => match chars.peek() {
 						Some('}') => {
@@ -174,30 +182,49 @@ fn parse_string_arguments(
 							))
 						}
 						_ => {
-							arguments.push(Argument {
-								cfg: cfg.clone(),
-								kind: ArgumentKind::String(mem::take(&mut current_string)),
-							});
-							previous_span = expect_ident(
-								&mut stream,
-								"interpolate",
-								previous_span,
-								"`interpolate`, the only supported operand type",
-							)?
-							.span();
-							arguments.push(Argument {
-								cfg: cfg.clone(),
-								kind: ArgumentKind::Type(parse_ty_or_value(stream, previous_span)?),
-							});
+							if !current_string.is_empty() {
+								arguments.push(Argument {
+									cfg: cfg.clone(),
+									kind: ArgumentKind::String(mem::take(&mut current_string)),
+								});
+							}
 
-							if stream.peek().is_some() {
-								let punct = expect_punct(
-									&mut stream,
-									',',
-									previous_span,
-									"a `,` between formatting parameters",
-								)?;
-								previous_span = punct.span();
+							match stream.peek() {
+								Some(_) => {
+									previous_span = expect_ident(
+										&mut stream,
+										"interpolate",
+										previous_span,
+										"`interpolate`",
+										false,
+									)?
+									.span();
+									arguments.push(Argument {
+										cfg: cfg.clone(),
+										kind: ArgumentKind::Interpolate(parse_ty_or_value(
+											stream,
+											previous_span,
+											"a value",
+										)?),
+									});
+
+									if stream.peek().is_some() {
+										let punct = expect_punct(
+											&mut stream,
+											',',
+											previous_span,
+											"a `,` between formatting parameters",
+											false,
+										)?;
+										previous_span = punct.span();
+									}
+								}
+								None => {
+									return Err(compile_error(
+										previous_span,
+										"expected an argument for `{}`",
+									))
+								}
 							}
 						}
 					},
@@ -209,6 +236,7 @@ fn parse_string_arguments(
 					}
 				},
 				'}' => match chars.next() {
+					// Escaped `}`.
 					Some('}') => current_string.push('}'),
 					_ => {
 						return Err(compile_error(
@@ -221,6 +249,7 @@ fn parse_string_arguments(
 			}
 		}
 
+		// Don't merge strings when dealing with a `cfg`.
 		if cfg.is_some() && !current_string.is_empty() {
 			arguments.push(Argument {
 				cfg: cfg.clone(),
@@ -236,7 +265,14 @@ fn parse_string_arguments(
 		});
 	}
 
-	Ok(arguments)
+	if let Some(tok) = stream.next() {
+		Err(compile_error(
+			tok.span(),
+			"expected no tokens after string literals and formatting parameters",
+		))
+	} else {
+		Ok(arguments)
+	}
 }
 
 /// ```"not rust"
@@ -313,7 +349,7 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 					))
 					.collect::<Vec<_>>()
 			}
-			ArgumentKind::Type(ty) => {
+			ArgumentKind::Interpolate(interpolate) => {
 				let value_name = format!("VAL{index}");
 				let value = TokenTree::from(Ident::new(&value_name, span));
 				let len_name = format!("LEN{index}");
@@ -330,7 +366,7 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 							Punct::new('&', Spacing::Alone).into(),
 							Ident::new("str", span).into(),
 						],
-						ty.iter().cloned(),
+						interpolate.iter().cloned(),
 						span,
 					))
 					.chain(arg.cfg.clone().into_iter().flatten())
@@ -485,7 +521,9 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 						ArgumentKind::String(string) => {
 							Literal::usize_unsuffixed(string.len()).into()
 						}
-						ArgumentKind::Type(_) => Ident::new(&format!("LEN{index}"), span).into(),
+						ArgumentKind::Interpolate(_) => {
+							Ident::new(&format!("LEN{index}"), span).into()
+						}
 					},
 				]),
 			)),
@@ -591,9 +629,10 @@ fn expect_meta_name_value(
 ) -> Result<String, TokenStream> {
 	let expected = format!("`{ident} = \"...\"`");
 
-	let span = expect_ident(&mut stream, ident, Span::mixed_site(), &expected)?.span();
-	let span = expect_punct(&mut stream, '=', span, &expected)?.span();
-	let (_, string) = parse_string_literal(stream, span)?;
+	let ident = expect_ident(&mut stream, ident, Span::mixed_site(), &expected, false)?;
+	let mut span = SpanRange::from(ident.span());
+	span.end = expect_punct(&mut stream, '=', span, &expected, true)?.span();
+	let (_, string) = parse_string_literal(stream, span, &expected, true)?;
 
 	Ok(string)
 }

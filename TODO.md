@@ -2,7 +2,7 @@
 
 - Work some more on `embed_asm!`:
   - Implement external types.
-  - Namespace `asm`.
+  - Namespace ASM.
 - Basic runner.
 
 # Critical Priority

@@ -6,7 +6,7 @@ error: requires at least a string argument
   |
   = note: this error originates in the macro `js_bindgen::unsafe_embed_asm` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: expected a string literal
+error: requires at least a string argument
  --> tests/ui/string_arguments.rs:4:31
   |
 4 | js_bindgen::unsafe_embed_asm!(42);
@@ -24,5 +24,92 @@ error: expected a `,` after string literal
 10 | js_bindgen::unsafe_embed_asm!("" 5);
    |                                  ^
 
-error: aborting due to 4 previous errors
+error: expected `#[...]`
+  --> tests/ui/string_arguments.rs:13:31
+   |
+13 | js_bindgen::unsafe_embed_asm!(#foo);
+   |                               ^^^^
+
+error: expected `cfg`
+  --> tests/ui/string_arguments.rs:16:33
+   |
+16 | js_bindgen::unsafe_embed_asm!(#[foo]);
+   |                                 ^^^
+
+error: multiple `cfg`s in a row not supported
+  --> tests/ui/string_arguments.rs:20:2
+   |
+20 | /     #[cfg()]
+21 | |     #[cfg()]
+   | |____________^
+
+error: requires at least a string argument
+  --> tests/ui/string_arguments.rs:26:1
+   |
+26 | js_bindgen::unsafe_embed_asm!(#[cfg()]);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `js_bindgen::unsafe_embed_asm` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: no corresponding closing bracers found
+  --> tests/ui/string_arguments.rs:29:31
+   |
+29 | js_bindgen::unsafe_embed_asm!("{}}");
+   |                               ^^^^^
+
+error: expected `interpolate`
+  --> tests/ui/string_arguments.rs:32:37
+   |
+32 | js_bindgen::unsafe_embed_asm!("{}", foo);
+   |                                     ^^^
+
+error: expected a value
+  --> tests/ui/string_arguments.rs:35:37
+   |
+35 | js_bindgen::unsafe_embed_asm!("{}", interpolate);
+   |                                     ^^^^^^^^^^^
+
+error: expected `*const`
+  --> tests/ui/string_arguments.rs:38:49
+   |
+38 | js_bindgen::unsafe_embed_asm!("{}", interpolate *mut);
+   |                                                 ^^^^
+
+error: type not completed, missing `>`
+  --> tests/ui/string_arguments.rs:41:49
+   |
+41 | js_bindgen::unsafe_embed_asm!("{}", interpolate < Foo);
+   |                                                 ^^^^^
+
+error: expected a value
+  --> tests/ui/string_arguments.rs:44:37
+   |
+44 | js_bindgen::unsafe_embed_asm!("{}", interpolate,);
+   |                                     ^^^^^^^^^^^^
+
+error: expected a `,` between formatting parameters
+  --> tests/ui/string_arguments.rs:47:53
+   |
+47 | js_bindgen::unsafe_embed_asm!("{}", interpolate Foo &);
+   |                                                     ^
+
+error: expected an argument for `{}`
+  --> tests/ui/string_arguments.rs:50:38
+   |
+50 | js_bindgen::unsafe_embed_asm!("foo", "{}");
+   |                                      ^^^^
+
+error: no corresponding closing bracers found
+  --> tests/ui/string_arguments.rs:53:38
+   |
+53 | js_bindgen::unsafe_embed_asm!("foo", "{a");
+   |                                      ^^^^
+
+error: no corresponding opening bracers found
+  --> tests/ui/string_arguments.rs:56:38
+   |
+56 | js_bindgen::unsafe_embed_asm!("foo", "a}");
+   |                                      ^^^^
+
+error: aborting due to 18 previous errors
 

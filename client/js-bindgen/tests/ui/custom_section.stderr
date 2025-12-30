@@ -1,0 +1,22 @@
+error[E0425]: cannot find value `Foo` in this scope
+ --> tests/ui/custom_section.rs:1:49
+  |
+1 | js_bindgen::unsafe_embed_asm!("{}", interpolate Foo);
+  |                                                 ^^^ not found in this scope
+
+error[E0308]: mismatched types
+ --> tests/ui/custom_section.rs:6:49
+  |
+6 | js_bindgen::unsafe_embed_asm!("{}", interpolate Bar);
+  |                                                 ^^^ expected `&str`, found `Bar`
+
+error[E0308]: mismatched types
+ --> tests/ui/custom_section.rs:9:49
+  |
+9 | js_bindgen::unsafe_embed_asm!("{}", interpolate 42);
+  |                                                 ^^ expected `&str`, found integer
+
+error: aborting due to 3 previous errors
+
+Some errors have detailed explanations: E0308, E0425.
+For more information about an error, try `rustc --explain E0308`.

@@ -47,14 +47,11 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 	let mut namespace = None;
 
 	while attr.peek().is_some() {
-		let ident = parse_ident(&mut attr, Span::mixed_site(), "identifier")?;
-		let punct = expect_punct(&mut attr, '=', ident.span(), "`=`")?;
+		let ident = parse_ident(&mut attr, Span::mixed_site(), "`<identifier> = ...`")?;
+		let punct = expect_punct(&mut attr, '=', ident.span(), "`<identifier> = ...`", true)?;
 
 		if attr.peek().is_none() {
-			return Err(compile_error(
-				punct.span(),
-				"expected value after `attribute = `",
-			));
+			return Err(compile_error(punct.span(), "expected `<identifier> = ...`"));
 		};
 
 		match ident.to_string().as_str() {
@@ -66,7 +63,11 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 					));
 				}
 
-				js_sys = Some(parse_ty_or_value(&mut attr, punct.span())?);
+				js_sys = Some(parse_ty_or_value(
+					&mut attr,
+					punct.span(),
+					"`js_sys = <path>`",
+				)?);
 			}
 			"namespace" => {
 				if namespace.is_some() {
@@ -76,7 +77,8 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 					));
 				}
 
-				let (_, string) = parse_string_literal(&mut attr, punct.span())?;
+				let (_, string) =
+					parse_string_literal(&mut attr, punct.span(), "`namespace = \"...\"`", true)?;
 				namespace = Some(string);
 			}
 			_ => {
@@ -88,7 +90,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 		};
 
 		if attr.peek().is_some() {
-			expect_punct(&mut attr, ',', ident.span(), "`,` after attribute")?;
+			expect_punct(&mut attr, ',', ident.span(), "`,` after attribute", false)?;
 		}
 	}
 
@@ -99,6 +101,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 		"extern",
 		Span::mixed_site(),
 		"`extern \"C\" { ... }` item",
+		false,
 	)?;
 
 	let abi_span = match item.next() {
@@ -121,16 +124,34 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 
 		if let TokenTree::Punct(p) = tok {
 			if p.as_char() == '#' {
-				let hash = expect_punct(&mut fns, '#', Span::mixed_site(), "`js_sys` attribute")?;
+				let hash = expect_punct(
+					&mut fns,
+					'#',
+					Span::mixed_site(),
+					"`js_sys` attribute",
+					false,
+				)?;
 				let meta = expect_group(&mut fns, Delimiter::Bracket, hash.span(), "`[...]`")?;
 				let mut inner = meta.stream().into_iter();
-				let js_sys = expect_ident(&mut inner, "js_sys", meta.span(), "`js_sys(...)")?;
+				let js_sys =
+					expect_ident(&mut inner, "js_sys", meta.span(), "`js_sys(...)", false)?;
 				let meta =
 					expect_group(&mut inner, Delimiter::Parenthesis, js_sys.span(), "`(...)`")?;
 				let mut inner = meta.stream().into_iter();
 				let attribute = parse_ident(&mut inner, meta.span(), "`<attribute> = \"...\"`")?;
-				let equal = expect_punct(&mut inner, '=', attribute.span(), "`= \"...\"`")?;
-				let (_, name) = parse_string_literal(&mut inner, equal.span())?;
+				let equal = expect_punct(
+					&mut inner,
+					'=',
+					attribute.span(),
+					"<attribute> `= \"...\"`",
+					true,
+				)?;
+				let (_, name) = parse_string_literal(
+					&mut inner,
+					equal.span(),
+					"<attribute> `= \"...\"`",
+					true,
+				)?;
 
 				js_name = Some(match attribute.to_string().as_str() {
 					"js_name" => JsName::Name(name),
@@ -493,7 +514,7 @@ fn parse_extern_fn(
 	let (visibility, r#fn) = match ident_string.as_str() {
 		"pub" => (
 			Some(ident),
-			expect_ident(&mut stream, "fn", ident_span, "function item")?,
+			expect_ident(&mut stream, "fn", ident_span, "function item", false)?,
 		),
 		"fn" => (None, ident),
 		_ => return Err(compile_error(ident_span, "expected function item")),
@@ -519,14 +540,16 @@ fn parse_extern_fn(
 			':',
 			name.span(),
 			"colon after parameter name",
+			false,
 		)?;
-		let ty = parse_ty_or_value(&mut parms_stream, colon.span())?;
+		let ty = parse_ty_or_value(&mut parms_stream, colon.span(), "a type")?;
 		let comma = if parms_stream.peek().is_some() {
 			Some(expect_punct(
 				&mut parms_stream,
 				',',
 				name.span(),
 				"`,` after parameter type",
+				false,
 			)?)
 		} else {
 			None
@@ -545,9 +568,21 @@ fn parse_extern_fn(
 	let ret_ty = match punct.as_char() {
 		';' => None,
 		'-' => {
-			let closing = expect_punct(&mut stream, '>', parms_span, "`->` for the return type")?;
-			let ret_ty = parse_ty_or_value(stream, closing.span())?;
-			expect_punct(stream, ';', closing.span(), "`;` after function definition")?;
+			let closing = expect_punct(
+				&mut stream,
+				'>',
+				parms_span,
+				"`->` for the return type",
+				true,
+			)?;
+			let ret_ty = parse_ty_or_value(stream, closing.span(), "a type")?;
+			expect_punct(
+				stream,
+				';',
+				closing.span(),
+				"`;` after function definition",
+				false,
+			)?;
 
 			Some(([punct.into(), closing.into()], ret_ty))
 		}
