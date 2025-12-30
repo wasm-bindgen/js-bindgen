@@ -1,10 +1,3 @@
-# Current
-
-- Work some more on `embed_asm!`:
-  - Implement external types.
-  - Namespace ASM.
-- Basic runner.
-
 # Critical Priority
 
 - Replace `llvm-mc` with `wasm-tools`. See [bytecodealliance/wasm-tools#2405].
