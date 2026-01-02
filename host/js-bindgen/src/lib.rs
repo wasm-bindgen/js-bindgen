@@ -279,18 +279,20 @@ fn parse_string_arguments(
 /// ```"not rust"
 /// const _: () = {
 /// 	const LEN: u32 = {
-/// 		let mut len = 0;
+/// 		let mut len: usize = 0;
 /// 		len += LEN<index>;
 /// 		len += LEN<index>;
 /// 		...
 /// 		len as u32
 /// 	};
 ///
-/// 	#[repr(C)]
-/// 	struct Layout([u8; 4], #([u8; <argument>.len()]),*);
+/// 	const _: () = {
+/// 		#[repr(C)]
+/// 		struct Layout([u8; 4], #([u8; <argument>.len()]),*);
 ///
-/// 	#[link_section = name]
-/// 	static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), #(data),*);
+/// 		#[link_section = name]
+/// 		static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), #(data),*);
+/// 	};
 /// };
 /// ```
 fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
@@ -298,8 +300,7 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 
 	// For every string we insert:
 	// ```
-	// const LEN<index>: usize = <argument>.len();
-	// const ARR<index>: [u8; LEN<index>] = *<argument>;
+	// const ARR<index>: [u8; <argument>.len()] = *<argument>;
 	// ```
 	//
 	// For every formatting argument we insert:
@@ -314,28 +315,19 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		.enumerate()
 		.flat_map(|(index, arg)| match &arg.kind {
 			ArgumentKind::String(string) => {
-				let len = format!("LEN{index}");
-
-				// `const LEN<index>: usize = <argument>.len();`
+				// `const ARR<index>: [u8; <argument>.len()] = *<argument>;`
 				arg.cfg
 					.clone()
 					.into_iter()
 					.flatten()
 					.chain(r#const(
-						&len,
-						iter::once(Ident::new("usize", span).into()),
-						iter::once(Literal::usize_unsuffixed(string.len()).into()),
-					))
-					// `const ARR<index>: [u8; LEN<index>] = *<argument>;`
-					.chain(arg.cfg.clone().into_iter().flatten())
-					.chain(r#const(
 						&format!("ARR{index}"),
 						iter::once(group(
 							Delimiter::Bracket,
 							[
-								Ident::new("u8", span).into(),
+								ident("u8"),
 								Punct::new(';', Spacing::Alone).into(),
-								Ident::new(&len, span).into(),
+								Literal::usize_unsuffixed(string.len()).into(),
 							],
 						)),
 						[
@@ -347,7 +339,7 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 			}
 			ArgumentKind::Interpolate(interpolate) => {
 				let value_name = format!("VAL{index}");
-				let value = TokenTree::from(Ident::new(&value_name, span));
+				let value = ident(&value_name);
 				let len_name = format!("LEN{index}");
 				let ptr_name = format!("PTR{index}");
 
@@ -358,17 +350,14 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 					.flatten()
 					.chain(r#const(
 						&value_name,
-						[
-							Punct::new('&', Spacing::Alone).into(),
-							Ident::new("str", span).into(),
-						],
+						[Punct::new('&', Spacing::Alone).into(), ident("str")],
 						interpolate.iter().cloned(),
 					))
 					// `const LEN<index>: usize = ::core::primitive::str::len(VAL<index>);`
 					.chain(arg.cfg.clone().into_iter().flatten())
 					.chain(r#const(
 						&len_name,
-						iter::once(Ident::new("usize", span).into()),
+						iter::once(ident("usize")),
 						path(["core", "primitive", "str", "len"], span).chain(iter::once(group(
 							Delimiter::Parenthesis,
 							iter::once(value.clone()),
@@ -380,8 +369,8 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 						&ptr_name,
 						[
 							Punct::new('*', Spacing::Alone).into(),
-							Ident::new("const", span).into(),
-							Ident::new("u8", span).into(),
+							ident("const"),
+							ident("u8"),
 						],
 						path(["core", "primitive", "str", "as_ptr"], span)
 							.chain(iter::once(group(Delimiter::Parenthesis, iter::once(value)))),
@@ -393,13 +382,13 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 						iter::once(group(
 							Delimiter::Bracket,
 							[
-								Ident::new("u8", span).into(),
+								ident("u8"),
 								Punct::new(';', Spacing::Alone).into(),
-								Ident::new(&len_name, span).into(),
+								ident(&len_name),
 							],
 						)),
 						[
-							Ident::new("unsafe", span).into(),
+							ident("unsafe"),
 							group(
 								Delimiter::Brace,
 								[
@@ -407,11 +396,11 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 									group(
 										Delimiter::Parenthesis,
 										[
-											Ident::new(&ptr_name, span).into(),
-											Ident::new("as", span).into(),
+											ident(&ptr_name),
+											ident("as"),
 											Punct::new('*', Spacing::Alone).into(),
-											Ident::new("const", span).into(),
-											Ident::new("_", span).into(),
+											ident("const"),
+											ident("_"),
 										],
 									),
 								],
@@ -424,7 +413,7 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 
 	// ```
 	// const LEN: u32 = {
-	//     let mut len = 0;
+	//     let mut len: usize = 0;
 	//     len += LEN<index>;
 	//     len += LEN<index>;
 	//     ...
@@ -433,13 +422,15 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 	// ```
 	let len = r#const(
 		"LEN",
-		iter::once(Ident::new("u32", span).into()),
+		iter::once(ident("u32")),
 		[group(
 			Delimiter::Brace,
 			[
-				Ident::new("let", span).into(),
-				Ident::new("mut", span).into(),
-				Ident::new("len", span).into(),
+				ident("let"),
+				ident("mut"),
+				ident("len"),
+				Punct::new(':', Spacing::Alone).into(),
+				ident("usize"),
 				Punct::new('=', Spacing::Alone).into(),
 				Literal::usize_unsuffixed(0).into(),
 				Punct::new(';', Spacing::Alone).into(),
@@ -453,19 +444,20 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 					.chain(iter::once(group(
 						Delimiter::Brace,
 						[
-							Ident::new("len", span).into(),
+							ident("len"),
 							Punct::new('+', Spacing::Joint).into(),
 							Punct::new('=', Spacing::Alone).into(),
-							Ident::new(&format!("LEN{index}"), span).into(),
+							match &par.kind {
+								ArgumentKind::String(string) => {
+									Literal::usize_unsuffixed(string.len()).into()
+								}
+								ArgumentKind::Interpolate(_) => ident(&format!("LEN{index}")),
+							},
 							Punct::new(';', Spacing::Alone).into(),
 						],
 					)))
 			}))
-			.chain([
-				Ident::new("len", span).into(),
-				Ident::new("as", span).into(),
-				Ident::new("u32", span).into(),
-			]),
+			.chain([ident("len"), ident("as"), ident("u32")]),
 		)],
 	);
 
@@ -474,7 +466,7 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		group(
 			Delimiter::Bracket,
 			[
-				Ident::new("u8", span).into(),
+				ident("u8"),
 				Punct::new(';', Spacing::Alone).into(),
 				Literal::usize_unsuffixed(4).into(),
 			],
@@ -487,15 +479,13 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 			group(
 				Delimiter::Bracket,
 				[
-					Ident::new("u8", span).into(),
+					ident("u8"),
 					Punct::new(';', Spacing::Alone).into(),
 					match &arg.kind {
 						ArgumentKind::String(string) => {
 							Literal::usize_unsuffixed(string.len()).into()
 						}
-						ArgumentKind::Interpolate(_) => {
-							Ident::new(&format!("LEN{index}"), span).into()
-						}
+						ArgumentKind::Interpolate(_) => ident(&format!("LEN{index}")),
 					},
 				],
 			),
@@ -512,15 +502,12 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		group(
 			Delimiter::Bracket,
 			[
-				Ident::new("repr", span).into(),
-				group(
-					Delimiter::Parenthesis,
-					iter::once(Ident::new("C", span).into()),
-				),
+				ident("repr"),
+				group(Delimiter::Parenthesis, iter::once(ident("C"))),
 			],
 		),
-		Ident::new("struct", span).into(),
-		Ident::new("Layout", span).into(),
+		ident("struct"),
+		ident("Layout"),
 		group(Delimiter::Parenthesis, tys),
 		Punct::new(';', Spacing::Alone).into(),
 	];
@@ -531,11 +518,11 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		group(
 			Delimiter::Bracket,
 			[
-				Ident::new("unsafe", span).into(),
+				ident("unsafe"),
 				group(
 					Delimiter::Parenthesis,
 					[
-						Ident::new("link_section", span).into(),
+						ident("link_section"),
 						Punct::new('=', Spacing::Alone).into(),
 						Literal::string(name).into(),
 					],
@@ -549,15 +536,12 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		Delimiter::Parenthesis,
 		path(["core", "primitive", "u32", "to_le_bytes"], span)
 			.chain([
-				group(
-					Delimiter::Parenthesis,
-					iter::once(Ident::new("LEN", span).into()),
-				),
+				group(Delimiter::Parenthesis, iter::once(ident("LEN"))),
 				Punct::new(',', Spacing::Alone).into(),
 			])
 			.chain(data.iter().enumerate().flat_map(move |(index, arg)| {
 				arg.cfg.clone().into_iter().flatten().chain([
-					Ident::new(&format!("ARR{index}"), span).into(),
+					ident(&format!("ARR{index}")),
 					Punct::new(',', Spacing::Alone).into(),
 				])
 			})),
@@ -565,12 +549,12 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 
 	// `static CUSTOM_SECTION: Layout = Layout(...);`
 	let custom_section = [
-		Ident::new("static", span).into(),
-		Ident::new("CUSTOM_SECTION", span).into(),
+		ident("static"),
+		ident("CUSTOM_SECTION"),
 		Punct::new(':', Spacing::Alone).into(),
-		Ident::new("Layout", span).into(),
+		ident("Layout"),
 		Punct::new('=', Spacing::Alone).into(),
-		Ident::new("Layout", span).into(),
+		ident("Layout"),
 		values,
 		Punct::new(';', Spacing::Alone).into(),
 	];
@@ -581,11 +565,14 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		iter::once(group(Delimiter::Parenthesis, iter::empty())),
 		iter::once(group(
 			Delimiter::Brace,
-			consts
-				.chain(len)
-				.chain(layout)
-				.chain(link_section)
-				.chain(custom_section),
+			consts.chain(len).chain(r#const(
+				"_",
+				iter::once(group(Delimiter::Parenthesis, iter::empty())),
+				iter::once(group(
+					Delimiter::Brace,
+					layout.into_iter().chain(link_section).chain(custom_section),
+				)),
+			)),
 		)),
 	)
 	.collect()
@@ -610,11 +597,9 @@ fn r#const(
 	ty: impl IntoIterator<Item = TokenTree>,
 	value: impl IntoIterator<Item = TokenTree>,
 ) -> impl Iterator<Item = TokenTree> {
-	let span = Span::mixed_site();
-
 	[
-		Ident::new("const", span).into(),
-		Ident::new(name, span).into(),
+		ident("const"),
+		ident(name),
 		Punct::new(':', Spacing::Alone).into(),
 	]
 	.into_iter()
@@ -626,6 +611,10 @@ fn r#const(
 
 fn group(delimiter: Delimiter, inner: impl IntoIterator<Item = TokenTree>) -> TokenTree {
 	Group::new(delimiter, inner.into_iter().collect()).into()
+}
+
+fn ident(string: &str) -> TokenTree {
+	Ident::new(string, Span::mixed_site()).into()
 }
 
 #[cfg(not(test))]

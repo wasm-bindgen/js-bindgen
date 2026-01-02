@@ -7,9 +7,6 @@
 
 # High Priority
 
-- `js-bindgen` proc-macro improvements:
-  - Hide `Layout` in another `const _: () = { ... };` block for more hygiene.
-  - Remove `LEN<index>` generation for known string length's.
 - Allocate slots on the `externref` table in batches.
 - Determine what to do with `js_sys::UnwrapThrowExt`. Avoiding the panic machinery is nice for some
   very niche use-cases but it might be very annoying for most users. Maybe hide it behind a `cfg`
