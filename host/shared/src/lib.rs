@@ -42,7 +42,7 @@ pub fn parse_ty_or_value(
 				ty.push(stream.next().unwrap())
 			}
 			tok => {
-				span.end = tok.span();
+				span = tok.span().into();
 				break;
 			}
 		}

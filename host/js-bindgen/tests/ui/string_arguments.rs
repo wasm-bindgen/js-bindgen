@@ -7,10 +7,19 @@ js_bindgen::unsafe_embed_asm!(42);
 js_bindgen::unsafe_embed_asm!("", "\r");
 //~^ ERROR: escaping `r` is not supported
 
-js_bindgen::unsafe_embed_asm!("" 5);
+js_bindgen::unsafe_embed_asm!("" 42);
 //~^ ERROR: expected a `,` after string literal
 
+js_bindgen::unsafe_embed_asm!(.);
+//~^ ERROR: requires at least a string argument
+
+js_bindgen::unsafe_embed_asm!(#);
+//~^ ERROR: expected `#[...]`
+
 js_bindgen::unsafe_embed_asm!(#foo);
+//~^ ERROR: expected `#[...]`
+
+js_bindgen::unsafe_embed_asm!(#());
 //~^ ERROR: expected `#[...]`
 
 js_bindgen::unsafe_embed_asm!(#[foo]);
@@ -38,6 +47,9 @@ js_bindgen::unsafe_embed_asm!("{}", interpolate);
 js_bindgen::unsafe_embed_asm!("{}", interpolate *mut);
 //~^ ERROR: expected `*const`
 
+js_bindgen::unsafe_embed_asm!("{}", interpolate #);
+//~^ ERROR: expected a value
+
 js_bindgen::unsafe_embed_asm!("{}", interpolate < Foo);
 //~^ ERROR: type not completed, missing `>`
 
@@ -50,8 +62,14 @@ js_bindgen::unsafe_embed_asm!("{}", interpolate Foo &);
 js_bindgen::unsafe_embed_asm!("foo", "{}");
 //~^ ERROR: expected an argument for `{}`
 
+js_bindgen::unsafe_embed_asm!("foo", "{}", "{}", interpolate "test",);
+//~^ ERROR: expected an argument for `{}`
+
 js_bindgen::unsafe_embed_asm!("foo", "{a");
 //~^ ERROR: no corresponding closing bracers found
 
 js_bindgen::unsafe_embed_asm!("foo", "a}");
 //~^ ERROR: no corresponding opening bracers found
+
+js_bindgen::unsafe_embed_asm!("", 42);
+//~^ ERROR: expected no tokens after string literals and formatting parameters

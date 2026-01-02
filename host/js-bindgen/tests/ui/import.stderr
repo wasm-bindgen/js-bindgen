@@ -42,27 +42,33 @@ error: expected `name = "..."`
 19 | js_bindgen::js_import!(name = 42);
    |                        ^^^^^^^^^
 
-error: expected `name = "...",` and a list of string literals
-  --> tests/ui/import.rs:22:1
+error: expected `name = "..."`
+  --> tests/ui/import.rs:22:24
    |
-22 | js_bindgen::js_import!(name = "foo");
+22 | js_bindgen::js_import!(name = Foo);
+   |                        ^^^^^^^^^^
+
+error: expected `name = "...",` and a list of string literals
+  --> tests/ui/import.rs:25:1
+   |
+25 | js_bindgen::js_import!(name = "foo");
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: this error originates in the macro `js_bindgen::js_import` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: requires at least a string argument
-  --> tests/ui/import.rs:25:1
+  --> tests/ui/import.rs:28:1
    |
-25 | js_bindgen::js_import!(name = "foo",);
+28 | js_bindgen::js_import!(name = "foo",);
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: this error originates in the macro `js_bindgen::js_import` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: requires at least a string argument
-  --> tests/ui/import.rs:28:38
+  --> tests/ui/import.rs:31:38
    |
-28 | js_bindgen::js_import!(name = "foo", 55);
+31 | js_bindgen::js_import!(name = "foo", 42);
    |                                      ^^
 
-error: aborting due to 10 previous errors
+error: aborting due to 11 previous errors
 

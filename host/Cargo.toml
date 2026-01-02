@@ -21,11 +21,14 @@ ui_test = { version = "0.30", default-features = false, features = ["rustc"] }
 wasm-encoder = { version = "0.243", default-features = false, features = ["wasmparser"] }
 wasmparser = { version = "0.243", default-features = false }
 
+[patch.crates-io]
+# Proc-macro bug: https://github.com/oli-obk/ui_test/issues/361.
+ui_test = { git = "https://github.com/daxpedda/ui_test", branch = "js-bindgen" }
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
+
 [workspace.lints.clippy]
 obfuscated_if_else = "allow"
 tabs_in_doc_comments = "allow"
 undocumented_unsafe_blocks = "warn"
-
-[patch.crates-io]
-# Proc-macro bug: https://github.com/oli-obk/ui_test/issues/361.
-ui_test = { git = "https://github.com/daxpedda/ui_test", branch = "js-bindgen" }

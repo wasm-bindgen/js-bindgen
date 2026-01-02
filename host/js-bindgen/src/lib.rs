@@ -1,3 +1,5 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+
 #[cfg(test)]
 extern crate proc_macro2 as proc_macro;
 #[cfg(test)]
@@ -15,7 +17,7 @@ use shared as js_bindgen_shared;
 #[path = "shared/lib.rs"]
 mod shared;
 #[cfg(test)]
-mod test;
+mod tests;
 
 #[cfg(not(test))]
 use std::env;
@@ -46,10 +48,7 @@ pub fn js_import(input: TokenStream) -> TokenStream {
 fn js_import_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let mut input = input.into_iter().peekable();
 
-	#[cfg(not(test))]
-	let package = env::var("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` not found");
-	#[cfg(test)]
-	let package = String::from("test_crate");
+	let package = package();
 	let name = expect_meta_name_value(&mut input, "name")?;
 
 	let comma = expect_punct(
@@ -119,7 +118,7 @@ fn parse_string_arguments(
 				strings.push((current_cfg.take(), string));
 			}
 			TokenTree::Punct(p) if p.as_char() == '#' => {
-				let punct = expect_punct(&mut stream, '#', previous_span, "`#`", false)?;
+				let punct = expect_punct(&mut stream, '#', previous_span, "`#`", false).unwrap();
 				let group =
 					expect_group(&mut stream, Delimiter::Bracket, punct.span(), "`#[...]`")?;
 
@@ -627,4 +626,15 @@ fn r#const(
 
 fn group(delimiter: Delimiter, inner: impl IntoIterator<Item = TokenTree>) -> TokenTree {
 	Group::new(delimiter, inner.into_iter().collect()).into()
+}
+
+#[cfg(not(test))]
+#[cfg_attr(coverage_nightly, coverage(off))]
+fn package() -> String {
+	env::var("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` not found")
+}
+
+#[cfg(test)]
+fn package() -> String {
+	String::from("test_crate")
 }
