@@ -53,7 +53,7 @@
 - Nicer error/warning messages from linker and when appropriate instruct users to file bug reports.
 - Polish LLD linker argument parsing. Maybe learn from [`wasm-component-ld`]. We need a way of
   handling the same argument being passed multiple times.
-- Align with the behavior of `wasm-ld`, printing only when the `--verbose` option is enabled.
+- Print more debugging information in the linker but gate it behind `-v`.
 
 [`wasm-component-ld`]: https://github.com/bytecodealliance/wasm-component-ld
 

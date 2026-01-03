@@ -218,22 +218,16 @@ fn process_object(
 				file_counter += 1;
 				let asm_path = archive_path.with_added_extension(format!("asm.{file_counter}.o"));
 
-				// Our object files now with the fingerprint, so we can simply check whether the file
-				// exists to avoid re-generating them each time.
-				//
-				// The fingerprint is the hash of a series of configurations.
-				// See <https://doc.rust-lang.org/beta/nightly-rustc/cargo/core/compiler/fingerprint/index.html#fingerprints-and-unithashs>
-				if asm_path.exists() {
-					eprintln!("{} has already been processed", archive_path.display());
-					add_args.push(asm_path.into());
-					continue;
+				// Only compile if the file doesn't already exist. Existing fingerprinting
+				// ensures freshness:
+				// https://doc.rust-lang.org/1.92.0/nightly-rustc/cargo/core/compiler/fingerprint/index.html#fingerprints-and-unithashs
+				if !asm_path.exists() {
+					let asm_object = assembly_to_object(arch_str, assembly)
+						.expect("compiling assembly should be valid");
+
+					fs::write(&asm_path, asm_object)
+						.expect("writing assembly object file should succeed");
 				}
-
-				let asm_object = assembly_to_object(arch_str, assembly)
-					.expect("compiling assembly should be valid");
-
-				fs::write(&asm_path, asm_object)
-					.expect("writing assembly object file should succeed");
 
 				add_args.push(asm_path.into());
 			}
