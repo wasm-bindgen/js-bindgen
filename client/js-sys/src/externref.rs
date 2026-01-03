@@ -69,7 +69,7 @@ js_bindgen::unsafe_embed_asm!(
 	"	end_function",
 );
 
-js_bindgen::js_import!(
+js_bindgen::import_js!(
 	name = "externref.table",
 	"new WebAssembly.Table({{ initial: 1, element: \"externref\" }})",
 );

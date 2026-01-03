@@ -6,7 +6,7 @@ fn basic() {
 		crate::unsafe_embed_asm(quote! { "foo", "bar" }),
 		quote! {
 			const _: () = {
-				const ARR0: [u8; 7] = *b"foo\nbar";
+				const ARR_0: [u8; 7] = *b"foo\nbar";
 
 				const LEN: u32 = {
 					let mut len: usize = 0;
@@ -19,7 +19,7 @@ fn basic() {
 					struct Layout([u8; 4], [u8; 7]);
 
 					#[unsafe(link_section = "js_bindgen.assembly")]
-					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR0);
+					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 				};
 			};
 		},
@@ -55,7 +55,7 @@ fn no_newline() {
 		crate::unsafe_embed_asm(quote! { "foo" }),
 		quote! {
 			const _: () = {
-				const ARR0: [u8; 3] = *b"foo";
+				const ARR_0: [u8; 3] = *b"foo";
 
 				const LEN: u32 = {
 					let mut len: usize = 0;
@@ -68,7 +68,7 @@ fn no_newline() {
 					struct Layout([u8; 4], [u8; 3]);
 
 					#[unsafe(link_section = "js_bindgen.assembly")]
-					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR0);
+					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 				};
 			};
 		},
@@ -90,10 +90,10 @@ fn merge_strings() {
 		}),
 		quote! {
 			const _: () = {
-				const ARR0: [u8; 12] = *b"foo\nbar\nbaz\n";
+				const ARR_0: [u8; 12] = *b"foo\nbar\nbaz\n";
 				#[cfg(test)]
-				const ARR1: [u8; 4] = *b"qux\n";
-				const ARR2: [u8; 17] = *b"quux\ncorge\ngrault";
+				const ARR_1: [u8; 4] = *b"qux\n";
+				const ARR_2: [u8; 17] = *b"quux\ncorge\ngrault";
 
 				const LEN: u32 = {
 					let mut len: usize = 0;
@@ -117,10 +117,10 @@ fn merge_strings() {
 					#[unsafe(link_section = "js_bindgen.assembly")]
 					static CUSTOM_SECTION: Layout = Layout(
 						::core::primitive::u32::to_le_bytes(LEN),
-						ARR0,
+						ARR_0,
 						#[cfg(test)]
-						ARR1,
-						ARR2,
+						ARR_1,
+						ARR_2,
 					);
 				};
 			};
@@ -141,14 +141,14 @@ fn merge_edge_1() {
 		}),
 		quote! {
 			const _: () = {
-				const ARR0: [u8; 1] = *b"\n";
+				const ARR_0: [u8; 1] = *b"\n";
 				#[cfg(test)]
-				const ARR1: [u8; 1] = *b"\n";
-				const ARR2: [u8; 4] = *b"foo\n";
-				const VAL3: &str = &Bar;
-				const LEN3: usize = ::core::primitive::str::len(VAL3);
-				const PTR3: *const u8 = ::core::primitive::str::as_ptr(VAL3);
-				const ARR3: [u8; LEN3] = unsafe { *(PTR3 as *const _) };
+				const ARR_1: [u8; 1] = *b"\n";
+				const ARR_2: [u8; 4] = *b"foo\n";
+				const VAL_3: &str = &Bar;
+				const LEN_3: usize = ::core::primitive::str::len(VAL_3);
+				const PTR_3: *const u8 = ::core::primitive::str::as_ptr(VAL_3);
+				const ARR_3: [u8; LEN_3] = unsafe { *(PTR_3 as *const _) };
 
 				const LEN: u32 = {
 					let mut len: usize = 0;
@@ -156,7 +156,7 @@ fn merge_edge_1() {
 					#[cfg(test)]
 					{ len += 1; }
 					{ len += 4; }
-					{ len += LEN3; }
+					{ len += LEN_3; }
 					len as u32
 				};
 
@@ -168,17 +168,17 @@ fn merge_edge_1() {
 						#[cfg(test)]
 						[u8; 1],
 						[u8; 4],
-						[u8; LEN3],
+						[u8; LEN_3],
 					);
 
 					#[unsafe(link_section = "js_bindgen.assembly")]
 					static CUSTOM_SECTION: Layout = Layout(
 						::core::primitive::u32::to_le_bytes(LEN),
-						ARR0,
+						ARR_0,
 						#[cfg(test)]
-						ARR1,
-						ARR2,
-						ARR3,
+						ARR_1,
+						ARR_2,
+						ARR_3,
 					);
 				};
 			};
@@ -198,7 +198,7 @@ fn merge_edge_2() {
 		quote! {
 			const _: () = {
 				#[cfg(test)]
-				const ARR0: [u8; 1] = *b"\n";
+				const ARR_0: [u8; 1] = *b"\n";
 
 				const LEN: u32 = {
 					let mut len: usize = 0;
@@ -215,7 +215,7 @@ fn merge_edge_2() {
 					static CUSTOM_SECTION: Layout = Layout(
 						::core::primitive::u32::to_le_bytes(LEN),
 						#[cfg(test)]
-						ARR0,
+						ARR_0,
 					);
 				};
 			};
@@ -234,10 +234,10 @@ fn cfg() {
 		}),
 		quote! {
 			const _: () = {
-				const ARR0: [u8; 6] = *b"test1\n";
+				const ARR_0: [u8; 6] = *b"test1\n";
 				#[cfg(test)]
-				const ARR1: [u8; 6] = *b"test2\n";
-				const ARR2: [u8; 5] = *b"test3";
+				const ARR_1: [u8; 6] = *b"test2\n";
+				const ARR_2: [u8; 5] = *b"test3";
 
 				const LEN: u32 = {
 					let mut len: usize = 0;
@@ -254,10 +254,10 @@ fn cfg() {
 					#[unsafe(link_section = "js_bindgen.assembly")]
 					static CUSTOM_SECTION: Layout = Layout(
 						::core::primitive::u32::to_le_bytes(LEN),
-						ARR0,
+						ARR_0,
 						#[cfg(test)]
-						ARR1,
-						ARR2,
+						ARR_1,
+						ARR_2,
 					);
 				};
 			};
@@ -271,7 +271,7 @@ fn escape() {
 		crate::unsafe_embed_asm(quote! { "\n\t\"\\{{}}" }),
 		quote! {
 			const _: () = {
-				const ARR0: [u8; 6] = *b"\n\t\"\\{}";
+				const ARR_0: [u8; 6] = *b"\n\t\"\\{}";
 
 				const LEN: u32 = {
 					let mut len: usize = 0;
@@ -284,7 +284,7 @@ fn escape() {
 					struct Layout([u8; 4], [u8; 6]);
 
 					#[unsafe(link_section = "js_bindgen.assembly")]
-					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR0);
+					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 				};
 			};
 		},
@@ -297,23 +297,23 @@ fn interpolate() {
 		crate::unsafe_embed_asm(quote! { "{}", interpolate "test" }),
 		quote! {
 			const _: () = {
-				const VAL0: &str = "test";
-				const LEN0: usize = ::core::primitive::str::len(VAL0);
-				const PTR0: *const u8 = ::core::primitive::str::as_ptr(VAL0);
-				const ARR0: [u8; LEN0] = unsafe { *(PTR0 as *const _) };
+				const VAL_0: &str = "test";
+				const LEN_0: usize = ::core::primitive::str::len(VAL_0);
+				const PTR_0: *const u8 = ::core::primitive::str::as_ptr(VAL_0);
+				const ARR_0: [u8; LEN_0] = unsafe { *(PTR_0 as *const _) };
 
 				const LEN: u32 = {
 					let mut len: usize = 0;
-					{ len += LEN0; }
+					{ len += LEN_0; }
 					len as u32
 				};
 
 				const _: () = {
 					#[repr(C)]
-					struct Layout([u8; 4], [u8; LEN0]);
+					struct Layout([u8; 4], [u8; LEN_0]);
 
 					#[unsafe(link_section = "js_bindgen.assembly")]
-					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR0);
+					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 				};
 			};
 		},
@@ -331,30 +331,30 @@ fn interpolate_edge() {
 		}),
 		quote! {
 			const _: () = {
-				const VAL0: &str = foo!();
-				const LEN0: usize = ::core::primitive::str::len(VAL0);
-				const PTR0: *const u8 = ::core::primitive::str::as_ptr(VAL0);
-				const ARR0: [u8; LEN0] = unsafe { *(PTR0 as *const _) };
-				const ARR1: [u8; 1] = *b"\n";
-				const VAL2: &str = <Foo<Bar::Baz> as Qux>::QUUX;
-				const LEN2: usize = ::core::primitive::str::len(VAL2);
-				const PTR2: *const u8 = ::core::primitive::str::as_ptr(VAL2);
-				const ARR2: [u8; LEN2] = unsafe { *(PTR2 as *const _) };
+				const VAL_0: &str = foo!();
+				const LEN_0: usize = ::core::primitive::str::len(VAL_0);
+				const PTR_0: *const u8 = ::core::primitive::str::as_ptr(VAL_0);
+				const ARR_0: [u8; LEN_0] = unsafe { *(PTR_0 as *const _) };
+				const ARR_1: [u8; 1] = *b"\n";
+				const VAL_2: &str = <Foo<Bar::Baz> as Qux>::QUUX;
+				const LEN_2: usize = ::core::primitive::str::len(VAL_2);
+				const PTR_2: *const u8 = ::core::primitive::str::as_ptr(VAL_2);
+				const ARR_2: [u8; LEN_2] = unsafe { *(PTR_2 as *const _) };
 
 				const LEN: u32 = {
 					let mut len: usize = 0;
-					{ len += LEN0; }
+					{ len += LEN_0; }
 					{ len += 1; }
-					{ len += LEN2; }
+					{ len += LEN_2; }
 					len as u32
 				};
 
 				const _: () = {
 					#[repr(C)]
-					struct Layout([u8; 4], [u8; LEN0], [u8; 1], [u8; LEN2]);
+					struct Layout([u8; 4], [u8; LEN_0], [u8; 1], [u8; LEN_2]);
 
 					#[unsafe(link_section = "js_bindgen.assembly")]
-					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR0, ARR1, ARR2);
+					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0, ARR_1, ARR_2);
 				};
 			};
 		},
@@ -364,13 +364,13 @@ fn interpolate_edge() {
 #[test]
 fn import() {
 	super::test(
-		crate::js_import(quote! {
+		crate::import_js(quote! {
 			name = "foo",
 			"bar", "baz",
 		}),
 		quote! {
 			const _: () = {
-				const ARR0: [u8; 7] = *b"bar\nbaz";
+				const ARR_0: [u8; 7] = *b"bar\nbaz";
 
 				const LEN: u32 = {
 					let mut len: usize = 0;
@@ -380,10 +380,61 @@ fn import() {
 
 				const _: () = {
 					#[repr(C)]
-					struct Layout([u8; 4], [u8; 7]);
+					struct Layout([u8; 4], [u8; 2], [u8; 7]);
 
 					#[unsafe(link_section = "js_bindgen.import.test_crate.foo")]
-					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR0);
+					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), [0, 0], ARR_0);
+				};
+			};
+		},
+	);
+}
+
+#[test]
+fn required_embed() {
+	super::test(
+		crate::import_js(quote! {
+			name = "foo", required_embed = "bar", "",
+		}),
+		quote! {
+			const _: () = {
+				const ARR_PREFIX: [u8; 3] = *b"bar";
+				const LEN: u32 = {
+					let mut len: usize = 0;
+					len as u32
+				};
+
+				const _: () = {
+					#[repr(C)]
+					struct Layout([u8; 4], [u8; 2], [u8; 3]);
+
+					#[unsafe(link_section = "js_bindgen.import.test_crate.foo")]
+					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), [3, 0], ARR_PREFIX);
+				};
+			};
+		},
+	);
+}
+
+#[test]
+fn embed() {
+	super::test(
+		crate::embed_js(quote! {
+			name = "foo", "",
+		}),
+		quote! {
+			const _: () = {
+				const LEN: u32 = {
+					let mut len: usize = 0;
+					len as u32
+				};
+
+				const _: () = {
+					#[repr(C)]
+					struct Layout([u8; 4]);
+
+					#[unsafe(link_section = "js_bindgen.js.test_crate.foo")]
+					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN));
 				};
 			};
 		},

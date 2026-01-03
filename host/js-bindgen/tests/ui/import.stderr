@@ -1,74 +1,108 @@
-error: expected `name = "..."`
+error: expected `<attribute> = "..."`
  --> tests/ui/import.rs:1:1
   |
-1 | js_bindgen::js_import!();
+1 | js_bindgen::import_js!();
   | ^^^^^^^^^^^^^^^^^^^^^^^^
   |
-  = note: this error originates in the macro `js_bindgen::js_import` (in Nightly builds, run with -Z macro-backtrace for more info)
+  = note: this error originates in the macro `js_bindgen::import_js` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: expected `name = "..."`
+error: expected `<attribute> = "..."`
  --> tests/ui/import.rs:4:24
   |
-4 | js_bindgen::js_import!(42);
+4 | js_bindgen::import_js!(42);
   |                        ^^
 
-error: expected `name = "..."`
+error: expected `<attribute> = "..."`
  --> tests/ui/import.rs:7:24
   |
-7 | js_bindgen::js_import!(foo);
+7 | js_bindgen::import_js!(foo);
   |                        ^^^
 
-error: expected `name = "..."`
+error: expected `<attribute> = "..."`
   --> tests/ui/import.rs:10:24
    |
-10 | js_bindgen::js_import!(name);
+10 | js_bindgen::import_js!(name);
    |                        ^^^^
 
-error: expected `name = "..."`
+error: expected `<attribute> = "..."`
   --> tests/ui/import.rs:13:24
    |
-13 | js_bindgen::js_import!(name+);
+13 | js_bindgen::import_js!(name+);
    |                        ^^^^^
 
-error: expected `name = "..."`
+error: expected `<attribute> = "..."`
   --> tests/ui/import.rs:16:24
    |
-16 | js_bindgen::js_import!(name =);
+16 | js_bindgen::import_js!(name =);
    |                        ^^^^^^
 
-error: expected `name = "..."`
+error: expected `<attribute> = "..."`
   --> tests/ui/import.rs:19:24
    |
-19 | js_bindgen::js_import!(name = 42);
+19 | js_bindgen::import_js!(name = 42);
    |                        ^^^^^^^^^
 
-error: expected `name = "..."`
+error: expected `<attribute> = "..."`
   --> tests/ui/import.rs:22:24
    |
-22 | js_bindgen::js_import!(name = Foo);
+22 | js_bindgen::import_js!(name = Foo);
    |                        ^^^^^^^^^^
 
-error: expected `name = "...",` and a list of string literals
-  --> tests/ui/import.rs:25:1
+error: expected `name`
+  --> tests/ui/import.rs:25:24
    |
-25 | js_bindgen::js_import!(name = "foo");
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = note: this error originates in the macro `js_bindgen::js_import` (in Nightly builds, run with -Z macro-backtrace for more info)
+25 | js_bindgen::import_js!(foo = "bar");
+   |                        ^^^
 
 error: requires at least a string argument
   --> tests/ui/import.rs:28:1
    |
-28 | js_bindgen::js_import!(name = "foo",);
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+28 | js_bindgen::import_js!(name = "foo");
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = note: this error originates in the macro `js_bindgen::js_import` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the macro `js_bindgen::import_js` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: requires at least a string argument
-  --> tests/ui/import.rs:31:38
+  --> tests/ui/import.rs:31:1
    |
-31 | js_bindgen::js_import!(name = "foo", 42);
+31 | js_bindgen::import_js!(name = "foo",);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `js_bindgen::import_js` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: requires at least a string argument
+  --> tests/ui/import.rs:34:38
+   |
+34 | js_bindgen::import_js!(name = "foo", 42);
    |                                      ^^
 
-error: aborting due to 11 previous errors
+error: expected `<attribute> = "..."`
+  --> tests/ui/import.rs:37:38
+   |
+37 | js_bindgen::import_js!(name = "foo", bar = Baz);
+   |                                      ^^^^^^^^^
+
+error: expected `required_embed`
+  --> tests/ui/import.rs:40:38
+   |
+40 | js_bindgen::import_js!(name = "foo", bar = "baz");
+   |                                      ^^^
+
+error: expected `<attribute> = "..."`
+  --> tests/ui/import.rs:43:1
+   |
+43 | js_bindgen::embed_js!();
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `js_bindgen::embed_js` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: requires at least a string argument
+  --> tests/ui/import.rs:46:1
+   |
+46 | js_bindgen::embed_js!(name = "foo");
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `js_bindgen::embed_js` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: aborting due to 16 previous errors
 

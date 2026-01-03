@@ -2,12 +2,14 @@ mod wasm_ld;
 
 use std::borrow::Cow;
 use std::ffi::{OsStr, OsString};
-use std::io::{Error, Write};
+use std::fmt::Write as _;
+use std::io::{Error, Write as _};
 use std::path::Path;
 use std::process::{self, Command, Stdio};
 use std::{env, fs};
 
 use hashbrown::{HashMap, HashSet};
+use itertools::{Itertools, Position};
 use object::read::archive::ArchiveFile;
 use wasm_encoder::{EntityType, ImportSection, Module, RawSection, Section};
 use wasmparser::{CustomSectionReader, Encoding, Parser, Payload, TypeRef};
@@ -208,7 +210,7 @@ fn process_object(
 		if let Payload::CustomSection(c) = payload
 			&& c.name() == "js_bindgen.assembly"
 		{
-			for assembly in CustomSectionParser::new(c) {
+			for assembly in CustomSectionParser::new(c, false) {
 				if assembly.is_empty() {
 					continue;
 				}
@@ -293,9 +295,12 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 	let wasm_input = fs::read(output_path).expect("output file should be readable");
 	let mut wasm_output = Vec::new();
 
-	let mut found_import: HashMap<&str, HashMap<&str, &[u8]>> = HashMap::new();
+	let mut found_import: HashMap<&str, HashMap<&str, &str>> = HashMap::new();
 	let mut expected_import: HashMap<&str, HashSet<&str>> = HashMap::new();
-	let mut provided_import: HashMap<&str, HashMap<&str, &[u8]>> = HashMap::new();
+	let mut provided_import: HashMap<&str, HashMap<&str, &str>> = HashMap::new();
+	let mut found_embed: HashMap<&str, HashMap<&str, &str>> = HashMap::new();
+	let mut expected_embed: HashMap<&str, HashSet<&str>> = HashMap::new();
+	let mut provided_embed: HashMap<&str, HashMap<&str, &str>> = HashMap::new();
 	let mut memory = None;
 
 	for payload in Parser::new(0).parse_all(&wasm_input) {
@@ -355,7 +360,7 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 								.entry(import.module)
 								.or_default()
 								.insert(import.name),
-							"found duplicate import: `{}:{}`",
+							"found duplicate JS import: `{}:{}`",
 							import.module,
 							import.name
 						);
@@ -366,27 +371,44 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 			}
 			// Don't write back our assembly sections.
 			Payload::CustomSection(c) if c.name() == "js_bindgen.assembly" => (),
-			// Extract all embedded imports.
+			// Extract all JS imports.
 			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.import.") => {
 				let stripped = c.name().strip_prefix("js_bindgen.import.").unwrap();
-				let (module, name) = stripped
-					.split_once('.')
-					.expect("custom section name should be formatted correctly");
+				let (module, name) = stripped.split_once('.').unwrap_or_else(|| {
+					panic!("found incorrectly formatted JS import custom section name: {stripped}")
+				});
 
-				let mut parser = CustomSectionParser::new(c);
-				let js = parser
+				let mut parser = CustomSectionParser::new(c, true);
+				let mut js = parser
 					.next()
 					.unwrap_or_else(|| panic!("found no JS import for `{module}:{name}`"));
 
+				let js_name = js
+					.get(0..2)
+					.and_then(|length| {
+						let length = usize::from(u16::from_le_bytes(length.try_into().unwrap()));
+						js.get(2..2 + length)
+					})
+					.unwrap_or_else(|| {
+						panic!("found invalid JS import encoding `{module}:{name}`")
+					});
+				let js_name = str::from_utf8(js_name).unwrap_or_else(|e| {
+					panic!("found invalid JS import encoding `{module}:{name}`: {e}")
+				});
+				js = &js[2 + js_name.len()..];
+				let js = str::from_utf8(js).unwrap_or_else(|e| {
+					panic!("found invalid JS import encoding `{module}:{name}`: {e}")
+				});
+
 				if js.is_empty() {
-					panic!("found empty JS import for `{module}:{name}`")
+					continue;
 				}
 
 				if let Some(new_js) = parser.next() {
 					panic!(
 						"found multiple JS imports for `{module}:{name}`\n\tJS Import \
 						 1:\n{}\n\tJS Import 2:\n{}",
-						String::from_utf8_lossy(js),
+						js,
 						String::from_utf8_lossy(new_js),
 					);
 				}
@@ -405,8 +427,71 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 					panic!(
 						"found multiple JS imports for `{module}:{name}`\n\tJS Import \
 						 1:\n{}\n\tJS Import 2:\n{}",
-						String::from_utf8_lossy(js_old),
-						String::from_utf8_lossy(js)
+						js_old, js
+					);
+				}
+
+				if js_name.is_empty() {
+					continue;
+				}
+
+				if found_embed
+					.get_mut(module)
+					.map(|names| names.contains_key(js_name))
+					.unwrap_or(false)
+				{
+				} else if let Some(code) = provided_embed
+					.get_mut(module)
+					.and_then(|names| names.remove(js_name))
+				{
+					found_embed.entry(module).or_default().insert(js_name, code);
+				} else {
+					expected_embed.entry(module).or_default().insert(js_name);
+				}
+			}
+			// Extract all JS embeds.
+			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.js.") => {
+				let stripped = c.name().strip_prefix("js_bindgen.js.").unwrap();
+				let (module, name) = stripped.split_once('.').unwrap_or_else(|| {
+					panic!("found incorrectly formatted JS import custom section name: {stripped}")
+				});
+
+				let mut parser = CustomSectionParser::new(c, false);
+				let js = parser
+					.next()
+					.unwrap_or_else(|| panic!("found no JS embed for `{module}:{name}`"));
+				let js = str::from_utf8(js).unwrap_or_else(|e| {
+					panic!("found invalid JS import encoding `{module}:{name}`: {e}")
+				});
+
+				if js.is_empty() {
+					continue;
+				}
+
+				if let Some(new_js) = parser.next() {
+					panic!(
+						"found multiple JS embeds for `{module}:{name}`\n\tJS Embed 1:\n{}\n\tJS \
+						 Embed 2:\n{}",
+						js,
+						String::from_utf8_lossy(new_js),
+					);
+				}
+
+				if expected_embed
+					.get_mut(module)
+					.map(|names| names.remove(name))
+					.unwrap_or_default()
+				{
+					found_embed.entry(module).or_default().insert(name, js);
+				} else if let Some(js_old) = provided_embed
+					.entry_ref(module)
+					.or_default()
+					.insert(name, js)
+				{
+					panic!(
+						"found multiple JS embeds for `{module}:{name}`\n\tJS Embed 1:\n{}\n\tJS \
+						 Embed 2:\n{}",
+						js_old, js
 					);
 				}
 			}
@@ -428,13 +513,21 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 	}
 
 	let memory = memory.expect("main memory should be present");
+	assert!(
+		expected_import.values().all(HashSet::is_empty),
+		"missing JS imports: {expected_import:?}"
+	);
+	assert!(
+		expected_embed.values().all(HashSet::is_empty),
+		"missing JS embed: {expected_embed:?}"
+	);
 
 	fs::write(output_path, wasm_output).expect("output Wasm file should be writable");
 
-	let mut js_output = Vec::new();
+	let mut js_output = String::new();
 
 	// Create our `WebAssembly.Memory`.
-	js_output.extend_from_slice(b"const memory = new WebAssembly.Memory({ ");
+	js_output.push_str("const memory = new WebAssembly.Memory({ ");
 
 	if memory.memory64 {
 		write!(js_output, "initial: {}n", memory.initial).unwrap();
@@ -451,32 +544,67 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 	}
 
 	if memory.memory64 {
-		js_output.extend_from_slice(b", address: 'i64'");
+		js_output.push_str(", address: 'i64'");
 	}
 
 	if memory.shared {
-		js_output.extend_from_slice(b", shared: true");
+		js_output.push_str(", shared: true");
 	}
 
-	js_output.extend_from_slice(b" })\n");
+	js_output.push_str(" })\n\n");
+
+	// Output requested embedded JS.
+	if !found_embed.is_empty() {
+		js_output.push_str("const jsEmbed = {\n");
+
+		for (package, embeds) in found_embed {
+			writeln!(js_output, "\t{package}: {{").unwrap();
+
+			for (name, js) in embeds {
+				write!(js_output, "\t\t\"{name}\": ").unwrap();
+
+				for (position, line) in js.lines().with_position() {
+					js_output.push_str(line);
+
+					if let Position::First | Position::Middle = position {
+						js_output.push_str("\n\t\t");
+					}
+				}
+
+				js_output.push_str(",\n");
+			}
+
+			js_output.push_str("\t},\n");
+		}
+
+		js_output.push_str("}\n\n");
+	}
 
 	// Create our `importObject`.
-	js_output.extend_from_slice(b"export const importObject = {\n");
-	js_output.extend_from_slice(b"\tjs_bindgen: { memory },");
+	js_output.push_str("export const importObject = {\n");
+	js_output.push_str("\tjs_bindgen: { memory },\n");
 
 	for (module, names) in found_import {
 		writeln!(js_output, "\t{module}: {{").unwrap();
 
 		for (name, js) in names {
 			write!(js_output, "\t\t\"{name}\": ").unwrap();
-			js_output.extend_from_slice(js);
-			js_output.extend_from_slice(b",\n");
+
+			for (position, line) in js.lines().with_position() {
+				js_output.push_str(line);
+
+				if let Position::First | Position::Middle = position {
+					js_output.push_str("\n\t\t");
+				}
+			}
+
+			js_output.push_str(",\n");
 		}
 
-		js_output.extend_from_slice(b"\t},\n");
+		js_output.push_str("\t},\n");
 	}
 
-	js_output.extend_from_slice(b"}\n");
+	js_output.push_str("}\n");
 
 	fs::write(
 		output_path.with_file_name(package).with_extension("js"),
@@ -488,13 +616,15 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 struct CustomSectionParser<'cs> {
 	name: &'cs str,
 	data: &'cs [u8],
+	prefix: bool,
 }
 
 impl<'cs> CustomSectionParser<'cs> {
-	fn new(custom_section: CustomSectionReader<'cs>) -> Self {
+	fn new(custom_section: CustomSectionReader<'cs>, prefix: bool) -> Self {
 		Self {
 			name: custom_section.name(),
 			data: custom_section.data(),
+			prefix,
 		}
 	}
 }
@@ -505,7 +635,13 @@ impl<'cs> Iterator for CustomSectionParser<'cs> {
 	fn next(&mut self) -> Option<Self::Item> {
 		if let Some(length) = self.data.get(..4) {
 			self.data = &self.data[4..];
-			let length = u32::from_le_bytes(length.try_into().unwrap()) as usize;
+			let mut length = u32::from_le_bytes(length.try_into().unwrap()) as usize;
+
+			if self.prefix {
+				let prefix = &self.data[0..2];
+				let prefix = u16::from_le_bytes(prefix.try_into().unwrap()) as usize;
+				length += 2 + prefix;
+			}
 
 			let data = self.data.get(..length).unwrap_or_else(|| {
 				panic!("invalid length encoding in custom section `{}`", self.name)

@@ -193,74 +193,85 @@ fn after() {
 
 #[test]
 fn import_empty() {
-	super::error(crate::js_import(quote! {}), "expected `name = \"...\"`");
+	super::error(
+		crate::import_js(quote! {}),
+		"expected `<attribute> = \"...\"`",
+	);
 }
 
 #[test]
 fn import_not_attribute() {
-	super::error(crate::js_import(quote! { 42 }), "expected `name = \"...\"`");
+	super::error(
+		crate::import_js(quote! { 42 }),
+		"expected `<attribute> = \"...\"`",
+	);
 }
 
 #[test]
 fn import_wrong_attribute() {
 	super::error(
-		crate::js_import(quote! { foo }),
-		"expected `name = \"...\"`",
+		crate::import_js(quote! { foo }),
+		"expected `<attribute> = \"...\"`",
 	);
 }
 
 #[test]
 fn import_no_equal() {
 	super::error(
-		crate::js_import(quote! { name }),
-		"expected `name = \"...\"`",
+		crate::import_js(quote! { name }),
+		"expected `<attribute> = \"...\"`",
 	);
 }
 
 #[test]
 fn import_not_equal() {
 	super::error(
-		crate::js_import(quote! { name + }),
-		"expected `name = \"...\"`",
+		crate::import_js(quote! { name + }),
+		"expected `<attribute> = \"...\"`",
 	);
 }
 
 #[test]
 fn import_no_value() {
 	super::error(
-		crate::js_import(quote! { name = }),
-		"expected `name = \"...\"`",
+		crate::import_js(quote! { name = }),
+		"expected `<attribute> = \"...\"`",
 	);
 }
 
 #[test]
 fn import_not_literal() {
 	super::error(
-		crate::js_import(quote! { name = 42 }),
-		"expected `name = \"...\"`",
+		crate::import_js(quote! { name = 42 }),
+		"expected `<attribute> = \"...\"`",
 	);
 }
 
 #[test]
 fn import_not_string() {
 	super::error(
-		crate::js_import(quote! { name = Foo }),
-		"expected `name = \"...\"`",
+		crate::import_js(quote! { name = Foo }),
+		"expected `<attribute> = \"...\"`",
 	);
+}
+
+#[test]
+fn import_not_name() {
+	super::error(crate::import_js(quote! { foo = "bar" }), "expected `name`");
 }
 
 #[test]
 fn import_no_strings() {
 	super::error(
-		crate::js_import(quote! { name = "foo" }),
-		"expected `name = \"...\",` and a list of string literals",
+		crate::import_js(quote! { name = "foo" }),
+		"requires at least a string argument",
 	);
 }
 
 #[test]
 fn import_no_strings_but_comma() {
 	super::error(
-		crate::js_import(quote! { name = "foo", }),
+		crate::import_js(quote! { name = "foo", }),
 		"requires at least a string argument",
 	);
 }
@@ -268,7 +279,39 @@ fn import_no_strings_but_comma() {
 #[test]
 fn import_not_strings() {
 	super::error(
-		crate::js_import(quote! { name = "foo", 42}),
+		crate::import_js(quote! { name = "foo", 42}),
+		"requires at least a string argument",
+	);
+}
+
+#[test]
+fn import_name_not_attribute() {
+	super::error(
+		crate::import_js(quote! { name = "foo", bar = Baz }),
+		"expected `<attribute> = \"...\"`",
+	);
+}
+
+#[test]
+fn import_not_required_embed() {
+	super::error(
+		crate::import_js(quote! { name = "foo", bar = "baz" }),
+		"expected `required_embed`",
+	);
+}
+
+#[test]
+fn embed_empty() {
+	super::error(
+		crate::embed_js(quote! {}),
+		"expected `<attribute> = \"...\"`",
+	);
+}
+
+#[test]
+fn embed_no_strings() {
+	super::error(
+		crate::embed_js(quote! { name = "foo" }),
 		"requires at least a string argument",
 	);
 }

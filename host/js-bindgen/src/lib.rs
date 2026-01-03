@@ -37,31 +37,48 @@ pub fn unsafe_embed_asm(input: TokenStream) -> TokenStream {
 fn embed_asm_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let mut input = input.into_iter().peekable();
 	let assembly = parse_string_arguments(&mut input, Span::mixed_site())?;
-	Ok(custom_section("js_bindgen.assembly", &assembly))
+	Ok(custom_section("js_bindgen.assembly", None, &assembly))
 }
 
 #[cfg_attr(not(test), proc_macro)]
-pub fn js_import(input: TokenStream) -> TokenStream {
-	js_import_internal(input).unwrap_or_else(|e| e)
+pub fn embed_js(input: TokenStream) -> TokenStream {
+	embed_js_internal(input).unwrap_or_else(|e| e)
 }
 
-fn js_import_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
+fn embed_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let mut input = input.into_iter().peekable();
 
 	let package = package();
 	let name = expect_meta_name_value(&mut input, "name")?;
 
-	let comma = expect_punct(
-		&mut input,
-		',',
-		Span::mixed_site(),
-		"`name = \"...\",` and a list of string literals",
-		false,
-	)?;
+	Ok(custom_section(
+		&format!("js_bindgen.js.{package}.{name}"),
+		None,
+		&parse_string_arguments(&mut input, Span::mixed_site())?,
+	))
+}
+
+#[cfg_attr(not(test), proc_macro)]
+pub fn import_js(input: TokenStream) -> TokenStream {
+	import_js_internal(input).unwrap_or_else(|e| e)
+}
+
+fn import_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
+	let mut input = input.into_iter().peekable();
+
+	let package = package();
+	let import_name = expect_meta_name_value(&mut input, "name")?;
+
+	let required_embed = if let Some(TokenTree::Ident(_)) = input.peek() {
+		Some(expect_meta_name_value(&mut input, "required_embed")?)
+	} else {
+		None
+	};
 
 	Ok(custom_section(
-		&format!("js_bindgen.import.{package}.{name}"),
-		&parse_string_arguments(&mut input, comma.span())?,
+		&format!("js_bindgen.import.{package}.{import_name}"),
+		Some(required_embed.as_deref().unwrap_or("")),
+		&parse_string_arguments(&mut input, Span::mixed_site())?,
 	))
 }
 
@@ -280,48 +297,69 @@ fn parse_string_arguments(
 /// const _: () = {
 /// 	const LEN: u32 = {
 /// 		let mut len: usize = 0;
-/// 		len += LEN<index>;
-/// 		len += LEN<index>;
-/// 		...
+/// 		#(len += LEN_<index>;)*
 /// 		len as u32
 /// 	};
 ///
 /// 	const _: () = {
 /// 		#[repr(C)]
-/// 		struct Layout([u8; 4], #([u8; <argument>.len()]),*);
+/// 		struct Layout([u8; 4], #([u8; LEN_<index>]),*);
 ///
 /// 		#[link_section = name]
-/// 		static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), #(data),*);
+/// 		static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), #(ARR_<index>),*);
 /// 	};
 /// };
 /// ```
-fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
+fn custom_section(name: &str, prefix: Option<&str>, data: &[Argument]) -> TokenStream {
 	let span = Span::mixed_site();
+
+	// If a prefix is present:
+	// `const ARR_PREFIX: [u8; <prefix>.len()] = *<prefix>;`
+	let const_prefix = prefix
+		.into_iter()
+		.filter(|prefix| !prefix.is_empty())
+		.flat_map(|prefix| {
+			r#const(
+				"ARR_PREFIX",
+				iter::once(group(
+					Delimiter::Bracket,
+					[
+						ident("u8"),
+						Punct::new(';', Spacing::Alone).into(),
+						Literal::usize_unsuffixed(prefix.len()).into(),
+					],
+				)),
+				[
+					Punct::new('*', Spacing::Alone).into(),
+					Literal::byte_string(prefix.as_bytes()).into(),
+				],
+			)
+		});
 
 	// For every string we insert:
 	// ```
-	// const ARR<index>: [u8; <argument>.len()] = *<argument>;
+	// const ARR_<index>: [u8; <argument>.len()] = *<argument>;
 	// ```
 	//
 	// For every formatting argument we insert:
 	// ```
-	// const VAL<index>: &str = <argument>;
-	// const LEN<index>: usize = ::core::primitive::str::len(VAL<index>);
-	// const PTR<index>: *const u8 = ::core::primitive::str::as_ptr(VAL<index>);
-	// const ARR<index>: [u8; LEN<index>] = unsafe { *(PTR<index> as *const _) };
+	// const VAL_<index>: &str = <argument>;
+	// const LEN_<index>: usize = ::core::primitive::str::len(VAL_<index>);
+	// const PTR_<index>: *const u8 = ::core::primitive::str::as_ptr(VAL_<index>);
+	// const ARR_<index>: [u8; LEN_<index>] = unsafe { *(PTR_<index> as *const _) };
 	// ```
 	let consts = data
 		.iter()
 		.enumerate()
 		.flat_map(|(index, arg)| match &arg.kind {
 			ArgumentKind::String(string) => {
-				// `const ARR<index>: [u8; <argument>.len()] = *<argument>;`
+				// `const ARR_<index>: [u8; <argument>.len()] = *<argument>;`
 				arg.cfg
 					.clone()
 					.into_iter()
 					.flatten()
 					.chain(r#const(
-						&format!("ARR{index}"),
+						&format!("ARR_{index}"),
 						iter::once(group(
 							Delimiter::Bracket,
 							[
@@ -338,12 +376,12 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 					.collect::<Vec<_>>()
 			}
 			ArgumentKind::Interpolate(interpolate) => {
-				let value_name = format!("VAL{index}");
+				let value_name = format!("VAL_{index}");
 				let value = ident(&value_name);
-				let len_name = format!("LEN{index}");
-				let ptr_name = format!("PTR{index}");
+				let len_name = format!("LEN_{index}");
+				let ptr_name = format!("PTR_{index}");
 
-				// `const VAL<index>: &str = <argument>;`
+				// `const VAL_<index>: &str = <argument>;`
 				arg.cfg
 					.clone()
 					.into_iter()
@@ -353,7 +391,7 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 						[Punct::new('&', Spacing::Alone).into(), ident("str")],
 						interpolate.iter().cloned(),
 					))
-					// `const LEN<index>: usize = ::core::primitive::str::len(VAL<index>);`
+					// `const LEN_<index>: usize = ::core::primitive::str::len(VAL_<index>);`
 					.chain(arg.cfg.clone().into_iter().flatten())
 					.chain(r#const(
 						&len_name,
@@ -363,7 +401,7 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 							iter::once(value.clone()),
 						))),
 					))
-					// `const PTR<index>: *const u8 = ::core::primitive::str::as_ptr(VAL<index>);`
+					// `const PTR_<index>: *const u8 = ::core::primitive::str::as_ptr(VAL_<index>);`
 					.chain(arg.cfg.clone().into_iter().flatten())
 					.chain(r#const(
 						&ptr_name,
@@ -375,10 +413,11 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 						path(["core", "primitive", "str", "as_ptr"], span)
 							.chain(iter::once(group(Delimiter::Parenthesis, iter::once(value)))),
 					))
-					// `const ARR<index>: [u8; LEN<index>] = unsafe { *(PTR<index> as *const _) };`
+					// `const ARR_<index>: [u8; LEN_<index>] = unsafe { *(PTR_<index> as *const _)
+					// };`
 					.chain(arg.cfg.clone().into_iter().flatten())
 					.chain(r#const(
-						&format!("ARR{index}"),
+						&format!("ARR_{index}"),
 						iter::once(group(
 							Delimiter::Bracket,
 							[
@@ -414,9 +453,7 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 	// ```
 	// const LEN: u32 = {
 	//     let mut len: usize = 0;
-	//     len += LEN<index>;
-	//     len += LEN<index>;
-	//     ...
+	//     #(len += LEN_<index>;)*
 	//     len as u32
 	// };
 	// ```
@@ -451,7 +488,7 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 								ArgumentKind::String(string) => {
 									Literal::usize_unsuffixed(string.len()).into()
 								}
-								ArgumentKind::Interpolate(_) => ident(&format!("LEN{index}")),
+								ArgumentKind::Interpolate(_) => ident(&format!("LEN_{index}")),
 							},
 							Punct::new(';', Spacing::Alone).into(),
 						],
@@ -461,7 +498,7 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		)],
 	);
 
-	// `[u8; 4], #([u8; <argument>.len()]),*`
+	// `[u8; 4], #([u8; LEN_<index>]),*`
 	let tys = [
 		group(
 			Delimiter::Bracket,
@@ -474,6 +511,39 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		Punct::new(',', Spacing::Alone).into(),
 	]
 	.into_iter()
+	// Optional prefix length.
+	.chain(prefix.into_iter().flat_map(|prefix| {
+		[
+			group(
+				Delimiter::Bracket,
+				[
+					ident("u8"),
+					Punct::new(';', Spacing::Alone).into(),
+					Literal::usize_unsuffixed(2).into(),
+				],
+			),
+			Punct::new(',', Spacing::Alone).into(),
+		]
+		.into_iter()
+		.chain(
+			(!prefix.is_empty())
+				.then(|| {
+					[
+						group(
+							Delimiter::Bracket,
+							[
+								ident("u8"),
+								Punct::new(';', Spacing::Alone).into(),
+								Literal::usize_unsuffixed(prefix.len()).into(),
+							],
+						),
+						Punct::new(',', Spacing::Alone).into(),
+					]
+				})
+				.into_iter()
+				.flatten(),
+		)
+	}))
 	.chain(data.iter().enumerate().flat_map(move |(index, arg)| {
 		arg.cfg.clone().into_iter().flatten().chain([
 			group(
@@ -485,7 +555,7 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 						ArgumentKind::String(string) => {
 							Literal::usize_unsuffixed(string.len()).into()
 						}
-						ArgumentKind::Interpolate(_) => ident(&format!("LEN{index}")),
+						ArgumentKind::Interpolate(_) => ident(&format!("LEN_{index}")),
 					},
 				],
 			),
@@ -531,7 +601,7 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		),
 	];
 
-	// (::core::primitive::u32::to_le_bytes(LEN), #(data),*)
+	// (::core::primitive::u32::to_le_bytes(LEN), #(ARR_<index>),*)
 	let values = group(
 		Delimiter::Parenthesis,
 		path(["core", "primitive", "u32", "to_le_bytes"], span)
@@ -539,9 +609,33 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 				group(Delimiter::Parenthesis, iter::once(ident("LEN"))),
 				Punct::new(',', Spacing::Alone).into(),
 			])
+			// Optional prefix value.
+			.chain(prefix.into_iter().flat_map(|prefix| {
+				let len = u16::try_from(prefix.len()).unwrap().to_le_bytes();
+
+				[
+					group(
+						Delimiter::Bracket,
+						[
+							Literal::u8_unsuffixed(len[0]).into(),
+							Punct::new(',', Spacing::Alone).into(),
+							Literal::u8_unsuffixed(len[1]).into(),
+							Punct::new(',', Spacing::Alone).into(),
+						],
+					),
+					Punct::new(',', Spacing::Alone).into(),
+				]
+				.into_iter()
+				.chain(
+					(!prefix.is_empty())
+						.then(|| [ident("ARR_PREFIX"), Punct::new(',', Spacing::Alone).into()])
+						.into_iter()
+						.flatten(),
+				)
+			}))
 			.chain(data.iter().enumerate().flat_map(move |(index, arg)| {
 				arg.cfg.clone().into_iter().flatten().chain([
-					ident(&format!("ARR{index}")),
+					ident(&format!("ARR_{index}")),
 					Punct::new(',', Spacing::Alone).into(),
 				])
 			})),
@@ -565,7 +659,7 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		iter::once(group(Delimiter::Parenthesis, iter::empty())),
 		iter::once(group(
 			Delimiter::Brace,
-			consts.chain(len).chain(r#const(
+			const_prefix.chain(consts).chain(len).chain(r#const(
 				"_",
 				iter::once(group(Delimiter::Parenthesis, iter::empty())),
 				iter::once(group(
@@ -579,15 +673,18 @@ fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 }
 
 fn expect_meta_name_value(
-	mut stream: impl Iterator<Item = TokenTree>,
-	ident: &str,
+	stream: &mut Peekable<token_stream::IntoIter>,
+	attribute: &str,
 ) -> Result<String, TokenStream> {
-	let expected = format!("`{ident} = \"...\"`");
+	let (ident, string) = parse_meta_name_value(stream)?;
 
-	let ident = expect_ident(&mut stream, ident, Span::mixed_site(), &expected, false)?;
-	let mut span = SpanRange::from(ident.span());
-	span.end = expect_punct(&mut stream, '=', span, &expected, true)?.span();
-	let (_, string) = parse_string_literal(stream, span, &expected, true)?;
+	#[cfg_attr(test, allow(clippy::cmp_owned))]
+	if ident.to_string() != attribute {
+		return Err(compile_error(
+			ident.span(),
+			format!("expected `{attribute}`"),
+		));
+	}
 
 	Ok(string)
 }

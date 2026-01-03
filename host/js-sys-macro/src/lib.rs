@@ -36,36 +36,36 @@ pub fn js_sys(attr: TokenStream, original_item: TokenStream) -> TokenStream {
 	})
 }
 
-enum JsName {
-	Name(String),
-	Import(String),
+enum JsFunction {
+	Global(String),
+	Embed(String),
 }
 
 fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, TokenStream> {
 	let mut attr = attr.into_iter().peekable();
 	let mut item = item.into_iter().peekable();
 
-	let mut js_sys = None;
+	let mut js_sys_path = None;
 	let mut namespace = None;
 
 	while attr.peek().is_some() {
-		let ident = parse_ident(&mut attr, Span::mixed_site(), "`<identifier> = ...`")?;
-		let punct = expect_punct(&mut attr, '=', ident.span(), "`<identifier> = ...`", true)?;
+		let ident = parse_ident(&mut attr, Span::mixed_site(), "`<attribute> = ...`")?;
+		let punct = expect_punct(&mut attr, '=', ident.span(), "`<attribute> = ...`", true)?;
 
 		if attr.peek().is_none() {
-			return Err(compile_error(punct.span(), "expected `<identifier> = ...`"));
+			return Err(compile_error(punct.span(), "expected `<attribute> = ...`"));
 		};
 
 		match ident.to_string().as_str() {
 			"js_sys" => {
-				if js_sys.is_some() {
+				if js_sys_path.is_some() {
 					return Err(compile_error(
 						punct.span(),
 						"`js_sys` attribute already set",
 					));
 				}
 
-				js_sys = Some(parse_ty_or_value(
+				js_sys_path = Some(parse_ty_or_value(
 					&mut attr,
 					punct.span(),
 					"`js_sys = <path>`",
@@ -96,7 +96,8 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 		}
 	}
 
-	let js_sys = js_sys.unwrap_or_else(|| path(iter::once("js_sys"), Span::mixed_site()).collect());
+	let js_sys_path =
+		js_sys_path.unwrap_or_else(|| path(iter::once("js_sys"), Span::mixed_site()).collect());
 
 	let r#extern = expect_ident(
 		&mut item,
@@ -122,8 +123,9 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 	let mut output = TokenStream::new();
 
 	while fns.peek().is_some() {
-		let mut js_name = None;
 		let mut cfg = None;
+		let mut js_sys = false;
+		let mut js_function = None;
 
 		while let Some(TokenTree::Punct(p)) = fns.peek() {
 			if p.as_char() == '#' {
@@ -136,13 +138,13 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 				)?;
 				let meta = expect_group(&mut fns, Delimiter::Bracket, hash.span(), "`[...]`")?;
 				let mut inner = meta.stream().into_iter();
-				let name = parse_ident(&mut inner, meta.span(), "`attribute(...)`")?;
+				let attribute = parse_ident(&mut inner, meta.span(), "`attribute(...)`")?;
 
-				match name.to_string().as_str() {
+				match attribute.to_string().as_str() {
 					"cfg" => {
 						if cfg.is_some() {
 							return Err(compile_error(
-								name.span(),
+								attribute.span(),
 								"multiple `js_sys` attributes are not supported",
 							));
 						}
@@ -150,49 +152,83 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 						cfg = Some([TokenTree::from(hash), meta.into()]);
 					}
 					"js_sys" => {
-						if js_name.is_some() {
+						if js_sys {
 							return Err(compile_error(
-								name.span(),
+								attribute.span(),
 								"multiple `js_sys` attributes are not supported",
 							));
+						} else {
+							js_sys = true;
 						}
 
 						let meta = expect_group(
 							&mut inner,
 							Delimiter::Parenthesis,
-							name.span(),
+							attribute.span(),
 							"`(...)`",
 						)?;
-						let mut inner = meta.stream().into_iter();
-						let attribute =
-							parse_ident(&mut inner, meta.span(), "`<attribute> = \"...\"`")?;
-						let equal = expect_punct(
-							&mut inner,
-							'=',
-							attribute.span(),
-							"<attribute> `= \"...\"`",
-							true,
-						)?;
-						let (_, name) = parse_string_literal(
-							&mut inner,
-							equal.span(),
-							"<attribute> `= \"...\"`",
-							true,
-						)?;
+						let mut inner = meta.stream().into_iter().peekable();
 
-						js_name = Some(match attribute.to_string().as_str() {
-							"js_name" => JsName::Name(name),
-							"js_import" => JsName::Import(name),
-							_ => {
-								return Err(compile_error(
-									attribute.span(),
-									"`js_name` or `js_import`",
-								));
+						while inner.peek().is_some() {
+							let (ident, string) = parse_meta_name_value(&mut inner)?;
+
+							match ident.to_string().as_str() {
+								"js_name" => {
+									if let Some(js_function) = js_function {
+										match js_function {
+											JsFunction::Global(_) => {
+												return Err(compile_error(
+													ident.span(),
+													"found duplicate `js_name` attributes",
+												));
+											}
+											JsFunction::Embed(_) => {
+												return Err(compile_error(
+													ident.span(),
+													"can't set `js_name` and `js_embed` at the \
+													 same time",
+												));
+											}
+										}
+									}
+
+									js_function = Some(JsFunction::Global(string));
+								}
+								"js_embed" => {
+									if let Some(js_function) = js_function {
+										match js_function {
+											JsFunction::Embed(_) => {
+												return Err(compile_error(
+													ident.span(),
+													"found duplicate `js_embed` attributes",
+												));
+											}
+											JsFunction::Global(_) => {
+												return Err(compile_error(
+													ident.span(),
+													"can't set `js_embed` and `js_name` at the \
+													 same time",
+												));
+											}
+										}
+									}
+
+									js_function = Some(JsFunction::Embed(string));
+								}
+								_ => {
+									return Err(compile_error(
+										ident.span(),
+										"expected `js_name` or `js_embed`",
+									));
+								}
 							}
-						})
+						}
 					}
 					_ => {
-						return Err(compile_error(name.span(), "unsupported attribute found"));
+						return Err(compile_error(
+							attribute.span(),
+							"unsupported attribute found",
+						));
 					}
 				}
 			}
@@ -206,25 +242,25 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 			ret_ty,
 		} = parse_extern_fn(&mut fns, Span::mixed_site())?;
 
-		let name_string = name.to_string();
-		let comp_name = if let Some(namespace) = &namespace {
-			format!("{namespace}.{name_string}")
+		let import_name = name.to_string();
+		let namespace_import_name = if let Some(namespace) = &namespace {
+			Cow::Owned(format!("{namespace}.{import_name}"))
 		} else {
-			name_string.clone()
+			Cow::Borrowed(import_name.as_str())
 		};
 
 		#[cfg(not(test))]
 		let package = env::var("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` not found");
 		#[cfg(test)]
 		let package = String::from("test_crate");
-		let mut comp_parms = String::new();
-		let comp_ret = ret_ty.as_ref().map(|_| "{}").unwrap_or_default();
+		let mut import_parms = String::new();
+		let import_ret = ret_ty.as_ref().map(|_| "{}").unwrap_or_default();
 
 		for _ in &parms {
-			if comp_parms.is_empty() {
-				comp_parms.push_str("{}");
+			if import_parms.is_empty() {
+				import_parms.push_str("{}");
 			} else {
-				comp_parms.push_str(", {}");
+				import_parms.push_str(", {}");
 			}
 		}
 
@@ -235,20 +271,16 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 			]
 		});
 
-		let import_name = match &js_name {
-			Some(JsName::Import(name)) => name.clone(),
-			_ => comp_name.clone(),
-		};
-
 		let strings = [
 			Cow::Owned(format!(
-				".import_module {package}.import.{import_name}, {package}"
+				".import_module {package}.import.{namespace_import_name}, {package}"
 			)),
 			Cow::Owned(format!(
-				".import_name {package}.import.{import_name}, {import_name}"
+				".import_name {package}.import.{namespace_import_name}, {namespace_import_name}"
 			)),
 			Cow::Owned(format!(
-				".functype {package}.import.{import_name} ({comp_parms}) -> ({comp_ret})"
+				".functype {package}.import.{namespace_import_name} ({import_parms}) -> \
+				 ({import_ret})"
 			)),
 			Cow::Borrowed(""),
 		]
@@ -265,15 +297,15 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 				.flat_map(|_| [Cow::Borrowed("{}"), Cow::Borrowed("")]),
 		)
 		.chain([
-			Cow::Owned(format!(".globl {package}.{comp_name}")),
-			Cow::Owned(format!("{package}.{comp_name}:")),
+			Cow::Owned(format!(".globl {package}.{namespace_import_name}")),
+			Cow::Owned(format!("{package}.{namespace_import_name}:")),
 			Cow::Owned(format!(
-				"\t.functype {package}.{comp_name} ({comp_parms}) -> ({comp_ret})",
+				"\t.functype {package}.{namespace_import_name} ({import_parms}) -> ({import_ret})",
 			)),
 		])
 		.chain(parms_input)
 		.chain(iter::once(Cow::Owned(format!(
-			"\tcall {package}.import.{import_name}"
+			"\tcall {package}.import.{namespace_import_name}"
 		))))
 		.chain(ret_ty.as_ref().into_iter().map(|_| Cow::Borrowed("\t{}")))
 		.chain(iter::once(Cow::Borrowed("\tend_function")));
@@ -284,7 +316,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 				.clone()
 				.chain(js_sys_hazard(
 					ty,
-					&js_sys,
+					&js_sys_path,
 					"Input",
 					"IMPORT_TYPE",
 					name.span(),
@@ -296,7 +328,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 				.clone()
 				.chain(js_sys_hazard(
 					ty,
-					&js_sys,
+					&js_sys_path,
 					"Output",
 					"IMPORT_TYPE",
 					name.span(),
@@ -308,7 +340,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 				.clone()
 				.chain(js_sys_hazard(
 					ty,
-					&js_sys,
+					&js_sys_path,
 					"Input",
 					"IMPORT_FUNC",
 					name.span(),
@@ -320,7 +352,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 				.clone()
 				.chain(js_sys_hazard(
 					ty,
-					&js_sys,
+					&js_sys_path,
 					"Output",
 					"IMPORT_FUNC",
 					name.span(),
@@ -330,84 +362,149 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 		let in_type_fmt = parms.iter().flat_map(|Parameter { name, ty, .. }| {
 			interpolate
 				.clone()
-				.chain(js_sys_hazard(ty, &js_sys, "Input", "TYPE", name.span()))
+				.chain(js_sys_hazard(
+					ty,
+					&js_sys_path,
+					"Input",
+					"TYPE",
+					name.span(),
+				))
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
 		let out_type_fmt = ret_ty.as_ref().into_iter().flat_map(|(_, ty)| {
 			interpolate
 				.clone()
-				.chain(js_sys_hazard(ty, &js_sys, "Output", "TYPE", name.span()))
+				.chain(js_sys_hazard(
+					ty,
+					&js_sys_path,
+					"Output",
+					"TYPE",
+					name.span(),
+				))
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
 		let in_conv_fmt = parms.iter().flat_map(|Parameter { name, ty, .. }| {
 			interpolate
 				.clone()
-				.chain(js_sys_hazard(ty, &js_sys, "Input", "CONV", name.span()))
+				.chain(js_sys_hazard(
+					ty,
+					&js_sys_path,
+					"Input",
+					"CONV",
+					name.span(),
+				))
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
 		let out_conv_fmt = ret_ty.as_ref().into_iter().flat_map(|(_, ty)| {
 			interpolate
 				.clone()
-				.chain(js_sys_hazard(ty, &js_sys, "Output", "CONV", name.span()))
+				.chain(js_sys_hazard(
+					ty,
+					&js_sys_path,
+					"Output",
+					"CONV",
+					name.span(),
+				))
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
 
-		let assembly = path_with_js_sys(&js_sys, ["js_bindgen", "unsafe_embed_asm"], name.span())
+		let assembly = path_with_js_sys(
+			&js_sys_path,
+			["js_bindgen", "unsafe_embed_asm"],
+			name.span(),
+		)
+		.chain([
+			Punct::new('!', Spacing::Alone).into(),
+			Group::new(
+				Delimiter::Parenthesis,
+				TokenStream::from_iter(
+					strings
+						.flat_map(|string| {
+							[
+								TokenTree::from(Literal::string(&string)),
+								Punct::new(',', Spacing::Alone).into(),
+							]
+						})
+						.chain(in_import_ty_fmt)
+						.chain(out_import_ty_fmt)
+						.chain(in_import_func_fmt)
+						.chain(out_import_func_fmt)
+						.chain(in_type_fmt)
+						.chain(out_type_fmt)
+						.chain(in_conv_fmt)
+						.chain(out_conv_fmt),
+				),
+			)
+			.into(),
+			Punct::new(';', Spacing::Alone).into(),
+		]);
+
+		let js_function_name = match &js_function {
+			Some(JsFunction::Global(js_name)) => {
+				if let Some(namespace) = &namespace {
+					format!("globalThis.{namespace}.{js_name}")
+				} else {
+					format!("globalThis.{js_name}")
+				}
+			}
+			Some(JsFunction::Embed(js_name)) => format!("jsEmbed.{package}[\"{js_name}\"]"),
+			None => format!("globalThis.{namespace_import_name}"),
+		};
+
+		let mut js_parms = String::new();
+
+		for Parameter { name, .. } in &parms {
+			if js_parms.is_empty() {
+				js_parms = name.to_string();
+			} else {
+				js_parms.extend([", ", &name.to_string()]);
+			}
+		}
+
+		let import_js = path_with_js_sys(&js_sys_path, ["js_bindgen", "import_js"], name.span())
 			.chain([
 				Punct::new('!', Spacing::Alone).into(),
 				Group::new(
 					Delimiter::Parenthesis,
 					TokenStream::from_iter(
-						strings
-							.flat_map(|string| {
-								[
-									TokenTree::from(Literal::string(&string)),
-									Punct::new(',', Spacing::Alone).into(),
-								]
-							})
-							.chain(in_import_ty_fmt)
-							.chain(out_import_ty_fmt)
-							.chain(in_import_func_fmt)
-							.chain(out_import_func_fmt)
-							.chain(in_type_fmt)
-							.chain(out_type_fmt)
-							.chain(in_conv_fmt)
-							.chain(out_conv_fmt),
+						[
+							TokenTree::from(Ident::new("name", name.span())),
+							Punct::new('=', Spacing::Alone).into(),
+							Literal::string(&namespace_import_name).into(),
+							Punct::new(',', Spacing::Alone).into(),
+						]
+						.into_iter()
+						.chain(
+							js_function
+								.as_ref()
+								.into_iter()
+								.filter_map(|f| {
+									if let JsFunction::Embed(n) = f {
+										Some(n)
+									} else {
+										None
+									}
+								})
+								.flat_map(|js_name| {
+									[
+										Ident::new("required_embed", name.span()).into(),
+										Punct::new('=', Spacing::Alone).into(),
+										Literal::string(js_name).into(),
+										Punct::new(',', Spacing::Alone).into(),
+									]
+								}),
+						)
+						.chain(iter::once(
+							Literal::string(&format!(
+								"({js_parms}) => {js_function_name}({js_parms})"
+							))
+							.into(),
+						)),
 					),
 				)
 				.into(),
 				Punct::new(';', Spacing::Alone).into(),
 			]);
-
-		let js_import = matches!(js_name, None | Some(JsName::Name(_))).then(|| {
-			let comp_js_name = match js_name {
-				Some(JsName::Name(name)) => {
-					if let Some(namespace) = &namespace {
-						Cow::Owned(format!("{namespace}.{name}"))
-					} else {
-						Cow::Owned(name)
-					}
-				}
-				Some(JsName::Import(_)) => unreachable!(),
-				None => Cow::Borrowed(&comp_name),
-			};
-
-			path_with_js_sys(&js_sys, ["js_bindgen", "js_import"], name.span()).chain([
-				Punct::new('!', Spacing::Alone).into(),
-				Group::new(
-					Delimiter::Parenthesis,
-					TokenStream::from_iter([
-						TokenTree::from(Ident::new("name", name.span())),
-						Punct::new('=', Spacing::Alone).into(),
-						Literal::string(&comp_name).into(),
-						Punct::new(',', Spacing::Alone).into(),
-						Literal::string(&comp_js_name).into(),
-					]),
-				)
-				.into(),
-				Punct::new(';', Spacing::Alone).into(),
-			])
-		});
 
 		let rust_parms = parms.iter().flat_map(|Parameter { name, ty, .. }| {
 			[
@@ -415,15 +512,24 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 				Punct::new(':', Spacing::Alone).into(),
 			]
 			.into_iter()
-			.chain(js_sys_hazard(ty, &js_sys, "Input", "Type", name.span()))
+			.chain(js_sys_hazard(
+				ty,
+				&js_sys_path,
+				"Input",
+				"Type",
+				name.span(),
+			))
 			.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
 
 		let rust_ty = ret_ty.as_ref().into_iter().flat_map(|(arrow, ty)| {
-			arrow
-				.iter()
-				.cloned()
-				.chain(js_sys_hazard(ty, &js_sys, "Output", "Type", name.span()))
+			arrow.iter().cloned().chain(js_sys_hazard(
+				ty,
+				&js_sys_path,
+				"Output",
+				"Type",
+				name.span(),
+			))
 		});
 
 		let import = [
@@ -440,7 +546,8 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 							TokenStream::from_iter([
 								TokenTree::from(Ident::new("link_name", name.span())),
 								Punct::new('=', Spacing::Alone).into(),
-								Literal::string(&format!("{package}.{comp_name}")).into(),
+								Literal::string(&format!("{package}.{namespace_import_name}"))
+									.into(),
 							]),
 						)
 						.into(),
@@ -457,7 +564,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 		];
 
 		let call_parms = parms.iter().flat_map(|Parameter { name, ty, .. }| {
-			js_sys_hazard(ty, &js_sys, "Input", "into_raw", name.span()).chain([
+			js_sys_hazard(ty, &js_sys_path, "Input", "into_raw", name.span()).chain([
 				Group::new(
 					Delimiter::Parenthesis,
 					TokenStream::from_iter(iter::once(TokenTree::from(name.clone()))),
@@ -472,7 +579,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 			Group::new(
 				Delimiter::Brace,
 				TokenStream::from_iter([
-					TokenTree::from(Ident::new(&name_string, name.span())),
+					TokenTree::from(Ident::new(&import_name, name.span())),
 					Group::new(Delimiter::Parenthesis, call_parms.collect()).into(),
 				]),
 			)
@@ -480,7 +587,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 		];
 
 		if let Some((_, ty)) = &ret_ty {
-			call = js_sys_hazard(ty, &js_sys, "Output", "from_raw", name.span())
+			call = js_sys_hazard(ty, &js_sys_path, "Output", "from_raw", name.span())
 				.chain(iter::once(
 					Group::new(Delimiter::Parenthesis, call.into_iter().collect()).into(),
 				))
@@ -515,12 +622,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 		);
 		output.extend(iter::once(TokenTree::from(Group::new(
 			Delimiter::Brace,
-			TokenStream::from_iter(
-				assembly
-					.chain(js_import.into_iter().flatten())
-					.chain(import)
-					.chain(call),
-			),
+			TokenStream::from_iter(assembly.chain(import_js).chain(import).chain(call)),
 		))));
 	}
 

@@ -9,6 +9,7 @@ rust-version = "1.85"
 [workspace.dependencies]
 anyhow = "1"
 hashbrown = "0.16"
+itertools = { version = "0.14", default-features = false }
 js-bindgen-shared = { path = "shared" }
 object = { version = "0.38", default-features = false, features = ["archive", "read_core", "std"] }
 prettyplease = "0.2"

@@ -10,7 +10,7 @@
   (type (;8;) (func (param externref) (result i32)))
   (type (;9;) (func (param i32) (result externref)))
   (import "js_bindgen" "memory" (memory (;0;) 17))
-  (import "js_sys" "string.decode" (func $js_sys.import.string.decode (;0;) (type 0)))
+  (import "js_sys" "string_decode" (func $js_sys.import.string_decode (;0;) (type 0)))
   (import "js_sys" "externref.table" (table (;0;) 0 externref))
   (import "web_sys" "console.log" (func $web_sys.import.console.log (;1;) (type 1)))
   (global $__stack_pointer (;0;) (mut i32) i32.const 1048576)
@@ -437,7 +437,7 @@
   (func $js_sys.string_decode (;8;) (type 6) (param i32 i32) (result i32)
     local.get 0
     local.get 1
-    call $js_sys.import.string.decode
+    call $js_sys.import.string_decode
     call $js_sys.externref.insert
   )
   (func $js_sys.externref.grow (;9;) (type 7) (param i32) (result i32)

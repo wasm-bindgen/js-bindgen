@@ -72,7 +72,7 @@ unsafe impl Output for JsValue {
 	}
 }
 
-js_bindgen::js_import!(
+js_bindgen::embed_js!(
 	name = "string.decode",
 	"(ptr, len) => {{",
 	#[cfg(target_arch = "wasm32")]
@@ -96,11 +96,11 @@ js_bindgen::js_import!(
 #[js_sys(js_sys = crate)]
 extern "C" {
 	#[cfg(target_arch = "wasm32")]
-	#[js_sys(js_import = "string.decode")]
+	#[js_sys(js_embed = "string.decode")]
 	fn string_decode(array: *const u8, len: usize) -> JsString;
 
 	#[cfg(target_arch = "wasm64")]
-	#[js_sys(js_import = "string.decode")]
+	#[js_sys(js_embed = "string.decode")]
 	fn string_decode(array: *const u8, len: f64) -> JsString;
 }
 

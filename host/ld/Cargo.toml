@@ -5,6 +5,7 @@ rust-version = "1.91"
 
 [dependencies]
 hashbrown = { workspace = true }
+itertools = { workspace = true }
 object = { workspace = true }
 wasm-encoder = { workspace = true }
 wasmparser = { workspace = true }

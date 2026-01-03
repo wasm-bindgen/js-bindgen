@@ -1,6 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
+#[track_caller]
 fn test(attr: TokenStream, item: TokenStream, expected: TokenStream) {
 	let output = crate::js_sys(attr, item);
 
@@ -43,7 +44,7 @@ fn basic() {
 					interpolate <&JsValue as ::js_sys::hazard::Input>::CONV,
 				);
 
-				::js_sys::js_bindgen::js_import!(name = "log", "log");
+				::js_sys::js_bindgen::import_js!(name = "log", "(data) => globalThis.log(data)");
 
 				unsafe extern "C" {
 					#[link_name = "test_crate.log"]
@@ -87,7 +88,7 @@ fn namespace() {
 					interpolate <&JsValue as ::js_sys::hazard::Input>::CONV,
 				);
 
-				::js_sys::js_bindgen::js_import!(name = "console.log", "console.log");
+				::js_sys::js_bindgen::import_js!(name = "console.log", "(data) => globalThis.console.log(data)");
 
 				unsafe extern "C" {
 					#[link_name = "test_crate.console.log"]
@@ -131,7 +132,7 @@ fn js_sys() {
 					interpolate <&JsValue as crate::hazard::Input>::CONV,
 				);
 
-				crate::js_bindgen::js_import!(name = "log", "log");
+				crate::js_bindgen::import_js!(name = "log", "(data) => globalThis.log(data)");
 
 				unsafe extern "C" {
 					#[link_name = "test_crate.log"]
@@ -183,7 +184,7 @@ fn two_parameters() {
 					interpolate <&JsValue as ::js_sys::hazard::Input>::CONV,
 				);
 
-				::js_sys::js_bindgen::js_import!(name = "log", "log");
+				::js_sys::js_bindgen::import_js!(name = "log", "(data1, data2) => globalThis.log(data1, data2)");
 
 				unsafe extern "C" {
 					#[link_name = "test_crate.log"]
@@ -227,7 +228,7 @@ fn empty() {
 					"\tend_function",
 				);
 
-				::js_sys::js_bindgen::js_import!(name = "log", "log");
+				::js_sys::js_bindgen::import_js!(name = "log", "() => globalThis.log()");
 
 				unsafe extern "C" {
 					#[link_name = "test_crate.log"]
@@ -272,7 +273,7 @@ fn js_name() {
 					interpolate <&JsValue as ::js_sys::hazard::Input>::CONV,
 				);
 
-				::js_sys::js_bindgen::js_import!(name = "logx", "log");
+				::js_sys::js_bindgen::import_js!(name = "logx", "(data) => globalThis.log(data)");
 
 				unsafe extern "C" {
 					#[link_name = "test_crate.logx"]
@@ -286,21 +287,21 @@ fn js_name() {
 }
 
 #[test]
-fn js_import() {
+fn js_embed() {
 	test(
 		TokenStream::new(),
 		quote! {
 			extern "C" {
-				#[js_sys(js_import = "custom")]
+				#[js_sys(js_embed = "custom")]
 				pub fn logx(data: &JsValue);
 			}
 		},
 		quote! {
 			pub fn logx(data: &JsValue) {
 				::js_sys::js_bindgen::unsafe_embed_asm!(
-					".import_module test_crate.import.custom, test_crate",
-					".import_name test_crate.import.custom, custom",
-					".functype test_crate.import.custom ({}) -> ()",
+					".import_module test_crate.import.logx, test_crate",
+					".import_name test_crate.import.logx, logx",
+					".functype test_crate.import.logx ({}) -> ()",
 					"",
 					"{}",
 					"",
@@ -309,12 +310,18 @@ fn js_import() {
 					"\t.functype test_crate.logx ({}) -> ()",
 					"\tlocal.get 0",
 					"\t{}",
-					"\tcall test_crate.import.custom",
+					"\tcall test_crate.import.logx",
 					"\tend_function",
 					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE,
 					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC,
 					interpolate <&JsValue as ::js_sys::hazard::Input>::TYPE,
 					interpolate <&JsValue as ::js_sys::hazard::Input>::CONV,
+				);
+
+				::js_sys::js_bindgen::import_js!(
+					name = "logx",
+					required_embed = "custom",
+					"(data) => jsEmbed.test_crate[\"custom\"](data)"
 				);
 
 				unsafe extern "C" {
@@ -358,7 +365,7 @@ fn r#return() {
 					interpolate <JsValue as ::js_sys::hazard::Output>::CONV,
 				);
 
-				::js_sys::js_bindgen::js_import!(name = "is_nan", "is_nan");
+				::js_sys::js_bindgen::import_js!(name = "is_nan", "() => globalThis.is_nan()");
 
 				unsafe extern "C" {
 					#[link_name = "test_crate.is_nan"]
@@ -408,7 +415,7 @@ fn pointer() {
 					interpolate <JsString as ::js_sys::hazard::Output>::CONV,
 				);
 
-				::js_sys::js_bindgen::js_import!(name = "array", "array");
+				::js_sys::js_bindgen::import_js!(name = "array", "(array) => globalThis.array(array)");
 
 				unsafe extern "C" {
 					#[link_name = "test_crate.array"]
@@ -451,7 +458,7 @@ fn cfg() {
 					"\tend_function",
 				);
 
-				::js_sys::js_bindgen::js_import!(name = "log", "log");
+				::js_sys::js_bindgen::import_js!(name = "log", "() => globalThis.log()");
 
 				unsafe extern "C" {
 					#[link_name = "test_crate.log"]
