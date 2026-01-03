@@ -21,10 +21,7 @@
     `js-bindgen`.
 - Version all names to make packages compatible with other versions of itself.
 - Embed crate version to make linker capable of detecting unsupported versions.
-- Add tracking for ASM object files in the linker, so we don't re-generate them each time.
-  - The supplied object files already include a hash in their name, so maybe we don't need to do
-    much here.
-  - We still need to look into what happens with old files. We might need to delete them ourselves.
+- We still need to look into what happens with old files. We might need to delete them ourselves.
 - Evaluate the output folder of our ASM objet files. Some ideas:
   - Store them next to the output file.
   - Pass an environment variable from a `build.rs` pointing to the target folder and go from there.
@@ -56,6 +53,7 @@
 - Nicer error/warning messages from linker and when appropriate instruct users to file bug reports.
 - Polish LLD linker argument parsing. Maybe learn from [`wasm-component-ld`]. We need a way of
   handling the same argument being passed multiple times.
+- Print more debugging information in the linker but gate it behind `-v`.
 
 [`wasm-component-ld`]: https://github.com/bytecodealliance/wasm-component-ld
 

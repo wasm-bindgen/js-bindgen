@@ -215,13 +215,19 @@ fn process_object(
 					continue;
 				}
 
-				let asm_object = assembly_to_object(arch_str, assembly)
-					.expect("compiling assembly should be valid");
-
-				let asm_path = archive_path.with_added_extension(format!("asm.{file_counter}.o"));
 				file_counter += 1;
-				fs::write(&asm_path, asm_object)
-					.expect("writing assembly object file should succeed");
+				let asm_path = archive_path.with_added_extension(format!("asm.{file_counter}.o"));
+
+				// Only compile if the file doesn't already exist. Existing fingerprinting
+				// ensures freshness:
+				// https://doc.rust-lang.org/1.92.0/nightly-rustc/cargo/core/compiler/fingerprint/index.html#fingerprints-and-unithashs
+				if !asm_path.exists() {
+					let asm_object = assembly_to_object(arch_str, assembly)
+						.expect("compiling assembly should be valid");
+
+					fs::write(&asm_path, asm_object)
+						.expect("writing assembly object file should succeed");
+				}
 
 				add_args.push(asm_path.into());
 			}
