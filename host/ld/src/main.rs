@@ -3,6 +3,7 @@ mod wasm_ld;
 use std::borrow::Cow;
 use std::ffi::{OsStr, OsString};
 use std::fmt::Write as _;
+use std::fs::File;
 use std::io::{Error, Write as _};
 use std::path::Path;
 use std::process::{self, Command, Stdio};
@@ -10,6 +11,7 @@ use std::{env, fs};
 
 use hashbrown::{HashMap, HashSet};
 use itertools::{Itertools, Position};
+use memmap2::Mmap;
 use object::read::archive::ArchiveFile;
 use wasm_encoder::{EntityType, ImportSection, Module, RawSection, Section};
 use wasmparser::{CustomSectionReader, Encoding, Parser, Payload, TypeRef};
@@ -91,7 +93,7 @@ fn main() {
 		// We found a UNIX archive.
 		if input.as_encoded_bytes().ends_with(b".rlib") {
 			let archive_path = Path::new(&input);
-			let archive_data = match fs::read(archive_path) {
+			let archive_data = match map_file(archive_path) {
 				Ok(archive_data) => archive_data,
 				Err(error) => {
 					eprintln!(
@@ -153,7 +155,7 @@ fn main() {
 			}
 		} else if input.as_encoded_bytes().ends_with(b".o") {
 			let object_path = Path::new(&input);
-			let object = match fs::read(object_path) {
+			let object = match map_file(object_path) {
 				Ok(object) => object,
 				Err(error) => {
 					eprintln!(
@@ -298,7 +300,7 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 	// Unfortunately we don't receive the final output path adjustments Cargo makes.
 	// So for the JS file we just figure it out ourselves.
 	let package = env::var_os("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` should be present");
-	let wasm_input = fs::read(output_path).expect("output file should be readable");
+	let wasm_input = map_file(output_path).expect("output file should be readable");
 	let mut wasm_output = Vec::new();
 
 	let mut found_import: HashMap<&str, HashMap<&str, &str>> = HashMap::new();
@@ -528,8 +530,6 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 		"missing JS embed: {expected_embed:?}"
 	);
 
-	fs::write(output_path, wasm_output).expect("output Wasm file should be writable");
-
 	let mut js_output = String::new();
 
 	// Create our `WebAssembly.Memory`.
@@ -612,11 +612,23 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 
 	js_output.push_str("}\n");
 
+	// Due to the limitations of mmap, writing back to the original file is actually dangerous,
+	// and we need to ensure that we will no longer read from it.
+	//
+	// Should we need to write to a new file, such as `package.bg.wasm`?
+	fs::write(output_path, wasm_output).expect("output Wasm file should be writable");
+
 	fs::write(
 		output_path.with_file_name(package).with_extension("js"),
 		js_output,
 	)
 	.expect("output JS file should be writable");
+}
+
+fn map_file(path: &Path) -> Result<Mmap, Error> {
+	let file = File::open(path)?;
+	// Safety: the file is not mutated while the mapping is in use.
+	unsafe { Mmap::map(&file) }
 }
 
 struct CustomSectionParser<'cs> {

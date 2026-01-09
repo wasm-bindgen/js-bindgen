@@ -26,14 +26,13 @@
   - Store them next to the output file.
   - Pass an environment variable from a `build.rs` pointing to the target folder and go from there.
     This seems to have failed. No build script instruction can reach the linker on Wasm.
+- Deterministic output of JS files.
 
 # Medium Priority
 
 - Provide an absolutely minimal allocator.
 - The `js_sys` proc-macro should remove the `extern "C" { ... }` part of the input on error to avoid
   triggering the `unsafe` requirement downstream.
-- Optimize linker file interactions by using memory mapped files instead of reading and writing
-  everything into memory.
 - Run the assembly compiler on the proc-macro level so users see errors without having to engage the
   linker.
 - Parse the JS on the proc-macro level so users see errors. E.g. `oxc-parser`.
