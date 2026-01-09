@@ -14,6 +14,7 @@ indoc = "2"
 itertools = { version = "0.14", default-features = false }
 js-bindgen-ld-shared = { path = "ld-shared" }
 js-bindgen-macro-shared = { path = "macro-shared" }
+memmap2 = "0.9"
 object = { version = "0.38", default-features = false, features = ["archive", "read_core", "std"] }
 prettyplease = "0.2"
 proc-macro2 = { version = "1", default-features = false }
@@ -27,6 +28,8 @@ wasm-encoder = { version = "0.244", default-features = false, features = ["wasmp
 wasmparser = { version = "0.244", default-features = false }
 
 [patch.crates-io]
+# Detect unsupported platforms at run-time: https://github.com/RazrFalcon/memmap2-rs/issues/160.
+memmap2 = { git = "https://github.com/daxpedda/memmap2-rs", branch = "stable-unsupported" }
 # Proc-macro bug: https://github.com/oli-obk/ui_test/issues/361.
 ui_test = { git = "https://github.com/daxpedda/ui_test", branch = "js-bindgen" }
 
