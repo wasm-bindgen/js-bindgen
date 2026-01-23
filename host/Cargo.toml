@@ -1,5 +1,14 @@
 [workspace]
-members = ["js-bindgen", "js-sys-macro", "ld", "ld-shared", "macro-shared", "wasm-ld-opt"]
+members = [
+	"js-bindgen",
+	"js-sys-macro",
+	"js-bindgen-test-macro",
+	"js-bindgen-test-runner",
+	"ld",
+	"ld-shared",
+	"macro-shared",
+	"wasm-ld-opt",
+]
 resolver = "2"
 
 [workspace.package]
@@ -20,6 +29,7 @@ prettyplease = "0.2"
 proc-macro2 = { version = "1", default-features = false }
 quote = { version = "1", default-features = false }
 rand = { version = "0.9", default-features = false, features = ["thread_rng"] }
+serde = { version = "1", default-features = false }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 similar-asserts = { version = "1", default-features = false }
 syn = { version = "2", default-features = false, features = ["parsing", "printing"] }

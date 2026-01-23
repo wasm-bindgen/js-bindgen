@@ -17,3 +17,28 @@ pub mod console {
 		pub fn log2(data1: &JsValue, data2: &JsValue);
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::console;
+	use js_bindgen_test::test;
+	use js_sys::JsString;
+
+	#[test]
+	fn test_console_log() {
+		let value = JsString::from_str("hello world");
+		console::log(&value);
+	}
+
+	#[test]
+	#[ignore = "hah, it works"]
+	fn test_ignore() {
+		panic!("kaboom");
+	}
+
+	#[test]
+	#[should_panic(expected = "kaboom")]
+	fn test_should_panic() {
+		panic!("kaboom");
+	}
+}

@@ -5,3 +5,6 @@ rust-version = { workspace = true }
 
 [dependencies]
 js-sys = { workspace = true }
+
+[dev-dependencies]
+js-bindgen-test = { workspace = true }

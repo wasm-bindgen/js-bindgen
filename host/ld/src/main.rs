@@ -400,10 +400,9 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 		"missing JS embed: {expected_embed:?}"
 	);
 
-	let mut js_output = BufWriter::new(
-		File::create(output_path.with_file_name(package).with_extension("js"))
-			.expect("output JS file should be writable"),
-	);
+	let js_output_path = output_path.with_file_name(package).with_extension("js");
+	let mut js_output =
+		BufWriter::new(File::create(&js_output_path).expect("output JS file should be writable"));
 
 	// Create our `WebAssembly.Memory`.
 	js_output
@@ -497,4 +496,8 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 	// When it does, we should rename the old file and write to a new file. This way
 	// we can keep parsing and writing at the same time without allocating memory.
 	fs::write(output_path, wasm_output).expect("output Wasm file should be writable");
+
+	// We also need a js file with a fingerprint, otherwise the test files might overwrite each other.
+	fs::copy(js_output_path, output_path.with_extension("js"))
+		.expect("copy JS file should be success");
 }
