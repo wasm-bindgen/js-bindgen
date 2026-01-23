@@ -13,6 +13,6 @@
 :: Never reached on UNIX because we execute `exit`.
 @echo off
 pushd "%~dp0..\host" || exit /b 1
-cargo +stable run -q -p js-bindgen-ld -- %*
+cargo run -q -p js-bindgen-ld -- %*
 popd
 exit /b %ERRORLEVEL%

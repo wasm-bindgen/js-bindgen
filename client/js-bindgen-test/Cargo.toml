@@ -1,0 +1,12 @@
+[package]
+name = "js-bindgen-test"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+js-sys = { workspace = true }
+js-bindgen-test-macro = { workspace = true }
+
+[lints]
+workspace = true
