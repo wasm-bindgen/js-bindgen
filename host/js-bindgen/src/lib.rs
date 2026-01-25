@@ -3,7 +3,7 @@
 #[cfg(test)]
 extern crate proc_macro2 as proc_macro;
 #[cfg(test)]
-use shared as js_bindgen_shared;
+use shared as js_bindgen_macro_shared;
 
 // There is currently no way to execute proc-macros in non-proc-macro crates.
 // However, we need it for testing. So we somehow have to enable `proc-macro2`,
@@ -24,7 +24,7 @@ use std::env;
 use std::iter::Peekable;
 use std::{iter, mem};
 
-use js_bindgen_shared::*;
+use js_bindgen_macro_shared::*;
 use proc_macro::{
 	Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree, token_stream,
 };

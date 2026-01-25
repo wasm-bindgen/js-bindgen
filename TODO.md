@@ -10,6 +10,8 @@
 
 - Escape namespaces and function names if they are not valid JS identifiers.
 - Test raw Rust identifiers in function and parameter names.
+- `#[js_sys]` parameter and function name aren't allowed to collide. Internal
+  `extern { fn <name> ... }` definition can shadow parameter values.
 - Allocate slots on the `externref` table in batches.
 - Determine what to do with `js_sys::UnwrapThrowExt`. Avoiding the panic machinery is nice for some
   very niche use-cases but it might be very annoying for most users. Maybe hide it behind a `cfg`
@@ -31,7 +33,8 @@
 
 # Medium Priority
 
-- Clean up output JS parameter conversions.
+- Find a way to link to imports directly if no wrapper function is needed. This happens no
+  conversions on the ASM level are necessary.
 - Provide an absolutely minimal allocator.
 - The `js_sys` proc-macro should remove the `extern "C" { ... }` part of the input on error to avoid
   triggering the `unsafe` requirement downstream.

@@ -1,7 +1,7 @@
 #[cfg(test)]
 extern crate proc_macro2 as proc_macro;
 #[cfg(test)]
-use shared as js_bindgen_shared;
+use shared as js_bindgen_macro_shared;
 
 // There is currently no way to execute proc-macros in non-proc-macro crates.
 // However, we need it for testing. So we somehow have to enable `proc-macro2`,
@@ -15,7 +15,7 @@ use shared as js_bindgen_shared;
 #[path = "shared/lib.rs"]
 mod shared;
 #[cfg(test)]
-mod test;
+mod tests;
 
 use std::borrow::Cow;
 #[cfg(not(test))]
@@ -23,7 +23,7 @@ use std::env;
 use std::iter;
 use std::iter::Peekable;
 
-use js_bindgen_shared::*;
+use js_bindgen_macro_shared::*;
 use proc_macro::{
 	Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree, token_stream,
 };
@@ -250,16 +250,11 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 		let package = env::var("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` not found");
 		#[cfg(test)]
 		let package = String::from("test_crate");
-		let mut import_parms = String::new();
+		let import_parms: String = parms.iter().map(|_| "{},").collect();
 		let import_ret = ret_ty.as_ref().map(|_| "{}").unwrap_or_default();
 
-		for _ in &parms {
-			if import_parms.is_empty() {
-				import_parms.push_str("{}");
-			} else {
-				import_parms.push_str(", {}");
-			}
-		}
+		let asm_import_name = format!("{package}.import.{namespace_import_name}");
+		let extern_name = format!("{package}.{namespace_import_name}");
 
 		let parms_input = parms.iter().enumerate().flat_map(|(index, _)| {
 			[
@@ -269,15 +264,12 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 		});
 
 		let strings = [
+			Cow::Owned(format!(".import_module {asm_import_name}, {package}")),
 			Cow::Owned(format!(
-				".import_module {package}.import.{namespace_import_name}, {package}"
+				".import_name {asm_import_name}, {namespace_import_name}"
 			)),
 			Cow::Owned(format!(
-				".import_name {package}.import.{namespace_import_name}, {namespace_import_name}"
-			)),
-			Cow::Owned(format!(
-				".functype {package}.import.{namespace_import_name} ({import_parms}) -> \
-				 ({import_ret})"
+				".functype {asm_import_name} ({import_parms}) -> ({import_ret})"
 			)),
 			Cow::Borrowed(""),
 		]
@@ -294,16 +286,14 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 				.flat_map(|_| [Cow::Borrowed("{}"), Cow::Borrowed("")]),
 		)
 		.chain([
-			Cow::Owned(format!(".globl {package}.{namespace_import_name}")),
-			Cow::Owned(format!("{package}.{namespace_import_name}:")),
+			Cow::Owned(format!(".globl {extern_name}")),
+			Cow::Owned(format!("{extern_name}:")),
 			Cow::Owned(format!(
-				"\t.functype {package}.{namespace_import_name} ({import_parms}) -> ({import_ret})",
+				"\t.functype {extern_name} ({import_parms}) -> ({import_ret})",
 			)),
 		])
 		.chain(parms_input)
-		.chain(iter::once(Cow::Owned(format!(
-			"\tcall {package}.import.{namespace_import_name}"
-		))))
+		.chain(iter::once(Cow::Owned(format!("\tcall {asm_import_name}"))))
 		.chain(ret_ty.as_ref().into_iter().map(|_| Cow::Borrowed("\t{}")))
 		.chain(iter::once(Cow::Borrowed("\tend_function")));
 
@@ -320,7 +310,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 				))
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
-		let out_import_ty_fmt = ret_ty.as_ref().into_iter().flat_map(|(_, ty)| {
+		let out_import_ty_fmt = ret_ty.as_ref().into_iter().flat_map(|(_, span, ty)| {
 			interpolate
 				.clone()
 				.chain(js_sys_hazard(
@@ -328,7 +318,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 					&js_sys_path,
 					"Output",
 					"IMPORT_TYPE",
-					name.span(),
+					*span,
 				))
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
@@ -344,7 +334,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 				))
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
-		let out_import_func_fmt = ret_ty.as_ref().into_iter().flat_map(|(_, ty)| {
+		let out_import_func_fmt = ret_ty.as_ref().into_iter().flat_map(|(_, span, ty)| {
 			interpolate
 				.clone()
 				.chain(js_sys_hazard(
@@ -352,7 +342,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 					&js_sys_path,
 					"Output",
 					"IMPORT_FUNC",
-					name.span(),
+					*span,
 				))
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
@@ -368,40 +358,22 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 				))
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
-		let out_type_fmt = ret_ty.as_ref().into_iter().flat_map(|(_, ty)| {
+		let out_type_fmt = ret_ty.as_ref().into_iter().flat_map(|(_, span, ty)| {
 			interpolate
 				.clone()
-				.chain(js_sys_hazard(
-					ty,
-					&js_sys_path,
-					"Output",
-					"TYPE",
-					name.span(),
-				))
+				.chain(js_sys_hazard(ty, &js_sys_path, "Output", "TYPE", *span))
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
-		let in_conv_fmt = parms.iter().flat_map(|Parameter { name, ty, .. }| {
+		let in_conv_fmt = parms.iter().flat_map(|Parameter { ty_span, ty, .. }| {
 			interpolate
 				.clone()
-				.chain(js_sys_hazard(
-					ty,
-					&js_sys_path,
-					"Input",
-					"CONV",
-					name.span(),
-				))
+				.chain(js_sys_hazard(ty, &js_sys_path, "Input", "CONV", *ty_span))
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
-		let out_conv_fmt = ret_ty.as_ref().into_iter().flat_map(|(_, ty)| {
+		let out_conv_fmt = ret_ty.as_ref().into_iter().flat_map(|(_, span, ty)| {
 			interpolate
 				.clone()
-				.chain(js_sys_hazard(
-					ty,
-					&js_sys_path,
-					"Output",
-					"CONV",
-					name.span(),
-				))
+				.chain(js_sys_hazard(ty, &js_sys_path, "Output", "CONV", *span))
 				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
 		});
 
@@ -458,31 +430,57 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 			}
 		}
 
-		let parms_conv = parms
-			.iter()
-			.flat_map(|Parameter { name_string, .. }| {
-				[
-					Literal::string(&format!("\t{name_string}{{}}")).into(),
-					Punct::new(',', Spacing::Alone).into(),
-				]
-			})
-			.chain([
-				Literal::string(&format!("\treturn {js_function_name}({js_parms})")).into(),
-				Punct::new(',', Spacing::Alone).into(),
-				Literal::string("}}").into(),
-				Punct::new(',', Spacing::Alone).into(),
-			])
-			.chain(parms.iter().flat_map(|Parameter { ty_span, ty, .. }| {
-				iter::once(Ident::new("interpolate", ty_span.start).into())
-					.chain(js_sys_hazard(
-						ty,
-						&js_sys_path,
-						"Input",
-						"JS_CONV",
-						*ty_span,
-					))
-					.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
-			}));
+		let js_select_list = js_select_parms(&js_sys_path, parms.iter());
+
+		let parms_fmt: String = parms.iter().map(|_| "{}{}{}").collect();
+		let parms_conv = [
+			Literal::string(&format!("{{}}{parms_fmt}{{}}")).into(),
+			Punct::new(',', Spacing::Alone).into(),
+		]
+		.into_iter()
+		.chain(select(
+			&js_sys_path,
+			&js_function_name,
+			iter::once(Literal::string(&format!("({js_parms}) => {{\n")).into()),
+			js_select_list.clone(),
+			name.span(),
+		))
+		.chain(parms.iter().flat_map(|p| {
+			select(
+				&js_sys_path,
+				"",
+				iter::once(Literal::string(&format!("\t{}", p.name_string)).into()),
+				js_select_parms(&js_sys_path, iter::once(p)),
+				p.ty_span,
+			)
+			.chain(select(
+				&js_sys_path,
+				"",
+				js_sys_hazard(&p.ty, &js_sys_path, "Input", "JS_CONV", p.ty_span),
+				js_select_parms(&js_sys_path, iter::once(p)),
+				p.ty_span,
+			))
+			.chain(select(
+				&js_sys_path,
+				"",
+				iter::once(Literal::string("\n").into()),
+				js_select_parms(&js_sys_path, iter::once(p)),
+				p.ty_span,
+			))
+		}))
+		.chain(select(
+			&js_sys_path,
+			"",
+			iter::once(
+				Literal::string(&format!(
+					"\t{}{js_function_name}({js_parms})\n}}",
+					if ret_ty.is_some() { "return " } else { "" }
+				))
+				.into(),
+			),
+			js_select_list,
+			name.span(),
+		));
 
 		let import_js = path_with_js_sys(&js_sys_path, ["js_bindgen", "import_js"], name.span())
 			.chain([
@@ -517,51 +515,37 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 									]
 								}),
 						)
-						.chain([
-							if parms.is_empty() {
-								Literal::string(&js_function_name)
-							} else {
-								Literal::string(&format!("({js_parms}) => {{{{"))
-							}
-							.into(),
-							Punct::new(',', Spacing::Alone).into(),
-						])
-						.chain(
-							(!parms.is_empty())
-								.then_some(parms_conv)
-								.into_iter()
-								.flatten(),
-						),
+						.chain(if parms.is_empty() {
+							drop(parms_conv);
+							vec![Literal::string(&js_function_name).into()]
+						} else {
+							parms_conv.collect()
+						}),
 					),
 				)
 				.into(),
 				Punct::new(';', Spacing::Alone).into(),
 			]);
 
-		let rust_parms = parms.iter().flat_map(|Parameter { name, ty, .. }| {
-			[
-				TokenTree::from(name.clone()),
-				Punct::new(':', Spacing::Alone).into(),
-			]
-			.into_iter()
-			.chain(js_sys_hazard(
-				ty,
-				&js_sys_path,
-				"Input",
-				"Type",
-				name.span(),
-			))
-			.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
-		});
+		let rust_parms = parms.iter().flat_map(
+			|Parameter {
+			     name, ty_span, ty, ..
+			 }| {
+				[
+					TokenTree::from(name.clone()),
+					Punct::new(':', Spacing::Alone).into(),
+				]
+				.into_iter()
+				.chain(js_sys_hazard(ty, &js_sys_path, "Input", "Type", *ty_span))
+				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
+			},
+		);
 
-		let rust_ty = ret_ty.as_ref().into_iter().flat_map(|(arrow, ty)| {
-			arrow.iter().cloned().chain(js_sys_hazard(
-				ty,
-				&js_sys_path,
-				"Output",
-				"Type",
-				name.span(),
-			))
+		let rust_ty = ret_ty.as_ref().into_iter().flat_map(|(arrow, span, ty)| {
+			arrow
+				.iter()
+				.cloned()
+				.chain(js_sys_hazard(ty, &js_sys_path, "Output", "Type", *span))
 		});
 
 		let import = [
@@ -578,8 +562,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 							TokenStream::from_iter([
 								TokenTree::from(Ident::new("link_name", name.span())),
 								Punct::new('=', Spacing::Alone).into(),
-								Literal::string(&format!("{package}.{namespace_import_name}"))
-									.into(),
+								Literal::string(&extern_name).into(),
 							]),
 						)
 						.into(),
@@ -618,8 +601,8 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 			.into(),
 		];
 
-		if let Some((_, ty)) = &ret_ty {
-			call = js_sys_hazard(ty, &js_sys_path, "Output", "from_raw", name.span())
+		if let Some((_, span, ty)) = &ret_ty {
+			call = js_sys_hazard(ty, &js_sys_path, "Output", "from_raw", *span)
 				.chain(iter::once(
 					Group::new(Delimiter::Parenthesis, call.into_iter().collect()).into(),
 				))
@@ -650,7 +633,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 		output.extend(
 			ret_ty
 				.into_iter()
-				.flat_map(|(arrow, ty)| arrow.into_iter().chain(ty)),
+				.flat_map(|(arrow, _, ty)| arrow.into_iter().chain(ty)),
 		);
 		output.extend(iter::once(TokenTree::from(Group::new(
 			Delimiter::Brace,
@@ -666,7 +649,7 @@ struct ExternFn {
 	r#fn: Ident,
 	name: Ident,
 	parms: Vec<Parameter>,
-	ret_ty: Option<([TokenTree; 2], Vec<TokenTree>)>,
+	ret_ty: Option<([TokenTree; 2], SpanRange, Vec<TokenTree>)>,
 }
 
 struct Parameter {
@@ -753,7 +736,7 @@ fn parse_extern_fn(
 				"`->` for the return type",
 				true,
 			)?;
-			let ret_ty = parse_ty_or_value(stream, closing.span(), "a type")?.1;
+			let (span, ret_ty) = parse_ty_or_value(stream, closing.span(), "a type")?;
 			expect_punct(
 				stream,
 				';',
@@ -762,7 +745,7 @@ fn parse_extern_fn(
 				false,
 			)?;
 
-			Some(([punct.into(), closing.into()], ret_ty))
+			Some(([punct.into(), closing.into()], span, ret_ty))
 		}
 		_ => return Err(compile_error(parms_span, "expected `;` or `->`")),
 	};
@@ -774,6 +757,49 @@ fn parse_extern_fn(
 		parms,
 		ret_ty,
 	})
+}
+
+fn select<'a>(
+	js_sys: &'a [TokenTree],
+	a: &str,
+	b: impl Iterator<Item = TokenTree>,
+	check_list: TokenStream,
+	span: impl Into<SpanRange>,
+) -> impl 'a + Iterator<Item = TokenTree> {
+	let span = span.into();
+
+	iter::once(Ident::new("interpolate", span.start).into())
+		.chain(path_with_js_sys(js_sys, ["r#macro", "select"], span))
+		.chain([
+			Group::new(
+				Delimiter::Parenthesis,
+				[
+					TokenTree::from(Literal::string(a)),
+					Punct::new(',', Spacing::Alone).into(),
+				]
+				.into_iter()
+				.chain(b)
+				.chain([
+					Punct::new(',', Spacing::Alone).into(),
+					Group::new(Delimiter::Bracket, check_list).into(),
+				])
+				.collect(),
+			)
+			.into(),
+			Punct::new(',', Spacing::Alone).into(),
+		])
+}
+
+fn js_select_parms<'a>(
+	js_sys: &'a [TokenTree],
+	parms: impl Iterator<Item = &'a Parameter>,
+) -> TokenStream {
+	parms
+		.flat_map(|Parameter { ty_span, ty, .. }| {
+			js_sys_hazard(ty, js_sys, "Input", "JS_CONV", *ty_span)
+				.chain(iter::once(Punct::new(',', Spacing::Alone).into()))
+		})
+		.collect()
 }
 
 fn js_sys_hazard<'a>(

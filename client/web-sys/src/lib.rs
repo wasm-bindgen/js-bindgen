@@ -8,6 +8,9 @@ pub mod console {
 
 	#[js_sys::js_sys(namespace = "console")]
 	extern "C" {
+		#[js_sys(js_name = "log")]
+		pub fn log0();
+
 		pub fn log(data: &JsValue);
 
 		#[js_sys(js_name = "log")]

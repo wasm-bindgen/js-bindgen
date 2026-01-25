@@ -20,5 +20,6 @@ static ALLOC: MiniAlloc = MiniAlloc::INIT;
 
 #[unsafe(no_mangle)]
 extern "C" fn foo() {
+	console::log0();
 	console::log(&JsString::from_str("Hello, World!"));
 }

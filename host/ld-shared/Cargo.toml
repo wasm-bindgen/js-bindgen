@@ -1,0 +1,11 @@
+[package]
+edition = { workspace = true }
+name = "js-bindgen-ld-shared"
+rust-version = "1.91"
+
+[dependencies]
+object = { workspace = true }
+wasmparser = { workspace = true }
+
+[lints]
+workspace = true

@@ -6,6 +6,8 @@ extern crate alloc;
 
 mod externref;
 pub mod hazard;
+#[doc(hidden)]
+pub mod r#macro;
 mod panic;
 
 use core::marker::PhantomData;
@@ -109,7 +111,14 @@ impl JsString {
 		#[cfg(target_arch = "wasm32")]
 		let len = string.len();
 		#[cfg(target_arch = "wasm64")]
-		let len = string.len() as f64;
+		let len = {
+			let len = string.len();
+			debug_assert!(
+				len < 0x20000000000000,
+				"found string length bigger than `Number.MAX_SAFE_INTEGER`"
+			);
+			len as f64
+		};
 
 		string_decode(string.as_ptr(), len)
 	}
@@ -147,6 +156,20 @@ unsafe impl Output for JsString {
 
 	fn from_raw(raw: Self::Type) -> Self {
 		Self(JsValue::from_raw(raw))
+	}
+}
+
+unsafe impl Input for u32 {
+	const IMPORT_FUNC: &str = "";
+	const IMPORT_TYPE: &str = "i32";
+	const TYPE: &str = "i32";
+	const CONV: &str = "";
+	const JS_CONV: &str = " >>>= 0";
+
+	type Type = Self;
+
+	fn into_raw(self) -> Self::Type {
+		self
 	}
 }
 
@@ -215,6 +238,11 @@ unsafe impl Input for *const u8 {
 
 	#[cfg(target_arch = "wasm64")]
 	fn into_raw(self) -> Self::Type {
-		self as usize as f64
+		let addr = self as usize;
+		debug_assert!(
+			addr < 0x20000000000000,
+			"found pointer bigger than `Number.MAX_SAFE_INTEGER`"
+		);
+		addr as f64
 	}
 }

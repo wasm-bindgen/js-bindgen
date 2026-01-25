@@ -7,7 +7,7 @@ rust-version = { workspace = true }
 proc-macro = true
 
 [dependencies]
-js-bindgen-shared = { workspace = true }
+js-bindgen-macro-shared = { workspace = true }
 
 [dev-dependencies]
 prettyplease = { workspace = true }

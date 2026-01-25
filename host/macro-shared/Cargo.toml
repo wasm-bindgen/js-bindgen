@@ -1,6 +1,6 @@
 [package]
 edition = { workspace = true }
-name = "js-bindgen-shared"
+name = "js-bindgen-macro-shared"
 rust-version = { workspace = true }
 
 [dev-dependencies]
