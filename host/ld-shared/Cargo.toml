@@ -4,6 +4,7 @@ name = "js-bindgen-ld-shared"
 rust-version = "1.91"
 
 [dependencies]
+memmap2 = { workspace = true }
 object = { workspace = true }
 wasmparser = { workspace = true }
 

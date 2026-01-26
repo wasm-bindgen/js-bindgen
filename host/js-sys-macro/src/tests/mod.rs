@@ -1,7 +1,7 @@
 mod function;
 
 use std::ffi::OsStr;
-use std::io::Cursor;
+use std::io::{self, Cursor};
 use std::path::Path;
 use std::process::Command;
 use std::{env, fs};
@@ -182,6 +182,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(String, String)> {
 								js_bindgen_ld_shared::assembly_to_object(
 									OsStr::new("wasm32"),
 									assembly,
+									&mut io::sink(),
 								)?;
 							}
 							Payload::CustomSection(c)

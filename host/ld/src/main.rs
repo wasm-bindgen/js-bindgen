@@ -3,14 +3,15 @@ mod wasm_ld;
 use std::borrow::Cow;
 use std::convert::Infallible;
 use std::ffi::{OsStr, OsString};
-use std::fmt::Write;
+use std::fs::File;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::process::{self, Command};
 use std::{env, fs};
 
 use hashbrown::{HashMap, HashSet};
 use itertools::{Itertools, Position};
-use js_bindgen_ld_shared::CustomSectionParser;
+use js_bindgen_ld_shared::{CustomSectionParser, ReadFile};
 use wasm_encoder::{EntityType, ImportSection, Module, RawSection, Section};
 use wasmparser::{Encoding, Parser, Payload, TypeRef};
 
@@ -148,11 +149,14 @@ fn process_object(
 				// ensures freshness:
 				// https://doc.rust-lang.org/1.92.0/nightly-rustc/cargo/core/compiler/fingerprint/index.html#fingerprints-and-unithashs
 				if !asm_path.exists() {
-					let asm_object = js_bindgen_ld_shared::assembly_to_object(arch_str, assembly)
+					let mut asm_file = BufWriter::new(
+						File::create(&asm_path).expect("output assembly object should be writable"),
+					);
+
+					js_bindgen_ld_shared::assembly_to_object(arch_str, assembly, &mut asm_file)
 						.expect("compiling assembly should be valid");
 
-					fs::write(&asm_path, asm_object)
-						.expect("writing assembly object file should succeed");
+					asm_file.into_inner().unwrap().sync_all().unwrap();
 				}
 
 				add_args.push(asm_path.into());
@@ -166,7 +170,7 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 	// Unfortunately we don't receive the final output path adjustments Cargo makes.
 	// So for the JS file we just figure it out ourselves.
 	let package = env::var_os("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` should be present");
-	let wasm_input = fs::read(output_path).expect("output file should be readable");
+	let wasm_input = ReadFile::new(output_path).expect("output file should be readable");
 	let mut wasm_output = Vec::new();
 
 	let mut found_import: HashMap<&str, HashMap<&str, &str>> = HashMap::new();
@@ -396,12 +400,15 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 		"missing JS embed: {expected_embed:?}"
 	);
 
-	fs::write(output_path, wasm_output).expect("output Wasm file should be writable");
-
-	let mut js_output = String::new();
+	let mut js_output = BufWriter::new(
+		File::create(output_path.with_file_name(package).with_extension("js"))
+			.expect("output JS file should be writable"),
+	);
 
 	// Create our `WebAssembly.Memory`.
-	js_output.push_str("const memory = new WebAssembly.Memory({ ");
+	js_output
+		.write_all(b"const memory = new WebAssembly.Memory({ ")
+		.unwrap();
 
 	if memory.memory64 {
 		write!(js_output, "initial: {}n", memory.initial).unwrap();
@@ -418,18 +425,18 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 	}
 
 	if memory.memory64 {
-		js_output.push_str(", address: 'i64'");
+		js_output.write_all(b", address: 'i64'").unwrap();
 	}
 
 	if memory.shared {
-		js_output.push_str(", shared: true");
+		js_output.write_all(b", shared: true").unwrap();
 	}
 
-	js_output.push_str(" })\n\n");
+	js_output.write_all(b" })\n\n").unwrap();
 
 	// Output requested embedded JS.
 	if !found_embed.is_empty() {
-		js_output.push_str("const jsEmbed = {\n");
+		js_output.write_all(b"const jsEmbed = {\n").unwrap();
 
 		for (package, embeds) in found_embed {
 			writeln!(js_output, "\t{package}: {{").unwrap();
@@ -438,25 +445,27 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 				write!(js_output, "\t\t\"{name}\": ").unwrap();
 
 				for (position, line) in js.lines().with_position() {
-					js_output.push_str(line);
+					js_output.write_all(line.as_bytes()).unwrap();
 
 					if let Position::First | Position::Middle = position {
-						js_output.push_str("\n\t\t");
+						js_output.write_all(b"\n\t\t").unwrap();
 					}
 				}
 
-				js_output.push_str(",\n");
+				js_output.write_all(b",\n").unwrap();
 			}
 
-			js_output.push_str("\t},\n");
+			js_output.write_all(b"\t},\n").unwrap();
 		}
 
-		js_output.push_str("}\n\n");
+		js_output.write_all(b"}\n\n").unwrap();
 	}
 
 	// Create our `importObject`.
-	js_output.push_str("export const importObject = {\n");
-	js_output.push_str("\tjs_bindgen: { memory },\n");
+	js_output
+		.write_all(b"export const importObject = {\n")
+		.unwrap();
+	js_output.write_all(b"\tjs_bindgen: { memory },\n").unwrap();
 
 	for (module, names) in found_import {
 		writeln!(js_output, "\t{module}: {{").unwrap();
@@ -465,24 +474,27 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 			write!(js_output, "\t\t\"{name}\": ").unwrap();
 
 			for (position, line) in js.lines().with_position() {
-				js_output.push_str(line);
+				js_output.write_all(line.as_bytes()).unwrap();
 
 				if let Position::First | Position::Middle = position {
-					js_output.push_str("\n\t\t");
+					js_output.write_all(b"\n\t\t").unwrap();
 				}
 			}
 
-			js_output.push_str(",\n");
+			js_output.write_all(b",\n").unwrap();
 		}
 
-		js_output.push_str("\t},\n");
+		js_output.write_all(b"\t},\n").unwrap();
 	}
 
-	js_output.push_str("}\n");
+	js_output.write_all(b"}\n").unwrap();
 
-	fs::write(
-		output_path.with_file_name(package).with_extension("js"),
-		js_output,
-	)
-	.expect("output JS file should be writable");
+	js_output.into_inner().unwrap().sync_all().unwrap();
+
+	// We could write into the file directly, but `wasm-encoder` doesn't support
+	// `io::Write`: https://github.com/bytecodealliance/wasm-tools/issues/778.
+	//
+	// When it does, we should rename the old file and write to a new file. This way
+	// we can keep parsing and writing at the same time without allocating memory.
+	fs::write(output_path, wasm_output).expect("output Wasm file should be writable");
 }

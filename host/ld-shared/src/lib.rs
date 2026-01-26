@@ -1,16 +1,22 @@
 use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
-use std::fs;
-use std::io::{Error, Write};
+use std::fs::File;
+use std::io::{self, Error, ErrorKind, Read, Write};
+use std::ops::Deref;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+use memmap2::Mmap;
 use object::read::archive::ArchiveFile;
 use wasmparser::CustomSectionReader;
 
 /// Currently this simply passes the LLVM s-format assembly to `llvm-mc` to
 /// convert to an object file the linker can consume.
-pub fn assembly_to_object(arch_str: &OsStr, assembly: &[u8]) -> Result<Vec<u8>, Error> {
+pub fn assembly_to_object(
+	arch_str: &OsStr,
+	assembly: &[u8],
+	output: &mut dyn Write,
+) -> Result<(), Error> {
 	let mut child = Command::new("llvm-mc")
 		.arg(format!("-arch={}", arch_str.display()))
 		// In the future we will switch to something supporting auto-detection.
@@ -27,41 +33,54 @@ pub fn assembly_to_object(arch_str: &OsStr, assembly: &[u8]) -> Result<Vec<u8>, 
 		.ok_or_else(|| Error::other("`llvm-mc` process should have `stdin`"))?;
 	stdin.write_all(assembly)?;
 
-	let output = child.wait_with_output()?;
+	let status = child.wait()?;
 
-	if output.status.success() {
-		Ok(output.stdout)
+	let mut child_stdout = child
+		.stdout
+		.ok_or_else(|| Error::other("`llvm-mc` process should have `stdout`"))?;
+
+	if status.success() {
+		io::copy(&mut child_stdout, output)?;
+		Ok(())
 	} else {
 		eprintln!(
 			"------ llvm-mc input -------\n{}",
 			String::from_utf8_lossy(assembly)
 		);
 
-		if !output.stdout.is_empty() {
+		let mut stdout = Vec::new();
+		child_stdout.read_to_end(&mut stdout)?;
+
+		if !stdout.is_empty() {
 			eprintln!(
 				"------ llvm-mc stdout ------\n{}",
-				String::from_utf8_lossy(&output.stdout)
+				String::from_utf8_lossy(&stdout)
 			);
 
-			if !output.stdout.ends_with(b"\n") {
+			if !stdout.ends_with(b"\n") {
 				eprintln!();
 			}
 		}
 
-		if !output.stderr.is_empty() {
+		let mut stderr = Vec::new();
+		child
+			.stderr
+			.ok_or_else(|| Error::other("`llvm-mc` process should have `stderr`"))?
+			.read_to_end(&mut stderr)?;
+
+		if !stderr.is_empty() {
 			eprintln!(
 				"------ llvm-mc stderr ------\n{}",
-				String::from_utf8_lossy(&output.stderr)
+				String::from_utf8_lossy(&stderr)
 			);
 
-			if !output.stderr.ends_with(b"\n") {
+			if !stderr.ends_with(b"\n") {
 				eprintln!();
 			}
 		}
 
 		Err(Error::other(format!(
-			"`llvm-mc` process failed with status: {}",
-			output.status
+			"`llvm-mc` process failed with status: {status}"
 		)))
 	}
 }
@@ -73,7 +92,7 @@ pub fn ld_input_parser<E>(
 	// We found a UNIX archive.
 	if input.as_encoded_bytes().ends_with(b".rlib") {
 		let archive_path = Path::new(&input);
-		let archive_data = match fs::read(archive_path) {
+		let archive_data = match ReadFile::new(archive_path) {
 			Ok(archive_data) => archive_data,
 			Err(error) => {
 				eprintln!(
@@ -130,7 +149,7 @@ pub fn ld_input_parser<E>(
 		}
 	} else if input.as_encoded_bytes().ends_with(b".o") {
 		let object_path = Path::new(&input);
-		let object = match fs::read(object_path) {
+		let object = match ReadFile::new(object_path) {
 			Ok(object) => object,
 			Err(error) => {
 				eprintln!(
@@ -145,6 +164,42 @@ pub fn ld_input_parser<E>(
 	}
 
 	Ok(())
+}
+
+pub struct ReadFile(ReadInner);
+
+enum ReadInner {
+	Mmap(Mmap),
+	File(Vec<u8>),
+}
+
+impl ReadFile {
+	pub fn new(path: &Path) -> Result<Self, Error> {
+		let mut file = File::open(path)?;
+		// SAFETY: the file is not mutated while the mapping is in use.
+		let result = unsafe { Mmap::map(&file) };
+
+		match result {
+			Ok(mmap) => Ok(Self(ReadInner::Mmap(mmap))),
+			Err(error) if matches!(error.kind(), ErrorKind::Unsupported) => {
+				let mut output = Vec::new();
+				file.read_to_end(&mut output)?;
+				Ok(Self(ReadInner::File(output)))
+			}
+			Err(error) => Err(error),
+		}
+	}
+}
+
+impl Deref for ReadFile {
+	type Target = [u8];
+
+	fn deref(&self) -> &Self::Target {
+		match &self.0 {
+			ReadInner::Mmap(mmap) => mmap.deref(),
+			ReadInner::File(data) => data.as_slice(),
+		}
+	}
 }
 
 #[derive(Clone)]
