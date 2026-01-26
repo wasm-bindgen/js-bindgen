@@ -53,7 +53,8 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 					type: "test-failed",
 					name: test.name,
 					error:
-                        message + "\n" +
+						message + "\n" +
+						result.stack + "\n" +
 						"note: panic did not contain expected string\n" +
 						`      panic message: "${displayPayload}"\n` +
 						` expected substring: "${displayExpected}"`,
@@ -71,7 +72,7 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 			emit({ type: "test-ok", name: test.name, should_panic: false });
 		} else {
 			const message = coercePanicMessage(result.panic_message, externrefTable);
-			emit({ type: "test-failed", name: test.name, error: message });
+			emit({ type: "test-failed", name: test.name, error: message + "\n" + result.stack });
 			failed += 1;
 		}
 	}
