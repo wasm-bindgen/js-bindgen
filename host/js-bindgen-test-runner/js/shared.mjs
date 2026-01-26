@@ -73,7 +73,7 @@ export function createTextFormatter({ nocapture, write }) {
 					failure_reports.push({
 						name: event.name,
 						entries: take_buffer(event.name),
-                        error: event.error,
+						error: event.error,
 					});
 					break;
 				case "run-end":

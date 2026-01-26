@@ -13,15 +13,15 @@ export async function runBrowser({ nocapture, filtered, worker }) {
 		mode === "page"
 			? await runInWindow({ nocapture, filtered })
 			: await runInWorker({
-					nocapture,
-					filtered,
-					mode,
-					baseLog,
-					baseError,
-					baseWarn,
-					baseInfo,
-					baseDebug,
-			  });
+				nocapture,
+				filtered,
+				mode,
+				baseLog,
+				baseError,
+				baseWarn,
+				baseInfo,
+				baseDebug,
+			});
 
 	if (typeof window !== "undefined") {
 		window.__jbtestDone = true;
@@ -257,7 +257,12 @@ function withConsoleCapture(name, run, panicPayload, panicMessage, emit) {
 		run();
 		return { ok: true };
 	} catch (error) {
-		return { ok: false, panic_payload: panicPayload(), panic_message: panicMessage() };
+		return {
+			ok: false,
+			panic_payload: panicPayload(),
+			panic_message: panicMessage(),
+			stack: error.stack
+		};
 	} finally {
 		console.log = originalLog;
 		console.error = originalError;

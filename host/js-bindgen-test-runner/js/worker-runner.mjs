@@ -85,7 +85,12 @@ function withConsoleCapture(name, run, panicPayload, panicMessage, emit) {
 		run();
 		return { ok: true };
 	} catch (error) {
-		return { ok: false, panic_payload: panicPayload(), panic_message: panicMessage() };
+		return {
+			ok: false,
+			panic_payload: panicPayload(),
+			panic_message: panicMessage(),
+			stack: error.stack
+		};
 	} finally {
 		console.log = originalLog;
 		console.error = originalError;
