@@ -1,6 +1,7 @@
 # Critical Priority
 
 - Replace `llvm-mc` with `wasm-tools`. See [bytecodealliance/wasm-tools#2405].
+- Compatibility with `wasm-bindgen`.
 - Do we agree with the new name `js-bindgen`? Maybe `web-bindgen` is the most accurate?
 - `#[js_sys]` is probably also not the ideal name.
 
@@ -8,6 +9,8 @@
 
 # High Priority
 
+- Add a `disable_hygiene` attribute to `#[js_sys]` to reduce the compile-time of the output to an
+  absolute minimum. This can avoid all `interpolate`s.
 - Escape namespaces and function names if they are not valid JS identifiers.
 - Test raw Rust identifiers in function and parameter names.
 - `#[js_sys]` parameter and function name aren't allowed to collide. Internal
@@ -33,17 +36,13 @@
 
 # Medium Priority
 
-- Find a way to link to imports directly if no wrapper function is needed. This happens no
+- Find a way to link to imports directly if no wrapper function is needed. This happens when no
   conversions on the ASM level are necessary.
 - Provide an absolutely minimal allocator.
 - The `js_sys` proc-macro should remove the `extern "C" { ... }` part of the input on error to avoid
   triggering the `unsafe` requirement downstream.
 - Optimize linker file interactions by using memory mapped files instead of reading and writing
   everything into memory.
-- Run the assembly compiler on the proc-macro level so users see errors without having to engage the
-  linker.
-- Parse the JS on the proc-macro level so users see errors. E.g. `oxc-parser`.
-- Use an AST for JS code generation so we don't play around with strings. E.g. `oxc-codegen`.
 
 [Emscripten's]:
 	https://github.com/emscripten-core/emscripten/blob/28bcb86466a273859b8adb43cb167b97e05e145d/src/lib/libstrings.js
