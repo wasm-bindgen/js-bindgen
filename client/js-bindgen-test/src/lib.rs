@@ -3,8 +3,8 @@ use js_sys::JsString;
 use std::{cell::RefCell, panic::PanicHookInfo};
 
 struct LastPanic {
-	payload: Option<JsString>,
-	info: Option<JsString>,
+	payload: Option<String>,
+	info: Option<String>,
 }
 
 thread_local! {
@@ -14,21 +14,8 @@ thread_local! {
 	}) };
 }
 
-js_sys::js_bindgen::embed_js!(
-	name = "panic.stack",
-	"(message) => {{",
-	"	const error = new Error(message);",
-	"	return error.stack || String(error);",
-	"}}"
-);
-
-#[js_sys::js_sys(js_sys = js_sys)]
-extern "C" {
-	#[js_sys(js_embed = "panic.stack")]
-	fn panic_stack(message: &JsString) -> JsString;
-}
-
 pub fn set_panic_hook() {
+	// TODO: Bump rustc to 1.91.0 and remove this func
 	fn payload_as_str<'a>(info: &'a PanicHookInfo) -> Option<&'a str> {
 		if let Some(s) = info.payload().downcast_ref::<&str>() {
 			Some(s)
@@ -40,12 +27,13 @@ pub fn set_panic_hook() {
 	}
 
 	static HOOK: std::sync::Once = std::sync::Once::new();
+
 	HOOK.call_once(|| {
 		std::panic::set_hook(Box::new(|info| {
 			LAST_PANIC.with(|cell| {
 				*cell.borrow_mut() = LastPanic {
-					payload: payload_as_str(info).map(JsString::from_str),
-					info: Some(panic_stack(&JsString::from_str(&info.to_string()))),
+					payload: payload_as_str(info).map(|s| s.to_owned()),
+					info: Some(info.to_string()),
 				}
 			});
 		}));
@@ -55,7 +43,7 @@ pub fn set_panic_hook() {
 #[unsafe(no_mangle)]
 pub extern "C" fn last_panic_message() -> JsString {
 	match LAST_PANIC.with(|cell| cell.borrow_mut().info.take()) {
-		Some(info) => info,
+		Some(info) => JsString::from_str(&info),
 		None => JsString::from_str(""),
 	}
 }
@@ -63,7 +51,7 @@ pub extern "C" fn last_panic_message() -> JsString {
 #[unsafe(no_mangle)]
 pub extern "C" fn last_panic_payload() -> JsString {
 	match LAST_PANIC.with(|cell| cell.borrow_mut().payload.take()) {
-		Some(payload) => payload,
+		Some(payload) => JsString::from_str(&payload),
 		None => JsString::from_str(""),
 	}
 }

@@ -53,7 +53,7 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 					type: "test-failed",
 					name: test.name,
 					error:
-                        message + "\n\n" +
+                        message + "\n" +
 						"note: panic did not contain expected string\n" +
 						`      panic message: "${displayPayload}"\n` +
 						` expected substring: "${displayExpected}"`,
