@@ -1,8 +1,8 @@
 [package]
-name = "js-bindgen-test-macro"
-version = "0.1.0"
 edition.workspace = true
+name = "js-bindgen-test-macro"
 rust-version.workspace = true
+version = "0.1.0"
 
 [lib]
 proc-macro = true
