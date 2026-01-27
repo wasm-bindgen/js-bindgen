@@ -533,6 +533,11 @@ fn handle_connection(
 		return Ok(());
 	}
 
+	if method == "OPTIONS" {
+		write_response(&mut stream, 204, "text/plain", b"")?;
+		return Ok(());
+	}
+
 	if method != "GET" {
 		write_response(&mut stream, 405, "text/plain", b"Method Not Allowed")?;
 		return Ok(());
@@ -567,13 +572,14 @@ fn write_response(
 ) -> Result<()> {
 	let status_text = match status {
 		200 => "OK",
+		204 => "No Content",
 		404 => "Not Found",
 		405 => "Method Not Allowed",
 		_ => "OK",
 	};
 	write!(
 		stream,
-		"HTTP/1.1 {status} {status_text}\r\nContent-Length: {}\r\nContent-Type: {content_type}\r\n\r\n",
+		"HTTP/1.1 {status} {status_text}\r\nContent-Length: {}\r\nContent-Type: {content_type}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nCross-Origin-Opener-Policy: same-origin\r\nCross-Origin-Embedder-Policy: require-corp\r\n\r\n",
 		body.len()
 	)?;
 	stream.write_all(body)?;
