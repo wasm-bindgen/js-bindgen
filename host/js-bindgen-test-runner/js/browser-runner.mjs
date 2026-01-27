@@ -1,4 +1,4 @@
-import { createTextFormatter, installConsoleProxy } from "./shared.mjs";
+import { createTextFormatter, installConsoleProxy, withConsoleCapture } from "./shared.mjs";
 import { runTests } from "./runner-core.mjs";
 
 export async function runBrowser({ nocapture, filtered, worker }) {
@@ -9,16 +9,18 @@ export async function runBrowser({ nocapture, filtered, worker }) {
 	const baseInfo = consoleProxy.base.info;
 	const baseDebug = consoleProxy.base.debug;
 
-	let result = worker ? await runInWorker({
-		nocapture,
-		filtered,
-		worker,
-		baseLog,
-		baseError,
-		baseWarn,
-		baseInfo,
-		baseDebug,
-	}) : await runInWindow({ nocapture, filtered, consoleProxy });
+	let result = worker
+		? await runInWorker({
+			nocapture,
+			filtered,
+			worker,
+			baseLog,
+			baseError,
+			baseWarn,
+			baseInfo,
+			baseDebug,
+		})
+		: await runInWindow({ nocapture, filtered, consoleProxy });
 
 	if (typeof window !== "undefined") {
 		window.__jbtestDone = true;
@@ -45,10 +47,13 @@ async function runInWindow({ nocapture, filtered, consoleProxy }) {
 	const testInputs = tests.map(test => ({
 		...test,
 		run(testFn) {
-			return withConsoleCapture(test.name, () => testFn(), event =>
-				formatter.onEvent(event),
-				consoleProxy
-			);
+			return withConsoleCapture({
+				name: test.name,
+				run: () => testFn(),
+				emit: event => formatter.onEvent(event),
+				consoleProxy,
+				forwardToConsole: true,
+			});
 		},
 	}));
 
@@ -107,16 +112,16 @@ async function runInWorker({
 		return null;
 	}
 
-	let reportPromise;
-	if (worker === "dedicated") {
-		reportPromise = runDedicatedWorker({ filtered, nocapture, handleMessage });
-	} else if (worker === "shared") {
-		reportPromise = runSharedWorker({ filtered, nocapture, handleMessage });
-	} else if (worker === "service") {
-		reportPromise = runServiceWorker({ filtered, nocapture, handleMessage });
-	} else {
-		throw new Error(`unsupported worker worker: ${mode}`);
+	const workerRunners = {
+		dedicated: runDedicatedWorker,
+		shared: runSharedWorker,
+		service: runServiceWorker,
+	};
+	const runWorker = workerRunners[worker];
+	if (!runWorker) {
+		throw new Error(`unsupported worker worker: ${worker}`);
 	}
+	const reportPromise = runWorker({ filtered, nocapture, handleMessage });
 
 	const report = await reportPromise;
 	return report;
@@ -216,29 +221,6 @@ async function runServiceWorker({ filtered, nocapture, handleMessage }) {
 			[channel.port2]
 		);
 	});
-}
-
-function withConsoleCapture(name, run, emit, consoleProxy) {
-	consoleProxy.setHook(
-		(level, args) => {
-			const line = args.join(" ");
-			const stream = level === "error" || level === "warn" ? "stderr" : "stdout";
-			emit({ type: "test-output", name, line, stream, level });
-		},
-		true
-	);
-
-	try {
-		run();
-		return { ok: true };
-	} catch (error) {
-		return {
-			ok: false,
-			stack: error.stack
-		};
-	} finally {
-		consoleProxy.clearHook();
-	}
 }
 
 function appendOutput(line) {

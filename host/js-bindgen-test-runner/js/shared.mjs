@@ -1,7 +1,7 @@
 export function createTextFormatter({ nocapture, write }) {
 	const buffered = new Map();
 	const failed = [];
-	const failure_reports = [];
+	const failureReports = [];
 	const green = "\u001b[32m";
 	const red = "\u001b[31m";
 	const yellow = "\u001b[33m";
@@ -14,7 +14,7 @@ export function createTextFormatter({ nocapture, write }) {
 		buffered.get(name).push({ line, stream });
 	}
 
-	function take_buffer(name) {
+	function takeBuffer(name) {
 		const entries = buffered.get(name);
 		if (!entries || entries.length === 0) {
 			return [];
@@ -39,7 +39,7 @@ export function createTextFormatter({ nocapture, write }) {
 					}
 					break;
 				case "test-ok":
-					take_buffer(event.name);
+					takeBuffer(event.name);
 					if (event.should_panic) {
 						write(
 							`test ${event.name} - should panic ... ${green}ok${reset}`,
@@ -50,7 +50,7 @@ export function createTextFormatter({ nocapture, write }) {
 					}
 					break;
 				case "test-ignored":
-					take_buffer(event.name);
+					takeBuffer(event.name);
 					if (event.reason) {
 						write(
 							`test ${event.name} ... ${yellow}ignored, ${event.reason}${reset}`,
@@ -70,9 +70,9 @@ export function createTextFormatter({ nocapture, write }) {
 					} else {
 						write(`test ${event.name} ... ${red}FAILED${reset}`, "stdout");
 					}
-					failure_reports.push({
+					failureReports.push({
 						name: event.name,
-						entries: take_buffer(event.name),
+						entries: takeBuffer(event.name),
 						error: event.error,
 					});
 					break;
@@ -81,7 +81,7 @@ export function createTextFormatter({ nocapture, write }) {
 					if (failed.length > 0) {
 						write("failures:", "stdout");
 						write("", "stdout");
-						for (const report of failure_reports) {
+						for (const report of failureReports) {
 							write(`---- ${report.name} stdout ----`, "stdout");
 							for (const entry of report.entries) {
 								write(entry.line, entry.stream);
@@ -120,6 +120,10 @@ export function createTextFormatter({ nocapture, write }) {
 }
 
 export function installConsoleProxy() {
+	const existing = globalThis.__jbtestConsoleProxy;
+	if (existing) {
+		return existing;
+	}
 	const base = {
 		log: console.log.bind(console),
 		error: console.error.bind(console),
@@ -159,5 +163,29 @@ export function installConsoleProxy() {
 			forwardToConsole = false;
 		},
 	};
+	globalThis.__jbtestConsoleProxy = proxy;
 	return proxy;
+}
+
+export function withConsoleCapture({ name, run, emit, consoleProxy, forwardToConsole }) {
+	consoleProxy.setHook(
+		(level, args) => {
+			const line = args.join(" ");
+			const stream = level === "error" || level === "warn" ? "stderr" : "stdout";
+			emit({ type: "test-output", name, line, stream, level });
+		},
+		forwardToConsole
+	);
+
+	try {
+		run();
+		return { ok: true };
+	} catch (error) {
+		return {
+			ok: false,
+			stack: error.stack
+		};
+	} finally {
+		consoleProxy.clearHook();
+	}
 }

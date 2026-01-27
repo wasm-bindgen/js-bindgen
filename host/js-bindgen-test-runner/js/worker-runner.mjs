@@ -1,4 +1,4 @@
-import { createTextFormatter, installConsoleProxy } from "./shared.mjs";
+import { createTextFormatter, installConsoleProxy, withConsoleCapture } from "./shared.mjs";
 import { runTests } from "./runner-core.mjs";
 
 async function execute(port, { nocapture, filtered }) {
@@ -31,10 +31,13 @@ async function execute(port, { nocapture, filtered }) {
 	const testInputs = tests.map(test => ({
 		...test,
 		run(testFn) {
-			return withConsoleCapture(test.name, () => testFn(), event =>
-				emit(event),
-				consoleProxy
-			);
+			return withConsoleCapture({
+				name: test.name,
+				run: () => testFn(),
+				emit,
+				consoleProxy,
+				forwardToConsole: false,
+			});
 		},
 	}));
 
@@ -65,24 +68,4 @@ if (typeof self.onconnect !== "undefined") {
 			self.postMessage({ type: "report", lines: [String(error)], failed: 1 });
 		});
 	};
-}
-
-function withConsoleCapture(name, run, emit, consoleProxy) {
-	consoleProxy.setHook((level, args) => {
-		const line = args.join(" ");
-		const stream = level === "error" || level === "warn" ? "stderr" : "stdout";
-		emit({ type: "test-output", name, line, stream, level });
-	}, false);
-
-	try {
-		run();
-		return { ok: true };
-	} catch (error) {
-		return {
-			ok: false,
-			stack: error.stack
-		};
-	} finally {
-		consoleProxy.clearHook();
-	}
 }
