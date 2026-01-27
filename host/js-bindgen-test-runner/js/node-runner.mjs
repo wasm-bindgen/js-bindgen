@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { createTextFormatter, installConsoleProxy } from "./shared.mjs";
+import { createTextFormatter, installConsoleProxy, withConsoleCapture } from "./shared.mjs";
 import { runTests } from "./runner-core.mjs";
 
 const wasmPath = process.env.JS_BINDGEN_WASM;
@@ -39,7 +39,13 @@ function emit(event) {
 const testInputs = tests.map(test => ({
 	...test,
 	run(testFn) {
-		return withConsoleCapture(test.name, () => testFn(), consoleProxy);
+		return withConsoleCapture({
+            name: test.name,
+            run: () => testFn(),
+			emit: event => formatter.onEvent(event),
+            consoleProxy,
+            forwardToConsole: false,
+        });
 	},
 }));
 
@@ -52,23 +58,3 @@ const result = await runTests({
 });
 
 process.exit(result.failed === 0 ? 0 : 1);
-
-function withConsoleCapture(name, run, consoleProxy) {
-	consoleProxy.setHook((level, args) => {
-		const line = args.join(" ");
-		const stream = level === "error" || level === "warn" ? "stderr" : "stdout";
-		emit({ type: "test-output", name, line, stream, level });
-	}, false);
-
-	try {
-		run();
-		return { ok: true };
-	} catch (error) {
-		return {
-			ok: false,
-			stack: error.stack
-		};
-	} finally {
-		consoleProxy.clearHook();
-	}
-}
