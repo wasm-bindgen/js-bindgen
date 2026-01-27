@@ -1,13 +1,13 @@
-import { createTextFormatter, installConsoleProxy, withConsoleCapture } from "./shared.mjs";
+import { createTextFormatter } from "./shared.mjs";
 import { runTests } from "./runner-core.mjs";
+import consoleHook, { withConsoleCapture } from "./console-hook.mjs";
 
 export async function runBrowser({ nocapture, filtered, worker }) {
-	const consoleProxy = installConsoleProxy();
-	const baseLog = consoleProxy.base.log;
-	const baseError = consoleProxy.base.error;
-	const baseWarn = consoleProxy.base.warn;
-	const baseInfo = consoleProxy.base.info;
-	const baseDebug = consoleProxy.base.debug;
+	const baseLog = consoleHook.base.log;
+	const baseError = consoleHook.base.error;
+	const baseWarn = consoleHook.base.warn;
+	const baseInfo = consoleHook.base.info;
+	const baseDebug = consoleHook.base.debug;
 
 	let result = worker
 		? await runInWorker({
@@ -20,7 +20,7 @@ export async function runBrowser({ nocapture, filtered, worker }) {
 			baseInfo,
 			baseDebug,
 		})
-		: await runInWindow({ nocapture, filtered, consoleProxy });
+		: await runInWindow({ nocapture, filtered, consoleHook });
 
 	if (typeof window !== "undefined") {
 		window.__jbtestDone = true;
@@ -30,7 +30,7 @@ export async function runBrowser({ nocapture, filtered, worker }) {
 	return result;
 }
 
-async function runInWindow({ nocapture, filtered, consoleProxy }) {
+async function runInWindow({ nocapture, filtered, consoleHook }) {
 	const tests = await (await fetch("/tests.json")).json();
 	const wasmBytes = await (await fetch("/wasm")).arrayBuffer();
 	const { importObject } = await import("/import.js");
@@ -51,7 +51,7 @@ async function runInWindow({ nocapture, filtered, consoleProxy }) {
 				name: test.name,
 				run: () => testFn(),
 				emit: event => formatter.onEvent(event),
-				consoleProxy,
+				consoleHook,
 				forwardToConsole: true,
 			});
 		},

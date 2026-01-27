@@ -1,5 +1,6 @@
-import { createTextFormatter, installConsoleProxy, withConsoleCapture } from "./shared.mjs";
+import { createTextFormatter } from "./shared.mjs";
 import { runTests } from "./runner-core.mjs";
+import consoleHook, { withConsoleCapture } from "./console-hook.mjs";
 import { importObject } from "./import.js";
 
 self.addEventListener("message", event => {
@@ -13,7 +14,6 @@ self.addEventListener("message", event => {
 });
 
 async function execute(port, { nocapture, filtered }) {
-	const consoleProxy = installConsoleProxy();
 	const tests = await (await fetch("/tests.json")).json();
 	const wasmBytes = await (await fetch("/wasm")).arrayBuffer();
 	const lines = [];
@@ -44,7 +44,7 @@ async function execute(port, { nocapture, filtered }) {
 				name: test.name,
 				run: () => testFn(),
 				emit,
-				consoleProxy,
+				consoleHook,
 				forwardToConsole: false,
 			});
 		},

@@ -21,6 +21,7 @@ const RUNNER_CORE_SOURCE: &str = include_str!("../js/runner-core.mjs");
 const SHARED_JS_SOURCE: &str = include_str!("../js/shared.mjs");
 const WORKER_RUNNER_SOURCE: &str = include_str!("../js/worker-runner.mjs");
 const SERVICE_WORKER_SOURCE: &str = include_str!("../js/service-worker.mjs");
+const CONSOLE_HOOK_SOURCE: &str = include_str!("../js/console-hook.mjs");
 
 #[derive(Debug, serde::Serialize)]
 struct TestEntry {
@@ -340,6 +341,7 @@ struct BrowserAssets {
 	shared_js: &'static str,
 	worker_js: &'static str,
 	service_worker_js: &'static str,
+	console_hook_js: &'static str,
 	index_html: String,
 }
 
@@ -392,6 +394,7 @@ await fetch("/report", {{
 			shared_js: SHARED_JS_SOURCE,
 			worker_js: WORKER_RUNNER_SOURCE,
 			service_worker_js: SERVICE_WORKER_SOURCE,
+			console_hook_js: CONSOLE_HOOK_SOURCE,
 			index_html,
 		})
 	}
@@ -496,6 +499,10 @@ fn handle_connection(
 		}
 	}
 
+	if header_end == 0 {
+		return Ok(());
+	}
+
 	let (header_bytes, body) = request.split_at(header_end + 4);
 	let request_text = String::from_utf8_lossy(header_bytes);
 	let mut lines = request_text.lines();
@@ -551,6 +558,11 @@ fn handle_connection(
 		"/worker-runner.mjs" => (assets.worker_js.as_bytes(), "application/javascript", 200),
 		"/service-worker.mjs" => (
 			assets.service_worker_js.as_bytes(),
+			"application/javascript",
+			200,
+		),
+		"/console-hook.mjs" => (
+			assets.console_hook_js.as_bytes(),
 			"application/javascript",
 			200,
 		),

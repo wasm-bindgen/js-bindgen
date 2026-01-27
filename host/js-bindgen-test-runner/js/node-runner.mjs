@@ -1,7 +1,8 @@
 import fs from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { createTextFormatter, installConsoleProxy, withConsoleCapture } from "./shared.mjs";
+import { createTextFormatter } from "./shared.mjs";
 import { runTests } from "./runner-core.mjs";
+import consoleHook, { withConsoleCapture } from "./console-hook.mjs";
 
 const wasmPath = process.env.JS_BINDGEN_WASM;
 const importsPath = process.env.JS_BINDGEN_IMPORTS;
@@ -14,13 +15,12 @@ if (!wasmPath || !importsPath || !testsJson) {
 	process.exit(1);
 }
 
-const consoleProxy = installConsoleProxy();
 const { importObject } = await import(pathToFileURL(importsPath));
 const wasmBytes = await fs.readFile(wasmPath);
 const tests = JSON.parse(testsJson);
 
-const baseLog = consoleProxy.base.log;
-const baseError = consoleProxy.base.error;
+const baseLog = consoleHook.base.log;
+const baseError = consoleHook.base.error;
 const formatter = createTextFormatter({
 	nocapture,
 	write(line, stream) {
@@ -40,12 +40,12 @@ const testInputs = tests.map(test => ({
 	...test,
 	run(testFn) {
 		return withConsoleCapture({
-            name: test.name,
-            run: () => testFn(),
+			name: test.name,
+			run: () => testFn(),
 			emit: event => formatter.onEvent(event),
-            consoleProxy,
-            forwardToConsole: false,
-        });
+			consoleHook,
+			forwardToConsole: false,
+		});
 	},
 }));
 
