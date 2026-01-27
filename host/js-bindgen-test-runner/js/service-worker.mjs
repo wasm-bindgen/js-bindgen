@@ -1,6 +1,6 @@
-import { createTextFormatter } from "./shared.mjs";
+import { createTextFormatter, installConsoleProxy } from "./shared.mjs";
 import { runTests } from "./runner-core.mjs";
-import { importObject } from "/import.js";
+import { importObject } from "./import.js";
 
 self.addEventListener("message", event => {
 	const port = event.ports && event.ports[0];
@@ -13,6 +13,7 @@ self.addEventListener("message", event => {
 });
 
 async function execute(port, { nocapture, filtered }) {
+	const consoleProxy = installConsoleProxy();
 	const tests = await (await fetch("/tests.json")).json();
 	const wasmBytes = await (await fetch("/wasm")).arrayBuffer();
 	const lines = [];
@@ -20,9 +21,7 @@ async function execute(port, { nocapture, filtered }) {
 		nocapture,
 		write(line) {
 			lines.push(line);
-			if (nocapture) {
-				port.postMessage({ type: "line", line });
-			}
+			port.postMessage({ type: "line", line });
 		},
 	});
 
@@ -42,7 +41,8 @@ async function execute(port, { nocapture, filtered }) {
 		...test,
 		run(testFn) {
 			return withConsoleCapture(test.name, () => testFn(), event =>
-				emit(event)
+				emit(event),
+				consoleProxy
 			);
 		},
 	}));
@@ -58,21 +58,12 @@ async function execute(port, { nocapture, filtered }) {
 	port.postMessage({ type: "report", lines, failed: result.failed });
 }
 
-function withConsoleCapture(name, run, emit) {
-	function emitOutput(line, stream, level) {
+function withConsoleCapture(name, run, emit, consoleProxy) {
+	consoleProxy.setHook((level, args) => {
+		const line = args.join(" ");
+		const stream = level === "error" || level === "warn" ? "stderr" : "stdout";
 		emit({ type: "test-output", name, line, stream, level });
-	}
-
-	const originalLog = console.log;
-	const originalError = console.error;
-	const originalWarn = console.warn;
-	const originalInfo = console.info;
-	const originalDebug = console.debug;
-	console.log = (...args) => emitOutput(args.join(" "), "stdout", "log");
-	console.error = (...args) => emitOutput(args.join(" "), "stderr", "error");
-	console.warn = (...args) => emitOutput(args.join(" "), "stderr", "warn");
-	console.info = (...args) => emitOutput(args.join(" "), "stdout", "info");
-	console.debug = (...args) => emitOutput(args.join(" "), "stdout", "debug");
+	}, false);
 
 	try {
 		run();
@@ -83,10 +74,6 @@ function withConsoleCapture(name, run, emit) {
 			stack: error.stack
 		};
 	} finally {
-		console.log = originalLog;
-		console.error = originalError;
-		console.warn = originalWarn;
-		console.info = originalInfo;
-		console.debug = originalDebug;
+		consoleProxy.clearHook();
 	}
 }

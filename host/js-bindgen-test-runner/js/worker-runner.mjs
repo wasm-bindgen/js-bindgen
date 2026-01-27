@@ -1,7 +1,8 @@
-import { createTextFormatter } from "./shared.mjs";
+import { createTextFormatter, installConsoleProxy } from "./shared.mjs";
 import { runTests } from "./runner-core.mjs";
 
 async function execute(port, { nocapture, filtered }) {
+	const consoleProxy = installConsoleProxy();
 	const tests = await (await fetch("/tests.json")).json();
 	const wasmBytes = await (await fetch("/wasm")).arrayBuffer();
 	const { importObject } = await import("/import.js");
@@ -31,7 +32,8 @@ async function execute(port, { nocapture, filtered }) {
 		...test,
 		run(testFn) {
 			return withConsoleCapture(test.name, () => testFn(), event =>
-				emit(event)
+				emit(event),
+				consoleProxy
 			);
 		},
 	}));
@@ -65,21 +67,12 @@ if (typeof self.onconnect !== "undefined") {
 	};
 }
 
-function withConsoleCapture(name, run, emit) {
-	function emitOutput(line, stream, level) {
+function withConsoleCapture(name, run, emit, consoleProxy) {
+	consoleProxy.setHook((level, args) => {
+		const line = args.join(" ");
+		const stream = level === "error" || level === "warn" ? "stderr" : "stdout";
 		emit({ type: "test-output", name, line, stream, level });
-	}
-
-	const originalLog = console.log;
-	const originalError = console.error;
-	const originalWarn = console.warn;
-	const originalInfo = console.info;
-	const originalDebug = console.debug;
-	console.log = (...args) => emitOutput(args.join(" "), "stdout", "log");
-	console.error = (...args) => emitOutput(args.join(" "), "stderr", "error");
-	console.warn = (...args) => emitOutput(args.join(" "), "stderr", "warn");
-	console.info = (...args) => emitOutput(args.join(" "), "stdout", "info");
-	console.debug = (...args) => emitOutput(args.join(" "), "stdout", "debug");
+	}, false);
 
 	try {
 		run();
@@ -90,10 +83,6 @@ function withConsoleCapture(name, run, emit) {
 			stack: error.stack
 		};
 	} finally {
-		console.log = originalLog;
-		console.error = originalError;
-		console.warn = originalWarn;
-		console.info = originalInfo;
-		console.debug = originalDebug;
+		consoleProxy.clearHook();
 	}
 }

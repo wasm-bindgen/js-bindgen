@@ -1,12 +1,13 @@
-import { createTextFormatter } from "./shared.mjs";
+import { createTextFormatter, installConsoleProxy } from "./shared.mjs";
 import { runTests } from "./runner-core.mjs";
 
 export async function runBrowser({ nocapture, filtered, worker }) {
-	const baseLog = console.log;
-	const baseError = console.error;
-	const baseWarn = console.warn;
-	const baseInfo = console.info;
-	const baseDebug = console.debug;
+	const consoleProxy = installConsoleProxy();
+	const baseLog = consoleProxy.base.log;
+	const baseError = consoleProxy.base.error;
+	const baseWarn = consoleProxy.base.warn;
+	const baseInfo = consoleProxy.base.info;
+	const baseDebug = consoleProxy.base.debug;
 
 	let result = worker ? await runInWorker({
 		nocapture,
@@ -17,7 +18,7 @@ export async function runBrowser({ nocapture, filtered, worker }) {
 		baseWarn,
 		baseInfo,
 		baseDebug,
-	}) : await runInWindow({ nocapture, filtered });
+	}) : await runInWindow({ nocapture, filtered, consoleProxy });
 
 	if (typeof window !== "undefined") {
 		window.__jbtestDone = true;
@@ -27,7 +28,7 @@ export async function runBrowser({ nocapture, filtered, worker }) {
 	return result;
 }
 
-async function runInWindow({ nocapture, filtered }) {
+async function runInWindow({ nocapture, filtered, consoleProxy }) {
 	const tests = await (await fetch("/tests.json")).json();
 	const wasmBytes = await (await fetch("/wasm")).arrayBuffer();
 	const { importObject } = await import("/import.js");
@@ -45,7 +46,8 @@ async function runInWindow({ nocapture, filtered }) {
 		...test,
 		run(testFn) {
 			return withConsoleCapture(test.name, () => testFn(), event =>
-				formatter.onEvent(event)
+				formatter.onEvent(event),
+				consoleProxy
 			);
 		},
 	}));
@@ -216,38 +218,15 @@ async function runServiceWorker({ filtered, nocapture, handleMessage }) {
 	});
 }
 
-function withConsoleCapture(name, run, emit) {
-	const originalLog = console.log;
-	const originalError = console.error;
-	const originalWarn = console.warn;
-	const originalInfo = console.info;
-	const originalDebug = console.debug;
-
-	function emitOutput(line, stream, level) {
-		emit({ type: "test-output", name, line, stream });
-		switch (level) {
-			case "error":
-				originalError(line);
-				break;
-			case "warn":
-				originalWarn(line);
-				break;
-			case "info":
-				originalInfo(line);
-				break;
-			case "debug":
-				originalDebug(line);
-				break;
-			default:
-				originalLog(line);
-		}
-	}
-
-	console.log = (...args) => emitOutput(args.join(" "), "stdout", "log");
-	console.error = (...args) => emitOutput(args.join(" "), "stderr", "error");
-	console.warn = (...args) => emitOutput(args.join(" "), "stderr", "warn");
-	console.info = (...args) => emitOutput(args.join(" "), "stdout", "info");
-	console.debug = (...args) => emitOutput(args.join(" "), "stdout", "debug");
+function withConsoleCapture(name, run, emit, consoleProxy) {
+	consoleProxy.setHook(
+		(level, args) => {
+			const line = args.join(" ");
+			const stream = level === "error" || level === "warn" ? "stderr" : "stdout";
+			emit({ type: "test-output", name, line, stream, level });
+		},
+		true
+	);
 
 	try {
 		run();
@@ -258,11 +237,7 @@ function withConsoleCapture(name, run, emit) {
 			stack: error.stack
 		};
 	} finally {
-		console.log = originalLog;
-		console.error = originalError;
-		console.warn = originalWarn;
-		console.info = originalInfo;
-		console.debug = originalDebug;
+		consoleProxy.clearHook();
 	}
 }
 
