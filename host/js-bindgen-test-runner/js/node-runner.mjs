@@ -37,8 +37,8 @@ function emit(event) {
 
 const testInputs = tests.map(test => ({
 	...test,
-	run(testFn, panicPayload, panicMessage) {
-		return withConsoleCapture(test.name, () => testFn(), panicPayload, panicMessage);
+	run(testFn) {
+		return withConsoleCapture(test.name, () => testFn());
 	},
 }));
 
@@ -52,7 +52,7 @@ const result = await runTests({
 
 process.exit(result.failed === 0 ? 0 : 1);
 
-function withConsoleCapture(name, run, panicPayload, panicMessage) {
+function withConsoleCapture(name, run) {
 	function emitOutput(line, stream, level) {
 		emit({ type: "test-output", name, line, stream, level });
 	}
@@ -74,8 +74,6 @@ function withConsoleCapture(name, run, panicPayload, panicMessage) {
 	} catch (error) {
 		return {
 			ok: false,
-			panic_payload: panicPayload(),
-			panic_message: panicMessage(),
 			stack: error.stack
 		};
 	} finally {

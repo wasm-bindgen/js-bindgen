@@ -18,7 +18,6 @@ if (!browserType) {
 
 const browser = await browserType.launch({
 	headless: true,
-	chromiumSandbox: false,
 });
 const page = await browser.newPage();
 await page.goto(url);

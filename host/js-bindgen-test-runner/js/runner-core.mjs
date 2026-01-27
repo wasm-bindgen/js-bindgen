@@ -28,8 +28,8 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 			continue;
 		}
 
-		const result = test.run(testFn, panicPayload, panicMessage);
-		const shouldPanic = Boolean(test.should_panic);
+		const result = test.run(testFn);
+		const shouldPanic = test.should_panic;
 		if (shouldPanic) {
 			if (result.ok) {
 				emit({
@@ -42,10 +42,10 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 				continue;
 			}
 
-			const expected = test.should_panic_reason;
-			const payload = coercePanicMessage(result.panic_payload, externrefTable);
-			const message = coercePanicMessage(result.panic_message, externrefTable);
-			const expectedText = expected || "";
+			const expectedText = test.should_panic_reason;
+			const payload = coercePanicMessage(panicPayload(), externrefTable);
+			const message = coercePanicMessage(panicMessage(), externrefTable);
+
 			if (expectedText && !payload.includes(expectedText)) {
 				const displayPayload = escapeForDisplay(payload);
 				const displayExpected = escapeForDisplay(expectedText);
@@ -71,7 +71,7 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 		if (result.ok) {
 			emit({ type: "test-ok", name: test.name, should_panic: false });
 		} else {
-			const message = coercePanicMessage(result.panic_message, externrefTable);
+			const message = coercePanicMessage(panicMessage(), externrefTable);
 			emit({ type: "test-failed", name: test.name, error: message + "\n" + result.stack });
 			failed += 1;
 		}
@@ -91,27 +91,18 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 }
 
 function resolveExternrefTable(importObject) {
-	if (!importObject) {
-		return null;
-	}
 	return importObject["js_sys"]["externref.table"];
 }
 
 function coercePanicMessage(value, externrefTable) {
 	const ref = externrefTable.get(value);
-	if (typeof externrefTable.set === "function") {
-		externrefTable.set(value, null);
-	}
+	externrefTable.set(value, null);
 	return String(ref);
 }
 
 function escapeForDisplay(value) {
 	return String(value || "")
-		.replace(/\\/g, "\\\\")
 		.replace(/\r/g, "\\r")
 		.replace(/\n/g, "\\n")
-		.replace(/\t/g, "\\t")
-		.replace(/\0/g, "\\0")
-		.replace(/\x08/g, "\\b")
-		.replace(/\x0c/g, "\\f");
+		.replace(/\t/g, "\\t");
 }
