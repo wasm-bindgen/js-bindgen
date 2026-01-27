@@ -2,26 +2,22 @@ import { createTextFormatter } from "./shared.mjs";
 import { runTests } from "./runner-core.mjs";
 
 export async function runBrowser({ nocapture, filtered, worker }) {
-	const mode = worker || "page";
 	const baseLog = console.log;
 	const baseError = console.error;
 	const baseWarn = console.warn;
 	const baseInfo = console.info;
 	const baseDebug = console.debug;
 
-	let result =
-		mode === "page"
-			? await runInWindow({ nocapture, filtered })
-			: await runInWorker({
-				nocapture,
-				filtered,
-				mode,
-				baseLog,
-				baseError,
-				baseWarn,
-				baseInfo,
-				baseDebug,
-			});
+	let result = worker ? await runInWorker({
+		nocapture,
+		filtered,
+		worker,
+		baseLog,
+		baseError,
+		baseWarn,
+		baseInfo,
+		baseDebug,
+	}) : await runInWindow({ nocapture, filtered });
 
 	if (typeof window !== "undefined") {
 		window.__jbtestDone = true;
@@ -47,8 +43,8 @@ async function runInWindow({ nocapture, filtered }) {
 
 	const testInputs = tests.map(test => ({
 		...test,
-		run(testFn, panicPayload, panicMessage) {
-			return withConsoleCapture(test.name, () => testFn(), panicPayload, panicMessage, event =>
+		run(testFn) {
+			return withConsoleCapture(test.name, () => testFn(), event =>
 				formatter.onEvent(event)
 			);
 		},
@@ -68,7 +64,7 @@ async function runInWindow({ nocapture, filtered }) {
 async function runInWorker({
 	nocapture,
 	filtered,
-	mode,
+	worker,
 	baseLog,
 	baseError,
 	baseWarn,
@@ -110,14 +106,14 @@ async function runInWorker({
 	}
 
 	let reportPromise;
-	if (mode === "dedicated") {
+	if (worker === "dedicated") {
 		reportPromise = runDedicatedWorker({ filtered, nocapture, handleMessage });
-	} else if (mode === "shared") {
+	} else if (worker === "shared") {
 		reportPromise = runSharedWorker({ filtered, nocapture, handleMessage });
-	} else if (mode === "service") {
+	} else if (worker === "service") {
 		reportPromise = runServiceWorker({ filtered, nocapture, handleMessage });
 	} else {
-		throw new Error(`unsupported worker mode: ${mode}`);
+		throw new Error(`unsupported worker worker: ${mode}`);
 	}
 
 	const report = await reportPromise;
@@ -220,7 +216,7 @@ async function runServiceWorker({ filtered, nocapture, handleMessage }) {
 	});
 }
 
-function withConsoleCapture(name, run, panicPayload, panicMessage, emit) {
+function withConsoleCapture(name, run, emit) {
 	const originalLog = console.log;
 	const originalError = console.error;
 	const originalWarn = console.warn;
@@ -259,8 +255,6 @@ function withConsoleCapture(name, run, panicPayload, panicMessage, emit) {
 	} catch (error) {
 		return {
 			ok: false,
-			panic_payload: panicPayload(),
-			panic_message: panicMessage(),
 			stack: error.stack
 		};
 	} finally {

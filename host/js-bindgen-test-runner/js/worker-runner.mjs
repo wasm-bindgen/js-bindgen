@@ -29,8 +29,8 @@ async function execute(port, { nocapture, filtered }) {
 
 	const testInputs = tests.map(test => ({
 		...test,
-		run(testFn, panicPayload, panicMessage) {
-			return withConsoleCapture(test.name, () => testFn(), panicPayload, panicMessage, event =>
+		run(testFn) {
+			return withConsoleCapture(test.name, () => testFn(), event =>
 				emit(event)
 			);
 		},
@@ -65,7 +65,7 @@ if (typeof self.onconnect !== "undefined") {
 	};
 }
 
-function withConsoleCapture(name, run, panicPayload, panicMessage, emit) {
+function withConsoleCapture(name, run, emit) {
 	function emitOutput(line, stream, level) {
 		emit({ type: "test-output", name, line, stream, level });
 	}
@@ -87,8 +87,6 @@ function withConsoleCapture(name, run, panicPayload, panicMessage, emit) {
 	} catch (error) {
 		return {
 			ok: false,
-			panic_payload: panicPayload(),
-			panic_message: panicMessage(),
 			stack: error.stack
 		};
 	} finally {
