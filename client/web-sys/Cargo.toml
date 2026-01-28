@@ -1,5 +1,6 @@
 [package]
 edition = { workspace = true }
+license = { workspace = true }
 name = "web-sys"
 rust-version = { workspace = true }
 

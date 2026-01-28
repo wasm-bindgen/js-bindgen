@@ -1,5 +1,6 @@
 [package]
 edition = { workspace = true }
+license = { workspace = true }
 name = "js-sys-macro"
 rust-version = { workspace = true }
 
