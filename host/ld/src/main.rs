@@ -102,7 +102,14 @@ fn main() {
 		.unwrap();
 
 	if status.success() {
-		post_processing(output_path, main_memory)
+		let wasm_output = post_processing(output_path, main_memory);
+
+		// We could write into the file directly, but `wasm-encoder` doesn't support
+		// `io::Write`: https://github.com/bytecodealliance/wasm-tools/issues/778.
+		//
+		// When it does, we should rename the old file and write to a new file. This way
+		// we can keep parsing and writing at the same time without allocating memory.
+		fs::write(output_path, wasm_output).expect("output Wasm file should be writable");
 	}
 
 	process::exit(status.code().unwrap_or(1));
@@ -166,7 +173,7 @@ fn process_object(
 }
 
 /// This removes our custom sections and generates the JS import file.
-fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
+fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 	// Unfortunately we don't receive the final output path adjustments Cargo makes.
 	// So for the JS file we just figure it out ourselves.
 	let package = env::var_os("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` should be present");
@@ -491,10 +498,5 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) {
 
 	js_output.into_inner().unwrap().sync_all().unwrap();
 
-	// We could write into the file directly, but `wasm-encoder` doesn't support
-	// `io::Write`: https://github.com/bytecodealliance/wasm-tools/issues/778.
-	//
-	// When it does, we should rename the old file and write to a new file. This way
-	// we can keep parsing and writing at the same time without allocating memory.
-	fs::write(output_path, wasm_output).expect("output Wasm file should be writable");
+	wasm_output
 }

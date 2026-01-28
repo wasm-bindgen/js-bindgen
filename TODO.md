@@ -4,8 +4,11 @@
 - Compatibility with `wasm-bindgen`.
 - Do we agree with the new name `js-bindgen`? Maybe `web-bindgen` is the most accurate?
 - `#[js_sys]` is probably also not the ideal name.
+- The linker shim throws a warning on Windows because of the shebang. This is a problem because we
+  want to e.g. deny linker warnings. Most likely solution is [Cosmopolitan].
 
 [bytecodealliance/wasm-tools#2405]: https://github.com/bytecodealliance/wasm-tools/issues/2405
+[Cosmopolitan]: https://justine.lol/cosmopolitan/index.html
 
 # High Priority
 
