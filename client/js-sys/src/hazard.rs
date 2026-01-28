@@ -3,11 +3,11 @@
 /// This directly interacts with the assembly generator and therefor all
 /// bets are off! (TODO)
 pub unsafe trait Input {
-	const IMPORT_FUNC: &str;
+	const IMPORT_FUNC: &str = "";
 	const IMPORT_TYPE: &str;
 	const TYPE: &str;
-	const CONV: &str;
-	const JS_CONV: &str;
+	const CONV: &str = "";
+	const JS_CONV: &str = "";
 
 	type Type;
 
@@ -19,10 +19,10 @@ pub unsafe trait Input {
 /// This directly interacts with the assembly generator and therefor all
 /// bets are off! (TODO)
 pub unsafe trait Output {
-	const IMPORT_FUNC: &str;
+	const IMPORT_FUNC: &str = "";
 	const IMPORT_TYPE: &str;
 	const TYPE: &str;
-	const CONV: &str;
+	const CONV: &str = "";
 
 	type Type;
 

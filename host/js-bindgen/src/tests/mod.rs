@@ -1,4 +1,4 @@
-mod success;
+mod test;
 
 use proc_macro2::TokenStream;
 

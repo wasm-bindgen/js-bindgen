@@ -53,7 +53,6 @@ unsafe impl Input for &JsValue {
 	const IMPORT_TYPE: &'static str = "externref";
 	const TYPE: &'static str = "i32";
 	const CONV: &'static str = "call js_sys.externref.get";
-	const JS_CONV: &'static str = "";
 
 	type Type = i32;
 
@@ -114,8 +113,8 @@ impl JsString {
 		let len = {
 			let len = string.len();
 			debug_assert!(
-				len < 0x20000000000000,
-				"found string length bigger than `Number.MAX_SAFE_INTEGER`"
+				string.as_ptr() as usize + len < 0x20000000000000,
+				"found pointer + string length bigger than `Number.MAX_SAFE_INTEGER`"
 			);
 			len as f64
 		};
@@ -137,7 +136,6 @@ unsafe impl Input for &JsString {
 	const IMPORT_TYPE: &'static str = "externref";
 	const TYPE: &'static str = "i32";
 	const CONV: &'static str = "call js_sys.externref.get";
-	const JS_CONV: &'static str = "";
 
 	type Type = i32;
 
@@ -160,10 +158,8 @@ unsafe impl Output for JsString {
 }
 
 unsafe impl Input for u32 {
-	const IMPORT_FUNC: &str = "";
 	const IMPORT_TYPE: &str = "i32";
 	const TYPE: &str = "i32";
-	const CONV: &str = "";
 	const JS_CONV: &str = " >>>= 0";
 
 	type Type = Self;
@@ -174,7 +170,6 @@ unsafe impl Input for u32 {
 }
 
 unsafe impl Input for usize {
-	const IMPORT_FUNC: &str = "";
 	#[cfg(target_arch = "wasm32")]
 	const IMPORT_TYPE: &str = "i32";
 	#[cfg(target_arch = "wasm64")]
@@ -183,11 +178,8 @@ unsafe impl Input for usize {
 	const TYPE: &str = "i32";
 	#[cfg(target_arch = "wasm64")]
 	const TYPE: &str = "i64";
-	const CONV: &str = "";
 	#[cfg(target_arch = "wasm32")]
 	const JS_CONV: &str = " >>>= 0";
-	#[cfg(target_arch = "wasm64")]
-	const JS_CONV: &str = "";
 
 	type Type = Self;
 
@@ -197,11 +189,8 @@ unsafe impl Input for usize {
 }
 
 unsafe impl Input for f64 {
-	const IMPORT_FUNC: &str = "";
 	const IMPORT_TYPE: &str = "f64";
 	const TYPE: &str = "f64";
-	const CONV: &str = "";
-	const JS_CONV: &str = "";
 
 	type Type = Self;
 
@@ -211,7 +200,6 @@ unsafe impl Input for f64 {
 }
 
 unsafe impl Input for *const u8 {
-	const IMPORT_FUNC: &str = "";
 	#[cfg(target_arch = "wasm32")]
 	const IMPORT_TYPE: &str = "i32";
 	#[cfg(target_arch = "wasm64")]
@@ -220,11 +208,8 @@ unsafe impl Input for *const u8 {
 	const TYPE: &str = "i32";
 	#[cfg(target_arch = "wasm64")]
 	const TYPE: &str = "f64";
-	const CONV: &str = "";
 	#[cfg(target_arch = "wasm32")]
 	const JS_CONV: &str = " >>>= 0";
-	#[cfg(target_arch = "wasm64")]
-	const JS_CONV: &str = "";
 
 	#[cfg(target_arch = "wasm32")]
 	type Type = Self;
