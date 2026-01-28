@@ -92,7 +92,8 @@ fn main() {
 		js_bindgen_ld_shared::ld_input_parser::<Infallible>(input, |path, data| {
 			process_object(&arch_str, &mut add_args, path, data);
 			Ok(())
-		});
+		})
+		.unwrap();
 	}
 
 	let status = Command::new("rust-lld")
