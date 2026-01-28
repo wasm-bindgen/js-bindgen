@@ -1,0 +1,48 @@
+﻿name: Build
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  client:
+    name: Build Client ${{ matrix.os.description }}
+
+    runs-on: ${{ matrix.os.os }}
+
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - { os: ubuntu-latest, description: Linux }
+          - { os: macos-latest, description: MacOS }
+          - { os: windows-latest, description: Windows }
+
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup target add wasm32-unknown-unknown
+      - name: Install LLVM
+        uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
+        with:
+          # Rustc v1.93
+          llvm-version: 21
+      - name: Build Crates
+        run: cargo build --workspace
+      - name: Build Examples
+        run: cargo build --examples
