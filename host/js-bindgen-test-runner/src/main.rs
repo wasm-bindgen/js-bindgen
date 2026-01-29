@@ -340,12 +340,6 @@ struct BrowserAssets {
 	wasm_bytes: Vec<u8>,
 	import_js: String,
 	tests_json: String,
-	runner_js: &'static str,
-	core_js: &'static str,
-	shared_js: &'static str,
-	worker_js: &'static str,
-	service_worker_js: &'static str,
-	console_hook_js: &'static str,
 	index_html: String,
 }
 
@@ -362,24 +356,7 @@ impl BrowserAssets {
 		let import_js = fs::read_to_string(imports_path)?;
 
 		let index_html = format!(
-			r#"<!doctype html>
-<meta charset="utf-8">
-<title>js-bindgen test</title>
-<pre id="output"></pre>
-<script type="module">
-import {{ runBrowser }} from "/browser-runner.mjs";
-
-const filtered = {filtered_count};
-const nocapture = {nocapture_flag};
-const worker = {worker};
-const result = await runBrowser({{ filtered, nocapture, worker }});
-await fetch("/report", {{
-	method: "POST",
-	headers: {{ "content-type": "application/json" }},
-	body: JSON.stringify(result),
-}});
-</script>
-"#,
+			include_str!("../js/index.html"),
 			filtered_count = filtered_count,
 			nocapture_flag = if nocapture { "true" } else { "false" },
 			worker = if let Some(worker) = worker {
@@ -393,12 +370,6 @@ await fetch("/report", {{
 			wasm_bytes,
 			import_js,
 			tests_json: tests_json.to_string(),
-			runner_js: BROWSER_RUNNER_SOURCE,
-			core_js: RUNNER_CORE_SOURCE,
-			shared_js: SHARED_JS_SOURCE,
-			worker_js: WORKER_RUNNER_SOURCE,
-			service_worker_js: SERVICE_WORKER_SOURCE,
-			console_hook_js: CONSOLE_HOOK_SOURCE,
 			index_html,
 		})
 	}
@@ -556,17 +527,25 @@ fn handle_connection(
 
 	let (body, content_type, status) = match path {
 		"/" | "/index.html" => (assets.index_html.as_bytes(), "text/html", 200),
-		"/browser-runner.mjs" => (assets.runner_js.as_bytes(), "application/javascript", 200),
-		"/runner-core.mjs" => (assets.core_js.as_bytes(), "application/javascript", 200),
-		"/shared.mjs" => (assets.shared_js.as_bytes(), "application/javascript", 200),
-		"/worker-runner.mjs" => (assets.worker_js.as_bytes(), "application/javascript", 200),
+		"/browser-runner.mjs" => (
+			BROWSER_RUNNER_SOURCE.as_bytes(),
+			"application/javascript",
+			200,
+		),
+		"/runner-core.mjs" => (RUNNER_CORE_SOURCE.as_bytes(), "application/javascript", 200),
+		"/shared.mjs" => (SHARED_JS_SOURCE.as_bytes(), "application/javascript", 200),
+		"/worker-runner.mjs" => (
+			WORKER_RUNNER_SOURCE.as_bytes(),
+			"application/javascript",
+			200,
+		),
 		"/service-worker.mjs" => (
-			assets.service_worker_js.as_bytes(),
+			SERVICE_WORKER_SOURCE.as_bytes(),
 			"application/javascript",
 			200,
 		),
 		"/console-hook.mjs" => (
-			assets.console_hook_js.as_bytes(),
+			CONSOLE_HOOK_SOURCE.as_bytes(),
 			"application/javascript",
 			200,
 		),
