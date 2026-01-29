@@ -1,5 +1,5 @@
-#!/usr/bin/env -S =2>NUL sh
-:; # A very quirky solution until we find a better one.
+#!/usr/bin/env -S arg=2>NUL sh
+:; # A very quirky solution to make things run cross-platform.
 
 :; # UNIX
 :; # Lines starting with `:;` are ignored on Windows but are executed on UNIX.
