@@ -57,8 +57,8 @@ jobs:
       matrix:
         os:
           - { os: ubuntu-latest, description: Linux }
-          # - { os: macos-latest, description: MacOS }
-          # - { os: windows-latest, description: Windows }
+          - { os: macos-latest, description: MacOS }
+          - { os: windows-latest, description: Windows }
 
     defaults:
       run:
