@@ -6,18 +6,19 @@ import consoleHook, { withConsoleCapture } from "./console-hook.mjs";
 
 const wasmPath = process.env.JS_BINDGEN_WASM;
 const importsPath = process.env.JS_BINDGEN_IMPORTS;
-const testsJson = process.env.JS_BINDGEN_TESTS;
+const testsPath = process.env.JS_BINDGEN_TESTS_PATH;
 const nocapture = process.env.JS_BINDGEN_NOCAPTURE === "1";
 const filtered = Number(process.env.JS_BINDGEN_FILTERED || "0");
 
-if (!wasmPath || !importsPath || !testsJson) {
+if (!wasmPath || !importsPath || !testsPath) {
 	console.error("missing test runner environment");
 	process.exit(1);
 }
 
 const { importObject } = await import(pathToFileURL(importsPath));
 const wasmBytes = await fs.readFile(wasmPath);
-const tests = JSON.parse(testsJson);
+const testsText = await fs.readFile(testsPath, "utf8");
+const tests = JSON.parse(testsText);
 
 const baseLog = consoleHook.base.log;
 const baseError = consoleHook.base.error;

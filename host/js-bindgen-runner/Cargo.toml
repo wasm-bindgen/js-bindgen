@@ -9,6 +9,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 wasmparser = { workspace = true }
 js-bindgen-ld-shared = { workspace = true }
+tempfile = "3"
 
 [lints]
 workspace = true

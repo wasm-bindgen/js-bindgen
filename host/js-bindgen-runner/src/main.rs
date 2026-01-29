@@ -283,12 +283,15 @@ fn run_node(
 ) -> Result<()> {
 	ensure_module_package(imports_path);
 	let runner_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(NODE_RUNNER);
+	let mut tests_file = tempfile::NamedTempFile::new()?;
+	tests_file.write_all(tests_json.as_bytes())?;
+	let tests_path = tests_file.path().to_path_buf();
 
 	let status = Command::new("node")
 		.arg(runner_path)
 		.env("JS_BINDGEN_WASM", wasm_path)
 		.env("JS_BINDGEN_IMPORTS", imports_path)
-		.env("JS_BINDGEN_TESTS", tests_json)
+		.env("JS_BINDGEN_TESTS_PATH", &tests_path)
 		.env("JS_BINDGEN_FILTERED", filtered_count.to_string())
 		.env("JS_BINDGEN_NOCAPTURE", if nocapture { "1" } else { "0" })
 		.status()
