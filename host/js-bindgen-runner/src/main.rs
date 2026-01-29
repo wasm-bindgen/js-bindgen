@@ -12,6 +12,7 @@ use std::thread;
 use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
+use js_bindgen_ld_shared::ReadFile;
 use wasmparser::{Parser, Payload};
 
 const NODE_RUNNER: &str = "js/node-runner.mjs";
@@ -44,7 +45,7 @@ fn main() -> Result<()> {
 		.context("expected a wasm file path")?;
 
 	let args = TestArgs::new(args)?;
-	let wasm_bytes = fs::read(&wasm_path)
+	let wasm_bytes = ReadFile::new(&wasm_path)
 		.with_context(|| format!("failed to read wasm file: {}", wasm_path.display()))?;
 
 	let mut tests = read_tests(&wasm_bytes)?;
@@ -92,7 +93,7 @@ fn main() -> Result<()> {
 			args.nocapture,
 		)?,
 		RunnerKind::Browser => run_playwright(
-			wasm_bytes,
+			wasm_bytes.to_vec(),
 			&imports_path,
 			tests_json,
 			filtered_count,
@@ -100,7 +101,7 @@ fn main() -> Result<()> {
 			&args.runner,
 		)?,
 		RunnerKind::BrowserServer => run_browser_server(
-			wasm_bytes,
+			wasm_bytes.to_vec(),
 			&imports_path,
 			tests_json,
 			filtered_count,
@@ -352,7 +353,6 @@ impl BrowserAssets {
 		nocapture: bool,
 		worker: Option<&str>,
 	) -> Result<Self> {
-		let wasm_bytes = fs::read(wasm_path)?;
 		let import_js = fs::read_to_string(imports_path)?;
 
 		let index_html = format!(
