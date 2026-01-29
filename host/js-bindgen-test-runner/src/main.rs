@@ -1,6 +1,6 @@
 use std::env;
 use std::fs;
-use std::io::{ErrorKind, Read, Write as IoWrite};
+use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::Command;
