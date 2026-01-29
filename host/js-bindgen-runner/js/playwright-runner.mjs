@@ -5,11 +5,11 @@ if (!url) {
 	throw new Error("missing JBG_TEST_URL");
 }
 
-const browserName = (process.env.JBG_TEST_BROWSER || "chromium").toLowerCase();
+const browserName = (process.env.JBG_TEST_DRIVER || "chrome").toLowerCase();
 const browserType = {
-	chromium,
-	firefox,
-	webkit,
+	chrome: chromium,
+	gecko: firefox,
+	webkit
 }[browserName];
 
 if (!browserType) {

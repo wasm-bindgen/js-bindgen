@@ -84,29 +84,30 @@ fn main() -> Result<()> {
 	let imports_path = wasm_path.with_extension("js");
 	let tests_json = serde_json::to_string(&tests).expect("checked");
 
-	match args.runner.kind {
-		RunnerKind::Node => run_node(
+	match args.runner {
+		RunnerConfig::Nodejs => run_node(
 			&wasm_path,
 			&imports_path,
 			tests_json,
 			filtered_count,
 			args.nocapture,
 		)?,
-		RunnerKind::Browser => run_playwright(
+		RunnerConfig::Browser { kind, worker } => run_playwright(
 			wasm_bytes.to_vec(),
 			&imports_path,
 			tests_json,
 			filtered_count,
 			args.nocapture,
-			&args.runner,
+			&kind,
+			worker.as_ref(),
 		)?,
-		RunnerKind::BrowserServer => run_browser_server(
+		RunnerConfig::Server { worker } => run_browser_server(
 			wasm_bytes.to_vec(),
 			&imports_path,
 			tests_json,
 			filtered_count,
 			args.nocapture,
-			&args.runner,
+			worker.as_ref(),
 		)?,
 	}
 
@@ -171,47 +172,106 @@ impl TestArgs {
 }
 
 #[derive(Debug)]
-struct RunnerConfig {
-	kind: RunnerKind,
-	browser: String,
-	worker: Option<String>,
+enum RunnerConfig {
+	Nodejs,
+	Browser {
+		kind: DriverKind,
+		worker: Option<WorkerKind>,
+	},
+	Server {
+		worker: Option<WorkerKind>,
+	},
 }
 
-impl RunnerConfig {
-	fn from_env() -> Result<Self> {
-		let mut config = RunnerConfig {
-			kind: RunnerKind::Node,
-			browser: "chromium".to_string(),
-			worker: None,
-		};
+#[derive(Debug)]
+enum WorkerKind {
+	// https://developer.mozilla.org/en-US/docs/Web/API/Worker
+	Dedicated,
+	// https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker
+	Shared,
+	// https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorker
+	Service,
+}
 
-		if let Ok(worker) = env::var("JBG_TEST_WORKER") {
-			if !matches!(worker.as_str(), "dedicated" | "shared" | "service") {
-				bail!("unsupported {worker}, supported dedicated, shared and service");
-			}
-			config.worker = Some(worker);
+impl WorkerKind {
+	fn from_str(worker: &str) -> Result<Self> {
+		Ok(match worker {
+			"dedicated" => WorkerKind::Dedicated,
+			"shared" => WorkerKind::Shared,
+			"service" => WorkerKind::Service,
+			worker => bail!("unsupported worker: {worker}"),
+		})
+	}
+
+	fn as_str(&self) -> &str {
+		match self {
+			WorkerKind::Dedicated => "dedicated",
+			WorkerKind::Shared => "shared",
+			WorkerKind::Service => "service",
 		}
-
-		if let Ok(browser) = env::var("JBG_TEST_BROWSER") {
-			config.kind = RunnerKind::Browser;
-			if matches!(browser.as_str(), "chromium" | "firefox" | "webkit") {
-				config.browser = browser;
-			}
-		}
-
-		if std::env::var("JBG_TEST_SERVER").is_ok() {
-			config.kind = RunnerKind::BrowserServer;
-		}
-
-		Ok(config)
 	}
 }
 
 #[derive(Debug)]
-enum RunnerKind {
-	Node,
-	Browser,
-	BrowserServer,
+enum DriverKind {
+	// https://developer.chrome.com/docs/chromedriver
+	Chrome,
+	// https://github.com/mozilla/geckodriver
+	Gecko,
+	// https://github.com/WebKit/WebKit
+	WebKit,
+}
+
+impl DriverKind {
+	fn from_str(driver: &str) -> Result<Self> {
+		Ok(match driver {
+			"chrome" => DriverKind::Chrome,
+			"gecko" => DriverKind::Gecko,
+			"webkit" => DriverKind::WebKit,
+			driver => bail!("unsupported driver: {driver}"),
+		})
+	}
+
+	fn as_str(&self) -> &str {
+		match self {
+			DriverKind::Chrome => "chrome",
+			DriverKind::Gecko => "gecko",
+			DriverKind::WebKit => "webkit",
+		}
+	}
+}
+
+impl RunnerConfig {
+	fn from_env() -> Result<Self> {
+		let driver = match env::var("JBG_TEST_DRIVER") {
+			Ok(driver) => Some(DriverKind::from_str(&driver)?),
+			Err(_) => None,
+		};
+
+		let worker = match env::var("JBG_TEST_WORKER") {
+			Ok(worker) => Some(WorkerKind::from_str(&worker)?),
+			Err(_) => None,
+		};
+
+		let server = env::var("JBG_TEST_SERVER").is_ok();
+
+		let config = match (server, driver) {
+			(true, None) => RunnerConfig::Server { worker },
+			(true, Some(d)) => {
+				eprintln!("Because a server has been configured, the {d:?} option is not work.");
+				RunnerConfig::Server { worker }
+			}
+			(false, None) => {
+				if let Some(worker) = worker {
+					eprintln!("The {worker:?} option does not work in Node.js.");
+				}
+				RunnerConfig::Nodejs
+			}
+			(false, Some(kind)) => RunnerConfig::Browser { kind, worker },
+		};
+
+		Ok(config)
+	}
 }
 
 fn run_node(
@@ -257,7 +317,8 @@ fn run_playwright(
 	tests_json: String,
 	filtered_count: usize,
 	nocapture: bool,
-	runner: &RunnerConfig,
+	driver: &DriverKind,
+	worker: Option<&WorkerKind>,
 ) -> Result<()> {
 	let assets = BrowserAssets::new(
 		wasm_bytes,
@@ -265,7 +326,7 @@ fn run_playwright(
 		&tests_json,
 		filtered_count,
 		nocapture,
-		runner.worker.as_deref(),
+		worker.map(|s| s.as_str()),
 	)?;
 	let server = HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref())?;
 	let url = build_browser_url(server.base_url.as_str());
@@ -274,7 +335,7 @@ fn run_playwright(
 	let mut child = Command::new("node")
 		.arg(runner_path)
 		.env("JBG_TEST_URL", url)
-		.env("JBG_TEST_BROWSER", &runner.browser)
+		.env("JBG_TEST_DRIVER", driver.as_str())
 		.spawn()
 		.context("failed to run node")?;
 
@@ -301,7 +362,7 @@ fn run_browser_server(
 	tests_json: String,
 	filtered_count: usize,
 	nocapture: bool,
-	runner: &RunnerConfig,
+	worker: Option<&WorkerKind>,
 ) -> Result<()> {
 	let assets = BrowserAssets::new(
 		wasm_bytes,
@@ -309,7 +370,7 @@ fn run_browser_server(
 		&tests_json,
 		filtered_count,
 		nocapture,
-		runner.worker.as_deref(),
+		worker.map(|s| s.as_str()),
 	)?;
 	let server = HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref())?;
 	let url = build_browser_url(server.base_url.as_str());

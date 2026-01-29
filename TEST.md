@@ -36,7 +36,7 @@ cargo test --target wasm32-unknown-unknown
 Wasm tests: Browser runner (Playwright headless):
 
 ```sh
-JBG_TEST_BROWSER=chromium cargo test --target wasm32-unknown-unknown
+JBG_TEST_DRIVER=chrome cargo test --target wasm32-unknown-unknown
 ```
 
 Wasm tests: Browser server mode (open URL in a browser):
@@ -47,7 +47,7 @@ JBG_TEST_SERVER=1 cargo test --target wasm32-unknown-unknown
 
 Runner options:
 
-- `JBG_TEST_BROWSER=chromium|firefox|webkit`
+- `JBG_TEST_DRIVER=chrome|gecko|webkit`
 - `JBG_TEST_WORKER=dedicated|shared|service`
 - `JBG_TEST_SERVER=1` (serve browser runner and print URL)
 - `JBG_TEST_SERVER_ADDRESS=127.0.0.1:8000` (defaults to 8000; falls back to a random port if busy)
