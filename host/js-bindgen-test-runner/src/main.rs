@@ -23,6 +23,9 @@ const WORKER_RUNNER_SOURCE: &str = include_str!("../js/worker-runner.mjs");
 const SERVICE_WORKER_SOURCE: &str = include_str!("../js/service-worker.mjs");
 const CONSOLE_HOOK_SOURCE: &str = include_str!("../js/console-hook.mjs");
 
+const GREEN: &str = "\u{001b}[32m";
+const RESET: &str = "\u{001b}[0m";
+
 #[derive(Debug, serde::Serialize)]
 struct TestEntry {
 	name: String,
@@ -70,7 +73,7 @@ fn main() -> Result<()> {
 		println!("running 0 tests");
 		println!();
 		println!(
-			"test result: \u{001b}[32mok\u{001b}[0m. 0 passed; 0 failed; 0 ignored; 0 measured; {filtered_count} filtered out; finished in 0.00s"
+			"test result: {GREEN}ok{RESET}. 0 passed; 0 failed; 0 ignored; 0 measured; {filtered_count} filtered out; finished in 0.00s"
 		);
 		println!();
 		return Ok(());
