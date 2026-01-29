@@ -33,14 +33,14 @@ struct TestEntry {
 }
 
 fn main() -> Result<()> {
-	let mut args = env::args().skip(1).collect::<Vec<_>>();
+	let mut args = env::args().skip(1);
+
 	let wasm_path = args
-		.first()
+		.next()
 		.map(PathBuf::from)
 		.context("expected a wasm file path")?;
-	let extra_args = args.split_off(1);
 
-	let args = parse_test_args(extra_args)?;
+	let args = TestArgs::new(args)?;
 	let wasm_bytes = fs::read(&wasm_path)
 		.with_context(|| format!("failed to read wasm file: {}", wasm_path.display()))?;
 
@@ -109,47 +109,6 @@ fn main() -> Result<()> {
 	Ok(())
 }
 
-fn parse_test_args(args: Vec<String>) -> Result<TestArgs> {
-	let mut output = TestArgs {
-		list_only: false,
-		nocapture: false,
-		filters: Vec::new(),
-		list_format: ListFormat::Standard,
-		ignored_only: false,
-		exact: false,
-		runner: RunnerConfig::from_env()?,
-	};
-
-	let mut iter = args.into_iter();
-	while let Some(arg) = iter.next() {
-		if arg == "--list" {
-			output.list_only = true;
-		} else if arg == "--nocapture" {
-			output.nocapture = true;
-		} else if arg == "--ignored" {
-			output.ignored_only = true;
-		} else if arg == "--exact" {
-			output.exact = true;
-		} else if let Some(value) = arg.strip_prefix("--format=") {
-			if value == "terse" {
-				output.list_format = ListFormat::Terse;
-			}
-		} else if arg == "--format" {
-			if let Some(value) = iter.next() {
-				if value == "terse" {
-					output.list_format = ListFormat::Terse;
-				}
-			}
-		} else if arg.starts_with('-') {
-			continue;
-		} else {
-			output.filters.push(arg);
-		}
-	}
-
-	Ok(output)
-}
-
 enum ListFormat {
 	Standard,
 	Terse,
@@ -163,6 +122,48 @@ struct TestArgs {
 	ignored_only: bool,
 	exact: bool,
 	runner: RunnerConfig,
+}
+
+impl TestArgs {
+	pub fn new(mut iter: impl Iterator<Item = String>) -> Result<TestArgs> {
+		let mut output = TestArgs {
+			list_only: false,
+			nocapture: false,
+			filters: Vec::new(),
+			list_format: ListFormat::Standard,
+			ignored_only: false,
+			exact: false,
+			runner: RunnerConfig::from_env()?,
+		};
+
+		while let Some(arg) = iter.next() {
+			if arg == "--list" {
+				output.list_only = true;
+			} else if arg == "--nocapture" {
+				output.nocapture = true;
+			} else if arg == "--ignored" {
+				output.ignored_only = true;
+			} else if arg == "--exact" {
+				output.exact = true;
+			} else if let Some(value) = arg.strip_prefix("--format=") {
+				if value == "terse" {
+					output.list_format = ListFormat::Terse;
+				}
+			} else if arg == "--format" {
+				if let Some(value) = iter.next() {
+					if value == "terse" {
+						output.list_format = ListFormat::Terse;
+					}
+				}
+			} else if arg.starts_with('-') {
+				continue;
+			} else {
+				output.filters.push(arg);
+			}
+		}
+
+		Ok(output)
+	}
 }
 
 #[derive(Debug)]
