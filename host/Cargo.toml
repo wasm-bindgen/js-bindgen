@@ -3,7 +3,7 @@ members = [
 	"js-bindgen",
 	"js-sys-macro",
 	"js-bindgen-test-macro",
-	"js-bindgen-test-runner",
+	"js-bindgen-runner",
 	"ld",
 	"ld-shared",
 	"macro-shared",
