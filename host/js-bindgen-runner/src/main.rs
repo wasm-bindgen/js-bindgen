@@ -184,21 +184,21 @@ impl RunnerConfig {
 			worker: None,
 		};
 
-		if let Ok(worker) = env::var("JBTEST_WORKER") {
+		if let Ok(worker) = env::var("JBG_TEST_WORKER") {
 			if !matches!(worker.as_str(), "dedicated" | "shared" | "service") {
 				bail!("unsupported {worker}, supported dedicated, shared and service");
 			}
 			config.worker = Some(worker);
 		}
 
-		if let Ok(browser) = env::var("JBTEST_BROWSER") {
+		if let Ok(browser) = env::var("JBG_TEST_BROWSER") {
 			config.kind = RunnerKind::Browser;
 			if matches!(browser.as_str(), "chromium" | "firefox" | "webkit") {
 				config.browser = browser;
 			}
 		}
 
-		if std::env::var("JBTEST_SERVER").is_ok() {
+		if std::env::var("JBG_TEST_SERVER").is_ok() {
 			config.kind = RunnerKind::BrowserServer;
 		}
 
@@ -266,14 +266,14 @@ fn run_playwright(
 		nocapture,
 		runner.worker.as_deref(),
 	)?;
-	let server = HttpServer::start(assets, env::var("JBTEST_SERVER_ADDRESS").ok().as_deref())?;
+	let server = HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref())?;
 	let url = build_browser_url(server.base_url.as_str());
 
 	let runner_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(PLAYWRIGHT_RUNNER);
 	let mut child = Command::new("node")
 		.arg(runner_path)
-		.env("JBTEST_URL", url)
-		.env("JBTEST_BROWSER", &runner.browser)
+		.env("JBG_TEST_URL", url)
+		.env("JBG_TEST_BROWSER", &runner.browser)
 		.spawn()
 		.context("failed to run node")?;
 
@@ -310,7 +310,7 @@ fn run_browser_server(
 		nocapture,
 		runner.worker.as_deref(),
 	)?;
-	let server = HttpServer::start(assets, env::var("JBTEST_SERVER_ADDRESS").ok().as_deref())?;
+	let server = HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref())?;
 	let url = build_browser_url(server.base_url.as_str());
 
 	println!("open this URL in your browser to run tests:");

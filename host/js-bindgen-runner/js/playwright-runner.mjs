@@ -1,11 +1,11 @@
 import { chromium, firefox, webkit } from "playwright";
 
-const url = process.env.JBTEST_URL;
+const url = process.env.JBG_TEST_URL;
 if (!url) {
-	throw new Error("missing JBTEST_URL");
+	throw new Error("missing JBG_TEST_URL");
 }
 
-const browserName = (process.env.JBTEST_BROWSER || "chromium").toLowerCase();
+const browserName = (process.env.JBG_TEST_BROWSER || "chromium").toLowerCase();
 const browserType = {
 	chromium,
 	firefox,
