@@ -92,7 +92,7 @@ fn main() -> Result<()> {
 			args.nocapture,
 		)?,
 		RunnerKind::Browser => run_playwright(
-			&wasm_path,
+			wasm_bytes,
 			&imports_path,
 			tests_json,
 			filtered_count,
@@ -100,7 +100,7 @@ fn main() -> Result<()> {
 			&args.runner,
 		)?,
 		RunnerKind::BrowserServer => run_browser_server(
-			&wasm_path,
+			wasm_bytes,
 			&imports_path,
 			tests_json,
 			filtered_count,
@@ -251,7 +251,7 @@ fn ensure_module_package(imports_path: &Path) {
 }
 
 fn run_playwright(
-	wasm_path: &Path,
+	wasm_bytes: Vec<u8>,
 	imports_path: &Path,
 	tests_json: String,
 	filtered_count: usize,
@@ -259,7 +259,7 @@ fn run_playwright(
 	runner: &RunnerConfig,
 ) -> Result<()> {
 	let assets = BrowserAssets::new(
-		wasm_path,
+		wasm_bytes,
 		imports_path,
 		&tests_json,
 		filtered_count,
@@ -295,7 +295,7 @@ fn run_playwright(
 }
 
 fn run_browser_server(
-	wasm_path: &Path,
+	wasm_bytes: Vec<u8>,
 	imports_path: &Path,
 	tests_json: String,
 	filtered_count: usize,
@@ -303,7 +303,7 @@ fn run_browser_server(
 	runner: &RunnerConfig,
 ) -> Result<()> {
 	let assets = BrowserAssets::new(
-		wasm_path,
+		wasm_bytes,
 		imports_path,
 		&tests_json,
 		filtered_count,
@@ -345,7 +345,7 @@ struct BrowserAssets {
 
 impl BrowserAssets {
 	fn new(
-		wasm_path: &Path,
+		wasm_bytes: Vec<u8>,
 		imports_path: &Path,
 		tests_json: &str,
 		filtered_count: usize,
