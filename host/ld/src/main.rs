@@ -408,6 +408,8 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 		"missing JS embed: {expected_embed:?}"
 	);
 
+    // After the linker is done, Cargo copies the final output to be the name of the package without the fingerprint. We do the same for the JS file.
+    // TODO: Skip when detecting test.
 	let js_output_path = output_path.with_file_name(package).with_extension("js");
 	let mut js_output =
 		BufWriter::new(File::create(&js_output_path).expect("output JS file should be writable"));
