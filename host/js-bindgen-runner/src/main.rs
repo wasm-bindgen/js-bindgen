@@ -273,7 +273,7 @@ fn run_playwright(
 	let mut child = Command::new("node")
 		.arg(runner_path)
 		.env("JBTEST_URL", url)
-		.env("JBTEST_BROWSER", runner.browser.clone())
+		.env("JBTEST_BROWSER", &runner.browser)
 		.spawn()
 		.context("failed to run node")?;
 
