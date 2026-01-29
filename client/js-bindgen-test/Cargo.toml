@@ -1,8 +1,8 @@
 [package]
-edition.workspace = true
+edition = { workspace = true }
 name = "js-bindgen-test"
-rust-version.workspace = true
-version = "0.1.0"
+
+rust-version = { workspace = true }
 
 [dependencies]
 js-bindgen-test-macro = { workspace = true }
