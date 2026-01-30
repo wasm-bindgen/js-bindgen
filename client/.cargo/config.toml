@@ -2,5 +2,5 @@
 target = "wasm32-unknown-unknown"
 
 [target.'cfg(all(target_family = "wasm", any(target_os = "none", target_os = "unknown")))']
-linker = "../linker-shim/linker.cmd"
-runner = "../linker-shim/runner.cmd"
+linker = "../cargo-shim/linker.cmd"
+runner = "../cargo-shim/runner.cmd"

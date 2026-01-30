@@ -130,7 +130,7 @@ struct TestArgs {
 }
 
 impl TestArgs {
-	pub fn new(mut iter: impl Iterator<Item = String>) -> Result<TestArgs> {
+	fn new(mut iter: impl Iterator<Item = String>) -> Result<TestArgs> {
 		let mut output = TestArgs {
 			list_only: false,
 			nocapture: false,

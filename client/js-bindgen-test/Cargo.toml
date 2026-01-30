@@ -1,7 +1,6 @@
 [package]
 edition = { workspace = true }
 name = "js-bindgen-test"
-
 rust-version = { workspace = true }
 
 [dependencies]

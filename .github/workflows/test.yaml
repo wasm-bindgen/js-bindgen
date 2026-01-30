@@ -75,5 +75,5 @@ jobs:
           # Rustc v1.93
           llvm-version: 21
       - name: Run Tests
-        run: cargo test --target wasm32-unknown-unknown --no-fail-fast --workspace
+        run: cargo test --no-fail-fast
 

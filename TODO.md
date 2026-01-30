@@ -12,6 +12,10 @@
 
 # High Priority
 
+- Test Runner:
+  - Instead of Playwright, interface with Webdrivers directly. Use [Fantoccini] or [Thirtyfour].
+  - Add Deno support.
+  - Add Edge support.
 - E2E testing for the linker. Should also ensure deterministic output.
 - Add a `disable_hygiene` attribute to `#[js_sys]` to reduce the compile-time of the output to an
   absolute minimum. This can avoid all `interpolate`s.
@@ -38,6 +42,9 @@
   - Pass an environment variable from a `build.rs` pointing to the target folder and go from there.
     This seems to have failed. No build script instruction can reach the linker on Wasm.
 - Memory-mapped file reading should lock files to make it safe.
+
+[Fantoccini]: https://crates.io/crates/fantoccini
+[Thirtyfour]: https://crates.io/crates/thirtyfour
 
 # Medium Priority
 
