@@ -2,15 +2,15 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 	const startTime = Date.now()
 	emit({ type: "run-start", total: tests.length, filtered })
 
-	const { instance } = await WebAssembly.instantiate(wasmBytes, importObject)
-	const panicPayload = instance.exports.last_panic_payload
-	const panicMessage = instance.exports.last_panic_message
-	const externrefTable = resolveExternrefTable(importObject)
-
 	let failed = 0
 	let ignored = 0
 
 	for (const test of tests) {
+		const { instance } = await WebAssembly.instantiate(wasmBytes, importObject)
+		const panicPayload = instance.exports.last_panic_payload
+		const panicMessage = instance.exports.last_panic_message
+		const externrefTable = resolveExternrefTable(importObject)
+
 		if (test.ignore) {
 			ignored += 1
 			emit({
