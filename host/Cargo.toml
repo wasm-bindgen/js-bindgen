@@ -19,15 +19,18 @@ rust-version = "1.85"
 
 [workspace.dependencies]
 anyhow = "1"
+axum = { version = "0.8", default-features = false, features = ["tokio", "json", "http1", "http2"] }
 cargo_metadata = "0.23"
+clap = { version = "4", features = ["derive"] }
 hashbrown = "0.16"
 indoc = "2"
 itertools = { version = "0.14", default-features = false }
-js-bindgen-shared = { path = "shared" }
 js-bindgen-ld-shared = { path = "ld-shared" }
 js-bindgen-macro-shared = { path = "macro-shared" }
+js-bindgen-shared = { path = "shared" }
 memmap2 = "0.9"
 object = { version = "0.38", default-features = false, features = ["archive", "read_core", "std"] }
+parking_lot = { version = "0.12", default-features = false }
 prettyplease = "0.2"
 proc-macro2 = { version = "1", default-features = false }
 quote = { version = "1", default-features = false }
@@ -41,9 +44,6 @@ tokio = { version = "1", default-features = false, features = ["rt-multi-thread"
 ui_test = { version = "0.30", default-features = false, features = ["rustc"] }
 wasm-encoder = { version = "0.244", default-features = false, features = ["wasmparser"] }
 wasmparser = { version = "0.244", default-features = false }
-clap = { version = "4", features = ["derive"] }
-parking_lot = { version = "0.12", default-features = false }
-axum = { version = "0.8", default-features = false, features = ["tokio", "json", "http1", "http2"]}
 
 [patch.crates-io]
 # Detect unsupported platforms at run-time: https://github.com/RazrFalcon/memmap2-rs/pull/161.

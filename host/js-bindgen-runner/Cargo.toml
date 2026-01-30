@@ -6,14 +6,14 @@ rust-version = "1.87"
 [dependencies]
 anyhow = { workspace = true }
 axum = { workspace = true }
+clap = { workspace = true }
 js-bindgen-shared = { workspace = true }
+parking_lot = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
-wasmparser = { workspace = true }
-clap = { workspace = true }
 tokio = { workspace = true }
-parking_lot = { workspace = true }
+wasmparser = { workspace = true }
 
 [lints]
 workspace = true
