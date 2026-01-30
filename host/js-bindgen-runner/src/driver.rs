@@ -159,7 +159,7 @@ impl Driver {
 	/// In the last two cases a list of auxiliary arguments is also returned
 	/// which is configured through env vars like `GECKODRIVER_ARGS` to support
 	/// extra arguments to the driver's invocation.
-	pub fn find() -> Result<Driver> {
+	pub fn find() -> Result<Self> {
 		let env_args = |name: &str| {
 			let var = env::var(format!("{}_ARGS", name.to_uppercase())).unwrap_or_default();
 
@@ -168,10 +168,10 @@ impl Driver {
 		};
 
 		let drivers = [
-			("geckodriver", Driver::Gecko as fn(Locate) -> Driver),
-			("safaridriver", Driver::Safari as fn(Locate) -> Driver),
-			("chromedriver", Driver::Chrome as fn(Locate) -> Driver),
-			("msedgedriver", Driver::Edge as fn(Locate) -> Driver),
+			("geckodriver", Driver::Gecko as fn(Locate) -> Self),
+			("safaridriver", Driver::Safari as fn(Locate) -> Self),
+			("chromedriver", Driver::Chrome as fn(Locate) -> Self),
+			("msedgedriver", Driver::Edge as fn(Locate) -> Self),
 		];
 
 		// First up, if env vars like GECKODRIVER_REMOTE are present, use those
@@ -238,10 +238,10 @@ an issue against wasm-bindgen/js-bindgen!
 
 	pub fn location(&self) -> &Locate {
 		match self {
-			Driver::Gecko(locate) => locate,
-			Driver::Safari(locate) => locate,
-			Driver::Chrome(locate) => locate,
-			Driver::Edge(locate) => locate,
+			Self::Gecko(locate) => locate,
+			Self::Safari(locate) => locate,
+			Self::Chrome(locate) => locate,
+			Self::Edge(locate) => locate,
 		}
 	}
 }

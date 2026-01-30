@@ -51,6 +51,7 @@ Runner options:
 - `JBG_TEST_GECKODRIVER=<path>` (use firefix)
 - `JBG_TEST_CHROMEDRIVER=<path>` (use chrome)
 - `JBG_TEST_MSEDGEDRIVER=<path>` (use edge)
+- `JBG_TEST_WEBDRIVER_JSON` (set driver conf)
 - `JBG_TEST_WORKER=dedicated|shared|service`
 - `JBG_TEST_SERVER=1` (serve browser runner and print URL)
 - `JBG_TEST_SERVER_ADDRESS=127.0.0.1:8000` (defaults to 8000; falls back to a random port if busy)
