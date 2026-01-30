@@ -7,10 +7,12 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 use std::{env, fs, str, thread};
 
+use clap::{Parser, ValueEnum};
+
 use anyhow::{Context, Result, bail};
 use js_bindgen_shared::ReadFile;
 use serde::{Serialize, Serializer};
-use wasmparser::{Parser, Payload};
+use wasmparser::{Parser as WasmParser, Payload};
 
 const NODE_RUNNER: &str = "js/node-runner.mjs";
 const PLAYWRIGHT_RUNNER: &str = "js/playwright-runner.mjs";
@@ -20,6 +22,56 @@ const SHARED_JS_SOURCE: &str = include_str!("../js/shared.mjs");
 const WORKER_RUNNER_SOURCE: &str = include_str!("../js/worker-runner.mjs");
 const SERVICE_WORKER_SOURCE: &str = include_str!("../js/service-worker.mjs");
 const CONSOLE_HOOK_SOURCE: &str = include_str!("../js/console-hook.mjs");
+
+/// Possible values for the `--format` option.
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum FormatSetting {
+	/// Display one character per test
+	Terse,
+}
+
+#[derive(Parser)]
+#[command(name = "js-bindgen-runner", version, about, long_about = None)]
+struct Cli {
+	#[arg(
+		index = 1,
+		help = "The file to test. `cargo test` passes this argument for you."
+	)]
+	file: PathBuf,
+	#[arg(long, conflicts_with = "ignored", help = "Run ignored tests")]
+	include_ignored: bool,
+	#[arg(long, conflicts_with = "include_ignored", help = "Run ignored tests")]
+	ignored: bool,
+	#[arg(long, help = "Exactly match filters rather than by substring")]
+	exact: bool,
+	#[arg(
+		long,
+		value_name = "FILTER",
+		help = "Skip tests whose names contain FILTER (this flag can be used multiple times)"
+	)]
+	skip: Vec<String>,
+	#[arg(long, help = "List all tests and benchmarks")]
+	list: bool,
+	#[arg(
+		long,
+		help = "don't capture `console.*()` of each task, allow printing directly"
+	)]
+	nocapture: bool,
+	#[arg(
+		long,
+		value_enum,
+		value_name = "terse",
+		help = "Configure formatting of output"
+	)]
+	format: Option<FormatSetting>,
+	#[arg(
+		index = 2,
+		value_name = "FILTER",
+		help = "The FILTER string is tested against the name of all tests, and only those tests \
+                whose names contain the filter are run."
+	)]
+	filter: Option<String>,
+}
 
 #[derive(Debug, Serialize)]
 struct TestEntry {
@@ -31,33 +83,34 @@ struct TestEntry {
 }
 
 fn main() -> Result<()> {
-	let mut args = env::args().skip(1);
+	let cli = Cli::parse();
 
-	let wasm_path = args
-		.next()
-		.map(PathBuf::from)
-		.context("expected a wasm file path")?;
-
-	let args = TestArgs::new(args)?;
-	let wasm_bytes = ReadFile::new(&wasm_path)
+	let wasm_path = &cli.file;
+	let wasm_bytes = ReadFile::new(wasm_path)
 		.with_context(|| format!("failed to read wasm file: {}", wasm_path.display()))?;
+	let args = TestArgs::new(&cli)?;
 
 	let mut tests = read_tests(&wasm_bytes)?;
-	let filtered_count = apply_filters(&mut tests, &args.filters, args.ignored_only, args.exact);
+	let filtered_count = apply_filters(
+		&mut tests,
+		args.filter.as_ref(),
+		args.ignored_only,
+		args.exact,
+	);
 
 	if args.list_only {
 		match args.list_format {
-			ListFormat::Standard => {
+			Some(FormatSetting::Terse) => {
+				for test in &tests {
+					println!("{}: test", test.name);
+				}
+			}
+			None => {
 				for test in &tests {
 					println!("{}: test", test.name);
 				}
 				println!();
 				println!("{} tests, 0 benchmarks", tests.len());
-			}
-			ListFormat::Terse => {
-				for test in &tests {
-					println!("{}: test", test.name);
-				}
 			}
 		}
 		return Ok(());
@@ -83,7 +136,7 @@ fn main() -> Result<()> {
 
 	match args.runner {
 		RunnerConfig::Nodejs => run_node(
-			&wasm_path,
+			wasm_path,
 			&imports_path,
 			tests_json,
 			filtered_count,
@@ -111,58 +164,27 @@ fn main() -> Result<()> {
 	Ok(())
 }
 
-enum ListFormat {
-	Standard,
-	Terse,
-}
-
 struct TestArgs {
 	list_only: bool,
 	nocapture: bool,
-	filters: Vec<String>,
-	list_format: ListFormat,
+	filter: Option<String>,
+	list_format: Option<FormatSetting>,
 	ignored_only: bool,
 	exact: bool,
 	runner: RunnerConfig,
 }
 
 impl TestArgs {
-	fn new(mut iter: impl Iterator<Item = String>) -> Result<TestArgs> {
-		let mut output = TestArgs {
-			list_only: false,
-			nocapture: false,
-			filters: Vec::new(),
-			list_format: ListFormat::Standard,
-			ignored_only: false,
-			exact: false,
+	fn new(cli: &Cli) -> Result<TestArgs> {
+		let output = TestArgs {
+			list_only: cli.list,
+			nocapture: cli.nocapture,
+			filter: cli.filter.clone(),
+			list_format: cli.format,
+			ignored_only: cli.ignored,
+			exact: cli.exact,
 			runner: RunnerConfig::from_env()?,
 		};
-
-		while let Some(arg) = iter.next() {
-			if arg == "--list" {
-				output.list_only = true;
-			} else if arg == "--nocapture" {
-				output.nocapture = true;
-			} else if arg == "--ignored" {
-				output.ignored_only = true;
-			} else if arg == "--exact" {
-				output.exact = true;
-			} else if let Some(value) = arg.strip_prefix("--format=") {
-				if value == "terse" {
-					output.list_format = ListFormat::Terse;
-				}
-			} else if arg == "--format" {
-				if let Some(value) = iter.next() {
-					if value == "terse" {
-						output.list_format = ListFormat::Terse;
-					}
-				}
-			} else if arg.starts_with('-') {
-				continue;
-			} else {
-				output.filters.push(arg);
-			}
-		}
 
 		Ok(output)
 	}
@@ -688,7 +710,7 @@ fn read_tests(wasm_bytes: &[u8]) -> Result<Vec<TestEntry>> {
 
 	let mut tests = Vec::new();
 
-	for payload in Parser::new(0).parse_all(wasm_bytes) {
+	for payload in WasmParser::new(0).parse_all(wasm_bytes) {
 		if let Payload::CustomSection(section) = payload?
 			&& section.name() == "js_bindgen.test"
 		{
@@ -726,19 +748,21 @@ fn read_tests(wasm_bytes: &[u8]) -> Result<Vec<TestEntry>> {
 
 fn apply_filters(
 	tests: &mut Vec<TestEntry>,
-	filters: &[String],
+	filter: Option<&String>,
 	ignored_only: bool,
 	exact: bool,
 ) -> usize {
 	let initial = tests.len();
 	tests.retain(|test| {
 		let matches_ignore = !ignored_only || test.ignore.is_some();
-		let matches_filter = if filters.is_empty() {
-			true
-		} else if exact {
-			filters.contains(&test.name)
+		let matches_filter = if let Some(filter) = filter {
+			if exact {
+				filter == &test.name
+			} else {
+				test.name.contains(filter)
+			}
 		} else {
-			filters.iter().any(|filter| test.name.contains(filter))
+			true
 		};
 		matches_ignore && matches_filter
 	});
