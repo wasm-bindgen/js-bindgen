@@ -339,7 +339,7 @@ async fn run_browser(
 		Err(_) => Ok(Capabilities::new()),
 	}?;
 
-	let client = ClientBuilder::native()
+	let client = ClientBuilder::rustls()?
 		.capabilities(driver::capabilities(&driver, capabilities)?)
 		.connect(guard.url.as_str())
 		.await
