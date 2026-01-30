@@ -1,4 +1,4 @@
-export function createTextFormatter({ nocapture, write }) {
+export function createTextFormatter({ noCapture, write }) {
 	const buffered = new Map()
 	const failed = []
 	const failureReports = []
@@ -31,16 +31,16 @@ export function createTextFormatter({ nocapture, write }) {
 					write(`running ${event.total} tests`, "stdout")
 					break
 				case "test-output":
-					if (nocapture) {
+					if (noCapture) {
 						write(event.line, event.stream)
 					}
-					if (!nocapture) {
+					if (!noCapture) {
 						buffer(event.name, event.line, event.stream)
 					}
 					break
 				case "test-ok":
 					takeBuffer(event.name)
-					if (event.should_panic) {
+					if (event.shouldPanic) {
 						write(`test ${event.name} - should panic ... ${green}ok${reset}`, "stdout")
 					} else {
 						write(`test ${event.name} ... ${green}ok${reset}`, "stdout")
@@ -56,7 +56,7 @@ export function createTextFormatter({ nocapture, write }) {
 					break
 				case "test-failed":
 					failed.push(event.name)
-					if (event.should_panic) {
+					if (event.shouldPanic) {
 						write(`test ${event.name} - should panic ... ${red}FAILED${reset}`, "stdout")
 					} else {
 						write(`test ${event.name} ... ${red}FAILED${reset}`, "stdout")

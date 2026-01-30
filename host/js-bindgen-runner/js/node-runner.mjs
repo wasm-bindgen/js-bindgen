@@ -7,7 +7,7 @@ import consoleHook, { withConsoleCapture } from "./console-hook.mjs"
 const wasmPath = process.env.JS_BINDGEN_WASM
 const importsPath = process.env.JS_BINDGEN_IMPORTS
 const testsPath = process.env.JS_BINDGEN_TESTS_PATH
-const nocapture = process.env.JS_BINDGEN_NOCAPTURE === "1"
+const noCapture = process.env.JS_BINDGEN_NO_CAPTURE === "1"
 const filtered = Number(process.env.JS_BINDGEN_FILTERED || "0")
 
 if (!wasmPath || !importsPath || !testsPath) {
@@ -23,7 +23,7 @@ const tests = JSON.parse(testsText)
 const baseLog = consoleHook.base.log
 const baseError = consoleHook.base.error
 const formatter = createTextFormatter({
-	nocapture,
+	noCapture,
 	write(line, stream) {
 		if (stream === "stderr") {
 			baseError(line)

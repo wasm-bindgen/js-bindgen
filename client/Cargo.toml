@@ -33,6 +33,12 @@ name = "basic"
 [workspace.lints.rust]
 linker_messages = "warn"
 
+[workspace.lints.clippy]
+obfuscated_if_else = "allow"
+tabs_in_doc_comments = "allow"
+undocumented_unsafe_blocks = "warn"
+use_self = "warn"
+
 [lints]
 workspace = true
 

@@ -2,7 +2,7 @@ import { createTextFormatter } from "./shared.mjs"
 import { runTests } from "./runner-core.mjs"
 import consoleHook, { withConsoleCapture } from "./console-hook.mjs"
 
-export async function runBrowser({ nocapture, filtered, worker }) {
+export async function runBrowser({ noCapture, filtered, worker }) {
 	const baseLog = consoleHook.base.log
 	const baseError = consoleHook.base.error
 	const baseWarn = consoleHook.base.warn
@@ -11,7 +11,7 @@ export async function runBrowser({ nocapture, filtered, worker }) {
 
 	let result = worker
 		? await runInWorker({
-				nocapture,
+				noCapture,
 				filtered,
 				worker,
 				baseLog,
@@ -20,7 +20,7 @@ export async function runBrowser({ nocapture, filtered, worker }) {
 				baseInfo,
 				baseDebug,
 			})
-		: await runInWindow({ nocapture, filtered, consoleHook })
+		: await runInWindow({ noCapture, filtered, consoleHook })
 
 	if (typeof window !== "undefined") {
 		window.__jbtestDone = true
@@ -30,14 +30,14 @@ export async function runBrowser({ nocapture, filtered, worker }) {
 	return result
 }
 
-async function runInWindow({ nocapture, filtered, consoleHook }) {
+async function runInWindow({ noCapture, filtered, consoleHook }) {
 	const tests = await (await fetch("/tests.json")).json()
 	const wasmBytes = await (await fetch("/wasm")).arrayBuffer()
 	const { importObject } = await import("/import.js")
 
 	const lines = []
 	const formatter = createTextFormatter({
-		nocapture,
+		noCapture,
 		write(line) {
 			lines.push(line)
 			appendOutput(line)
@@ -69,7 +69,7 @@ async function runInWindow({ nocapture, filtered, consoleHook }) {
 }
 
 async function runInWorker({
-	nocapture,
+	noCapture,
 	filtered,
 	worker,
 	baseLog,
@@ -121,13 +121,13 @@ async function runInWorker({
 	if (!runWorker) {
 		throw new Error(`unsupported worker worker: ${worker}`)
 	}
-	const reportPromise = runWorker({ filtered, nocapture, handleMessage })
+	const reportPromise = runWorker({ filtered, noCapture, handleMessage })
 
 	const report = await reportPromise
 	return report
 }
 
-function runDedicatedWorker({ filtered, nocapture, handleMessage }) {
+function runDedicatedWorker({ filtered, noCapture, handleMessage }) {
 	return new Promise((resolve, reject) => {
 		let worker
 		try {
@@ -149,11 +149,11 @@ function runDedicatedWorker({ filtered, nocapture, handleMessage }) {
 			}
 		}
 		worker.onerror = err => reject(err)
-		worker.postMessage({ filtered, nocapture })
+		worker.postMessage({ filtered, noCapture })
 	})
 }
 
-function runSharedWorker({ filtered, nocapture, handleMessage }) {
+function runSharedWorker({ filtered, noCapture, handleMessage }) {
 	return new Promise((resolve, reject) => {
 		let shared
 		try {
@@ -177,11 +177,11 @@ function runSharedWorker({ filtered, nocapture, handleMessage }) {
 		}
 		port.onmessageerror = err => reject(err)
 		port.start()
-		port.postMessage({ filtered, nocapture })
+		port.postMessage({ filtered, noCapture })
 	})
 }
 
-async function runServiceWorker({ filtered, nocapture, handleMessage }) {
+async function runServiceWorker({ filtered, noCapture, handleMessage }) {
 	if (!navigator.serviceWorker) {
 		throw new Error("service workers are not supported")
 	}
@@ -216,7 +216,7 @@ async function runServiceWorker({ filtered, nocapture, handleMessage }) {
 			}
 		}
 		channel.port1.onmessageerror = err => reject(err)
-		navigator.serviceWorker.controller.postMessage({ filtered, nocapture }, [channel.port2])
+		navigator.serviceWorker.controller.postMessage({ filtered, noCapture }, [channel.port2])
 	})
 }
 

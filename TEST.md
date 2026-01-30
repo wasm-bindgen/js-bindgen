@@ -65,7 +65,7 @@ cargo test --target wasm32-unknown-unknown -- --ignored
 Other test flags:
 
 ```sh
-cargo test --target wasm32-unknown-unknown -- --nocapture
+cargo test --target wasm32-unknown-unknown -- --no-capture
 ```
 
 Wasm tooling checks:

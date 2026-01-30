@@ -9,3 +9,6 @@ js-sys = { workspace = true }
 
 [dev-dependencies]
 js-bindgen-test = { workspace = true }
+
+[lints]
+workspace = true

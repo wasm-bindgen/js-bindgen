@@ -41,7 +41,7 @@ tokio = { version = "1", default-features = false, features = ["rt-multi-thread"
 ui_test = { version = "0.30", default-features = false, features = ["rustc"] }
 wasm-encoder = { version = "0.244", default-features = false, features = ["wasmparser"] }
 wasmparser = { version = "0.244", default-features = false }
-clap = { version = "4", default-features = false, features = ["std", "derive"] }
+clap = { version = "4", features = ["derive"] }
 parking_lot = { version = "0.12", default-features = false }
 axum = { version = "0.8", default-features = false, features = ["tokio", "json", "http1", "http2"]}
 
@@ -52,9 +52,11 @@ memmap2 = { git = "https://github.com/RazrFalcon/memmap2-rs", rev = "01273a7c4ae
 ui_test = { git = "https://github.com/daxpedda/ui_test", branch = "js-bindgen" }
 
 [workspace.lints.rust]
+linker_messages = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
 
 [workspace.lints.clippy]
 obfuscated_if_else = "allow"
 tabs_in_doc_comments = "allow"
 undocumented_unsafe_blocks = "warn"
+use_self = "warn"

@@ -13,12 +13,12 @@ self.addEventListener("message", event => {
 	})
 })
 
-async function execute(port, { nocapture, filtered }) {
+async function execute(port, { noCapture, filtered }) {
 	const tests = await (await fetch("/tests.json")).json()
 	const wasmBytes = await (await fetch("/wasm")).arrayBuffer()
 	const lines = []
 	const formatter = createTextFormatter({
-		nocapture,
+		noCapture,
 		write(line) {
 			lines.push(line)
 			port.postMessage({ type: "line", line })

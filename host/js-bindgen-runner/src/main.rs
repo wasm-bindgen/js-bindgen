@@ -2,18 +2,16 @@ use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
-use std::{env, fs, str};
-
-use clap::{Parser, ValueEnum};
+use std::{env, fs, iter, str};
 
 use anyhow::{Context, Result, bail};
-use axum::{
-	Json, Router,
-	extract::State,
-	http::{HeaderValue, StatusCode, header},
-	response::Response,
-	routing::{get, post},
-};
+use axum::body::Body;
+use axum::extract::State;
+use axum::http::{HeaderValue, StatusCode, header};
+use axum::response::Response;
+use axum::routing::{get, post};
+use axum::{Json, Router};
+use clap::{Parser, ValueEnum};
 use js_bindgen_shared::ReadFile;
 use parking_lot::{Condvar, Mutex};
 use serde::{Serialize, Serializer};
@@ -30,7 +28,7 @@ const SERVICE_WORKER_SOURCE: &str = include_str!("../js/service-worker.mjs");
 const CONSOLE_HOOK_SOURCE: &str = include_str!("../js/console-hook.mjs");
 
 /// Possible values for the `--format` option.
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Clone, Copy, ValueEnum)]
 enum FormatSetting {
 	/// Display one character per test
 	Terse,
@@ -39,47 +37,37 @@ enum FormatSetting {
 #[derive(Parser)]
 #[command(name = "js-bindgen-runner", version, about, long_about = None)]
 struct Cli {
-	#[arg(
-		index = 1,
-		help = "The file to test. `cargo test` passes this argument for you."
-	)]
-	file: PathBuf,
-	#[arg(long, conflicts_with = "ignored", help = "Run ignored tests")]
+	/// Run ignored and not ignored tests.
+	#[arg(long, conflicts_with = "ignored")]
 	include_ignored: bool,
-	#[arg(long, conflicts_with = "include_ignored", help = "Run ignored tests")]
+	/// Run only ignored tests.
+	#[arg(long, conflicts_with = "include_ignored")]
 	ignored: bool,
-	#[arg(long, help = "Exactly match filters rather than by substring")]
+	/// Exactly match filters rather than by substring.
+	#[arg(long)]
 	exact: bool,
-	#[arg(
-		long,
-		value_name = "FILTER",
-		help = "Skip tests whose names contain FILTER (this flag can be used multiple times)"
-	)]
+	/// Skip tests whose names contain FILTER (this flag can be used multiple
+	/// times).
+	#[arg(long, value_name = "FILTER")]
 	skip: Vec<String>,
-	#[arg(long, help = "List all tests and benchmarks")]
+	/// List all tests and benchmarks.
+	#[arg(long)]
 	list: bool,
-	#[arg(
-		long,
-		help = "don't capture `console.*()` of each task, allow printing directly"
-	)]
-	nocapture: bool,
-	#[arg(
-		long,
-		value_enum,
-		value_name = "terse",
-		help = "Configure formatting of output"
-	)]
+	/// don't capture `console.*()` of each task, allow printing directly.
+	#[arg(long)]
+	no_capture: bool,
+	/// Configure formatting of output.
+	#[arg(long, value_enum)]
 	format: Option<FormatSetting>,
-	#[arg(
-		index = 2,
-		value_name = "FILTER",
-		help = "The FILTER string is tested against the name of all tests, and only those tests \
-                whose names contain the filter are run."
-	)]
-	filter: Option<String>,
+	/// The FILTER string is tested against the name of all tests, and only
+	/// those tests whose names contain the filter are run. Multiple filter
+	/// strings may be passed, which will run all tests matching any of the
+	/// filters.
+	filter: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TestEntry {
 	name: String,
 	#[serde(serialize_with = "option_option_string")]
@@ -90,12 +78,21 @@ struct TestEntry {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-	let cli = Cli::parse();
+	let mut args = env::args_os();
+	let binary = args
+		.next()
+		.context("expected the first argument to be present")?;
+	// We parse the file argument ourselves to prevent it from being shown on the
+	// help page.
+	let file = args.next();
 
-	let wasm_path = &cli.file;
+	let cli = Cli::parse_from(iter::once(binary).chain(args));
+
+	let file = file.context("expected a file to have been passed from `cargo run/test`")?;
+	let wasm_path = Path::new(&file);
 	let wasm_bytes = ReadFile::new(wasm_path)
-		.with_context(|| format!("failed to read wasm file: {}", wasm_path.display()))?;
-	let args = TestArgs::new(&cli)?;
+		.with_context(|| format!("failed to read Wasm file: {}", wasm_path.display()))?;
+	let args = TestArgs::new(cli)?;
 
 	let mut tests = read_tests(&wasm_bytes)?;
 	let filtered_count = apply_filters(
@@ -137,9 +134,9 @@ async fn main() -> Result<()> {
 		return Ok(());
 	}
 
-	// `web_sys-4e01138c76cd2a1a.wasm` to `web_sys-4e01138c76cd2a1a.js`
+	// The JS file has the same name, just a different file extension.
 	let imports_path = wasm_path.with_extension("js");
-	let tests_json = serde_json::to_string(&tests).expect("checked");
+	let tests_json = serde_json::to_string(&tests).unwrap();
 
 	match args.runner {
 		RunnerConfig::Nodejs => run_node(
@@ -147,28 +144,28 @@ async fn main() -> Result<()> {
 			&imports_path,
 			tests_json,
 			filtered_count,
-			args.nocapture,
+			args.no_capture,
 		)?,
 		RunnerConfig::Browser { kind, worker } => {
 			run_playwright(
-				wasm_bytes.to_vec(),
+				wasm_bytes,
 				&imports_path,
 				tests_json,
 				filtered_count,
-				args.nocapture,
-				&kind,
-				worker.as_ref(),
+				args.no_capture,
+				kind,
+				worker,
 			)
 			.await?
 		}
 		RunnerConfig::Server { worker } => {
 			run_browser_server(
-				wasm_bytes.to_vec(),
+				wasm_bytes,
 				&imports_path,
 				tests_json,
 				filtered_count,
-				args.nocapture,
-				worker.as_ref(),
+				args.no_capture,
+				worker,
 			)
 			.await?
 		}
@@ -179,8 +176,8 @@ async fn main() -> Result<()> {
 
 struct TestArgs {
 	list_only: bool,
-	nocapture: bool,
-	filter: Option<String>,
+	no_capture: bool,
+	filter: Vec<String>,
 	list_format: Option<FormatSetting>,
 	ignored_only: bool,
 	exact: bool,
@@ -188,11 +185,11 @@ struct TestArgs {
 }
 
 impl TestArgs {
-	fn new(cli: &Cli) -> Result<TestArgs> {
-		let output = TestArgs {
+	fn new(cli: Cli) -> Result<Self> {
+		let output = Self {
 			list_only: cli.list,
-			nocapture: cli.nocapture,
-			filter: cli.filter.clone(),
+			no_capture: cli.no_capture,
+			filter: cli.filter,
 			list_format: cli.format,
 			ignored_only: cli.ignored,
 			exact: cli.exact,
@@ -203,7 +200,7 @@ impl TestArgs {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 enum RunnerConfig {
 	Nodejs,
 	Browser {
@@ -215,60 +212,60 @@ enum RunnerConfig {
 	},
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 enum WorkerKind {
-	// https://developer.mozilla.org/en-US/docs/Web/API/Worker
+	/// https://developer.mozilla.org/en-US/docs/Web/API/Worker
 	Dedicated,
-	// https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker
+	/// https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker
 	Shared,
-	// https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorker
+	/// https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorker
 	Service,
 }
 
 impl WorkerKind {
 	fn from_str(worker: &str) -> Result<Self> {
 		Ok(match worker {
-			"dedicated" => WorkerKind::Dedicated,
-			"shared" => WorkerKind::Shared,
-			"service" => WorkerKind::Service,
+			"dedicated" => Self::Dedicated,
+			"shared" => Self::Shared,
+			"service" => Self::Service,
 			worker => bail!("unsupported worker: {worker}"),
 		})
 	}
 
-	fn as_str(&self) -> &str {
+	fn as_str(self) -> &'static str {
 		match self {
-			WorkerKind::Dedicated => "dedicated",
-			WorkerKind::Shared => "shared",
-			WorkerKind::Service => "service",
+			Self::Dedicated => "dedicated",
+			Self::Shared => "shared",
+			Self::Service => "service",
 		}
 	}
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 enum DriverKind {
-	// https://developer.chrome.com/docs/chromedriver
+	/// https://developer.chrome.com/docs/chromedriver
 	Chrome,
-	// https://github.com/mozilla/geckodriver
+	/// https://github.com/mozilla/geckodriver
 	Gecko,
-	// https://github.com/WebKit/WebKit
+	/// https://github.com/WebKit/WebKit
 	WebKit,
 }
 
 impl DriverKind {
 	fn from_str(driver: &str) -> Result<Self> {
 		Ok(match driver {
-			"chrome" => DriverKind::Chrome,
-			"gecko" => DriverKind::Gecko,
-			"webkit" => DriverKind::WebKit,
+			"chrome" => Self::Chrome,
+			"gecko" => Self::Gecko,
+			"webkit" => Self::WebKit,
 			driver => bail!("unsupported driver: {driver}"),
 		})
 	}
 
 	fn as_str(&self) -> &str {
 		match self {
-			DriverKind::Chrome => "chrome",
-			DriverKind::Gecko => "gecko",
-			DriverKind::WebKit => "webkit",
+			Self::Chrome => "chrome",
+			Self::Gecko => "gecko",
+			Self::WebKit => "webkit",
 		}
 	}
 }
@@ -288,18 +285,19 @@ impl RunnerConfig {
 		let server = env::var("JBG_TEST_SERVER").is_ok();
 
 		let config = match (server, driver) {
-			(true, None) => RunnerConfig::Server { worker },
-			(true, Some(d)) => {
-				eprintln!("Because a server has been configured, the {d:?} option is not work.");
-				RunnerConfig::Server { worker }
+			(true, None) => Self::Server { worker },
+			(true, Some(_)) => {
+				eprintln!("Because a server has been configured, `JBG_TEST_DRIVER` is ignored.");
+				Self::Server { worker }
 			}
 			(false, None) => {
-				if let Some(worker) = worker {
-					eprintln!("The {worker:?} option does not work in Node.js.");
+				if worker.is_some() {
+					eprintln!("because Node.js is selected, `JBG_TEST_WORKER` is ignored.");
 				}
-				RunnerConfig::Nodejs
+
+				Self::Nodejs
 			}
-			(false, Some(kind)) => RunnerConfig::Browser { kind, worker },
+			(false, Some(kind)) => Self::Browser { kind, worker },
 		};
 
 		Ok(config)
@@ -311,7 +309,7 @@ fn run_node(
 	imports_path: &Path,
 	tests_json: String,
 	filtered_count: usize,
-	nocapture: bool,
+	no_capture: bool,
 ) -> Result<()> {
 	ensure_module_package(imports_path);
 	let runner_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(NODE_RUNNER);
@@ -325,7 +323,7 @@ fn run_node(
 		.env("JS_BINDGEN_IMPORTS", imports_path)
 		.env("JS_BINDGEN_TESTS_PATH", &tests_path)
 		.env("JS_BINDGEN_FILTERED", filtered_count.to_string())
-		.env("JS_BINDGEN_NOCAPTURE", if nocapture { "1" } else { "0" })
+		.env("JS_BINDGEN_NOCAPTURE", if no_capture { "1" } else { "0" })
 		.status()
 		.context("failed to run node")?;
 
@@ -347,20 +345,20 @@ fn ensure_module_package(imports_path: &Path) {
 }
 
 async fn run_playwright(
-	wasm_bytes: Vec<u8>,
+	wasm_bytes: ReadFile,
 	imports_path: &Path,
 	tests_json: String,
 	filtered_count: usize,
-	nocapture: bool,
-	driver: &DriverKind,
-	worker: Option<&WorkerKind>,
+	no_capture: bool,
+	driver: DriverKind,
+	worker: Option<WorkerKind>,
 ) -> Result<()> {
 	let assets = BrowserAssets::new(
 		wasm_bytes,
 		imports_path,
 		&tests_json,
 		filtered_count,
-		nocapture,
+		no_capture,
 		worker.map(|s| s.as_str()),
 	)?;
 	let server =
@@ -392,19 +390,19 @@ async fn run_playwright(
 }
 
 async fn run_browser_server(
-	wasm_bytes: Vec<u8>,
+	wasm_bytes: ReadFile,
 	imports_path: &Path,
 	tests_json: String,
 	filtered_count: usize,
-	nocapture: bool,
-	worker: Option<&WorkerKind>,
+	no_capture: bool,
+	worker: Option<WorkerKind>,
 ) -> Result<()> {
 	let assets = BrowserAssets::new(
 		wasm_bytes,
 		imports_path,
 		&tests_json,
 		filtered_count,
-		nocapture,
+		no_capture,
 		worker.map(|s| s.as_str()),
 	)?;
 	let server =
@@ -435,7 +433,7 @@ struct ReportState {
 }
 
 struct BrowserAssets {
-	wasm_bytes: Vec<u8>,
+	wasm_bytes: ReadFile,
 	import_js: String,
 	tests_json: String,
 	index_html: String,
@@ -443,11 +441,11 @@ struct BrowserAssets {
 
 impl BrowserAssets {
 	fn new(
-		wasm_bytes: Vec<u8>,
+		wasm_bytes: ReadFile,
 		imports_path: &Path,
 		tests_json: &str,
 		filtered_count: usize,
-		nocapture: bool,
+		no_capture: bool,
 		worker: Option<&str>,
 	) -> Result<Self> {
 		let import_js = fs::read_to_string(imports_path)?;
@@ -455,7 +453,7 @@ impl BrowserAssets {
 		let index_html = format!(
 			include_str!("../js/index.html"),
 			filtered_count = filtered_count,
-			nocapture_flag = if nocapture { "true" } else { "false" },
+			no_capture_flag = if no_capture { "true" } else { "false" },
 			worker = if let Some(worker) = worker {
 				format!("{worker:?}")
 			} else {
@@ -633,11 +631,7 @@ async fn tests_handler(State(state): State<AppState>) -> Response {
 }
 
 async fn wasm_handler(State(state): State<AppState>) -> Response {
-	bytes_response(
-		StatusCode::OK,
-		"application/wasm",
-		state.assets.wasm_bytes.as_slice(),
-	)
+	bytes_response(StatusCode::OK, "application/wasm", &state.assets.wasm_bytes)
 }
 
 async fn report_handler(State(state): State<AppState>, Json(report): Json<Report>) -> Response {
@@ -647,7 +641,7 @@ async fn report_handler(State(state): State<AppState>, Json(report): Json<Report
 }
 
 fn bytes_response(status: StatusCode, content_type: &'static str, body: &[u8]) -> Response {
-	let mut response = Response::new(axum::body::Body::from(body.to_vec()));
+	let mut response = Response::new(Body::from(body.to_vec()));
 	*response.status_mut() = status;
 	response
 		.headers_mut()
@@ -757,22 +751,21 @@ fn read_tests(wasm_bytes: &[u8]) -> Result<Vec<TestEntry>> {
 
 fn apply_filters(
 	tests: &mut Vec<TestEntry>,
-	filter: Option<&String>,
+	filter: &[String],
 	ignored_only: bool,
 	exact: bool,
 ) -> usize {
 	let initial = tests.len();
 	tests.retain(|test| {
 		let matches_ignore = !ignored_only || test.ignore.is_some();
-		let matches_filter = if let Some(filter) = filter {
-			if exact {
-				filter == &test.name
-			} else {
-				test.name.contains(filter)
-			}
-		} else {
-			true
-		};
+		let matches_filter = filter.is_empty()
+			|| filter.iter().any(|filter| {
+				if exact {
+					filter == &test.name
+				} else {
+					test.name.contains(filter)
+				}
+			});
 		matches_ignore && matches_filter
 	});
 	initial - tests.len()

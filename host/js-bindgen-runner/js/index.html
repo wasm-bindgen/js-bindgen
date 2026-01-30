@@ -6,9 +6,9 @@
 	import {{ runBrowser }} from "/browser-runner.mjs";
 
 	const filtered = {filtered_count};
-	const nocapture = {nocapture_flag};
+	const noCapture = {no_capture_flag};
 	const worker = {worker};
-	const result = await runBrowser({{ filtered, nocapture, worker }});
+	const result = await runBrowser({{ filtered, noCapture, worker }});
 	await fetch("/report", {{
 	 method: "POST",
 	 headers: {{ "content-type": "application/json" }},

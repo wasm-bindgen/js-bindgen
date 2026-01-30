@@ -33,20 +33,20 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 		}
 
 		const result = test.run(testFn)
-		const shouldPanic = test.should_panic
+		const shouldPanic = test.shouldPanic
 		if (shouldPanic) {
 			if (result.ok) {
 				emit({
 					type: "test-failed",
 					name: test.name,
 					error: "test did not panic as expected",
-					should_panic: true,
+					shouldPanic: true,
 				})
 				failed += 1
 				continue
 			}
 
-			const expectedText = typeof test.should_panic == "string" ? test.should_panic : undefined
+			const expectedText = typeof test.shouldPanic == "string" ? test.shouldPanic : undefined
 			const payload = coercePanicMessage(panicPayload(), externrefTable)
 			const message = coercePanicMessage(panicMessage(), externrefTable)
 
@@ -64,18 +64,18 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 						"note: panic did not contain expected string\n" +
 						`      panic message: "${displayPayload}"\n` +
 						` expected substring: "${displayExpected}"`,
-					should_panic: true,
+					shouldPanic: true,
 				})
 				failed += 1
 				continue
 			}
 
-			emit({ type: "test-ok", name: test.name, should_panic: true })
+			emit({ type: "test-ok", name: test.name, shouldPanic: true })
 			continue
 		}
 
 		if (result.ok) {
-			emit({ type: "test-ok", name: test.name, should_panic: false })
+			emit({ type: "test-ok", name: test.name, shouldPanic: false })
 		} else {
 			const message = coercePanicMessage(panicMessage(), externrefTable)
 			emit({ type: "test-failed", name: test.name, error: message + "\n" + result.stack })
