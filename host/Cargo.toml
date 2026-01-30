@@ -40,7 +40,7 @@ tempfile = { version = "3", default-features = false }
 ui_test = { version = "0.30", default-features = false, features = ["rustc"] }
 wasm-encoder = { version = "0.244", default-features = false, features = ["wasmparser"] }
 wasmparser = { version = "0.244", default-features = false }
-clap = { version = "4", -features = false, features = ["derive"] }
+clap = { version = "4", default-features = false, features = ["std", "derive"] }
 
 [patch.crates-io]
 # Detect unsupported platforms at run-time: https://github.com/RazrFalcon/memmap2-rs/pull/161.
