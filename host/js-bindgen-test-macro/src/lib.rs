@@ -38,25 +38,20 @@ fn test_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, To
 
 	let test_name_tokens = test_name_tokens(&ident);
 
-	let section_data = [
-		Argument {
-			cfg: None,
-			kind: ArgumentKind::Bytes(option_option_string(&attrs.ignore)),
-		},
-		Argument {
-			cfg: None,
-			kind: ArgumentKind::Bytes(option_option_string(&attrs.should_panic)),
-		},
-		Argument {
-			cfg: None,
-			kind: ArgumentKind::Interpolate(test_name_tokens),
-		},
-	];
-
 	let mut output = TokenStream::new();
 	output.extend(item);
 
-	let section = custom_section("js_bindgen.test", None, &section_data);
+	let mut unstructured = option_option_string(&attrs.ignore);
+	unstructured.append(&mut option_option_string(&attrs.should_panic));
+
+	let section = custom_section(
+		"js_bindgen.test",
+		Some(&unstructured),
+		&[Argument {
+			cfg: None,
+			kind: ArgumentKind::Interpolate(test_name_tokens),
+		}],
+	);
 	output.extend(section);
 
 	let wrapper = format!(

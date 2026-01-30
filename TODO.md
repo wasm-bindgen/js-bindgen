@@ -16,6 +16,10 @@
   - Instead of Playwright, interface with Webdrivers directly. Use [Fantoccini] or [Thirtyfour].
   - Add Deno support.
   - Add Edge support.
+  - Test output should happen between tests and not after all are finished.
+  - Use Clap.
+  - Use `axum-server`.
+  - E2E testing including output comparison with regular `cargo test`.
 - E2E testing for the linker. Should also ensure deterministic output.
 - Add a `disable_hygiene` attribute to `#[js_sys]` to reduce the compile-time of the output to an
   absolute minimum. This can avoid all `interpolate`s.

@@ -1,11 +1,11 @@
 [package]
 edition = { workspace = true }
 license = { workspace = true }
-name = "js-bindgen-macro-shared"
+name = "js-bindgen-shared"
 rust-version = { workspace = true }
 
-[dev-dependencies]
-proc-macro2 = { workspace = true }
+[dependencies]
+memmap2 = { workspace = true }
 
 [lints]
 workspace = true

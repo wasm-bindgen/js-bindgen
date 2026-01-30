@@ -1,3 +1,5 @@
+#![cfg_attr(test, allow(dead_code))]
+
 #[cfg(not(test))]
 extern crate proc_macro;
 #[cfg(test)]
@@ -16,7 +18,6 @@ pub struct Argument {
 }
 
 pub enum ArgumentKind {
-	Bytes(Vec<u8>),
 	String(String),
 	Interpolate(Vec<TokenTree>),
 }
@@ -38,7 +39,7 @@ pub enum ArgumentKind {
 /// 	};
 /// };
 /// ```
-pub fn custom_section(name: &str, prefix: Option<&str>, data: &[Argument]) -> TokenStream {
+pub fn custom_section(name: &str, unstructured: Option<&[u8]>, data: &[Argument]) -> TokenStream {
 	fn group(delimiter: Delimiter, inner: impl IntoIterator<Item = TokenTree>) -> TokenTree {
 		Group::new(delimiter, inner.into_iter().collect()).into()
 	}
@@ -66,25 +67,25 @@ pub fn custom_section(name: &str, prefix: Option<&str>, data: &[Argument]) -> To
 
 	let span = Span::mixed_site();
 
-	// If a prefix is present:
-	// `const ARR_PREFIX: [u8; <prefix>.len()] = *<prefix>;`
-	let const_prefix = prefix
+	// If unstructered data is present:
+	// `const ARR_UNSTRUCTERED: [u8; <prefix>.len()] = *<unstructured>;`
+	let const_unstructured = unstructured
 		.into_iter()
-		.filter(|prefix| !prefix.is_empty())
-		.flat_map(|prefix| {
+		.filter(|unstructured| !unstructured.is_empty())
+		.flat_map(|unstructured| {
 			r#const(
-				"ARR_PREFIX",
+				"ARR_UNSTRUCTURED",
 				iter::once(group(
 					Delimiter::Bracket,
 					[
 						ident("u8"),
 						Punct::new(';', Spacing::Alone).into(),
-						Literal::usize_unsuffixed(prefix.len()).into(),
+						Literal::usize_unsuffixed(unstructured.len()).into(),
 					],
 				)),
 				[
 					Punct::new('*', Spacing::Alone).into(),
-					Literal::byte_string(prefix.as_bytes()).into(),
+					Literal::byte_string(unstructured).into(),
 				],
 			)
 		});
@@ -105,29 +106,6 @@ pub fn custom_section(name: &str, prefix: Option<&str>, data: &[Argument]) -> To
 		.iter()
 		.enumerate()
 		.flat_map(|(index, arg)| match &arg.kind {
-			ArgumentKind::Bytes(bytes) => {
-				// `const ARR_<index>: [u8; <argument>.len()] = <argument>;`
-				arg.cfg
-					.clone()
-					.into_iter()
-					.flatten()
-					.chain(r#const(
-						&format!("ARR_{index}"),
-						iter::once(group(
-							Delimiter::Bracket,
-							[
-								ident("u8"),
-								Punct::new(';', Spacing::Alone).into(),
-								Literal::usize_unsuffixed(bytes.len()).into(),
-							],
-						)),
-						[
-							Punct::new('*', Spacing::Alone).into(),
-							Literal::byte_string(bytes).into(),
-						],
-					))
-					.collect::<Vec<_>>()
-			}
 			ArgumentKind::String(string) => {
 				// `const ARR_<index>: [u8; <argument>.len()] = *<argument>;`
 				arg.cfg
@@ -261,9 +239,6 @@ pub fn custom_section(name: &str, prefix: Option<&str>, data: &[Argument]) -> To
 							Punct::new('+', Spacing::Joint).into(),
 							Punct::new('=', Spacing::Alone).into(),
 							match &par.kind {
-								ArgumentKind::Bytes(bytes) => {
-									Literal::usize_unsuffixed(bytes.len()).into()
-								}
 								ArgumentKind::String(string) => {
 									Literal::usize_unsuffixed(string.len()).into()
 								}
@@ -290,39 +265,25 @@ pub fn custom_section(name: &str, prefix: Option<&str>, data: &[Argument]) -> To
 		Punct::new(',', Spacing::Alone).into(),
 	]
 	.into_iter()
-	// Optional prefix length.
-	.chain(prefix.into_iter().flat_map(|prefix| {
-		[
-			group(
-				Delimiter::Bracket,
+	// Optional unstructured data.
+	.chain(
+		unstructured
+			.into_iter()
+			.filter(|unstructured| !unstructured.is_empty())
+			.flat_map(|unstructured| {
 				[
-					ident("u8"),
-					Punct::new(';', Spacing::Alone).into(),
-					Literal::usize_unsuffixed(2).into(),
-				],
-			),
-			Punct::new(',', Spacing::Alone).into(),
-		]
-		.into_iter()
-		.chain(
-			(!prefix.is_empty())
-				.then(|| {
-					[
-						group(
-							Delimiter::Bracket,
-							[
-								ident("u8"),
-								Punct::new(';', Spacing::Alone).into(),
-								Literal::usize_unsuffixed(prefix.len()).into(),
-							],
-						),
-						Punct::new(',', Spacing::Alone).into(),
-					]
-				})
-				.into_iter()
-				.flatten(),
-		)
-	}))
+					group(
+						Delimiter::Bracket,
+						[
+							ident("u8"),
+							Punct::new(';', Spacing::Alone).into(),
+							Literal::usize_unsuffixed(unstructured.len()).into(),
+						],
+					),
+					Punct::new(',', Spacing::Alone).into(),
+				]
+			}),
+	)
 	.chain(data.iter().enumerate().flat_map(move |(index, arg)| {
 		arg.cfg.clone().into_iter().flatten().chain([
 			group(
@@ -331,7 +292,6 @@ pub fn custom_section(name: &str, prefix: Option<&str>, data: &[Argument]) -> To
 					ident("u8"),
 					Punct::new(';', Spacing::Alone).into(),
 					match &arg.kind {
-						ArgumentKind::Bytes(bytes) => Literal::usize_unsuffixed(bytes.len()).into(),
 						ArgumentKind::String(string) => {
 							Literal::usize_unsuffixed(string.len()).into()
 						}
@@ -389,30 +349,18 @@ pub fn custom_section(name: &str, prefix: Option<&str>, data: &[Argument]) -> To
 				group(Delimiter::Parenthesis, iter::once(ident("LEN"))),
 				Punct::new(',', Spacing::Alone).into(),
 			])
-			// Optional prefix value.
-			.chain(prefix.into_iter().flat_map(|prefix| {
-				let len = u16::try_from(prefix.len()).unwrap().to_le_bytes();
-
-				[
-					group(
-						Delimiter::Bracket,
+			// Optional unstructured value.
+			.chain(
+				unstructured
+					.into_iter()
+					.filter(|unstructured| !unstructured.is_empty())
+					.flat_map(|_| {
 						[
-							Literal::u8_unsuffixed(len[0]).into(),
+							ident("ARR_UNSTRUCTURED"),
 							Punct::new(',', Spacing::Alone).into(),
-							Literal::u8_unsuffixed(len[1]).into(),
-							Punct::new(',', Spacing::Alone).into(),
-						],
-					),
-					Punct::new(',', Spacing::Alone).into(),
-				]
-				.into_iter()
-				.chain(
-					(!prefix.is_empty())
-						.then(|| [ident("ARR_PREFIX"), Punct::new(',', Spacing::Alone).into()])
-						.into_iter()
-						.flatten(),
-				)
-			}))
+						]
+					}),
+			)
 			.chain(data.iter().enumerate().flat_map(move |(index, arg)| {
 				arg.cfg.clone().into_iter().flatten().chain([
 					ident(&format!("ARR_{index}")),
@@ -439,7 +387,7 @@ pub fn custom_section(name: &str, prefix: Option<&str>, data: &[Argument]) -> To
 		iter::once(group(Delimiter::Parenthesis, iter::empty())),
 		iter::once(group(
 			Delimiter::Brace,
-			const_prefix.chain(consts).chain(len).chain(r#const(
+			const_unstructured.chain(consts).chain(len).chain(r#const(
 				"_",
 				iter::once(group(Delimiter::Parenthesis, iter::empty())),
 				iter::once(group(

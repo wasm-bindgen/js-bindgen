@@ -11,7 +11,8 @@ use std::{env, fs};
 
 use hashbrown::{HashMap, HashSet};
 use itertools::{Itertools, Position};
-use js_bindgen_ld_shared::{CustomSectionParser, ReadFile};
+use js_bindgen_ld_shared::CustomSectionParser;
+use js_bindgen_shared::ReadFile;
 use wasm_encoder::{EntityType, ImportSection, Module, RawSection, Section};
 use wasmparser::{Encoding, Parser, Payload, TypeRef};
 

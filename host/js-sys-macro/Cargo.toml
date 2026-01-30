@@ -23,3 +23,6 @@ rand = { workspace = true }
 similar-asserts = { workspace = true }
 syn = { workspace = true }
 wasmparser = { workspace = true }
+
+[lints]
+workspace = true

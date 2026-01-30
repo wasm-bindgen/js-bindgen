@@ -75,4 +75,4 @@ jobs:
           # Rustc v1.93
           llvm-version: 21
       - name: Run Tests
-        run: cargo test --no-fail-fast
+        run: cargo test --workspace --no-fail-fast

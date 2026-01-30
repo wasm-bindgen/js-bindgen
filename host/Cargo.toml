@@ -7,6 +7,7 @@ members = [
 	"ld",
 	"ld-shared",
 	"macro-shared",
+	"shared",
 	"wasm-ld-opt",
 ]
 resolver = "2"
@@ -22,6 +23,7 @@ cargo_metadata = "0.23"
 hashbrown = "0.16"
 indoc = "2"
 itertools = { version = "0.14", default-features = false }
+js-bindgen-shared = { path = "shared" }
 js-bindgen-ld-shared = { path = "ld-shared" }
 js-bindgen-macro-shared = { path = "macro-shared" }
 memmap2 = "0.9"

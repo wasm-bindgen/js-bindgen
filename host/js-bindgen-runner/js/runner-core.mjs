@@ -13,7 +13,11 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 	for (const test of tests) {
 		if (test.ignore) {
 			ignored += 1
-			emit({ type: "test-ignored", name: test.name, reason: test.ignore_reason })
+			emit({
+				type: "test-ignored",
+				name: test.name,
+				reason: typeof test.ignore == "string" ? test.ignore : undefined,
+			})
 			continue
 		}
 
@@ -42,7 +46,7 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 				continue
 			}
 
-			const expectedText = test.should_panic_reason
+			const expectedText = typeof test.should_panic == "string" ? test.should_panic : undefined
 			const payload = coercePanicMessage(panicPayload(), externrefTable)
 			const message = coercePanicMessage(panicMessage(), externrefTable)
 

@@ -73,9 +73,18 @@ fn import_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 		None
 	};
 
+	let len = u16::try_from(required_embed.as_deref().map(str::len).unwrap_or(0))
+		.expect("`required_embed` name too long")
+		.to_le_bytes();
+	let unstructured = [
+		&len,
+		required_embed.as_deref().map(str::as_bytes).unwrap_or(&[]),
+	]
+	.concat();
+
 	Ok(custom_section(
 		&format!("js_bindgen.import.{package}.{import_name}"),
-		Some(required_embed.as_deref().unwrap_or("")),
+		Some(&unstructured),
 		&parse_string_arguments(&mut input, Span::mixed_site())?,
 	))
 }

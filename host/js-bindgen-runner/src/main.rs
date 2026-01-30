@@ -5,10 +5,11 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
-use std::{env, fs, thread};
+use std::{env, fs, str, thread};
 
 use anyhow::{Context, Result, bail};
-use js_bindgen_ld_shared::ReadFile;
+use js_bindgen_shared::ReadFile;
+use serde::{Serialize, Serializer};
 use wasmparser::{Parser, Payload};
 
 const NODE_RUNNER: &str = "js/node-runner.mjs";
@@ -20,16 +21,13 @@ const WORKER_RUNNER_SOURCE: &str = include_str!("../js/worker-runner.mjs");
 const SERVICE_WORKER_SOURCE: &str = include_str!("../js/service-worker.mjs");
 const CONSOLE_HOOK_SOURCE: &str = include_str!("../js/console-hook.mjs");
 
-const GREEN: &str = "\u{001b}[32m";
-const RESET: &str = "\u{001b}[0m";
-
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Serialize)]
 struct TestEntry {
 	name: String,
-	ignore: bool,
-	ignore_reason: Option<String>,
-	should_panic: bool,
-	should_panic_reason: Option<String>,
+	#[serde(serialize_with = "option_option_string")]
+	ignore: Option<Option<String>>,
+	#[serde(serialize_with = "option_option_string")]
+	should_panic: Option<Option<String>>,
 }
 
 fn main() -> Result<()> {
@@ -69,6 +67,8 @@ fn main() -> Result<()> {
 		println!();
 		println!("running 0 tests");
 		println!();
+		const GREEN: &str = "\u{001b}[32m";
+		const RESET: &str = "\u{001b}[0m";
 		println!(
 			"test result: {GREEN}ok{RESET}. 0 passed; 0 failed; 0 ignored; 0 measured; \
 			 {filtered_count} filtered out; finished in 0.00s"
@@ -646,72 +646,78 @@ fn write_response(
 	Ok(())
 }
 
+fn option_option_string<S>(value: &Option<Option<String>>, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	match value {
+		None => serializer.serialize_unit(),
+		Some(None) => serializer.serialize_bool(true),
+		Some(Some(reason)) => serializer.serialize_str(reason),
+	}
+}
+
 fn read_tests(wasm_bytes: &[u8]) -> Result<Vec<TestEntry>> {
-	/// None: `[0]`
-	///
-	/// Some(None): `[1]`
-	///
-	/// Some(Some(s)): `[2][len(s)][len]`
-	fn option_option_string(
-		data: &[u8],
-		mut offset: usize,
-	) -> Result<(Option<Option<String>>, usize)> {
-		offset += 1;
-		let value = match data[offset - 1] {
+	/// - None: `[0]`
+	/// - Some(None): `[1]`
+	/// - Some(Some(s)): `[2][len(s)][s]`
+	fn option_option_string(data: &mut &[u8]) -> Result<Option<Option<String>>> {
+		let value = match data
+			.split_off_first()
+			.context("invalid test flag encoding")?
+		{
 			0 => None,
 			1 => Some(None),
 			2 => {
 				let len = u32::from_le_bytes(
-					data[offset..offset + 4]
-						.try_into()
-						.expect("slice length checked"),
+					data.split_off(..4)
+						.context("invalid test flag length encoding")?
+						.try_into()?,
 				) as usize;
-				offset += 4;
-				let s = std::str::from_utf8(&data[offset..offset + len])
-					.context("payload is not utf-8")?
-					.to_string();
-				offset += len;
+				let s = str::from_utf8(
+					data.split_off(..len)
+						.context("invalid test flag reason encoding")?,
+				)?
+				.to_string();
 				Some(Some(s))
 			}
 			_ => bail!("mismatch flag value"),
 		};
-		Ok((value, offset))
+		Ok(value)
 	}
 
 	let mut tests = Vec::new();
 
 	for payload in Parser::new(0).parse_all(wasm_bytes) {
-		if let Payload::CustomSection(section) = payload.context("failed to parse wasm")?
+		if let Payload::CustomSection(section) = payload?
 			&& section.name() == "js_bindgen.test"
 		{
-			let mut offset = 0;
-			let data = section.data();
+			let mut data = section.data();
 
-			while offset < data.len() {
+			while !data.is_empty() {
 				let len = u32::from_le_bytes(
-					data[offset..offset + 4]
-						.try_into()
-						.expect("slice length checked"),
+					data.split_off(..4)
+						.context("invalid test name length encoding")?
+						.try_into()?,
 				) as usize;
-				offset += 4;
-				let end = offset + len;
 
-				let (ignore, offset1) = option_option_string(data, offset)?;
-				let (should_panic, offset2) = option_option_string(data, offset1)?;
+				let ignore = option_option_string(&mut data)?;
+				let should_panic = option_option_string(&mut data)?;
 
-				let name =
-					std::str::from_utf8(&data[offset2..end]).context("test name is not utf-8")?;
+				let name = str::from_utf8(
+					data.split_off(..len)
+						.context("invalid test name encoding")?,
+				)?;
 
 				tests.push(TestEntry {
 					name: name.to_string(),
-					ignore: ignore.is_some(),
-					ignore_reason: ignore.and_then(|s| s),
-					should_panic: should_panic.is_some(),
-					should_panic_reason: should_panic.and_then(|s| s),
+					ignore,
+					should_panic,
 				});
-
-				offset = end;
 			}
+
+			// Section with the same name can never appear again.
+			break;
 		}
 	}
 
@@ -726,7 +732,7 @@ fn apply_filters(
 ) -> usize {
 	let initial = tests.len();
 	tests.retain(|test| {
-		let matches_ignore = !ignored_only || test.ignore;
+		let matches_ignore = !ignored_only || test.ignore.is_some();
 		let matches_filter = if filters.is_empty() {
 			true
 		} else if exact {

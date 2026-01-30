@@ -8,6 +8,7 @@ rust-version = "1.91"
 hashbrown = { workspace = true }
 itertools = { workspace = true }
 js-bindgen-ld-shared = { workspace = true }
+js-bindgen-shared = { workspace = true }
 wasm-encoder = { workspace = true }
 wasmparser = { workspace = true }
 
