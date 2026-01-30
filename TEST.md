@@ -47,10 +47,14 @@ JBG_TEST_SERVER=1 cargo test --target wasm32-unknown-unknown
 
 Runner options:
 
-- `JBG_TEST_DRIVER=chrome|gecko|webkit`
+- `JBG_TEST_BROWSER=1` (run in headless browser, auto detect)
+- `JBG_TEST_GECKODRIVER=<path>` (use firefix)
+- `JBG_TEST_CHROMEDRIVER=<path>` (use chrome)
+- `JBG_TEST_MSEDGEDRIVER=<path>` (use edge)
 - `JBG_TEST_WORKER=dedicated|shared|service`
 - `JBG_TEST_SERVER=1` (serve browser runner and print URL)
 - `JBG_TEST_SERVER_ADDRESS=127.0.0.1:8000` (defaults to 8000; falls back to a random port if busy)
+
 
 List and filter tests:
 

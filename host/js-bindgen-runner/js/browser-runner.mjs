@@ -221,26 +221,18 @@ async function runServiceWorker({ filtered, noCapture, handleMessage }) {
 }
 
 function appendOutput(line) {
-	const output = ensureOutput()
+	const output = document.getElementById("output");
 	if (output.textContent.length > 0) {
 		output.textContent += "\n"
 	}
-	output.textContent += stripAnsi(line)
+    if (window.__jbtestHeadless) {
+	    output.textContent += line
+    } else {
+        output.textContent += stripAnsi(line)
+    }
 }
 
 function stripAnsi(line) {
 	return line.replace(/\x1b\[[0-9;]*m/g, "")
 }
 
-function ensureOutput() {
-	if (typeof document === "undefined") {
-		return { textContent: "" }
-	}
-	let output = document.getElementById("output")
-	if (!output) {
-		output = document.createElement("pre")
-		output.id = "output"
-		document.body.append(output)
-	}
-	return output
-}

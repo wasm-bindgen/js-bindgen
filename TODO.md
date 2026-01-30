@@ -13,7 +13,6 @@
 # High Priority
 
 - Test Runner:
-  - Instead of Playwright, interface with Webdrivers directly. Use [Fantoccini] or [Thirtyfour].
   - Add Deno support.
   - Add Edge support.
   - Test output should happen between tests and not after all are finished.

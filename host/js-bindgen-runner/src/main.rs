@@ -1,3 +1,5 @@
+mod driver;
+
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -12,14 +14,16 @@ use axum::response::Response;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use clap::{Parser, ValueEnum};
+use fantoccini::ClientBuilder;
 use js_bindgen_shared::ReadFile;
 use parking_lot::{Condvar, Mutex};
 use serde::{Serialize, Serializer};
 use tokio::net::TcpListener;
 use wasmparser::{Parser as WasmParser, Payload};
 
+use crate::driver::Capabilities;
+
 const NODE_RUNNER: &str = "js/node-runner.mjs";
-const PLAYWRIGHT_RUNNER: &str = "js/playwright-runner.mjs";
 const BROWSER_RUNNER_SOURCE: &str = include_str!("../js/browser-runner.mjs");
 const RUNNER_CORE_SOURCE: &str = include_str!("../js/runner-core.mjs");
 const SHARED_JS_SOURCE: &str = include_str!("../js/shared.mjs");
@@ -146,20 +150,19 @@ async fn main() -> Result<()> {
 			filtered_count,
 			args.no_capture,
 		)?,
-		RunnerConfig::Browser { kind, worker } => {
-			run_playwright(
+		RunnerConfig::Browser { worker } => {
+			run_browser(
 				wasm_bytes,
 				&imports_path,
 				tests_json,
 				filtered_count,
 				args.no_capture,
-				kind,
-				worker,
+				worker.as_ref(),
 			)
 			.await?
 		}
 		RunnerConfig::Server { worker } => {
-			run_browser_server(
+			run_server(
 				wasm_bytes,
 				&imports_path,
 				tests_json,
@@ -203,13 +206,8 @@ impl TestArgs {
 #[derive(Clone, Copy, Debug)]
 enum RunnerConfig {
 	Nodejs,
-	Browser {
-		kind: DriverKind,
-		worker: Option<WorkerKind>,
-	},
-	Server {
-		worker: Option<WorkerKind>,
-	},
+	Browser { worker: Option<WorkerKind> },
+	Server { worker: Option<WorkerKind> },
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -241,63 +239,30 @@ impl WorkerKind {
 	}
 }
 
-#[derive(Clone, Copy, Debug)]
-enum DriverKind {
-	/// https://developer.chrome.com/docs/chromedriver
-	Chrome,
-	/// https://github.com/mozilla/geckodriver
-	Gecko,
-	/// https://github.com/WebKit/WebKit
-	WebKit,
-}
-
-impl DriverKind {
-	fn from_str(driver: &str) -> Result<Self> {
-		Ok(match driver {
-			"chrome" => Self::Chrome,
-			"gecko" => Self::Gecko,
-			"webkit" => Self::WebKit,
-			driver => bail!("unsupported driver: {driver}"),
-		})
-	}
-
-	fn as_str(&self) -> &str {
-		match self {
-			Self::Chrome => "chrome",
-			Self::Gecko => "gecko",
-			Self::WebKit => "webkit",
-		}
-	}
-}
-
 impl RunnerConfig {
 	fn from_env() -> Result<Self> {
-		let driver = match env::var("JBG_TEST_DRIVER") {
-			Ok(driver) => Some(DriverKind::from_str(&driver)?),
-			Err(_) => None,
-		};
-
 		let worker = match env::var("JBG_TEST_WORKER") {
 			Ok(worker) => Some(WorkerKind::from_str(&worker)?),
 			Err(_) => None,
 		};
 
-		let server = env::var("JBG_TEST_SERVER").is_ok();
-
-		let config = match (server, driver) {
-			(true, None) => Self::Server { worker },
-			(true, Some(_)) => {
-				eprintln!("Because a server has been configured, `JBG_TEST_DRIVER` is ignored.");
+		let config = match (
+			env::var("JBG_TEST_SERVER").is_ok(),
+			env::var("JBG_TEST_BROWSER").is_ok(),
+		) {
+			(true, false) => Self::Server { worker },
+			(true, true) => {
+				eprintln!("Because a server has been configured, `JBG_TEST_BROWSER` is ignored.");
 				Self::Server { worker }
 			}
-			(false, None) => {
+			(false, false) => {
 				if worker.is_some() {
 					eprintln!("because Node.js is selected, `JBG_TEST_WORKER` is ignored.");
 				}
 
 				Self::Nodejs
 			}
-			(false, Some(kind)) => Self::Browser { kind, worker },
+			(false, true) => Self::Browser { worker },
 		};
 
 		Ok(config)
@@ -344,14 +309,13 @@ fn ensure_module_package(imports_path: &Path) {
 	}
 }
 
-async fn run_playwright(
+async fn run_browser(
 	wasm_bytes: ReadFile,
 	imports_path: &Path,
 	tests_json: String,
 	filtered_count: usize,
 	no_capture: bool,
-	driver: DriverKind,
-	worker: Option<WorkerKind>,
+	worker: Option<&WorkerKind>,
 ) -> Result<()> {
 	let assets = BrowserAssets::new(
 		wasm_bytes,
@@ -360,27 +324,35 @@ async fn run_playwright(
 		filtered_count,
 		no_capture,
 		worker.map(|s| s.as_str()),
+		true,
 	)?;
 	let server =
 		HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref()).await?;
 	let url = build_browser_url(server.base_url.as_str());
 
-	let runner_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(PLAYWRIGHT_RUNNER);
-	let mut child = Command::new("node")
-		.arg(runner_path)
-		.env("JBG_TEST_URL", url)
-		.env("JBG_TEST_DRIVER", driver.as_str())
-		.spawn()
-		.context("failed to run node")?;
+	let driver = driver::Driver::find()?;
+	let guard = driver::launch_driver(&driver)?;
+
+	let capabilities: Capabilities = match fs::File::open(
+		std::env::var("JBG_TEST_WEBDRIVER_JSON").unwrap_or("webdriver.json".to_string()),
+	) {
+		Ok(file) => serde_json::from_reader(file),
+		Err(_) => Ok(Capabilities::new()),
+	}?;
+
+	let client = ClientBuilder::native()
+		.capabilities(driver::capabilities(&driver, capabilities)?)
+		.connect(guard.url.as_str())
+		.await
+		.context("failed to connect to WebDriver")?;
+
+	client.goto(&url).await?;
 
 	let report = server.wait_for_report();
 
 	for line in report.lines {
 		println!("{line}");
 	}
-
-	let _ = child.kill();
-	let _ = child.wait();
 
 	if report.failed > 0 {
 		std::process::exit(1);
@@ -389,7 +361,7 @@ async fn run_playwright(
 	Ok(())
 }
 
-async fn run_browser_server(
+async fn run_server(
 	wasm_bytes: ReadFile,
 	imports_path: &Path,
 	tests_json: String,
@@ -404,6 +376,7 @@ async fn run_browser_server(
 		filtered_count,
 		no_capture,
 		worker.map(|s| s.as_str()),
+		false,
 	)?;
 	let server =
 		HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref()).await?;
@@ -447,11 +420,13 @@ impl BrowserAssets {
 		filtered_count: usize,
 		no_capture: bool,
 		worker: Option<&str>,
+		headless: bool,
 	) -> Result<Self> {
 		let import_js = fs::read_to_string(imports_path)?;
 
 		let index_html = format!(
 			include_str!("../js/index.html"),
+			headless = headless,
 			filtered_count = filtered_count,
 			no_capture_flag = if no_capture { "true" } else { "false" },
 			worker = if let Some(worker) = worker {
