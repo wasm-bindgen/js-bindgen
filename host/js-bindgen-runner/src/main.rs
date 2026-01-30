@@ -1,17 +1,23 @@
-use std::io::{ErrorKind, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
-use std::time::Duration;
-use std::{env, fs, str, thread};
+use std::sync::Arc;
+use std::{env, fs, str};
 
 use clap::{Parser, ValueEnum};
 
 use anyhow::{Context, Result, bail};
+use axum::{
+	Json, Router,
+	extract::State,
+	http::{HeaderValue, StatusCode, header},
+	response::Response,
+	routing::{get, post},
+};
 use js_bindgen_shared::ReadFile;
+use parking_lot::{Condvar, Mutex};
 use serde::{Serialize, Serializer};
+use tokio::net::TcpListener;
 use wasmparser::{Parser as WasmParser, Payload};
 
 const NODE_RUNNER: &str = "js/node-runner.mjs";
@@ -82,7 +88,8 @@ struct TestEntry {
 	should_panic: Option<Option<String>>,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
 	let cli = Cli::parse();
 
 	let wasm_path = &cli.file;
@@ -142,23 +149,29 @@ fn main() -> Result<()> {
 			filtered_count,
 			args.nocapture,
 		)?,
-		RunnerConfig::Browser { kind, worker } => run_playwright(
-			wasm_bytes.to_vec(),
-			&imports_path,
-			tests_json,
-			filtered_count,
-			args.nocapture,
-			&kind,
-			worker.as_ref(),
-		)?,
-		RunnerConfig::Server { worker } => run_browser_server(
-			wasm_bytes.to_vec(),
-			&imports_path,
-			tests_json,
-			filtered_count,
-			args.nocapture,
-			worker.as_ref(),
-		)?,
+		RunnerConfig::Browser { kind, worker } => {
+			run_playwright(
+				wasm_bytes.to_vec(),
+				&imports_path,
+				tests_json,
+				filtered_count,
+				args.nocapture,
+				&kind,
+				worker.as_ref(),
+			)
+			.await?
+		}
+		RunnerConfig::Server { worker } => {
+			run_browser_server(
+				wasm_bytes.to_vec(),
+				&imports_path,
+				tests_json,
+				filtered_count,
+				args.nocapture,
+				worker.as_ref(),
+			)
+			.await?
+		}
 	}
 
 	Ok(())
@@ -333,7 +346,7 @@ fn ensure_module_package(imports_path: &Path) {
 	}
 }
 
-fn run_playwright(
+async fn run_playwright(
 	wasm_bytes: Vec<u8>,
 	imports_path: &Path,
 	tests_json: String,
@@ -350,7 +363,8 @@ fn run_playwright(
 		nocapture,
 		worker.map(|s| s.as_str()),
 	)?;
-	let server = HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref())?;
+	let server =
+		HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref()).await?;
 	let url = build_browser_url(server.base_url.as_str());
 
 	let runner_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(PLAYWRIGHT_RUNNER);
@@ -362,7 +376,6 @@ fn run_playwright(
 		.context("failed to run node")?;
 
 	let report = server.wait_for_report();
-	server.shutdown.store(true, Ordering::Relaxed);
 
 	for line in report.lines {
 		println!("{line}");
@@ -378,7 +391,7 @@ fn run_playwright(
 	Ok(())
 }
 
-fn run_browser_server(
+async fn run_browser_server(
 	wasm_bytes: Vec<u8>,
 	imports_path: &Path,
 	tests_json: String,
@@ -394,7 +407,8 @@ fn run_browser_server(
 		nocapture,
 		worker.map(|s| s.as_str()),
 	)?;
-	let server = HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref())?;
+	let server =
+		HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref()).await?;
 	let url = build_browser_url(server.base_url.as_str());
 
 	println!("open this URL in your browser to run tests:");
@@ -460,212 +474,207 @@ impl BrowserAssets {
 
 struct HttpServer {
 	base_url: String,
-	shutdown: Arc<AtomicBool>,
+	report_state: Arc<ReportState>,
+}
+
+#[derive(Clone)]
+struct AppState {
+	assets: Arc<BrowserAssets>,
 	report_state: Arc<ReportState>,
 }
 
 impl HttpServer {
-	fn start(assets: BrowserAssets, address: Option<&str>) -> Result<Self> {
-		let listener = bind_default_port(address).context("failed to bind server")?;
+	async fn start(assets: BrowserAssets, address: Option<&str>) -> Result<Self> {
+		let listener = bind_default_port(address)
+			.await
+			.context("failed to bind server")?;
 		let local_addr = listener.local_addr()?;
 		let base_url = format!("http://{}:{}", local_addr.ip(), local_addr.port());
-		let shutdown = Arc::new(AtomicBool::new(false));
-		let shutdown_flag = Arc::clone(&shutdown);
+
 		let assets = Arc::new(assets);
 		let report_state = Arc::new(ReportState {
 			result: Mutex::new(None),
 			signal: Condvar::new(),
 		});
-		let report_state_thread = Arc::clone(&report_state);
+		let state = AppState {
+			assets,
+			report_state: Arc::clone(&report_state),
+		};
+		let app = build_router(state);
+		let serve = axum::serve(listener, app);
 
-		listener
-			.set_nonblocking(true)
-			.context("failed to set nonblocking")?;
-
-		thread::spawn(move || {
-			while !shutdown_flag.load(Ordering::Relaxed) {
-				match listener.accept() {
-					Ok((stream, _)) => {
-						let assets = Arc::clone(&assets);
-						let report_state = Arc::clone(&report_state_thread);
-						let _ = handle_connection(stream, assets, report_state);
-					}
-					Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
-						thread::sleep(Duration::from_millis(5));
-					}
-					Err(_) => break,
-				}
+		tokio::spawn(async move {
+			if let Err(e) = serve.await {
+				panic!("failed to run server: {e:?}");
 			}
 		});
 
 		Ok(Self {
 			base_url,
-			shutdown,
 			report_state,
 		})
 	}
 
 	fn wait_for_report(&self) -> Report {
-		let mut guard = self.report_state.result.lock().unwrap();
+		let guard = &mut self.report_state.result.lock();
 		loop {
 			if let Some(report) = guard.take() {
 				return report;
 			}
-			guard = self.report_state.signal.wait(guard).unwrap();
+			self.report_state.signal.wait(guard);
 		}
 	}
 }
 
-fn bind_default_port(address: Option<&str>) -> Result<TcpListener> {
+fn build_router(state: AppState) -> Router {
+	Router::new()
+		.route("/", get(index_handler))
+		.route("/index.html", get(index_handler))
+		.route("/browser-runner.mjs", get(browser_runner_handler))
+		.route("/runner-core.mjs", get(runner_core_handler))
+		.route("/shared.mjs", get(shared_handler))
+		.route("/worker-runner.mjs", get(worker_runner_handler))
+		.route("/service-worker.mjs", get(service_worker_handler))
+		.route("/console-hook.mjs", get(console_hook_handler))
+		.route("/import.js", get(import_handler))
+		.route("/tests.json", get(tests_handler))
+		.route("/wasm", get(wasm_handler))
+		.route("/report", post(report_handler))
+		.with_state(state)
+}
+
+async fn bind_default_port(address: Option<&str>) -> Result<TcpListener> {
 	let default_addr = address.unwrap_or("127.0.0.1:8000");
-	match TcpListener::bind(default_addr) {
+	match TcpListener::bind(default_addr).await {
 		Ok(listener) => Ok(listener),
 		Err(err) if err.kind() == ErrorKind::AddrInUse => {
 			let fallback_addr = address
 				.and_then(|addr| addr.split_once(':'))
 				.map(|(ip, _)| format!("{ip}:0"))
 				.unwrap_or_else(|| "127.0.0.1:0".to_string());
-			TcpListener::bind(&fallback_addr).context("failed to bind fallback port")
+			TcpListener::bind(&fallback_addr)
+				.await
+				.context("failed to bind fallback port")
 		}
 		Err(err) => Err(err).context("failed to bind default port"),
 	}
 }
 
-fn handle_connection(
-	mut stream: TcpStream,
-	assets: Arc<BrowserAssets>,
-	report_state: Arc<ReportState>,
-) -> Result<()> {
-	let mut buffer = [0u8; 4096];
-	let mut request = Vec::new();
-	let mut header_end = 0;
-
-	loop {
-		let size = stream.read(&mut buffer)?;
-		if size == 0 {
-			break;
-		}
-		let len = request.len();
-		request.extend_from_slice(&buffer[..size]);
-
-		if let Some(pos) = request[len.saturating_sub(3)..]
-			.windows(4)
-			.position(|window| window == b"\r\n\r\n")
-		{
-			header_end = pos;
-			break;
-		}
-	}
-
-	if header_end == 0 {
-		return Ok(());
-	}
-
-	let (header_bytes, body) = request.split_at(header_end + 4);
-	let request_text = String::from_utf8_lossy(header_bytes);
-	let mut lines = request_text.lines();
-	let Some(request_line) = lines.next() else {
-		return Ok(());
-	};
-
-	// GET /index.html HTTP/1.1
-	let mut parts = request_line.split_whitespace();
-	let method = parts.next().unwrap_or_default();
-	let path = parts.next().unwrap_or("/");
-
-	let mut content_length = 0usize;
-	for line in lines {
-		if let Some(value) = line.strip_prefix("Content-Length:") {
-			content_length = value.trim().parse().unwrap_or(0);
-		}
-	}
-
-	if method == "POST" && path.starts_with("/report") {
-		let mut body_vec = body.to_vec();
-		while body_vec.len() < content_length {
-			let size = stream.read(&mut buffer)?;
-			if size == 0 {
-				break;
-			}
-			body_vec.extend_from_slice(&buffer[..size]);
-		}
-
-		let report = serde_json::from_slice(&body_vec)?;
-		*report_state.result.lock().unwrap() = Some(report);
-		report_state.signal.notify_all();
-
-		write_response(&mut stream, 200, "text/plain", b"OK")?;
-		return Ok(());
-	}
-
-	if method == "OPTIONS" {
-		write_response(&mut stream, 204, "text/plain", b"")?;
-		return Ok(());
-	}
-
-	if method != "GET" {
-		write_response(&mut stream, 405, "text/plain", b"Method Not Allowed")?;
-		return Ok(());
-	}
-
-	let (body, content_type, status) = match path {
-		"/" | "/index.html" => (assets.index_html.as_bytes(), "text/html", 200),
-		"/browser-runner.mjs" => (
-			BROWSER_RUNNER_SOURCE.as_bytes(),
-			"application/javascript",
-			200,
-		),
-		"/runner-core.mjs" => (RUNNER_CORE_SOURCE.as_bytes(), "application/javascript", 200),
-		"/shared.mjs" => (SHARED_JS_SOURCE.as_bytes(), "application/javascript", 200),
-		"/worker-runner.mjs" => (
-			WORKER_RUNNER_SOURCE.as_bytes(),
-			"application/javascript",
-			200,
-		),
-		"/service-worker.mjs" => (
-			SERVICE_WORKER_SOURCE.as_bytes(),
-			"application/javascript",
-			200,
-		),
-		"/console-hook.mjs" => (
-			CONSOLE_HOOK_SOURCE.as_bytes(),
-			"application/javascript",
-			200,
-		),
-		"/import.js" => (assets.import_js.as_bytes(), "application/javascript", 200),
-		"/tests.json" => (assets.tests_json.as_bytes(), "application/json", 200),
-		"/wasm" => (assets.wasm_bytes.as_slice(), "application/wasm", 200),
-		_ => (b"Not Found".as_slice(), "text/plain", 404),
-	};
-
-	write_response(&mut stream, status, content_type, body)?;
-	Ok(())
+async fn index_handler(State(state): State<AppState>) -> Response {
+	bytes_response(
+		StatusCode::OK,
+		"text/html",
+		state.assets.index_html.as_bytes(),
+	)
 }
 
-fn write_response(
-	stream: &mut TcpStream,
-	status: u16,
-	content_type: &str,
-	body: &[u8],
-) -> Result<()> {
-	let status_text = match status {
-		200 => "OK",
-		204 => "No Content",
-		404 => "Not Found",
-		405 => "Method Not Allowed",
-		_ => "OK",
-	};
-	write!(
-		stream,
-		"HTTP/1.1 {status} {status_text}\r\nContent-Length: {}\r\nContent-Type: \
-		 {content_type}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, \
-		 POST, OPTIONS\r\nAccess-Control-Allow-Headers: \
-		 Content-Type\r\nCross-Origin-Opener-Policy: same-origin\r\nCross-Origin-Embedder-Policy: \
-		 require-corp\r\n\r\n",
-		body.len()
-	)?;
-	stream.write_all(body)?;
-	Ok(())
+async fn browser_runner_handler() -> Response {
+	bytes_response(
+		StatusCode::OK,
+		"application/javascript",
+		BROWSER_RUNNER_SOURCE.as_bytes(),
+	)
+}
+
+async fn runner_core_handler() -> Response {
+	bytes_response(
+		StatusCode::OK,
+		"application/javascript",
+		RUNNER_CORE_SOURCE.as_bytes(),
+	)
+}
+
+async fn shared_handler() -> Response {
+	bytes_response(
+		StatusCode::OK,
+		"application/javascript",
+		SHARED_JS_SOURCE.as_bytes(),
+	)
+}
+
+async fn worker_runner_handler() -> Response {
+	bytes_response(
+		StatusCode::OK,
+		"application/javascript",
+		WORKER_RUNNER_SOURCE.as_bytes(),
+	)
+}
+
+async fn service_worker_handler() -> Response {
+	bytes_response(
+		StatusCode::OK,
+		"application/javascript",
+		SERVICE_WORKER_SOURCE.as_bytes(),
+	)
+}
+
+async fn console_hook_handler() -> Response {
+	bytes_response(
+		StatusCode::OK,
+		"application/javascript",
+		CONSOLE_HOOK_SOURCE.as_bytes(),
+	)
+}
+
+async fn import_handler(State(state): State<AppState>) -> Response {
+	bytes_response(
+		StatusCode::OK,
+		"application/javascript",
+		state.assets.import_js.as_bytes(),
+	)
+}
+
+async fn tests_handler(State(state): State<AppState>) -> Response {
+	bytes_response(
+		StatusCode::OK,
+		"application/json",
+		state.assets.tests_json.as_bytes(),
+	)
+}
+
+async fn wasm_handler(State(state): State<AppState>) -> Response {
+	bytes_response(
+		StatusCode::OK,
+		"application/wasm",
+		state.assets.wasm_bytes.as_slice(),
+	)
+}
+
+async fn report_handler(State(state): State<AppState>, Json(report): Json<Report>) -> Response {
+	*state.report_state.result.lock() = Some(report);
+	state.report_state.signal.notify_all();
+	bytes_response(StatusCode::OK, "text/plain", "OK".as_bytes())
+}
+
+fn bytes_response(status: StatusCode, content_type: &'static str, body: &[u8]) -> Response {
+	let mut response = Response::new(axum::body::Body::from(body.to_vec()));
+	*response.status_mut() = status;
+	response
+		.headers_mut()
+		.insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type));
+	with_headers(response)
+}
+
+fn with_headers(mut response: Response) -> Response {
+	let headers = response.headers_mut();
+	headers.insert("Access-Control-Allow-Origin", HeaderValue::from_static("*"));
+	headers.insert(
+		"Access-Control-Allow-Methods",
+		HeaderValue::from_static("GET, POST, OPTIONS"),
+	);
+	headers.insert(
+		"Access-Control-Allow-Headers",
+		HeaderValue::from_static("Content-Type"),
+	);
+	headers.insert(
+		"Cross-Origin-Opener-Policy",
+		HeaderValue::from_static("same-origin"),
+	);
+	headers.insert(
+		"Cross-Origin-Embedder-Policy",
+		HeaderValue::from_static("require-corp"),
+	);
+	response
 }
 
 fn option_option_string<S>(value: &Option<Option<String>>, serializer: S) -> Result<S::Ok, S::Error>
