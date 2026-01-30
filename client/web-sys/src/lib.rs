@@ -20,9 +20,10 @@ pub mod console {
 
 #[cfg(test)]
 mod tests {
-	use super::console;
 	use js_bindgen_test::test;
 	use js_sys::JsString;
+
+	use super::console;
 
 	#[test]
 	fn test_console_log() {

@@ -96,5 +96,3 @@ cd client
 CARGO_TARGET_WASM64_UNKNOWN_UNKNOWN_RUSTFLAGS="-Ctarget-feature=+atomics -Clink-arg=--shared-memory -Clink-arg=--max-memory=17179869184" \
   cargo +nightly build --example basic --target wasm64-unknown-unknown -Zbuild-std=panic_abort,std --release --timings
 ```
-
-

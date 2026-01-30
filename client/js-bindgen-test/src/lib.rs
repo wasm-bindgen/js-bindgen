@@ -1,6 +1,8 @@
+use std::cell::RefCell;
+use std::panic::PanicHookInfo;
+
 pub use js_bindgen_test_macro::test;
 use js_sys::JsString;
-use std::{cell::RefCell, panic::PanicHookInfo};
 
 struct LastPanic {
 	payload: Option<String>,

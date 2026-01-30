@@ -1,120 +1,111 @@
 export function createTextFormatter({ nocapture, write }) {
-	const buffered = new Map();
-	const failed = [];
-	const failureReports = [];
-	const green = "\u001b[32m";
-	const red = "\u001b[31m";
-	const yellow = "\u001b[33m";
-	const reset = "\u001b[0m";
+	const buffered = new Map()
+	const failed = []
+	const failureReports = []
+	const green = "\u001b[32m"
+	const red = "\u001b[31m"
+	const yellow = "\u001b[33m"
+	const reset = "\u001b[0m"
 
 	function buffer(name, line, stream) {
 		if (!buffered.has(name)) {
-			buffered.set(name, []);
+			buffered.set(name, [])
 		}
-		buffered.get(name).push({ line, stream });
+		buffered.get(name).push({ line, stream })
 	}
 
 	function takeBuffer(name) {
-		const entries = buffered.get(name);
+		const entries = buffered.get(name)
 		if (!entries || entries.length === 0) {
-			return [];
+			return []
 		}
-		buffered.delete(name);
-		return entries;
+		buffered.delete(name)
+		return entries
 	}
 
 	return {
 		onEvent(event) {
 			switch (event.type) {
 				case "run-start":
-					write("", "stdout");
-					write(`running ${event.total} tests`, "stdout");
-					break;
+					write("", "stdout")
+					write(`running ${event.total} tests`, "stdout")
+					break
 				case "test-output":
 					if (nocapture) {
-						write(event.line, event.stream);
+						write(event.line, event.stream)
 					}
 					if (!nocapture) {
-						buffer(event.name, event.line, event.stream);
+						buffer(event.name, event.line, event.stream)
 					}
-					break;
+					break
 				case "test-ok":
-					takeBuffer(event.name);
+					takeBuffer(event.name)
 					if (event.should_panic) {
-						write(
-							`test ${event.name} - should panic ... ${green}ok${reset}`,
-							"stdout"
-						);
+						write(`test ${event.name} - should panic ... ${green}ok${reset}`, "stdout")
 					} else {
-						write(`test ${event.name} ... ${green}ok${reset}`, "stdout");
+						write(`test ${event.name} ... ${green}ok${reset}`, "stdout")
 					}
-					break;
+					break
 				case "test-ignored":
-					takeBuffer(event.name);
+					takeBuffer(event.name)
 					if (event.reason) {
-						write(
-							`test ${event.name} ... ${yellow}ignored, ${event.reason}${reset}`,
-							"stdout"
-						);
+						write(`test ${event.name} ... ${yellow}ignored, ${event.reason}${reset}`, "stdout")
 					} else {
-						write(`test ${event.name} ... ${yellow}ignored${reset}`, "stdout");
+						write(`test ${event.name} ... ${yellow}ignored${reset}`, "stdout")
 					}
-					break;
+					break
 				case "test-failed":
-					failed.push(event.name);
+					failed.push(event.name)
 					if (event.should_panic) {
-						write(
-							`test ${event.name} - should panic ... ${red}FAILED${reset}`,
-							"stdout"
-						);
+						write(`test ${event.name} - should panic ... ${red}FAILED${reset}`, "stdout")
 					} else {
-						write(`test ${event.name} ... ${red}FAILED${reset}`, "stdout");
+						write(`test ${event.name} ... ${red}FAILED${reset}`, "stdout")
 					}
 					failureReports.push({
 						name: event.name,
 						entries: takeBuffer(event.name),
 						error: event.error,
-					});
-					break;
+					})
+					break
 				case "run-end":
-					write("", "stdout");
+					write("", "stdout")
 					if (failed.length > 0) {
-						write("failures:", "stdout");
-						write("", "stdout");
+						write("failures:", "stdout")
+						write("", "stdout")
 						for (const report of failureReports) {
-							write(`---- ${report.name} stdout ----`, "stdout");
+							write(`---- ${report.name} stdout ----`, "stdout")
 							for (const entry of report.entries) {
-								write(entry.line, entry.stream);
+								write(entry.line, entry.stream)
 							}
 							if (report.error) {
-								write("", "stdout");
-								write(report.error, "stdout");
+								write("", "stdout")
+								write(report.error, "stdout")
 							}
-							write("", "stdout");
+							write("", "stdout")
 						}
 					}
 					const status =
 						event.status === "ok"
 							? `${green}${event.status}${reset}`
-							: `${red}${event.status}${reset}`;
-					const durationMs = typeof event.duration_ms === "number" ? event.duration_ms : 0;
-					const durationSeconds = (durationMs / 1000).toFixed(2);
+							: `${red}${event.status}${reset}`
+					const durationMs = typeof event.duration_ms === "number" ? event.duration_ms : 0
+					const durationSeconds = (durationMs / 1000).toFixed(2)
 					if (failed.length > 0) {
-						write("failures:", "stdout");
+						write("failures:", "stdout")
 						for (const name of failed) {
-							write(`    ${name}`, "stdout");
+							write(`    ${name}`, "stdout")
 						}
-						write("", "stdout");
+						write("", "stdout")
 					}
 					write(
 						`test result: ${status}. ${event.passed} passed; ${event.failed} failed; ${event.ignored} ignored; 0 measured; ${event.filtered} filtered out; finished in ${durationSeconds}s`,
 						"stdout"
-					);
-					write("", "stdout");
-					break;
+					)
+					write("", "stdout")
+					break
 				default:
-					break;
+					break
 			}
 		},
-	};
+	}
 }

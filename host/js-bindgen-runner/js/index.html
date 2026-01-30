@@ -1,18 +1,17 @@
 <!doctype html>
-<meta charset="utf-8">
+<meta charset="utf-8" />
 <title>js-bindgen test</title>
 <pre id="output"></pre>
 <script type="module">
-    import {{ runBrowser }} from "/browser-runner.mjs";
+	import {{ runBrowser }} from "/browser-runner.mjs";
 
-    const filtered = {filtered_count};
-    const nocapture = {nocapture_flag};
-    const worker = {worker};
-    const result = await runBrowser({{ filtered, nocapture, worker }});
-    await fetch("/report", {{
-	    method: "POST",
-	    headers: {{ "content-type": "application/json" }},
-	    body: JSON.stringify(result),
-    }});
+	const filtered = {filtered_count};
+	const nocapture = {nocapture_flag};
+	const worker = {worker};
+	const result = await runBrowser({{ filtered, nocapture, worker }});
+	await fetch("/report", {{
+	 method: "POST",
+	 headers: {{ "content-type": "application/json" }},
+	 body: JSON.stringify(result),
+	}});
 </script>
-

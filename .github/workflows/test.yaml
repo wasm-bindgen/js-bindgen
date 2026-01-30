@@ -76,4 +76,3 @@ jobs:
           llvm-version: 21
       - name: Run Tests
         run: cargo test --no-fail-fast
-

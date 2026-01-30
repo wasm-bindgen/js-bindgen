@@ -1,15 +1,11 @@
-use std::env;
-use std::fs;
 use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{
-	Arc, Condvar, Mutex,
-	atomic::{AtomicBool, Ordering},
-};
-use std::thread;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
+use std::{env, fs, thread};
 
 use anyhow::{Context, Result, bail};
 use js_bindgen_ld_shared::ReadFile;
@@ -74,7 +70,8 @@ fn main() -> Result<()> {
 		println!("running 0 tests");
 		println!();
 		println!(
-			"test result: {GREEN}ok{RESET}. 0 passed; 0 failed; 0 ignored; 0 measured; {filtered_count} filtered out; finished in 0.00s"
+			"test result: {GREEN}ok{RESET}. 0 passed; 0 failed; 0 ignored; 0 measured; \
+			 {filtered_count} filtered out; finished in 0.00s"
 		);
 		println!();
 		return Ok(());
@@ -638,7 +635,11 @@ fn write_response(
 	};
 	write!(
 		stream,
-		"HTTP/1.1 {status} {status_text}\r\nContent-Length: {}\r\nContent-Type: {content_type}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nCross-Origin-Opener-Policy: same-origin\r\nCross-Origin-Embedder-Policy: require-corp\r\n\r\n",
+		"HTTP/1.1 {status} {status_text}\r\nContent-Length: {}\r\nContent-Type: \
+		 {content_type}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, \
+		 POST, OPTIONS\r\nAccess-Control-Allow-Headers: \
+		 Content-Type\r\nCross-Origin-Opener-Policy: same-origin\r\nCross-Origin-Embedder-Policy: \
+		 require-corp\r\n\r\n",
 		body.len()
 	)?;
 	stream.write_all(body)?;
