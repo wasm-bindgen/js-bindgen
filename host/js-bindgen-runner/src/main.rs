@@ -324,7 +324,6 @@ async fn run_browser(
 		filtered_count,
 		no_capture,
 		worker.map(|s| s.as_str()),
-		true,
 	)?;
 	let server =
 		HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref()).await?;
@@ -350,7 +349,7 @@ async fn run_browser(
 
 	let report = server.wait_for_report();
 
-    client.close().await?;
+	client.close().await?;
 
 	for line in report.lines {
 		println!("{line}");
@@ -378,7 +377,6 @@ async fn run_server(
 		filtered_count,
 		no_capture,
 		worker.map(|s| s.as_str()),
-		false,
 	)?;
 	let server =
 		HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref()).await?;
@@ -422,13 +420,11 @@ impl BrowserAssets {
 		filtered_count: usize,
 		no_capture: bool,
 		worker: Option<&str>,
-		headless: bool,
 	) -> Result<Self> {
 		let import_js = fs::read_to_string(imports_path)?;
 
 		let index_html = format!(
 			include_str!("../js/index.html"),
-			headless = headless,
 			filtered_count = filtered_count,
 			no_capture_flag = if no_capture { "true" } else { "false" },
 			worker = if let Some(worker) = worker {

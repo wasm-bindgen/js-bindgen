@@ -225,11 +225,7 @@ function appendOutput(line) {
 	if (output.textContent.length > 0) {
 		output.textContent += "\n"
 	}
-    if (window.__jbtestHeadless) {
-	    output.textContent += line
-    } else {
-        output.textContent += stripAnsi(line)
-    }
+    output.textContent += stripAnsi(line)
 }
 
 function stripAnsi(line) {
