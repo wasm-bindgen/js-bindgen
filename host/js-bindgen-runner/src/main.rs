@@ -350,6 +350,8 @@ async fn run_browser(
 
 	let report = server.wait_for_report();
 
+    client.close().await?;
+
 	for line in report.lines {
 		println!("{line}");
 	}
