@@ -21,7 +21,7 @@ use serde::{Serialize, Serializer};
 use tokio::net::TcpListener;
 use wasmparser::{Parser as WasmParser, Payload};
 
-use crate::driver::Capabilities;
+use driver::Capabilities;
 
 const NODE_RUNNER: &str = "js/node-runner.mjs";
 const BROWSER_RUNNER_SOURCE: &str = include_str!("../js/browser-runner.mjs");
