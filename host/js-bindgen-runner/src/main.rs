@@ -288,7 +288,7 @@ fn run_node(
 		.env("JS_BINDGEN_IMPORTS", imports_path)
 		.env("JS_BINDGEN_TESTS_PATH", &tests_path)
 		.env("JS_BINDGEN_FILTERED", filtered_count.to_string())
-		.env("JS_BINDGEN_NOCAPTURE", if no_capture { "1" } else { "0" })
+		.env("JS_BINDGEN_NO_CAPTURE", if no_capture { "1" } else { "0" })
 		.status()
 		.context("failed to run node")?;
 
