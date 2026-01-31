@@ -4,6 +4,7 @@ name = "js-bindgen-test"
 rust-version = { workspace = true }
 
 [dependencies]
+js-bindgen = { workspace = true }
 js-bindgen-test-macro = { workspace = true }
 js-sys = { workspace = true }
 

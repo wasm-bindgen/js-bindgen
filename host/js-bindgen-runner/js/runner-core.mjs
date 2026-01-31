@@ -7,9 +7,6 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 
 	for (const test of tests) {
 		const { instance } = await WebAssembly.instantiate(wasmBytes, importObject)
-		const panicPayload = instance.exports.last_panic_payload
-		const panicMessage = instance.exports.last_panic_message
-		const externrefTable = resolveExternrefTable(importObject)
 
 		if (test.ignore) {
 			ignored += 1
@@ -47,8 +44,8 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 			}
 
 			const expectedText = typeof test.shouldPanic == "string" ? test.shouldPanic : undefined
-			const payload = coercePanicMessage(panicPayload(), externrefTable)
-			const message = coercePanicMessage(panicMessage(), externrefTable)
+			const payload = panicPayload()
+			const message = panicMessage()
 
 			if (expectedText && !payload.includes(expectedText)) {
 				const displayPayload = escapeForDisplay(payload)
@@ -77,7 +74,7 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 		if (result.ok) {
 			emit({ type: "test-ok", name: test.name, shouldPanic: false })
 		} else {
-			const message = coercePanicMessage(panicMessage(), externrefTable)
+			const message = panicMessage()
 			emit({ type: "test-failed", name: test.name, error: message + "\n" + result.stack })
 			failed += 1
 		}
@@ -96,14 +93,14 @@ export async function runTests({ wasmBytes, importObject, tests, filtered, emit 
 	return { failed }
 }
 
-function resolveExternrefTable(importObject) {
-	return importObject["js_sys"]["externref.table"]
+function panicMessage() {
+	const value = globalThis.PanicMessage
+	return value ? value : ""
 }
 
-function coercePanicMessage(value, externrefTable) {
-	const ref = externrefTable.get(value)
-	externrefTable.set(value, null)
-	return String(ref)
+function panicPayload() {
+	const value = globalThis.PanicPayload
+	return value ? value : ""
 }
 
 function escapeForDisplay(value) {

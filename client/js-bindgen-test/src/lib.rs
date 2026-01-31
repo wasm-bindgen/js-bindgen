@@ -1,23 +1,34 @@
-use std::cell::RefCell;
 use std::panic::PanicHookInfo;
 
-pub use js_bindgen_test_macro::test;
 use js_sys::JsString;
 
-struct LastPanic {
-	payload: Option<String>,
-	info: Option<String>,
-}
+pub use js_bindgen_test_macro::test;
 
-thread_local! {
-	static LAST_PANIC: RefCell<LastPanic> = const { RefCell::new(LastPanic {
-		payload: None,
-		info: None
-	}) };
+js_bindgen::embed_js!(
+	name = "panic.set_message",
+	"(message) => {{",
+	"	globalThis.PanicMessage = String(message);",
+	"}}"
+);
+
+js_bindgen::embed_js!(
+	name = "panic.set_payload",
+	"(payload) => {{",
+	"	globalThis.PanicPayload = String(payload);",
+	"}}"
+);
+
+#[js_sys::js_sys(js_sys = js_sys)]
+extern "C" {
+	#[js_sys(js_embed = "panic.set_message")]
+	fn set_panic_message(message: &JsString);
+
+	#[js_sys(js_embed = "panic.set_payload")]
+	fn set_panic_payload(payload: &JsString);
 }
 
 pub fn set_panic_hook() {
-	// TODO: Bump rustc to 1.91.0 and remove this func
+	// TODO: Bump msrv rustc to 1.91.0 and remove this func
 	fn payload_as_str<'a>(info: &'a PanicHookInfo) -> Option<&'a str> {
 		if let Some(s) = info.payload().downcast_ref::<&str>() {
 			Some(s)
@@ -32,28 +43,11 @@ pub fn set_panic_hook() {
 
 	HOOK.call_once(|| {
 		std::panic::set_hook(Box::new(|info| {
-			LAST_PANIC.with(|cell| {
-				*cell.borrow_mut() = LastPanic {
-					payload: payload_as_str(info).map(|s| s.to_owned()),
-					info: Some(info.to_string()),
-				}
-			});
+			let message = info.to_string();
+			set_panic_message(&JsString::from_str(&message));
+			if let Some(payload) = payload_as_str(info) {
+				set_panic_payload(&JsString::from_str(payload));
+			}
 		}));
 	});
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn last_panic_message() -> JsString {
-	match LAST_PANIC.with(|cell| cell.borrow_mut().info.take()) {
-		Some(info) => JsString::from_str(&info),
-		None => JsString::from_str(""),
-	}
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn last_panic_payload() -> JsString {
-	match LAST_PANIC.with(|cell| cell.borrow_mut().payload.take()) {
-		Some(payload) => JsString::from_str(&payload),
-		None => JsString::from_str(""),
-	}
 }
