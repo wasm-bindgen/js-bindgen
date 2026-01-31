@@ -29,7 +29,6 @@
   - Add support for `--force-run-in-process`.
   - Add support for `--quiet`, `--show-output`, `--color` and `--format pretty`.
   - Connect to existing Webdriver. Important to make Nextest actually be performant.
-  - Headless test output should happen between tests and not after all are finished.
   - E2E testing including output comparison with regular `cargo test`.
   - Design a way to let users set the default driver, overwrite and whitelist drivers globally or
     for specific tests.
