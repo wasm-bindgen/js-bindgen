@@ -50,10 +50,6 @@ struct Cli {
 	/// Exactly match filters rather than by substring.
 	#[arg(long)]
 	exact: bool,
-	/// Skip tests whose names contain FILTER (this flag can be used multiple
-	/// times).
-	#[arg(long, value_name = "FILTER")]
-	skip: Vec<String>,
 	/// List all tests and benchmarks.
 	#[arg(long)]
 	list: bool,
