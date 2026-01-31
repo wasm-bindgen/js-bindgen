@@ -33,7 +33,7 @@ export async function runBrowser({ noCapture, filtered, worker }) {
 async function runInWindow({ noCapture, filtered, consoleHook }) {
 	const tests = await (await fetch("/tests.json")).json()
 	const wasmBytes = await (await fetch("/wasm")).arrayBuffer()
-	const { importObject } = await import("/import.js")
+	const { importObject } = await import("/import.mjs")
 
 	const lines = []
 	const formatter = createTextFormatter({
@@ -221,14 +221,13 @@ async function runServiceWorker({ filtered, noCapture, handleMessage }) {
 }
 
 function appendOutput(line) {
-	const output = document.getElementById("output");
+	const output = document.getElementById("output")
 	if (output.textContent.length > 0) {
 		output.textContent += "\n"
 	}
-    output.textContent += stripAnsi(line)
+	output.textContent += stripAnsi(line)
 }
 
 function stripAnsi(line) {
 	return line.replace(/\x1b\[[0-9;]*m/g, "")
 }
-

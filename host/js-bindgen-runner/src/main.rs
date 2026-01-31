@@ -1,12 +1,13 @@
 mod driver;
 
-use std::io::{ErrorKind, Write};
+use std::ffi::OsString;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{self, Command};
 use std::sync::Arc;
 use std::{env, fs, iter, str};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use axum::body::Body;
 use axum::extract::State;
 use axum::http::{HeaderValue, StatusCode, header};
@@ -14,16 +15,19 @@ use axum::response::Response;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use clap::{Parser, ValueEnum};
+use driver::Capabilities;
 use fantoccini::ClientBuilder;
 use js_bindgen_shared::ReadFile;
 use parking_lot::{Condvar, Mutex};
 use serde::{Serialize, Serializer};
+use tempfile::TempDir;
 use tokio::net::TcpListener;
+use tokio::runtime::Runtime;
 use wasmparser::{Parser as WasmParser, Payload};
 
-use driver::Capabilities;
+use crate::driver::Driver;
 
-const NODE_RUNNER: &str = "js/node-runner.mjs";
+const NODE_RUNNER: &str = include_str!("../js/node-runner.mjs");
 const BROWSER_RUNNER_SOURCE: &str = include_str!("../js/browser-runner.mjs");
 const RUNNER_CORE_SOURCE: &str = include_str!("../js/runner-core.mjs");
 const SHARED_JS_SOURCE: &str = include_str!("../js/shared.mjs");
@@ -76,8 +80,7 @@ struct TestEntry {
 	should_panic: Option<Option<String>>,
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
 	let mut args = env::args_os();
 	let binary = args
 		.next()
@@ -88,9 +91,11 @@ async fn main() -> Result<()> {
 
 	let cli = Cli::parse_from(iter::once(binary).chain(args));
 
+	// We delay actually parsing the file to support calling without a file, e.g.
+	// `--help`.
 	let file = file.context("expected a file to have been passed from `cargo run/test`")?;
-	let wasm_path = Path::new(&file);
-	let wasm_bytes = ReadFile::new(wasm_path)
+	let wasm_path = PathBuf::from(&file);
+	let wasm_bytes = ReadFile::new(&wasm_path)
 		.with_context(|| format!("failed to read Wasm file: {}", wasm_path.display()))?;
 	let args = TestArgs::new(cli)?;
 
@@ -135,12 +140,12 @@ async fn main() -> Result<()> {
 	}
 
 	// The JS file has the same name, just a different file extension.
-	let imports_path = wasm_path.with_extension("js");
+	let imports_path = wasm_path.with_extension("mjs");
 	let tests_json = serde_json::to_string(&tests).unwrap();
 
 	let runner = Runner {
 		wasm_path,
-		imports_path: &imports_path,
+		imports_path,
 		wasm_bytes,
 		tests_json,
 		filtered_count,
@@ -150,8 +155,8 @@ async fn main() -> Result<()> {
 	match RunnerConfig::from_env()? {
 		RunnerConfig::Node => runner.run_node()?,
 		RunnerConfig::Deno => runner.run_deno()?,
-		RunnerConfig::Browser { worker } => runner.run_browser(worker).await?,
-		RunnerConfig::Server { worker } => runner.run_server(worker).await?,
+		RunnerConfig::Browser { worker } => Runtime::new()?.block_on(runner.run_browser(worker))?,
+		RunnerConfig::Server { worker } => Runtime::new()?.block_on(runner.run_server(worker))?,
 	}
 
 	Ok(())
@@ -237,72 +242,71 @@ impl RunnerConfig {
 			Self::Node
 		};
 
+		if worker.is_some()
+			&& let Self::Browser { .. } | Self::Server { .. } = config
+		{
+			eprintln!(
+				"Only browser and server runners support worker types; `JBG_TEST_WORKER` is \
+				 ignored",
+			)
+		}
+
 		Ok(config)
 	}
 }
 
-struct Runner<'a> {
-	wasm_path: &'a Path,
-	imports_path: &'a Path,
+struct Runner {
+	wasm_path: PathBuf,
+	imports_path: PathBuf,
 	wasm_bytes: ReadFile,
 	tests_json: String,
 	filtered_count: usize,
 	no_capture: bool,
 }
 
-impl<'a> Runner<'a> {
+impl Runner {
 	fn run_node(self) -> Result<()> {
-		ensure_module_package(self.imports_path);
-		let runner_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(NODE_RUNNER);
-		let mut tests_file = tempfile::NamedTempFile::new()?;
-		tests_file.write_all(self.tests_json.as_bytes())?;
-		let tests_path = tests_file.path().to_path_buf();
+		let node_dir = NodeDir::new(&self.tests_json)?;
 
 		let status = Command::new("node")
-			.arg(runner_path)
-			.env("JS_BINDGEN_WASM", self.wasm_path)
-			.env("JS_BINDGEN_IMPORTS", self.imports_path)
-			.env("JS_BINDGEN_TESTS_PATH", tests_path)
-			.env("JS_BINDGEN_FILTERED", self.filtered_count.to_string())
+			.arg(node_dir.runner)
+			.env("JSB_TEST_WASM", self.wasm_path)
+			.env("JSB_TEST_IMPORTS", self.imports_path)
+			.env("JSB_TEST_TESTS_PATH", node_dir.tests)
+			.env("JSB_TEST_FILTERED", self.filtered_count.to_string())
 			.env(
-				"JS_BINDGEN_NO_CAPTURE",
+				"JSB_TEST_NO_CAPTURE",
 				if self.no_capture { "1" } else { "0" },
 			)
-			.status()
-			.context("failed to run node")?;
+			.status()?;
 
 		if !status.success() {
-			std::process::exit(status.code().unwrap_or(1));
+			process::exit(status.code().unwrap_or(1));
 		}
 
 		Ok(())
 	}
 
 	fn run_deno(self) -> Result<()> {
-		ensure_module_package(self.imports_path);
-		let runner_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(NODE_RUNNER);
-		let mut tests_file = tempfile::NamedTempFile::new()?;
-		tests_file.write_all(self.tests_json.as_bytes())?;
-		let tests_path = tests_file.path().to_path_buf();
+		let node_dir = NodeDir::new(&self.tests_json)?;
 
 		let status = Command::new("deno")
 			.arg("run")
 			.arg("--allow-env")
 			.arg("--allow-read")
-			.arg(runner_path)
-			.env("JS_BINDGEN_WASM", self.wasm_path)
-			.env("JS_BINDGEN_IMPORTS", self.imports_path)
-			.env("JS_BINDGEN_TESTS_PATH", tests_path)
-			.env("JS_BINDGEN_FILTERED", self.filtered_count.to_string())
+			.arg(node_dir.runner)
+			.env("JSB_TEST_WASM", self.wasm_path)
+			.env("JSB_TEST_IMPORTS", self.imports_path)
+			.env("JSB_TEST_TESTS_PATH", node_dir.tests)
+			.env("JSB_TEST_FILTERED", self.filtered_count.to_string())
 			.env(
-				"JS_BINDGEN_NO_CAPTURE",
+				"JSB_TEST_NO_CAPTURE",
 				if self.no_capture { "1" } else { "0" },
 			)
-			.status()
-			.context("failed to run node")?;
+			.status()?;
 
 		if !status.success() {
-			std::process::exit(status.code().unwrap_or(1));
+			process::exit(status.code().unwrap_or(1));
 		}
 
 		Ok(())
@@ -311,25 +315,27 @@ impl<'a> Runner<'a> {
 	async fn run_browser(self, worker: Option<WorkerKind>) -> Result<()> {
 		let assets = BrowserAssets::new(
 			self.wasm_bytes,
-			self.imports_path,
+			&self.imports_path,
 			self.tests_json,
 			self.filtered_count,
 			self.no_capture,
-			worker.map(|s| s.as_str()),
+			worker.map(WorkerKind::as_str),
 		)?;
-		let server =
-			HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref()).await?;
-		let url = build_browser_url(server.base_url.as_str());
+		let server = HttpServer::start(assets, Self::server_address()?.as_deref()).await?;
+		let url = Self::browser_url(server.base_url.as_str());
 
-		let driver = driver::Driver::find()?;
+		let driver = Driver::find()?;
 		let guard = driver::launch_driver(&driver)?;
 
-		let capabilities: Capabilities = match fs::File::open(
-			std::env::var("JBG_TEST_WEBDRIVER_JSON").unwrap_or("webdriver.json".to_string()),
-		) {
-			Ok(file) => serde_json::from_reader(file),
-			Err(_) => Ok(Capabilities::new()),
-		}?;
+		let webdriver_json_path = env::var_os("JBG_TEST_WEBDRIVER_JSON").map(PathBuf::from);
+		let webdriver_json_path = webdriver_json_path
+			.as_deref()
+			.unwrap_or(Path::new("webdriver.json"));
+		let capabilities = match ReadFile::new(webdriver_json_path) {
+			Ok(file) => serde_json::from_slice(&file)?,
+			Err(error) if matches!(error.kind(), ErrorKind::NotFound) => Capabilities::new(),
+			Err(error) => return Err(error.into()),
+		};
 
 		let client = ClientBuilder::rustls()?
 			.capabilities(driver::capabilities(&driver, capabilities)?)
@@ -348,7 +354,7 @@ impl<'a> Runner<'a> {
 		}
 
 		if report.failed > 0 {
-			std::process::exit(1);
+			process::exit(1);
 		}
 
 		Ok(())
@@ -357,15 +363,14 @@ impl<'a> Runner<'a> {
 	async fn run_server(self, worker: Option<WorkerKind>) -> Result<()> {
 		let assets = BrowserAssets::new(
 			self.wasm_bytes,
-			self.imports_path,
+			&self.imports_path,
 			self.tests_json,
 			self.filtered_count,
 			self.no_capture,
-			worker.map(|s| s.as_str()),
+			worker.map(WorkerKind::as_str),
 		)?;
-		let server =
-			HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref()).await?;
-		let url = build_browser_url(server.base_url.as_str());
+		let server = HttpServer::start(assets, Self::server_address()?.as_deref()).await?;
+		let url = Self::browser_url(server.base_url.as_str());
 
 		println!("open this URL in your browser to run tests:");
 		println!("{url}");
@@ -374,20 +379,43 @@ impl<'a> Runner<'a> {
 			let _ = server.wait_for_report();
 		}
 	}
-}
 
-fn ensure_module_package(imports_path: &Path) {
-	let Some(parent) = imports_path.parent() else {
-		return;
-	};
-	let package_json = parent.join("package.json");
-	if let Err(err) = fs::write(&package_json, r#"{"type": "module"}"#) {
-		eprintln!("failed to write package.json: {err}");
+	fn server_address() -> Result<Option<String>> {
+		env::var_os("JBG_TEST_SERVER_ADDRESS")
+			.map(OsString::into_string)
+			.transpose()
+			.map_err(|_| anyhow!("unable to parse `JBG_TEST_SERVER_ADDRESS`"))
+	}
+
+	fn browser_url(base_url: &str) -> String {
+		format!("{base_url}/index.html")
 	}
 }
 
-fn build_browser_url(base_url: &str) -> String {
-	format!("{base_url}/index.html")
+struct NodeDir {
+	_guard: TempDir,
+	runner: PathBuf,
+	tests: PathBuf,
+}
+
+impl NodeDir {
+	fn new(tests_json: &str) -> Result<Self> {
+		let dir = tempfile::tempdir().unwrap();
+		let runner_path = dir.path().join("runner.mjs");
+		fs::write(&runner_path, NODE_RUNNER)?;
+		let tests_path = dir.path().join("tests.json");
+		fs::write(&tests_path, tests_json)?;
+
+		fs::write(dir.path().join("shared.mjs"), SHARED_JS_SOURCE)?;
+		fs::write(dir.path().join("runner-core.mjs"), RUNNER_CORE_SOURCE)?;
+		fs::write(dir.path().join("console-hook.mjs"), CONSOLE_HOOK_SOURCE)?;
+
+		Ok(Self {
+			_guard: dir,
+			runner: runner_path,
+			tests: tests_path,
+		})
+	}
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -403,7 +431,7 @@ struct ReportState {
 
 struct BrowserAssets {
 	wasm_bytes: ReadFile,
-	import_js: String,
+	import_js: ReadFile,
 	tests_json: String,
 	index_html: String,
 }
@@ -417,14 +445,14 @@ impl BrowserAssets {
 		no_capture: bool,
 		worker: Option<&str>,
 	) -> Result<Self> {
-		let import_js = fs::read_to_string(imports_path)?;
+		let import_js = ReadFile::new(imports_path)?;
 
 		let index_html = format!(
 			include_str!("../js/index.html"),
 			filtered_count = filtered_count,
 			no_capture_flag = if no_capture { "true" } else { "false" },
 			worker = if let Some(worker) = worker {
-				format!("{worker:?}")
+				format!("\"{worker}\"")
 			} else {
 				"null".to_owned()
 			},
@@ -503,7 +531,7 @@ fn build_router(state: AppState) -> Router {
 		.route("/worker-runner.mjs", get(worker_runner_handler))
 		.route("/service-worker.mjs", get(service_worker_handler))
 		.route("/console-hook.mjs", get(console_hook_handler))
-		.route("/import.js", get(import_handler))
+		.route("/import.mjs", get(import_handler))
 		.route("/tests.json", get(tests_handler))
 		.route("/wasm", get(wasm_handler))
 		.route("/report", post(report_handler))
@@ -587,7 +615,7 @@ async fn import_handler(State(state): State<AppState>) -> Response {
 	bytes_response(
 		StatusCode::OK,
 		"application/javascript",
-		state.assets.import_js.as_bytes(),
+		&state.assets.import_js,
 	)
 }
 

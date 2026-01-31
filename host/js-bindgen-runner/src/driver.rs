@@ -1,15 +1,12 @@
-use serde_json::{Map, Value as Json};
-use std::{
-	env,
-	net::{TcpListener, TcpStream},
-	path::PathBuf,
-	process::{Child, Command, Stdio},
-	thread,
-	time::{Duration, Instant},
-};
-use url::Url;
+use std::net::{TcpListener, TcpStream};
+use std::path::PathBuf;
+use std::process::{Child, Command, Stdio};
+use std::time::{Duration, Instant};
+use std::{env, thread};
 
 use anyhow::{Context, Result, bail};
+use serde_json::{Map, Value as Json};
+use url::Url;
 
 pub struct DriverGuard {
 	pub url: Url,
@@ -156,8 +153,8 @@ pub enum Driver {
 
 impl Driver {
 	/// Attempts to find an appropriate remote WebDriver server or server binary
-	/// to execute tests with.
-	/// Performs a number of heuristics to find one available, including:
+	/// to execute tests with. Performs a number of heuristics to find one
+	/// available, including:
 	///
 	/// * Env vars like `GECKODRIVER_REMOTE` address of remote webdriver.
 	/// * Env vars like `GECKODRIVER` point to the path to a binary to execute.
@@ -218,24 +215,26 @@ impl Driver {
 			return Ok(ctor(Locate::Local((driver.into(), env_args(driver)))));
 		}
 
-		// TODO: download an appropriate driver? How to know which one to
-		//       download?
-
 		bail!(
 			"\
 failed to find a suitable WebDriver binary or remote running WebDriver to drive
-headless testing; to configure the location of the webdriver binary you can use
-environment variables like `GECKODRIVER=/path/to/geckodriver` or make sure that
-the binary is in `PATH`; to configure the address of remote webdriver you can
-use environment variables like `GECKODRIVER_REMOTE=http://remote.host/`
+headless \
+			 testing; to configure the location of the webdriver binary you can use
+environment variables \
+			 like `GECKODRIVER=/path/to/geckodriver` or make sure that
+the binary is in `PATH`; to configure \
+			 the address of remote webdriver you can
+use environment variables like `GECKODRIVER_REMOTE=http://remote.host/`This \
+			 crate currently supports `geckodriver`, `chromedriver`, `safaridriver`, and
+`msedgedriver`, \
+			 although more driver support may be added! You can download these at:
 
-This crate currently supports `geckodriver`, `chromedriver`, `safaridriver`, and
-`msedgedriver`, although more driver support may be added! You can download these at:
-
-    * geckodriver - https://github.com/mozilla/geckodriver/releases
-    * chromedriver - https://chromedriver.chromium.org/downloads
-    * msedgedriver - https://developer.microsoft.com/en-us/microsoft-edge/tools/webdriver/
-    * safaridriver - should be preinstalled on OSX
+    * geckodriver \
+			 - https://github.com/mozilla/geckodriver/releases
+    * chromedriver - https://chromedriver.chromium.org/downloads* \
+			 msedgedriver - \
+			 https://developer.microsoft.com/en-us/microsoft-edge/tools/webdriver/* safaridriver \
+			 - should be preinstalled on OSX
 
 If you're still having difficulty resolving this error, please feel free to open
 an issue against wasm-bindgen/js-bindgen!

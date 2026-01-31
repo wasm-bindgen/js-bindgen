@@ -5,7 +5,7 @@ import consoleHook, { withConsoleCapture } from "./console-hook.mjs"
 async function execute(port, { noCapture, filtered }) {
 	const tests = await (await fetch("/tests.json")).json()
 	const wasmBytes = await (await fetch("/wasm")).arrayBuffer()
-	const { importObject } = await import("/import.js")
+	const { importObject } = await import("/import.mjs")
 
 	const lines = []
 	const formatter = createTextFormatter({

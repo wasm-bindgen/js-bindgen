@@ -10,7 +10,7 @@ clap = { workspace = true }
 fantoccini = { workspace = true }
 js-bindgen-shared = { workspace = true }
 parking_lot = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
+serde = { workspace = true }
 serde_json = { workspace = true }
 shlex = { workspace = true }
 tempfile = { workspace = true }

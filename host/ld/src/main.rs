@@ -408,9 +408,7 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 		"missing JS embed: {expected_embed:?}"
 	);
 
-	// We also need a js file with a fingerprint, otherwise the test files might
-	// overwrite each other.
-	let js_output_path = output_path.with_extension("js");
+	let js_output_path = output_path.with_extension("mjs");
 	let mut js_output =
 		BufWriter::new(File::create(&js_output_path).expect("output JS file should be writable"));
 
@@ -505,7 +503,7 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 	// when detecting test.
 	fs::copy(
 		js_output_path,
-		output_path.with_file_name(package).with_extension("js"),
+		output_path.with_file_name(package).with_extension("mjs"),
 	)
 	.expect("copy JS file should be success");
 

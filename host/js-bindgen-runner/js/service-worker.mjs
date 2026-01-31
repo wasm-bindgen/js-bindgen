@@ -1,7 +1,7 @@
 import { createTextFormatter } from "./shared.mjs"
 import { runTests } from "./runner-core.mjs"
 import consoleHook, { withConsoleCapture } from "./console-hook.mjs"
-import { importObject } from "./import.js"
+import { importObject } from "./import.mjs"
 
 self.addEventListener("message", event => {
 	const port = event.ports && event.ports[0]

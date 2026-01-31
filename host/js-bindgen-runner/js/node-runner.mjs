@@ -4,11 +4,11 @@ import { createTextFormatter } from "./shared.mjs"
 import { runTests } from "./runner-core.mjs"
 import consoleHook, { withConsoleCapture } from "./console-hook.mjs"
 
-const wasmPath = process.env.JS_BINDGEN_WASM
-const importsPath = process.env.JS_BINDGEN_IMPORTS
-const testsPath = process.env.JS_BINDGEN_TESTS_PATH
-const noCapture = process.env.JS_BINDGEN_NO_CAPTURE === "1"
-const filtered = Number(process.env.JS_BINDGEN_FILTERED || "0")
+const wasmPath = process.env.JSB_TEST_WASM
+const importsPath = process.env.JSB_TEST_IMPORTS
+const testsPath = process.env.JSB_TEST_TESTS_PATH
+const noCapture = process.env.JSB_TEST_NO_CAPTURE === "1"
+const filtered = Number(process.env.JSB_TEST_FILTERED || "0")
 
 if (!wasmPath || !importsPath || !testsPath) {
 	console.error("missing test runner environment")
