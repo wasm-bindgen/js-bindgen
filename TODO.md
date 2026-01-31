@@ -13,10 +13,27 @@
 # High Priority
 
 - Test Runner:
+  - Add various permutations to the CI.
+    - Run all possible runners on each OS.
+    - Run all worker types.
+    - Wasm64.
+    - Atomic.
+    - Panic strategies.
+  - Run tests in alphabetical order to mimic `libtest`.
+  - (Browser) Test output should happen between tests and not after all are finished. This might not
+    be possible to implement without something more sophisticated like WebSockets.
+  - Convert JS files to TS, then compile and lint them. Compiling and linting could be built into
+    the runner shim to ensure freshness. Don't forget to exclude the TS files from packaging.
+  - Add support for `--test-threads` and multithread tests where possible for `panic = "abort"`.
+  - Add support for `panic = "unwind"`.
+  - Add support for `--force-run-in-process`.
+  - Add support for `--quiet`, `--show-output`, `--color` and `--format pretty`.
+  - Connect to existing Webdriver. Important to make Nextest actually be performant.
   - Headless test output should happen between tests and not after all are finished.
   - E2E testing including output comparison with regular `cargo test`.
   - Design a way to let users set the default driver, overwrite and whitelist drivers globally or
     for specific tests.
+  - Add multithread support when running with `target_feature = "atomics"` where possible.
 - E2E testing for the linker. Should also ensure deterministic output.
 - Add a `disable_hygiene` attribute to `#[js_sys]` to reduce the compile-time of the output to an
   absolute minimum. This can avoid all `interpolate`s.
