@@ -17,11 +17,11 @@ pub struct DriverGuard {
 }
 
 impl Drop for DriverGuard {
-    fn drop(&mut self) {
-        if let Some(mut child) = self.child.take() {
-            let _ = child.kill();
-        }
-    }
+	fn drop(&mut self) {
+		if let Some(mut child) = self.child.take() {
+			let _ = child.kill();
+		}
+	}
 }
 
 pub fn launch_driver(driver: &Driver) -> Result<DriverGuard> {
