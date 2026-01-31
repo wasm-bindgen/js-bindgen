@@ -151,7 +151,7 @@ async fn main() -> Result<()> {
 		no_capture: args.no_capture,
 	};
 
-	match args.runner {
+	match RunnerConfig::from_env()? {
 		RunnerConfig::Nodejs => runner.run_node()?,
 		RunnerConfig::Browser { worker } => runner.run_browser(worker).await?,
 		RunnerConfig::Server { worker } => runner.run_server(worker).await?,
@@ -167,7 +167,6 @@ struct TestArgs {
 	list_format: Option<FormatSetting>,
 	ignored_only: bool,
 	exact: bool,
-	runner: RunnerConfig,
 }
 
 impl TestArgs {
@@ -179,7 +178,6 @@ impl TestArgs {
 			list_format: cli.format,
 			ignored_only: cli.ignored,
 			exact: cli.exact,
-			runner: RunnerConfig::from_env()?,
 		};
 
 		Ok(output)
