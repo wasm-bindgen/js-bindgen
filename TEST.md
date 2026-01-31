@@ -48,6 +48,7 @@ JBG_TEST_RUNNER=server cargo test --target wasm32-unknown-unknown
 Runner options:
 
 - `JBG_TEST_RUNNER=node` (run in nodejs, set by default)
+- `JBG_TEST_RUNNER=deno` (run in deno)
 
 - `JBG_TEST_RUNNER=browser` (run in headless browser, auto detect driver)
 - `JBG_TEST_GECKODRIVER=<path>` (use firefix)
