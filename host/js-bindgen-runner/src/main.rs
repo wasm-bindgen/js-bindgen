@@ -142,36 +142,19 @@ async fn main() -> Result<()> {
 	let imports_path = wasm_path.with_extension("js");
 	let tests_json = serde_json::to_string(&tests).unwrap();
 
+	let runner = Runner {
+		wasm_path,
+		imports_path: &imports_path,
+		wasm_bytes,
+		tests_json,
+		filtered_count,
+		no_capture: args.no_capture,
+	};
+
 	match args.runner {
-		RunnerConfig::Nodejs => run_node(
-			wasm_path,
-			&imports_path,
-			tests_json,
-			filtered_count,
-			args.no_capture,
-		)?,
-		RunnerConfig::Browser { worker } => {
-			run_browser(
-				wasm_bytes,
-				&imports_path,
-				tests_json,
-				filtered_count,
-				args.no_capture,
-				worker.as_ref(),
-			)
-			.await?
-		}
-		RunnerConfig::Server { worker } => {
-			run_server(
-				wasm_bytes,
-				&imports_path,
-				tests_json,
-				filtered_count,
-				args.no_capture,
-				worker,
-			)
-			.await?
-		}
+		RunnerConfig::Nodejs => runner.run_node()?,
+		RunnerConfig::Browser { worker } => runner.run_browser(worker).await?,
+		RunnerConfig::Server { worker } => runner.run_server(worker).await?,
 	}
 
 	Ok(())
@@ -269,34 +252,109 @@ impl RunnerConfig {
 	}
 }
 
-fn run_node(
-	wasm_path: &Path,
-	imports_path: &Path,
+struct Runner<'a> {
+	wasm_path: &'a Path,
+	imports_path: &'a Path,
+	wasm_bytes: ReadFile,
 	tests_json: String,
 	filtered_count: usize,
 	no_capture: bool,
-) -> Result<()> {
-	ensure_module_package(imports_path);
-	let runner_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(NODE_RUNNER);
-	let mut tests_file = tempfile::NamedTempFile::new()?;
-	tests_file.write_all(tests_json.as_bytes())?;
-	let tests_path = tests_file.path().to_path_buf();
+}
 
-	let status = Command::new("node")
-		.arg(runner_path)
-		.env("JS_BINDGEN_WASM", wasm_path)
-		.env("JS_BINDGEN_IMPORTS", imports_path)
-		.env("JS_BINDGEN_TESTS_PATH", &tests_path)
-		.env("JS_BINDGEN_FILTERED", filtered_count.to_string())
-		.env("JS_BINDGEN_NO_CAPTURE", if no_capture { "1" } else { "0" })
-		.status()
-		.context("failed to run node")?;
+impl<'a> Runner<'a> {
+	fn run_node(self) -> Result<()> {
+		ensure_module_package(self.imports_path);
+		let runner_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(NODE_RUNNER);
+		let mut tests_file = tempfile::NamedTempFile::new()?;
+		tests_file.write_all(self.tests_json.as_bytes())?;
+		let tests_path = tests_file.path().to_path_buf();
 
-	if !status.success() {
-		std::process::exit(status.code().unwrap_or(1));
+		let status = Command::new("node")
+			.arg(runner_path)
+			.env("JS_BINDGEN_WASM", self.wasm_path)
+			.env("JS_BINDGEN_IMPORTS", self.imports_path)
+			.env("JS_BINDGEN_TESTS_PATH", tests_path)
+			.env("JS_BINDGEN_FILTERED", self.filtered_count.to_string())
+			.env(
+				"JS_BINDGEN_NO_CAPTURE",
+				if self.no_capture { "1" } else { "0" },
+			)
+			.status()
+			.context("failed to run node")?;
+
+		if !status.success() {
+			std::process::exit(status.code().unwrap_or(1));
+		}
+
+		Ok(())
 	}
 
-	Ok(())
+	async fn run_browser(self, worker: Option<WorkerKind>) -> Result<()> {
+		let assets = BrowserAssets::new(
+			self.wasm_bytes,
+			self.imports_path,
+			self.tests_json,
+			self.filtered_count,
+			self.no_capture,
+			worker.map(|s| s.as_str()),
+		)?;
+		let server =
+			HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref()).await?;
+		let url = build_browser_url(server.base_url.as_str());
+
+		let driver = driver::Driver::find()?;
+		let guard = driver::launch_driver(&driver)?;
+
+		let capabilities: Capabilities = match fs::File::open(
+			std::env::var("JBG_TEST_WEBDRIVER_JSON").unwrap_or("webdriver.json".to_string()),
+		) {
+			Ok(file) => serde_json::from_reader(file),
+			Err(_) => Ok(Capabilities::new()),
+		}?;
+
+		let client = ClientBuilder::rustls()?
+			.capabilities(driver::capabilities(&driver, capabilities)?)
+			.connect(guard.url.as_str())
+			.await
+			.context("failed to connect to WebDriver")?;
+
+		client.goto(&url).await?;
+
+		let report = server.wait_for_report();
+
+		client.close().await?;
+
+		for line in report.lines {
+			println!("{line}");
+		}
+
+		if report.failed > 0 {
+			std::process::exit(1);
+		}
+
+		Ok(())
+	}
+
+	async fn run_server(self, worker: Option<WorkerKind>) -> Result<()> {
+		let assets = BrowserAssets::new(
+			self.wasm_bytes,
+			self.imports_path,
+			self.tests_json,
+			self.filtered_count,
+			self.no_capture,
+			worker.map(|s| s.as_str()),
+		)?;
+		let server =
+			HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref()).await?;
+		let url = build_browser_url(server.base_url.as_str());
+
+		println!("open this URL in your browser to run tests:");
+		println!("{url}");
+
+		loop {
+			let _ = server.wait_for_report();
+		}
+	}
 }
 
 fn ensure_module_package(imports_path: &Path) {
@@ -306,87 +364,6 @@ fn ensure_module_package(imports_path: &Path) {
 	let package_json = parent.join("package.json");
 	if let Err(err) = fs::write(&package_json, r#"{"type": "module"}"#) {
 		eprintln!("failed to write package.json: {err}");
-	}
-}
-
-async fn run_browser(
-	wasm_bytes: ReadFile,
-	imports_path: &Path,
-	tests_json: String,
-	filtered_count: usize,
-	no_capture: bool,
-	worker: Option<&WorkerKind>,
-) -> Result<()> {
-	let assets = BrowserAssets::new(
-		wasm_bytes,
-		imports_path,
-		&tests_json,
-		filtered_count,
-		no_capture,
-		worker.map(|s| s.as_str()),
-	)?;
-	let server =
-		HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref()).await?;
-	let url = build_browser_url(server.base_url.as_str());
-
-	let driver = driver::Driver::find()?;
-	let guard = driver::launch_driver(&driver)?;
-
-	let capabilities: Capabilities = match fs::File::open(
-		std::env::var("JBG_TEST_WEBDRIVER_JSON").unwrap_or("webdriver.json".to_string()),
-	) {
-		Ok(file) => serde_json::from_reader(file),
-		Err(_) => Ok(Capabilities::new()),
-	}?;
-
-	let client = ClientBuilder::rustls()?
-		.capabilities(driver::capabilities(&driver, capabilities)?)
-		.connect(guard.url.as_str())
-		.await
-		.context("failed to connect to WebDriver")?;
-
-	client.goto(&url).await?;
-
-	let report = server.wait_for_report();
-
-	client.close().await?;
-
-	for line in report.lines {
-		println!("{line}");
-	}
-
-	if report.failed > 0 {
-		std::process::exit(1);
-	}
-
-	Ok(())
-}
-
-async fn run_server(
-	wasm_bytes: ReadFile,
-	imports_path: &Path,
-	tests_json: String,
-	filtered_count: usize,
-	no_capture: bool,
-	worker: Option<WorkerKind>,
-) -> Result<()> {
-	let assets = BrowserAssets::new(
-		wasm_bytes,
-		imports_path,
-		&tests_json,
-		filtered_count,
-		no_capture,
-		worker.map(|s| s.as_str()),
-	)?;
-	let server =
-		HttpServer::start(assets, env::var("JBG_TEST_SERVER_ADDRESS").ok().as_deref()).await?;
-	let url = build_browser_url(server.base_url.as_str());
-
-	println!("open this URL in your browser to run tests:");
-	println!("{url}");
-
-	loop {
-		let _ = server.wait_for_report();
 	}
 }
 
@@ -416,7 +393,7 @@ impl BrowserAssets {
 	fn new(
 		wasm_bytes: ReadFile,
 		imports_path: &Path,
-		tests_json: &str,
+		tests_json: String,
 		filtered_count: usize,
 		no_capture: bool,
 		worker: Option<&str>,
@@ -437,7 +414,7 @@ impl BrowserAssets {
 		Ok(Self {
 			wasm_bytes,
 			import_js,
-			tests_json: tests_json.to_string(),
+			tests_json,
 			index_html,
 		})
 	}
