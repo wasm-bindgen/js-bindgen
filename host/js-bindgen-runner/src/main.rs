@@ -227,23 +227,15 @@ impl RunnerConfig {
 			Err(_) => None,
 		};
 
-		let config = match (
-			env::var("JBG_TEST_SERVER").is_ok(),
-			env::var("JBG_TEST_BROWSER").is_ok(),
-		) {
-			(true, false) => Self::Server { worker },
-			(true, true) => {
-				eprintln!("Because a server has been configured, `JBG_TEST_BROWSER` is ignored.");
-				Self::Server { worker }
+		let config = if let Ok(s) = env::var("JBG_TEST_RUNNER") {
+			match s.as_str() {
+				"browser" => Self::Browser { worker },
+				"server" => Self::Server { worker },
+				"node" => Self::Nodejs,
+				runner => bail!("unsupported runner: {runner}"),
 			}
-			(false, false) => {
-				if worker.is_some() {
-					eprintln!("because Node.js is selected, `JBG_TEST_WORKER` is ignored.");
-				}
-
-				Self::Nodejs
-			}
-			(false, true) => Self::Browser { worker },
+		} else {
+			Self::Nodejs
 		};
 
 		Ok(config)
