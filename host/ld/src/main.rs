@@ -11,7 +11,8 @@ use std::{env, fs};
 
 use hashbrown::{HashMap, HashSet};
 use itertools::{Itertools, Position};
-use js_bindgen_ld_shared::{CustomSectionParser, ReadFile};
+use js_bindgen_ld_shared::CustomSectionParser;
+use js_bindgen_shared::ReadFile;
 use wasm_encoder::{EntityType, ImportSection, Module, RawSection, Section};
 use wasmparser::{Encoding, Parser, Payload, TypeRef};
 
@@ -407,10 +408,9 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 		"missing JS embed: {expected_embed:?}"
 	);
 
-	let mut js_output = BufWriter::new(
-		File::create(output_path.with_file_name(package).with_extension("js"))
-			.expect("output JS file should be writable"),
-	);
+	let js_output_path = output_path.with_extension("mjs");
+	let mut js_output =
+		BufWriter::new(File::create(&js_output_path).expect("output JS file should be writable"));
 
 	// Create our `WebAssembly.Memory`.
 	js_output
@@ -497,6 +497,15 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 	js_output.write_all(b"}\n").unwrap();
 
 	js_output.into_inner().unwrap().sync_all().unwrap();
+
+	// After the linker is done, Cargo copies the final output to be the name of the
+	// package without the fingerprint. We do the same for the JS file. TODO: Skip
+	// when detecting test.
+	fs::copy(
+		js_output_path,
+		output_path.with_file_name(package).with_extension("mjs"),
+	)
+	.expect("copy JS file should be success");
 
 	wasm_output
 }

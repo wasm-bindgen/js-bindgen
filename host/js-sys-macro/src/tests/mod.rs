@@ -11,8 +11,6 @@ use cargo_metadata::{Artifact, CompilerMessage, Message, Target};
 use itertools::Itertools;
 use js_bindgen_ld_shared::CustomSectionParser;
 use proc_macro2::TokenStream;
-use rand::Rng;
-use rand::distr::Alphanumeric;
 use wasmparser::{Parser, Payload};
 
 #[track_caller]
@@ -32,18 +30,8 @@ fn test(
 
 	similar_asserts::assert_eq!(expected, output);
 
-	let dir = env::temp_dir();
-	let rand: String = rand::rng()
-		.sample_iter(Alphanumeric)
-		.take(32)
-		.map(char::from)
-		.collect();
-	let dir = dir.join(rand);
-	fs::create_dir(&dir).unwrap();
-
-	let result = inner(&dir, &format!("#[js_sys({})]\n{}", attr, input));
-
-	fs::remove_dir_all(dir).unwrap();
+	let dir = tempfile::tempdir().unwrap();
+	let result = inner(dir.path(), &format!("#[js_sys({})]\n{}", attr, input));
 
 	let (assembly_output, js_import_output) = result.unwrap();
 

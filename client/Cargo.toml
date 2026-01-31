@@ -1,5 +1,5 @@
 [workspace]
-members = ["js-sys", "web-sys"]
+members = ["js-bindgen-test", "js-sys", "web-sys"]
 resolver = "2"
 
 [workspace.package]
@@ -9,6 +9,8 @@ rust-version = "1.85"
 
 [workspace.dependencies]
 js-bindgen = { path = "../host/js-bindgen" }
+js-bindgen-test = { path = "js-bindgen-test" }
+js-bindgen-test-macro = { path = "../host/js-bindgen-test-macro" }
 js-sys = { path = "js-sys" }
 js-sys-macro = { path = "../host/js-sys-macro" }
 mini-alloc = "1"
@@ -30,6 +32,12 @@ name = "basic"
 
 [workspace.lints.rust]
 linker_messages = "warn"
+
+[workspace.lints.clippy]
+obfuscated_if_else = "allow"
+tabs_in_doc_comments = "allow"
+undocumented_unsafe_blocks = "warn"
+use_self = "warn"
 
 [lints]
 workspace = true

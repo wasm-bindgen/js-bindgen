@@ -370,6 +370,7 @@ fn import() {
 		}),
 		quote! {
 			const _: () = {
+				const ARR_UNSTRUCTURED: [u8; 2] = *b"\0\0";
 				const ARR_0: [u8; 7] = *b"bar\nbaz";
 
 				const LEN: u32 = {
@@ -383,7 +384,7 @@ fn import() {
 					struct Layout([u8; 4], [u8; 2], [u8; 7]);
 
 					#[unsafe(link_section = "js_bindgen.import.test_crate.foo")]
-					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), [0, 0], ARR_0);
+					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_UNSTRUCTURED, ARR_0);
 				};
 			};
 		},
@@ -398,7 +399,7 @@ fn required_embed() {
 		}),
 		quote! {
 			const _: () = {
-				const ARR_PREFIX: [u8; 3] = *b"bar";
+				const ARR_UNSTRUCTURED: [u8; 5] = *b"\x03\0bar";
 				const LEN: u32 = {
 					let mut len: usize = 0;
 					len as u32
@@ -406,10 +407,10 @@ fn required_embed() {
 
 				const _: () = {
 					#[repr(C)]
-					struct Layout([u8; 4], [u8; 2], [u8; 3]);
+					struct Layout([u8; 4], [u8; 5]);
 
 					#[unsafe(link_section = "js_bindgen.import.test_crate.foo")]
-					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), [3, 0], ARR_PREFIX);
+					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_UNSTRUCTURED);
 				};
 			};
 		},

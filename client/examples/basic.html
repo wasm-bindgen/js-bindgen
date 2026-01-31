@@ -4,7 +4,7 @@
 		<title>Basic Example</title>
 		<link rel="icon" href="data:," />
 		<script type="module">
-			import { importObject } from "../target/wasm32-unknown-unknown/release/examples/basic.js"
+			import { importObject } from "../target/wasm32-unknown-unknown/release/examples/basic.mjs"
 
 			const { module, instance } = await WebAssembly.instantiateStreaming(
 				fetch("../target/wasm32-unknown-unknown/release/examples/basic.wasm"),
