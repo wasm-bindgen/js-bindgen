@@ -152,7 +152,8 @@ async fn main() -> Result<()> {
 	};
 
 	match RunnerConfig::from_env()? {
-		RunnerConfig::Nodejs => runner.run_node()?,
+		RunnerConfig::Node => runner.run_node()?,
+		RunnerConfig::Deno => runner.run_deno()?,
 		RunnerConfig::Browser { worker } => runner.run_browser(worker).await?,
 		RunnerConfig::Server { worker } => runner.run_server(worker).await?,
 	}
@@ -186,7 +187,8 @@ impl TestArgs {
 
 #[derive(Clone, Copy, Debug)]
 enum RunnerConfig {
-	Nodejs,
+	Node,
+	Deno,
 	Browser { worker: Option<WorkerKind> },
 	Server { worker: Option<WorkerKind> },
 }
@@ -231,11 +233,12 @@ impl RunnerConfig {
 			match s.as_str() {
 				"browser" => Self::Browser { worker },
 				"server" => Self::Server { worker },
-				"node" => Self::Nodejs,
+				"node" => Self::Node,
+				"deno" => Self::Deno,
 				runner => bail!("unsupported runner: {runner}"),
 			}
 		} else {
-			Self::Nodejs
+			Self::Node
 		};
 
 		Ok(config)
@@ -260,6 +263,36 @@ impl<'a> Runner<'a> {
 		let tests_path = tests_file.path().to_path_buf();
 
 		let status = Command::new("node")
+			.arg(runner_path)
+			.env("JS_BINDGEN_WASM", self.wasm_path)
+			.env("JS_BINDGEN_IMPORTS", self.imports_path)
+			.env("JS_BINDGEN_TESTS_PATH", tests_path)
+			.env("JS_BINDGEN_FILTERED", self.filtered_count.to_string())
+			.env(
+				"JS_BINDGEN_NO_CAPTURE",
+				if self.no_capture { "1" } else { "0" },
+			)
+			.status()
+			.context("failed to run node")?;
+
+		if !status.success() {
+			std::process::exit(status.code().unwrap_or(1));
+		}
+
+		Ok(())
+	}
+
+	fn run_deno(self) -> Result<()> {
+		ensure_module_package(self.imports_path);
+		let runner_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(NODE_RUNNER);
+		let mut tests_file = tempfile::NamedTempFile::new()?;
+		tests_file.write_all(self.tests_json.as_bytes())?;
+		let tests_path = tests_file.path().to_path_buf();
+
+		let status = Command::new("deno")
+			.arg("run")
+			.arg("--allow-env")
+			.arg("--allow-read")
 			.arg(runner_path)
 			.env("JS_BINDGEN_WASM", self.wasm_path)
 			.env("JS_BINDGEN_IMPORTS", self.imports_path)
