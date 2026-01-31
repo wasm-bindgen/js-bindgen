@@ -13,8 +13,15 @@ use anyhow::{Context, Result, bail};
 
 pub struct DriverGuard {
 	pub url: Url,
-	#[allow(unused)]
 	child: Option<Child>,
+}
+
+impl Drop for DriverGuard {
+    fn drop(&mut self) {
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill();
+        }
+    }
 }
 
 pub fn launch_driver(driver: &Driver) -> Result<DriverGuard> {
