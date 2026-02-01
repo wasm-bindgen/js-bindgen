@@ -1,5 +1,5 @@
 function installConsoleHook() {
-	const existing = globalThis.__jbtestConsoleHook
+	const existing = globalThis.consoleHook
 	if (existing) {
 		return existing
 	}
@@ -42,7 +42,7 @@ function installConsoleHook() {
 			forwardToConsole = false
 		},
 	}
-	globalThis.__jbtestConsoleHook = h
+	globalThis.consoleHook = h
 	return h
 }
 

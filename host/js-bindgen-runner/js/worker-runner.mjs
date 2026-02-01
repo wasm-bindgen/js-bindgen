@@ -1,11 +1,11 @@
 import { createTextFormatter } from "./shared.mjs"
 import { runTests } from "./runner-core.mjs"
 import consoleHook, { withConsoleCapture } from "./console-hook.mjs"
+import { importObject } from "./import.mjs"
 
 async function execute(port, { noCapture, filtered }) {
 	const tests = await (await fetch("/tests.json")).json()
 	const wasmBytes = await (await fetch("/wasm")).arrayBuffer()
-	const { importObject } = await import("/import.mjs")
 
 	const formatter = createTextFormatter({
 		noCapture,
@@ -50,20 +50,40 @@ async function execute(port, { noCapture, filtered }) {
 	port.postMessage({ type: "report", failed: result.failed })
 }
 
-if (typeof self.onconnect !== "undefined") {
+const isServiceWorker =
+	typeof ServiceWorkerGlobalScope !== "undefined" &&
+	self instanceof ServiceWorkerGlobalScope
+const isSharedWorker =
+	typeof SharedWorkerGlobalScope !== "undefined" &&
+	self instanceof SharedWorkerGlobalScope
+const isDedicatedWorker =
+	typeof DedicatedWorkerGlobalScope !== "undefined" &&
+	self instanceof DedicatedWorkerGlobalScope
+
+if (isServiceWorker) {
+	self.addEventListener("message", event => {
+		const port = event.ports && event.ports[0]
+		if (!port) {
+			return
+		}
+		execute(port, event.data).catch(error => {
+			port.postMessage({ type: "report", failed: 1 })
+		})
+	})
+} else if (isSharedWorker) {
 	self.onconnect = event => {
 		const port = event.ports[0]
 		port.onmessage = msg => {
 			execute(port, msg.data).catch(error => {
-				port.postMessage({ type: "report", lines: [String(error)], failed: 1 })
+				port.postMessage({ type: "report", failed: 1 })
 			})
 		}
 		port.start()
 	}
-} else {
+} else if (isDedicatedWorker) {
 	self.onmessage = event => {
 		execute(self, event.data).catch(error => {
-			self.postMessage({ type: "report", lines: [String(error)], failed: 1 })
+			self.postMessage({ type: "report", failed: 1 })
 		})
 	}
 }

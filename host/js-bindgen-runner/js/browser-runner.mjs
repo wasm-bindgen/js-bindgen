@@ -178,7 +178,7 @@ async function runServiceWorker({ filtered, noCapture, handleMessage }) {
 	if (!navigator.serviceWorker) {
 		throw new Error("service workers are not supported")
 	}
-	const registration = await navigator.serviceWorker.register("/service-worker.mjs", {
+	const registration = await navigator.serviceWorker.register("/worker-runner.mjs", {
 		type: "module",
 	})
 	await navigator.serviceWorker.ready

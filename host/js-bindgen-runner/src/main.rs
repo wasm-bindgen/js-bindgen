@@ -35,7 +35,6 @@ const BROWSER_RUNNER: &str = include_str!("../js/browser-runner.mjs");
 const RUNNER_CORE: &str = include_str!("../js/runner-core.mjs");
 const SHARED_JS: &str = include_str!("../js/shared.mjs");
 const WORKER_RUNNER: &str = include_str!("../js/worker-runner.mjs");
-const SERVICE_WORKER: &str = include_str!("../js/service-worker.mjs");
 const CONSOLE_HOOK: &str = include_str!("../js/console-hook.mjs");
 
 /// Possible values for the `--format` option.
@@ -550,7 +549,6 @@ fn build_router(state: AppState) -> Router {
 		.route("/runner-core.mjs", get(runner_core_handler))
 		.route("/shared.mjs", get(shared_handler))
 		.route("/worker-runner.mjs", get(worker_runner_handler))
-		.route("/service-worker.mjs", get(service_worker_handler))
 		.route("/console-hook.mjs", get(console_hook_handler))
 		.route("/import.mjs", get(import_handler))
 		.route("/tests.json", get(tests_handler))
@@ -612,14 +610,6 @@ async fn worker_runner_handler() -> Response {
 		StatusCode::OK,
 		"application/javascript",
 		WORKER_RUNNER.as_bytes(),
-	)
-}
-
-async fn service_worker_handler() -> Response {
-	bytes_response(
-		StatusCode::OK,
-		"application/javascript",
-		SERVICE_WORKER.as_bytes(),
 	)
 }
 
