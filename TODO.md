@@ -26,7 +26,6 @@
   - Add support for `panic = "unwind"`.
   - Add support for `--force-run-in-process`.
   - Add support for `--skip`, `--quiet`, `--show-output`, `--color` and `--format pretty`.
-  - Connect to existing Webdriver. Important to make Nextest actually be performant.
   - E2E testing including output comparison with regular `cargo test`. Test output on failure
     especially carefully.
   - Design a way to let users set the default driver, overwrite and whitelist drivers globally or

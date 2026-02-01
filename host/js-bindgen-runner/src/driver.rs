@@ -156,16 +156,17 @@ impl Driver {
 	/// to execute tests with. Performs a number of heuristics to find one
 	/// available, including:
 	///
-	/// * Env vars like `GECKODRIVER_REMOTE` address of remote webdriver.
-	/// * Env vars like `GECKODRIVER` point to the path to a binary to execute.
+	/// * Env vars like `JBG_TEST_GECKODRIVER_REMOTE` address of remote webdriver.
+	/// * Env vars like `JBG_TEST_GECKODRIVER` point to the path to a binary to execute.
 	/// * Otherwise, `PATH` is searched for an appropriate binary.
 	///
 	/// In the last two cases a list of auxiliary arguments is also returned
-	/// which is configured through env vars like `GECKODRIVER_ARGS` to support
+	/// which is configured through env vars like `JBG_TEST_GECKODRIVER_ARGS` to support
 	/// extra arguments to the driver's invocation.
 	pub fn find() -> Result<Self> {
 		let env_args = |name: &str| {
-			let var = env::var(format!("{}_ARGS", name.to_uppercase())).unwrap_or_default();
+			let var =
+				env::var(format!("JBG_TEST_{}_ARGS", name.to_uppercase())).unwrap_or_default();
 
 			shlex::split(&var)
 				.unwrap_or_else(|| var.split_whitespace().map(|s| s.to_string()).collect())
@@ -178,10 +179,10 @@ impl Driver {
 			("msedgedriver", Driver::Edge as fn(Locate) -> Self),
 		];
 
-		// First up, if env vars like GECKODRIVER_REMOTE are present, use those
+		// First up, if env vars like JBG_TEST_GECKODRIVER_REMOTE are present, use those
 		// to allow forcing usage of a particular remote driver.
 		for (driver, ctor) in drivers.iter() {
-			let env = format!("{}_REMOTE", driver.to_uppercase());
+			let env = format!("JBG_TEST_{}_REMOTE", driver.to_uppercase());
 			let url = match env::var(&env) {
 				Ok(var) => Url::parse(&var).context(format!("failed to parse `{env}`"))?,
 				Err(_) => continue,
