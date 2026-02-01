@@ -50,8 +50,20 @@ async function execute(port, { noCapture, filtered }) {
 	port.postMessage({ type: "report", failed: result.failed })
 }
 
-self.onmessage = event => {
-	execute(self, event.data).catch(error => {
-		self.postMessage({ type: "report", failed: 1 })
-	})
+if (typeof self.onconnect !== "undefined") {
+	self.onconnect = event => {
+		const port = event.ports[0]
+		port.onmessage = msg => {
+			execute(port, msg.data).catch(error => {
+				port.postMessage({ type: "report", lines: [String(error)], failed: 1 })
+			})
+		}
+		port.start()
+	}
+} else {
+	self.onmessage = event => {
+		execute(self, event.data).catch(error => {
+			self.postMessage({ type: "report", lines: [String(error)], failed: 1 })
+		})
+	}
 }
