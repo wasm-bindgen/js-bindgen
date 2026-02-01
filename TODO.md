@@ -32,6 +32,8 @@
     for specific tests.
   - Add multithread support when running with `target_feature = "atomics"` where possible.
   - Crate feature to switch to `native-tls`.
+  - Add environment variable to set driver startup timeout.
+  - Properly emit errors when WebDrivers fail between startup and finish.
 - E2E testing for the linker. Should also ensure deterministic output.
 - Add a `disable_hygiene` attribute to `#[js_sys]` to reduce the compile-time of the output to an
   absolute minimum. This can avoid all `interpolate`s.

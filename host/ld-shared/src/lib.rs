@@ -33,12 +33,8 @@ pub fn assembly_to_object(
 
 	let status = child.wait()?;
 
-	let mut child_stdout = child
-		.stdout
-		.ok_or_else(|| Error::other("`llvm-mc` process should have `stdout`"))?;
-
 	if status.success() {
-		io::copy(&mut child_stdout, output)?;
+		io::copy(&mut child.stdout.unwrap(), output)?;
 		Ok(())
 	} else {
 		eprintln!(
@@ -47,7 +43,7 @@ pub fn assembly_to_object(
 		);
 
 		let mut stdout = Vec::new();
-		child_stdout.read_to_end(&mut stdout)?;
+		child.stdout.unwrap().read_to_end(&mut stdout)?;
 
 		if !stdout.is_empty() {
 			eprintln!(
@@ -61,10 +57,7 @@ pub fn assembly_to_object(
 		}
 
 		let mut stderr = Vec::new();
-		child
-			.stderr
-			.ok_or_else(|| Error::other("`llvm-mc` process should have `stderr`"))?
-			.read_to_end(&mut stderr)?;
+		child.stderr.unwrap().read_to_end(&mut stderr)?;
 
 		if !stderr.is_empty() {
 			eprintln!(

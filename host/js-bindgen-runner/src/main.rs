@@ -1,5 +1,6 @@
 mod driver;
 
+use std::env::VarError;
 use std::io::ErrorKind;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -212,7 +213,7 @@ impl WorkerKind {
 			"dedicated" => Self::Dedicated,
 			"shared" => Self::Shared,
 			"service" => Self::Service,
-			worker => bail!("unsupported worker: {worker}"),
+			worker => bail!("unrecognized worker: {worker}"),
 		})
 	}
 
@@ -229,19 +230,37 @@ impl RunnerConfig {
 	fn from_env() -> Result<Self> {
 		let worker = match env::var("JBG_TEST_WORKER") {
 			Ok(worker) => Some(WorkerKind::from_str(&worker)?),
-			Err(_) => None,
+			Err(VarError::NotPresent) => None,
+			Err(VarError::NotUnicode(_)) => bail!("unable to parse `JBG_TEST_WORKER`"),
 		};
 
-		let config = if let Ok(s) = env::var("JBG_TEST_RUNNER") {
-			match s.as_str() {
+		let config = match env::var("JBG_TEST_RUNNER") {
+			Ok(s) => match s.as_str() {
 				"browser" => Self::Browser { worker },
 				"server" => Self::Server { worker },
-				"node" => Self::Node,
 				"deno" => Self::Deno,
-				runner => bail!("unsupported runner: {runner}"),
+				"node" => Self::Node,
+				runner => bail!("unrecognized runner: {runner}"),
+			},
+			Err(VarError::NotPresent) => {
+				match env::var_os("PATH").and_then(|value| {
+					env::split_paths(&value).find_map(|path| {
+						["deno", "node"].into_iter().find(|name| {
+							path.join(name)
+								.with_extension(env::consts::EXE_EXTENSION)
+								.exists()
+						})
+					})
+				}) {
+					Some(name) => match name {
+						"deno" => Self::Deno,
+						"node" => Self::Node,
+						_ => unreachable!(),
+					},
+					None => bail!("unable to find a supported JS engine"),
+				}
 			}
-		} else {
-			Self::Node
+			Err(VarError::NotUnicode(_)) => bail!("unable to parse `JBG_TEST_RUNNER`"),
 		};
 
 		if worker.is_some()
@@ -308,19 +327,10 @@ impl Runner {
 	}
 
 	async fn run_browser(self, worker: Option<WorkerKind>) -> Result<()> {
-		let assets = BrowserAssets::new(
-			self.wasm_bytes,
-			&self.imports_path,
-			self.tests_json,
-			self.filtered_count,
-			self.no_capture,
-			worker.map(WorkerKind::as_str),
-		)?;
-		let server = HttpServer::start(assets, Self::server_address()?).await?;
-		let url = Self::browser_url(server.base_url.as_str());
+		let server = self.http_server(worker).await?;
 
 		let driver = Driver::find()?;
-		let guard = driver::launch_driver(&driver)?;
+		let guard = driver::launch_driver(&driver).await?;
 
 		let webdriver_json_path = env::var_os("JBG_TEST_WEBDRIVER_JSON").map(PathBuf::from);
 		let webdriver_json_path = webdriver_json_path
@@ -338,7 +348,7 @@ impl Runner {
 			.await
 			.context("failed to connect to WebDriver")?;
 
-		client.goto(&url).await?;
+		client.goto(&server.url).await?;
 
 		let print_output = || async {
 			let Ok(output) = client
@@ -380,6 +390,17 @@ impl Runner {
 	}
 
 	async fn run_server(self, worker: Option<WorkerKind>) -> Result<()> {
+		let server = self.http_server(worker).await?;
+
+		println!("open this URL in your browser to run tests:");
+		println!("{}", server.url);
+
+		loop {
+			server.wait_for_report().await;
+		}
+	}
+
+	async fn http_server(self, worker: Option<WorkerKind>) -> Result<HttpServer> {
 		let assets = BrowserAssets::new(
 			self.wasm_bytes,
 			&self.imports_path,
@@ -388,29 +409,16 @@ impl Runner {
 			self.no_capture,
 			worker.map(WorkerKind::as_str),
 		)?;
-		let server = HttpServer::start(assets, Self::server_address()?).await?;
-		let url = Self::browser_url(server.base_url.as_str());
 
-		println!("open this URL in your browser to run tests:");
-		println!("{url}");
-
-		loop {
-			server.wait_for_report().await;
-		}
-	}
-
-	fn server_address() -> Result<Option<SocketAddr>> {
-		if let Ok(addr) = env::var("JBG_TEST_SERVER_ADDRESS") {
-			let addr =
-				SocketAddr::from_str(&addr).context("unable to parse `JBG_TEST_SERVER_ADDRESS`")?;
-			Ok(Some(addr))
-		} else {
-			Ok(None)
-		}
-	}
-
-	fn browser_url(base_url: &str) -> String {
-		format!("{base_url}/index.html")
+		let address = env::var_os("JBG_TEST_SERVER_ADDRESS")
+			.map(|var| {
+				var.into_string()
+					.ok()
+					.and_then(|string| SocketAddr::from_str(&string).ok())
+					.context("unable to parse `JBG_TEST_SERVER_ADDRESS`")
+			})
+			.transpose()?;
+		HttpServer::start(assets, address).await
 	}
 }
 
@@ -489,7 +497,7 @@ impl BrowserAssets {
 }
 
 struct HttpServer {
-	base_url: String,
+	url: String,
 	report_state: Arc<ReportState>,
 }
 
@@ -505,7 +513,11 @@ impl HttpServer {
 			.await
 			.context("failed to bind server")?;
 		let local_addr = listener.local_addr()?;
-		let base_url = format!("http://{}:{}", local_addr.ip(), local_addr.port());
+		let url = format!(
+			"http://{}:{}/index.html",
+			local_addr.ip(),
+			local_addr.port()
+		);
 
 		let assets = Arc::new(assets);
 		let report_state = Arc::new(ReportState {
@@ -525,10 +537,7 @@ impl HttpServer {
 			}
 		});
 
-		Ok(Self {
-			base_url,
-			report_state,
-		})
+		Ok(Self { url, report_state })
 	}
 
 	async fn wait_for_report(&self) -> Report {
