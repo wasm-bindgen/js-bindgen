@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::{self, Command};
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 use std::{env, fs, iter, str};
 
 use anyhow::{Context, Result, bail};
@@ -19,11 +20,12 @@ use clap::{Parser, ValueEnum};
 use driver::Capabilities;
 use fantoccini::ClientBuilder;
 use js_bindgen_shared::ReadFile;
-use parking_lot::{Condvar, Mutex};
 use serde::{Serialize, Serializer};
 use tempfile::TempDir;
 use tokio::net::TcpListener;
 use tokio::runtime::Runtime;
+use tokio::sync::{Mutex, Notify};
+use tokio::time::interval;
 use wasmparser::{Parser as WasmParser, Payload};
 
 use crate::driver::Driver;
@@ -244,7 +246,7 @@ impl RunnerConfig {
 		};
 
 		if worker.is_some()
-			&& let Self::Browser { .. } | Self::Server { .. } = config
+			&& let Self::Node { .. } | Self::Deno { .. } = config
 		{
 			eprintln!(
 				"Only browser and server runners support worker types; `JBG_TEST_WORKER` is \
@@ -339,13 +341,37 @@ impl Runner {
 
 		client.goto(&url).await?;
 
-		let report = server.wait_for_report();
+		let print_output = || async {
+			let Ok(output) = client
+				.execute("return window.takeReportLines()", vec![])
+				.await
+			else {
+				// The function is waiting to be defined.
+				return Ok(());
+			};
+			let lines: Vec<String> =
+				serde_json::from_value(output).context("failed to parse lines")?;
+			for line in lines {
+				println!("{line}");
+			}
+			anyhow::Ok(())
+		};
+
+		let mut ticker = interval(Duration::from_millis(100));
+
+		let report = loop {
+			tokio::select! {
+				_ = ticker.tick() => print_output().await?,
+				report = server.wait_for_report() => {
+					break report;
+				}
+			}
+		};
+
+		// the remaining lines
+		print_output().await?;
 
 		client.close().await?;
-
-		for line in report.lines {
-			println!("{line}");
-		}
 
 		if report.failed > 0 {
 			process::exit(1);
@@ -370,7 +396,7 @@ impl Runner {
 		println!("{url}");
 
 		loop {
-			let _ = server.wait_for_report();
+			server.wait_for_report().await;
 		}
 	}
 
@@ -417,13 +443,12 @@ impl NodeDir {
 
 #[derive(Debug, serde::Deserialize)]
 struct Report {
-	lines: Vec<String>,
 	failed: u64,
 }
 
 struct ReportState {
 	result: Mutex<Option<Report>>,
-	signal: Condvar,
+	signal: tokio::sync::Notify,
 }
 
 struct BrowserAssets {
@@ -486,7 +511,7 @@ impl HttpServer {
 		let assets = Arc::new(assets);
 		let report_state = Arc::new(ReportState {
 			result: Mutex::new(None),
-			signal: Condvar::new(),
+			signal: Notify::new(),
 		});
 		let state = AppState {
 			assets,
@@ -507,13 +532,12 @@ impl HttpServer {
 		})
 	}
 
-	fn wait_for_report(&self) -> Report {
-		let guard = &mut self.report_state.result.lock();
+	async fn wait_for_report(&self) -> Report {
 		loop {
-			if let Some(report) = guard.take() {
+			self.report_state.signal.notified().await;
+			if let Some(report) = self.report_state.result.lock().await.take() {
 				return report;
 			}
-			self.report_state.signal.wait(guard);
 		}
 	}
 }
@@ -628,8 +652,8 @@ async fn wasm_handler(State(state): State<AppState>) -> Response {
 }
 
 async fn report_handler(State(state): State<AppState>, Json(report): Json<Report>) -> Response {
-	*state.report_state.result.lock() = Some(report);
-	state.report_state.signal.notify_all();
+	*state.report_state.result.lock().await = Some(report);
+	state.report_state.signal.notify_one();
 	bytes_response(StatusCode::OK, "text/plain", "OK".as_bytes())
 }
 

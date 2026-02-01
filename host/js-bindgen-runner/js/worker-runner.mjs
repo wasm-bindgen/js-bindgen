@@ -7,11 +7,9 @@ async function execute(port, { noCapture, filtered }) {
 	const wasmBytes = await (await fetch("/wasm")).arrayBuffer()
 	const { importObject } = await import("/import.mjs")
 
-	const lines = []
 	const formatter = createTextFormatter({
 		noCapture,
 		write(line) {
-			lines.push(line)
 			port.postMessage({ type: "line", line })
 		},
 	})
@@ -49,23 +47,11 @@ async function execute(port, { noCapture, filtered }) {
 		emit,
 	})
 
-	port.postMessage({ type: "report", lines, failed: result.failed })
+	port.postMessage({ type: "report", failed: result.failed })
 }
 
-if (typeof self.onconnect !== "undefined") {
-	self.onconnect = event => {
-		const port = event.ports[0]
-		port.onmessage = msg => {
-			execute(port, msg.data).catch(error => {
-				port.postMessage({ type: "report", lines: [String(error)], failed: 1 })
-			})
-		}
-		port.start()
-	}
-} else {
-	self.onmessage = event => {
-		execute(self, event.data).catch(error => {
-			self.postMessage({ type: "report", lines: [String(error)], failed: 1 })
-		})
-	}
+self.onmessage = event => {
+	execute(self, event.data).catch(error => {
+		self.postMessage({ type: "report", failed: 1 })
+	})
 }

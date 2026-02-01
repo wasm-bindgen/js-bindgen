@@ -9,18 +9,16 @@ self.addEventListener("message", event => {
 		return
 	}
 	execute(port, event.data).catch(error => {
-		port.postMessage({ type: "report", lines: [String(error)], failed: 1 })
+		port.postMessage({ type: "report", failed: 1 })
 	})
 })
 
 async function execute(port, { noCapture, filtered }) {
 	const tests = await (await fetch("/tests.json")).json()
 	const wasmBytes = await (await fetch("/wasm")).arrayBuffer()
-	const lines = []
 	const formatter = createTextFormatter({
 		noCapture,
 		write(line) {
-			lines.push(line)
 			port.postMessage({ type: "line", line })
 		},
 	})
@@ -58,5 +56,5 @@ async function execute(port, { noCapture, filtered }) {
 		emit,
 	})
 
-	port.postMessage({ type: "report", lines, failed: result.failed })
+	port.postMessage({ type: "report", failed: result.failed })
 }

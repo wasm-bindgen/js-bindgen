@@ -11,21 +11,16 @@ export async function runBrowser({ noCapture, filtered, worker }) {
 
 	let result = worker
 		? await runInWorker({
-				noCapture,
-				filtered,
-				worker,
-				baseLog,
-				baseError,
-				baseWarn,
-				baseInfo,
-				baseDebug,
-			})
+			noCapture,
+			filtered,
+			worker,
+			baseLog,
+			baseError,
+			baseWarn,
+			baseInfo,
+			baseDebug,
+		})
 		: await runInWindow({ noCapture, filtered, consoleHook })
-
-	if (typeof window !== "undefined") {
-		window.__jbtestDone = true
-		window.__jbtestFailed = result.failed
-	}
 
 	return result
 }
@@ -35,12 +30,11 @@ async function runInWindow({ noCapture, filtered, consoleHook }) {
 	const wasmBytes = await (await fetch("/wasm")).arrayBuffer()
 	const { importObject } = await import("/import.mjs")
 
-	const lines = []
 	const formatter = createTextFormatter({
 		noCapture,
 		write(line) {
-			lines.push(line)
 			appendOutput(line)
+			window.pushReportLines(line)
 		},
 	})
 
@@ -65,7 +59,7 @@ async function runInWindow({ noCapture, filtered, consoleHook }) {
 		emit: event => formatter.onEvent(event),
 	})
 
-	return { lines, failed: result.failed }
+	return { failed: result.failed }
 }
 
 async function runInWorker({
@@ -78,7 +72,6 @@ async function runInWorker({
 	baseInfo,
 	baseDebug,
 }) {
-	const lines = []
 
 	function handleMessage(event) {
 		const data = event.data || {}
@@ -102,12 +95,12 @@ async function runInWorker({
 			return null
 		}
 		if (data.type === "line") {
-			lines.push(data.line)
 			appendOutput(data.line)
+			window.pushReportLines(data.line)
 			return null
 		}
 		if (data.type === "report") {
-			return { lines: data.lines || lines, failed: data.failed || 0 }
+			return { failed: data.failed || 0 }
 		}
 		return null
 	}
@@ -194,7 +187,7 @@ async function runServiceWorker({ filtered, noCapture, handleMessage }) {
 		if (!sessionStorage.getItem("jbtest-sw-reload")) {
 			sessionStorage.setItem("jbtest-sw-reload", "1")
 			location.reload()
-			return new Promise(() => {})
+			return new Promise(() => { })
 		}
 		throw new Error("service worker not controlling the page")
 	}

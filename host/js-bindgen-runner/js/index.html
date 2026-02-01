@@ -8,10 +8,23 @@
 	const filtered = {filtered_count};
 	const noCapture = {no_capture_flag};
 	const worker = {worker};
+
+    window.reportLines = []
+
+    window.takeReportLines = () => {{
+        const lines = window.reportLines
+        window.reportLines = []
+        return lines
+    }}
+
+    window.pushReportLines = line => {{
+        window.reportLines.push(line)
+    }}
+
 	const result = await runBrowser({{ filtered, noCapture, worker }});
 	await fetch("/report", {{
-	 method: "POST",
-	 headers: {{ "content-type": "application/json" }},
-	 body: JSON.stringify(result),
+		method: "POST",
+		headers: {{ "content-type": "application/json" }},
+	    body: JSON.stringify(result),
 	}});
 </script>
