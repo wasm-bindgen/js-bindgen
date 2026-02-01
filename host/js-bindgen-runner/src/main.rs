@@ -1,13 +1,14 @@
 mod driver;
 
-use std::ffi::OsString;
 use std::io::ErrorKind;
+use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::process::{self, Command};
+use std::str::FromStr;
 use std::sync::Arc;
 use std::{env, fs, iter, str};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use axum::body::Body;
 use axum::extract::State;
 use axum::http::{HeaderValue, StatusCode, header};
@@ -28,12 +29,12 @@ use wasmparser::{Parser as WasmParser, Payload};
 use crate::driver::Driver;
 
 const NODE_RUNNER: &str = include_str!("../js/node-runner.mjs");
-const BROWSER_RUNNER_SOURCE: &str = include_str!("../js/browser-runner.mjs");
-const RUNNER_CORE_SOURCE: &str = include_str!("../js/runner-core.mjs");
-const SHARED_JS_SOURCE: &str = include_str!("../js/shared.mjs");
-const WORKER_RUNNER_SOURCE: &str = include_str!("../js/worker-runner.mjs");
-const SERVICE_WORKER_SOURCE: &str = include_str!("../js/service-worker.mjs");
-const CONSOLE_HOOK_SOURCE: &str = include_str!("../js/console-hook.mjs");
+const BROWSER_RUNNER: &str = include_str!("../js/browser-runner.mjs");
+const RUNNER_CORE: &str = include_str!("../js/runner-core.mjs");
+const SHARED_JS: &str = include_str!("../js/shared.mjs");
+const WORKER_RUNNER: &str = include_str!("../js/worker-runner.mjs");
+const SERVICE_WORKER: &str = include_str!("../js/service-worker.mjs");
+const CONSOLE_HOOK: &str = include_str!("../js/console-hook.mjs");
 
 /// Possible values for the `--format` option.
 #[derive(Clone, Copy, ValueEnum)]
@@ -270,12 +271,12 @@ impl Runner {
 
 		let status = Command::new("node")
 			.arg(node_dir.runner)
-			.env("JSB_TEST_WASM", self.wasm_path)
-			.env("JSB_TEST_IMPORTS", self.imports_path)
-			.env("JSB_TEST_TESTS_PATH", node_dir.tests)
-			.env("JSB_TEST_FILTERED", self.filtered_count.to_string())
+			.env("JBG_TEST_WASM", self.wasm_path)
+			.env("JBG_TEST_IMPORTS", self.imports_path)
+			.env("JBG_TEST_TESTS_PATH", node_dir.tests)
+			.env("JBG_TEST_FILTERED", self.filtered_count.to_string())
 			.env(
-				"JSB_TEST_NO_CAPTURE",
+				"JBG_TEST_NO_CAPTURE",
 				if self.no_capture { "1" } else { "0" },
 			)
 			.status()?;
@@ -295,12 +296,12 @@ impl Runner {
 			.arg("--allow-env")
 			.arg("--allow-read")
 			.arg(node_dir.runner)
-			.env("JSB_TEST_WASM", self.wasm_path)
-			.env("JSB_TEST_IMPORTS", self.imports_path)
-			.env("JSB_TEST_TESTS_PATH", node_dir.tests)
-			.env("JSB_TEST_FILTERED", self.filtered_count.to_string())
+			.env("JBG_TEST_WASM", self.wasm_path)
+			.env("JBG_TEST_IMPORTS", self.imports_path)
+			.env("JBG_TEST_TESTS_PATH", node_dir.tests)
+			.env("JBG_TEST_FILTERED", self.filtered_count.to_string())
 			.env(
-				"JSB_TEST_NO_CAPTURE",
+				"JBG_TEST_NO_CAPTURE",
 				if self.no_capture { "1" } else { "0" },
 			)
 			.status()?;
@@ -321,7 +322,7 @@ impl Runner {
 			self.no_capture,
 			worker.map(WorkerKind::as_str),
 		)?;
-		let server = HttpServer::start(assets, Self::server_address()?.as_deref()).await?;
+		let server = HttpServer::start(assets, Self::server_address()?).await?;
 		let url = Self::browser_url(server.base_url.as_str());
 
 		let driver = Driver::find()?;
@@ -369,7 +370,7 @@ impl Runner {
 			self.no_capture,
 			worker.map(WorkerKind::as_str),
 		)?;
-		let server = HttpServer::start(assets, Self::server_address()?.as_deref()).await?;
+		let server = HttpServer::start(assets, Self::server_address()?).await?;
 		let url = Self::browser_url(server.base_url.as_str());
 
 		println!("open this URL in your browser to run tests:");
@@ -380,11 +381,14 @@ impl Runner {
 		}
 	}
 
-	fn server_address() -> Result<Option<String>> {
-		env::var_os("JBG_TEST_SERVER_ADDRESS")
-			.map(OsString::into_string)
-			.transpose()
-			.map_err(|_| anyhow!("unable to parse `JBG_TEST_SERVER_ADDRESS`"))
+	fn server_address() -> Result<Option<SocketAddr>> {
+		if let Ok(addr) = env::var("JBG_TEST_SERVER_ADDRESS") {
+			let addr =
+				SocketAddr::from_str(&addr).context("unable to parse `JBG_TEST_SERVER_ADDRESS`")?;
+			Ok(Some(addr))
+		} else {
+			Ok(None)
+		}
 	}
 
 	fn browser_url(base_url: &str) -> String {
@@ -400,15 +404,15 @@ struct NodeDir {
 
 impl NodeDir {
 	fn new(tests_json: &str) -> Result<Self> {
-		let dir = tempfile::tempdir().unwrap();
+		let dir = tempfile::tempdir()?;
 		let runner_path = dir.path().join("runner.mjs");
 		fs::write(&runner_path, NODE_RUNNER)?;
 		let tests_path = dir.path().join("tests.json");
 		fs::write(&tests_path, tests_json)?;
 
-		fs::write(dir.path().join("shared.mjs"), SHARED_JS_SOURCE)?;
-		fs::write(dir.path().join("runner-core.mjs"), RUNNER_CORE_SOURCE)?;
-		fs::write(dir.path().join("console-hook.mjs"), CONSOLE_HOOK_SOURCE)?;
+		fs::write(dir.path().join("shared.mjs"), SHARED_JS)?;
+		fs::write(dir.path().join("runner-core.mjs"), RUNNER_CORE)?;
+		fs::write(dir.path().join("console-hook.mjs"), CONSOLE_HOOK)?;
 
 		Ok(Self {
 			_guard: dir,
@@ -479,8 +483,8 @@ struct AppState {
 }
 
 impl HttpServer {
-	async fn start(assets: BrowserAssets, address: Option<&str>) -> Result<Self> {
-		let listener = bind_default_port(address)
+	async fn start(assets: BrowserAssets, address: Option<SocketAddr>) -> Result<Self> {
+		let listener = bind_address(address)
 			.await
 			.context("failed to bind server")?;
 		let local_addr = listener.local_addr()?;
@@ -538,14 +542,13 @@ fn build_router(state: AppState) -> Router {
 		.with_state(state)
 }
 
-async fn bind_default_port(address: Option<&str>) -> Result<TcpListener> {
-	let default_addr = address.unwrap_or("127.0.0.1:8000");
+async fn bind_address(address: Option<SocketAddr>) -> Result<TcpListener> {
+	let default_addr = address.unwrap_or_else(|| SocketAddr::from_str("127.0.0.1:8000").unwrap());
 	match TcpListener::bind(default_addr).await {
 		Ok(listener) => Ok(listener),
 		Err(err) if err.kind() == ErrorKind::AddrInUse => {
 			let fallback_addr = address
-				.and_then(|addr| addr.split_once(':'))
-				.map(|(ip, _)| format!("{ip}:0"))
+				.map(|addr| format!("{}:0", addr.ip()))
 				.unwrap_or_else(|| "127.0.0.1:0".to_string());
 			TcpListener::bind(&fallback_addr)
 				.await
@@ -567,7 +570,7 @@ async fn browser_runner_handler() -> Response {
 	bytes_response(
 		StatusCode::OK,
 		"application/javascript",
-		BROWSER_RUNNER_SOURCE.as_bytes(),
+		BROWSER_RUNNER.as_bytes(),
 	)
 }
 
@@ -575,7 +578,7 @@ async fn runner_core_handler() -> Response {
 	bytes_response(
 		StatusCode::OK,
 		"application/javascript",
-		RUNNER_CORE_SOURCE.as_bytes(),
+		RUNNER_CORE.as_bytes(),
 	)
 }
 
@@ -583,7 +586,7 @@ async fn shared_handler() -> Response {
 	bytes_response(
 		StatusCode::OK,
 		"application/javascript",
-		SHARED_JS_SOURCE.as_bytes(),
+		SHARED_JS.as_bytes(),
 	)
 }
 
@@ -591,7 +594,7 @@ async fn worker_runner_handler() -> Response {
 	bytes_response(
 		StatusCode::OK,
 		"application/javascript",
-		WORKER_RUNNER_SOURCE.as_bytes(),
+		WORKER_RUNNER.as_bytes(),
 	)
 }
 
@@ -599,7 +602,7 @@ async fn service_worker_handler() -> Response {
 	bytes_response(
 		StatusCode::OK,
 		"application/javascript",
-		SERVICE_WORKER_SOURCE.as_bytes(),
+		SERVICE_WORKER.as_bytes(),
 	)
 }
 
@@ -607,7 +610,7 @@ async fn console_hook_handler() -> Response {
 	bytes_response(
 		StatusCode::OK,
 		"application/javascript",
-		CONSOLE_HOOK_SOURCE.as_bytes(),
+		CONSOLE_HOOK.as_bytes(),
 	)
 }
 
