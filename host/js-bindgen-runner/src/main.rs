@@ -271,14 +271,11 @@ impl Runner {
 
 		let status = Command::new("node")
 			.arg(node_dir.runner)
-			.env("JBG_TEST_WASM", self.wasm_path)
-			.env("JBG_TEST_IMPORTS", self.imports_path)
-			.env("JBG_TEST_TESTS_PATH", node_dir.tests)
-			.env("JBG_TEST_FILTERED", self.filtered_count.to_string())
-			.env(
-				"JBG_TEST_NO_CAPTURE",
-				if self.no_capture { "1" } else { "0" },
-			)
+			.arg(self.wasm_path)
+			.arg(self.imports_path)
+			.arg(node_dir.tests)
+			.arg(self.filtered_count.to_string())
+			.arg(if self.no_capture { "1" } else { "0" })
 			.status()?;
 
 		if !status.success() {
@@ -293,17 +290,13 @@ impl Runner {
 
 		let status = Command::new("deno")
 			.arg("run")
-			.arg("--allow-env")
 			.arg("--allow-read")
 			.arg(node_dir.runner)
-			.env("JBG_TEST_WASM", self.wasm_path)
-			.env("JBG_TEST_IMPORTS", self.imports_path)
-			.env("JBG_TEST_TESTS_PATH", node_dir.tests)
-			.env("JBG_TEST_FILTERED", self.filtered_count.to_string())
-			.env(
-				"JBG_TEST_NO_CAPTURE",
-				if self.no_capture { "1" } else { "0" },
-			)
+			.arg(self.wasm_path)
+			.arg(self.imports_path)
+			.arg(node_dir.tests)
+			.arg(self.filtered_count.to_string())
+			.arg(if self.no_capture { "1" } else { "0" })
 			.status()?;
 
 		if !status.success() {

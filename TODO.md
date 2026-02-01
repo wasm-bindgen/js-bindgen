@@ -22,8 +22,6 @@
   - Run tests in alphabetical order to mimic `libtest`.
   - Browser test output should happen between tests and not after all are finished. This might not
     be possible to implement without something more sophisticated like WebSockets.
-  - Consider passing arguments to Node and Deno via command arguments instead of environment
-    variables.
   - Convert JS files to TS, then compile and lint them. Compiling and linting could be built into
     the runner shim to ensure freshness. Don't forget to exclude the TS files from packaging.
   - Add support for `--test-threads` and multithread tests where possible for `panic = "abort"`.
