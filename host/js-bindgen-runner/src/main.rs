@@ -1,4 +1,4 @@
-mod driver;
+mod web_driver;
 
 use std::env::VarError;
 use std::io::ErrorKind;
@@ -18,7 +18,6 @@ use axum::response::Response;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use clap::{Parser, ValueEnum};
-use driver::Capabilities;
 use fantoccini::ClientBuilder;
 use js_bindgen_shared::ReadFile;
 use serde::{Serialize, Serializer};
@@ -28,22 +27,16 @@ use tokio::runtime::Runtime;
 use tokio::sync::{Mutex, Notify};
 use tokio::time::interval;
 use wasmparser::{Parser as WasmParser, Payload};
+use web_driver::Capabilities;
 
-use crate::driver::Driver;
+use crate::web_driver::WebDriver;
 
-const NODE_RUNNER: &str = include_str!("js/node-runner.mjs");
+const NODEJS_RUNNER: &str = include_str!("js/nodejs-runner.mjs");
 const BROWSER_RUNNER: &str = include_str!("js/browser-runner.mjs");
 const RUNNER_CORE: &str = include_str!("js/runner-core.mjs");
 const SHARED_JS: &str = include_str!("js/shared.mjs");
 const WORKER_RUNNER: &str = include_str!("js/worker-runner.mjs");
 const CONSOLE_HOOK: &str = include_str!("js/console-hook.mjs");
-
-/// Possible values for the `--format` option.
-#[derive(Clone, Copy, ValueEnum)]
-enum FormatSetting {
-	/// Display one character per test
-	Terse,
-}
 
 #[derive(Parser)]
 #[command(name = "js-bindgen-runner", version, about, long_about = None)]
@@ -71,6 +64,13 @@ struct Cli {
 	/// strings may be passed, which will run all tests matching any of the
 	/// filters.
 	filter: Vec<String>,
+}
+
+/// Possible values for the `--format` option.
+#[derive(Clone, Copy, ValueEnum)]
+enum FormatSetting {
+	/// Display one character per test
+	Terse,
 }
 
 #[derive(Debug, Serialize)]
@@ -156,7 +156,7 @@ fn main() -> Result<()> {
 	};
 
 	match RunnerConfig::from_env()? {
-		RunnerConfig::Node => runner.run_node()?,
+		RunnerConfig::NodeJs => runner.run_node_js()?,
 		RunnerConfig::Deno => runner.run_deno()?,
 		RunnerConfig::Browser { worker } => Runtime::new()?.block_on(runner.run_browser(worker))?,
 		RunnerConfig::Server { worker } => Runtime::new()?.block_on(runner.run_server(worker))?,
@@ -191,7 +191,7 @@ impl TestArgs {
 
 #[derive(Clone, Copy, Debug)]
 enum RunnerConfig {
-	Node,
+	NodeJs,
 	Deno,
 	Browser { worker: Option<WorkerKind> },
 	Server { worker: Option<WorkerKind> },
@@ -239,7 +239,7 @@ impl RunnerConfig {
 				"browser" => Self::Browser { worker },
 				"server" => Self::Server { worker },
 				"deno" => Self::Deno,
-				"node" => Self::Node,
+				"nodejs" => Self::NodeJs,
 				runner => bail!("unrecognized runner: {runner}"),
 			},
 			Err(VarError::NotPresent) => {
@@ -254,7 +254,7 @@ impl RunnerConfig {
 				}) {
 					Some(name) => match name {
 						"deno" => Self::Deno,
-						"node" => Self::Node,
+						"node" => Self::NodeJs,
 						_ => unreachable!(),
 					},
 					None => bail!("unable to find a supported JS engine"),
@@ -264,7 +264,7 @@ impl RunnerConfig {
 		};
 
 		if worker.is_some()
-			&& let Self::Node { .. } | Self::Deno { .. } = config
+			&& let Self::NodeJs { .. } | Self::Deno { .. } = config
 		{
 			eprintln!(
 				"Only browser and server runners support worker types; `JBG_TEST_WORKER` is \
@@ -286,8 +286,8 @@ struct Runner {
 }
 
 impl Runner {
-	fn run_node(self) -> Result<()> {
-		let node_dir = NodeDir::new(&self.tests_json)?;
+	fn run_node_js(self) -> Result<()> {
+		let node_dir = NodeJsDir::new(&self.tests_json)?;
 
 		let status = Command::new("node")
 			.arg(node_dir.runner)
@@ -306,7 +306,7 @@ impl Runner {
 	}
 
 	fn run_deno(self) -> Result<()> {
-		let node_dir = NodeDir::new(&self.tests_json)?;
+		let node_dir = NodeJsDir::new(&self.tests_json)?;
 
 		let status = Command::new("deno")
 			.arg("run")
@@ -329,8 +329,8 @@ impl Runner {
 	async fn run_browser(self, worker: Option<WorkerKind>) -> Result<()> {
 		let server = self.http_server(worker).await?;
 
-		let driver = Driver::find()?;
-		let guard = driver::launch_driver(&driver).await?;
+		let driver = WebDriver::find()?;
+		let guard = driver.launch().await?;
 
 		let webdriver_json_path = env::var_os("JBG_TEST_WEBDRIVER_JSON").map(PathBuf::from);
 		let webdriver_json_path = webdriver_json_path
@@ -343,7 +343,7 @@ impl Runner {
 		};
 
 		let client = ClientBuilder::rustls()?
-			.capabilities(driver::capabilities(&driver, capabilities)?)
+			.capabilities(web_driver::capabilities(&driver, capabilities)?)
 			.connect(guard.url.as_str())
 			.await
 			.context("failed to connect to WebDriver")?;
@@ -422,17 +422,17 @@ impl Runner {
 	}
 }
 
-struct NodeDir {
+struct NodeJsDir {
 	_guard: TempDir,
 	runner: PathBuf,
 	tests: PathBuf,
 }
 
-impl NodeDir {
+impl NodeJsDir {
 	fn new(tests_json: &str) -> Result<Self> {
 		let dir = tempfile::tempdir()?;
 		let runner_path = dir.path().join("runner.mjs");
-		fs::write(&runner_path, NODE_RUNNER)?;
+		fs::write(&runner_path, NODEJS_RUNNER)?;
 		let tests_path = dir.path().join("tests.json");
 		fs::write(&tests_path, tests_json)?;
 
