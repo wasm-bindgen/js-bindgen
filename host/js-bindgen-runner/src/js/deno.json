@@ -1,0 +1,10 @@
+{
+	"compilerOptions": {
+		"noFallthroughCasesInSwitch": false,
+		"noImplicitReturns": true,
+		"noUncheckedIndexedAccess": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true
+	},
+	"exclude": ["*", "!deno.mts"]
+}

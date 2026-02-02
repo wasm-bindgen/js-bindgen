@@ -9,7 +9,7 @@ use std::{env, fs};
 use anyhow::{Context, Result};
 use cargo_metadata::{Artifact, CompilerMessage, Message, Target};
 use itertools::Itertools;
-use js_bindgen_ld_shared::CustomSectionParser;
+use js_bindgen_ld_shared::{JsBindgenImportSectionParser, JsBindgenPlainSectionParser};
 use proc_macro2::TokenStream;
 use wasmparser::{Parser, Payload};
 
@@ -19,7 +19,7 @@ fn test(
 	input: TokenStream,
 	expected: TokenStream,
 	assembly: &str,
-	js_import: &str,
+	js_import: impl Into<Option<&'static str>>,
 ) {
 	let output = crate::js_sys(attr.clone(), input.clone());
 
@@ -36,10 +36,20 @@ fn test(
 	let (assembly_output, js_import_output) = result.unwrap();
 
 	similar_asserts::assert_eq!(assembly, assembly_output);
-	similar_asserts::assert_eq!(js_import, js_import_output);
+
+	let js_import = js_import.into();
+	match (js_import, js_import_output) {
+		(Some(js_import), Some(js_import_output)) => {
+			similar_asserts::assert_eq!(js_import, js_import_output)
+		}
+		(None, None) => (),
+		(js_import, js_import_output) => {
+			similar_asserts::assert_eq!(js_import, js_import_output.as_deref())
+		}
+	}
 }
 
-fn inner(tmp: &Path, source: &str) -> Result<(String, String)> {
+fn inner(tmp: &Path, source: &str) -> Result<(String, Option<String>)> {
 	let js_sys = env::current_dir()?
 		.parent()
 		.and_then(Path::parent)
@@ -54,7 +64,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(String, String)> {
 		resolver = "2"
 
 		[dependencies]
-		js-sys = {{ path = "{}" }}
+		js-sys = {{ path = '{}' }}
 		"#,
 		js_sys.display(),
 	);
@@ -145,7 +155,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(String, String)> {
 			filenames,
 			..
 		}) = message?
-			&& src_path == src
+			&& src_path.canonicalize()? == src.canonicalize()?
 		{
 			for filename in filenames {
 				js_bindgen_ld_shared::ld_input_parser(filename.as_os_str(), |_, data| {
@@ -154,7 +164,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(String, String)> {
 
 						match payload {
 							Payload::CustomSection(c) if c.name() == "js_bindgen.assembly" => {
-								let assembly = CustomSectionParser::new(c, false)
+								let assembly = JsBindgenPlainSectionParser::new(c)
 									.exactly_one()
 									.map_err(|asms| {
 										anyhow::anyhow!(
@@ -176,31 +186,21 @@ fn inner(tmp: &Path, source: &str) -> Result<(String, String)> {
 							Payload::CustomSection(c)
 								if c.name().starts_with("js_bindgen.import.test_crate.") =>
 							{
-								let mut import: &[u8] = CustomSectionParser::new(c, true)
+								let import = JsBindgenImportSectionParser::new(c)
 									.exactly_one()
 									.map_err(|imports| {
 										anyhow::anyhow!(
 											"found multiple JS import outputs in a single \
 											 section: {imports:?}"
 										)
-									})?;
-
-								let js_name = import
-									.get(0..2)
-									.and_then(|length| {
-										let length = usize::from(u16::from_le_bytes(
-											length.try_into().unwrap(),
-										));
-										import.get(2..2 + length)
-									})
-									.context("found invalid JS import encoding")?;
-								import = &import[2 + js_name.len()..];
+									})?
+									.js();
 
 								anyhow::ensure!(
 									js_import_output.is_none(),
 									"found multiple JS import outputs"
 								);
-								js_import_output = Some(import.to_owned());
+								js_import_output = import.map(str::to_owned);
 							}
 							_ => (),
 						}
@@ -213,9 +213,6 @@ fn inner(tmp: &Path, source: &str) -> Result<(String, String)> {
 	}
 
 	let assembly_output = assembly_output.context("found no assembly output")?;
-	let assembly_output = String::from_utf8(assembly_output)?;
-	let js_import_output = js_import_output.context("found no JS import output")?;
-	let js_import_output = String::from_utf8(js_import_output)?;
 
 	Ok((assembly_output, js_import_output))
 }

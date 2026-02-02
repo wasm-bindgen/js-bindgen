@@ -22,6 +22,8 @@ pub mod console {
 
 		#[js_sys(js_name = "log")]
 		pub fn log2(data1: &JsValue, data2: &JsValue);
+
+		pub fn error(data: &JsValue);
 	}
 }
 

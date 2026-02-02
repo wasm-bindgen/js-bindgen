@@ -12,7 +12,7 @@ use wasmparser::CustomSectionReader;
 /// convert to an object file the linker can consume.
 pub fn assembly_to_object(
 	arch_str: &OsStr,
-	assembly: &[u8],
+	assembly: &str,
 	output: &mut dyn Write,
 ) -> Result<(), Error> {
 	let mut child = Command::new("llvm-mc")
@@ -29,7 +29,7 @@ pub fn assembly_to_object(
 		.stdin
 		.as_mut()
 		.ok_or_else(|| Error::other("`llvm-mc` process should have `stdin`"))?;
-	stdin.write_all(assembly)?;
+	stdin.write_all(assembly.as_bytes())?;
 
 	let status = child.wait()?;
 
@@ -37,10 +37,7 @@ pub fn assembly_to_object(
 		io::copy(&mut child.stdout.unwrap(), output)?;
 		Ok(())
 	} else {
-		eprintln!(
-			"------ llvm-mc input -------\n{}",
-			String::from_utf8_lossy(assembly)
-		);
+		eprintln!("------ llvm-mc input -------\n{assembly}",);
 
 		let mut stdout = Vec::new();
 		child.stdout.unwrap().read_to_end(&mut stdout)?;
@@ -158,29 +155,154 @@ pub fn ld_input_parser<E>(
 }
 
 #[derive(Clone)]
-pub struct CustomSectionParser<'cs> {
-	name: &'cs str,
-	data: &'cs [u8],
-	prefix: bool,
+pub struct JsBindgenPlainSectionParser<'cs>(CustomSectionParser<'cs>);
+
+impl<'cs> JsBindgenPlainSectionParser<'cs> {
+	pub fn new(custom_section: CustomSectionReader<'cs>) -> Self {
+		Self(CustomSectionParser::new(custom_section))
+	}
 }
 
-impl<'cs> CustomSectionParser<'cs> {
-	pub fn new(custom_section: CustomSectionReader<'cs>, prefix: bool) -> Self {
-		Self {
-			name: custom_section.name(),
-			data: custom_section.data(),
-			prefix,
+impl<'cs> Debug for JsBindgenPlainSectionParser<'cs> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		let rest: Vec<_> = self.clone().collect();
+
+		f.debug_tuple("JsBindgenPlainSectionParser")
+			.field(&rest.as_slice())
+			.finish()
+	}
+}
+
+impl<'cs> Iterator for JsBindgenPlainSectionParser<'cs> {
+	type Item = &'cs str;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		self.0
+			.next()
+			.map(str::from_utf8)
+			.transpose()
+			.unwrap_or_else(|error| {
+				panic!(
+					"found invalid JS import encoding `{}`: {error}",
+					self.0.name
+				)
+			})
+	}
+}
+
+#[derive(Clone)]
+pub struct JsBindgenImportSectionParser<'cs>(CustomSectionParser<'cs>);
+
+#[derive(Clone, Copy, Debug)]
+pub enum JsBindgenImportSection<'cs> {
+	Plain(&'cs str),
+	WithEmbed { embed: &'cs str, js: &'cs str },
+	NoImport,
+}
+
+impl<'cs> JsBindgenImportSectionParser<'cs> {
+	pub fn new(custom_section: CustomSectionReader<'cs>) -> Self {
+		Self(CustomSectionParser::new(custom_section))
+	}
+}
+
+impl<'cs> JsBindgenImportSection<'cs> {
+	pub fn js(self) -> Option<&'cs str> {
+		match self {
+			JsBindgenImportSection::Plain(js) => Some(js),
+			JsBindgenImportSection::WithEmbed { js, .. } => Some(js),
+			JsBindgenImportSection::NoImport => None,
 		}
 	}
 }
 
-impl<'cs> Debug for CustomSectionParser<'cs> {
+impl<'cs> Debug for JsBindgenImportSectionParser<'cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		let rest: Vec<_> = self.clone().collect();
 
-		f.debug_tuple("CustomSectionParser")
+		f.debug_tuple("JsBindgenImportSectionParser")
 			.field(&rest.as_slice())
 			.finish()
+	}
+}
+
+impl<'cs> Iterator for JsBindgenImportSectionParser<'cs> {
+	type Item = JsBindgenImportSection<'cs>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		enum Attr<'e> {
+			NoImport,
+			Embed(&'e str),
+		}
+
+		self.0.next().map(|mut data| {
+			let attr = data
+				.split_off_first()
+				.unwrap_or_else(|| panic!("found invalid JS import encoding `{}`", self.0.name));
+
+			let attr = match attr {
+				0 => None,
+				1 => {
+					assert!(
+						data.is_empty(),
+						"found invalid JS import encoding `{}`",
+						self.0.name
+					);
+					Some(Attr::NoImport)
+				}
+				2 => {
+					let embed = data
+						.split_off(..2)
+						.and_then(|length| {
+							let length =
+								usize::from(u16::from_le_bytes(length.try_into().unwrap()));
+							data.split_off(..length)
+						})
+						.unwrap_or_else(|| {
+							panic!("found invalid JS import encoding `{}`", self.0.name)
+						});
+					let embed = str::from_utf8(embed).unwrap_or_else(|e| {
+						panic!("found invalid JS import encoding `{}`: {e}", self.0.name)
+					});
+
+					Some(Attr::Embed(embed))
+				}
+				_ => panic!("found invalid JS import encoding `{}`", self.0.name),
+			};
+
+			if !matches!(attr, Some(Attr::NoImport)) {
+				assert!(
+					!data.is_empty(),
+					"found invalid JS import encoding `{}`",
+					self.0.name
+				);
+			}
+
+			let js = str::from_utf8(data).unwrap_or_else(|e| {
+				panic!("found invalid JS import encoding `{}`: {e}", self.0.name)
+			});
+
+			match attr {
+				Some(Attr::Embed(embed)) => JsBindgenImportSection::WithEmbed { embed, js },
+				None => JsBindgenImportSection::Plain(js),
+				Some(Attr::NoImport) => JsBindgenImportSection::NoImport,
+			}
+		})
+	}
+}
+
+#[derive(Clone)]
+struct CustomSectionParser<'cs> {
+	name: &'cs str,
+	data: &'cs [u8],
+}
+
+impl<'cs> CustomSectionParser<'cs> {
+	fn new(custom_section: CustomSectionReader<'cs>) -> Self {
+		Self {
+			name: custom_section.name(),
+			data: custom_section.data(),
+		}
 	}
 }
 
@@ -188,20 +310,12 @@ impl<'cs> Iterator for CustomSectionParser<'cs> {
 	type Item = &'cs [u8];
 
 	fn next(&mut self) -> Option<Self::Item> {
-		if let Some(length) = self.data.get(..4) {
-			self.data = &self.data[4..];
-			let mut length = u32::from_le_bytes(length.try_into().unwrap()) as usize;
+		if let Some(length) = self.data.split_off(..4) {
+			let length = u32::from_le_bytes(length.try_into().unwrap()) as usize;
 
-			if self.prefix {
-				let prefix = &self.data[0..2];
-				let prefix = u16::from_le_bytes(prefix.try_into().unwrap()) as usize;
-				length += 2 + prefix;
-			}
-
-			let data = self.data.get(..length).unwrap_or_else(|| {
+			let data = self.data.split_off(..length).unwrap_or_else(|| {
 				panic!("invalid length encoding in custom section `{}`", self.name)
 			});
-			self.data = &self.data[length..];
 
 			Some(data)
 		} else if self.data.is_empty() {

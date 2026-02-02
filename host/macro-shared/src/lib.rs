@@ -18,7 +18,7 @@ pub struct Argument {
 }
 
 pub enum ArgumentKind {
-	String(String),
+	Bytes(Vec<u8>),
 	Interpolate(Vec<TokenTree>),
 }
 
@@ -39,7 +39,7 @@ pub enum ArgumentKind {
 /// 	};
 /// };
 /// ```
-pub fn custom_section(name: &str, unstructured: Option<&[u8]>, data: &[Argument]) -> TokenStream {
+pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 	fn group(delimiter: Delimiter, inner: impl IntoIterator<Item = TokenTree>) -> TokenTree {
 		Group::new(delimiter, inner.into_iter().collect()).into()
 	}
@@ -67,29 +67,6 @@ pub fn custom_section(name: &str, unstructured: Option<&[u8]>, data: &[Argument]
 
 	let span = Span::mixed_site();
 
-	// If unstructered data is present:
-	// `const ARR_UNSTRUCTERED: [u8; <prefix>.len()] = *<unstructured>;`
-	let const_unstructured = unstructured
-		.into_iter()
-		.filter(|unstructured| !unstructured.is_empty())
-		.flat_map(|unstructured| {
-			r#const(
-				"ARR_UNSTRUCTURED",
-				iter::once(group(
-					Delimiter::Bracket,
-					[
-						ident("u8"),
-						Punct::new(';', Spacing::Alone).into(),
-						Literal::usize_unsuffixed(unstructured.len()).into(),
-					],
-				)),
-				[
-					Punct::new('*', Spacing::Alone).into(),
-					Literal::byte_string(unstructured).into(),
-				],
-			)
-		});
-
 	// For every string we insert:
 	// ```
 	// const ARR_<index>: [u8; <argument>.len()] = *<argument>;
@@ -106,7 +83,7 @@ pub fn custom_section(name: &str, unstructured: Option<&[u8]>, data: &[Argument]
 		.iter()
 		.enumerate()
 		.flat_map(|(index, arg)| match &arg.kind {
-			ArgumentKind::String(string) => {
+			ArgumentKind::Bytes(bytes) => {
 				// `const ARR_<index>: [u8; <argument>.len()] = *<argument>;`
 				arg.cfg
 					.clone()
@@ -119,12 +96,12 @@ pub fn custom_section(name: &str, unstructured: Option<&[u8]>, data: &[Argument]
 							[
 								ident("u8"),
 								Punct::new(';', Spacing::Alone).into(),
-								Literal::usize_unsuffixed(string.len()).into(),
+								Literal::usize_unsuffixed(bytes.len()).into(),
 							],
 						)),
 						[
 							Punct::new('*', Spacing::Alone).into(),
-							Literal::byte_string(string.as_bytes()).into(),
+							Literal::byte_string(bytes).into(),
 						],
 					))
 					.collect::<Vec<_>>()
@@ -239,8 +216,8 @@ pub fn custom_section(name: &str, unstructured: Option<&[u8]>, data: &[Argument]
 							Punct::new('+', Spacing::Joint).into(),
 							Punct::new('=', Spacing::Alone).into(),
 							match &par.kind {
-								ArgumentKind::String(string) => {
-									Literal::usize_unsuffixed(string.len()).into()
+								ArgumentKind::Bytes(bytes) => {
+									Literal::usize_unsuffixed(bytes.len()).into()
 								}
 								ArgumentKind::Interpolate(_) => ident(&format!("LEN_{index}")),
 							},
@@ -265,25 +242,6 @@ pub fn custom_section(name: &str, unstructured: Option<&[u8]>, data: &[Argument]
 		Punct::new(',', Spacing::Alone).into(),
 	]
 	.into_iter()
-	// Optional unstructured data.
-	.chain(
-		unstructured
-			.into_iter()
-			.filter(|unstructured| !unstructured.is_empty())
-			.flat_map(|unstructured| {
-				[
-					group(
-						Delimiter::Bracket,
-						[
-							ident("u8"),
-							Punct::new(';', Spacing::Alone).into(),
-							Literal::usize_unsuffixed(unstructured.len()).into(),
-						],
-					),
-					Punct::new(',', Spacing::Alone).into(),
-				]
-			}),
-	)
 	.chain(data.iter().enumerate().flat_map(move |(index, arg)| {
 		arg.cfg.clone().into_iter().flatten().chain([
 			group(
@@ -292,9 +250,7 @@ pub fn custom_section(name: &str, unstructured: Option<&[u8]>, data: &[Argument]
 					ident("u8"),
 					Punct::new(';', Spacing::Alone).into(),
 					match &arg.kind {
-						ArgumentKind::String(string) => {
-							Literal::usize_unsuffixed(string.len()).into()
-						}
+						ArgumentKind::Bytes(bytes) => Literal::usize_unsuffixed(bytes.len()).into(),
 						ArgumentKind::Interpolate(_) => ident(&format!("LEN_{index}")),
 					},
 				],
@@ -349,18 +305,6 @@ pub fn custom_section(name: &str, unstructured: Option<&[u8]>, data: &[Argument]
 				group(Delimiter::Parenthesis, iter::once(ident("LEN"))),
 				Punct::new(',', Spacing::Alone).into(),
 			])
-			// Optional unstructured value.
-			.chain(
-				unstructured
-					.into_iter()
-					.filter(|unstructured| !unstructured.is_empty())
-					.flat_map(|_| {
-						[
-							ident("ARR_UNSTRUCTURED"),
-							Punct::new(',', Spacing::Alone).into(),
-						]
-					}),
-			)
 			.chain(data.iter().enumerate().flat_map(move |(index, arg)| {
 				arg.cfg.clone().into_iter().flatten().chain([
 					ident(&format!("ARR_{index}")),
@@ -387,7 +331,7 @@ pub fn custom_section(name: &str, unstructured: Option<&[u8]>, data: &[Argument]
 		iter::once(group(Delimiter::Parenthesis, iter::empty())),
 		iter::once(group(
 			Delimiter::Brace,
-			const_unstructured.chain(consts).chain(len).chain(r#const(
+			consts.chain(len).chain(r#const(
 				"_",
 				iter::once(group(Delimiter::Parenthesis, iter::empty())),
 				iter::once(group(

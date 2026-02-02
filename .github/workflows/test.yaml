@@ -74,5 +74,8 @@ jobs:
         with:
           # Rustc v1.93
           llvm-version: 21
+      - name: Install TSC
+        if: runner.os == 'macOS'
+        run: npm install -g typescript
       - name: Run Tests
         run: cargo test --workspace --no-fail-fast

@@ -1,9 +1,7 @@
-use std::iter::{self, Peekable};
+use std::iter::Peekable;
 
 use js_bindgen_macro_shared::*;
-use proc_macro::{
-	Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree, token_stream,
-};
+use proc_macro::{Delimiter, Group, Ident, Span, TokenStream, TokenTree, token_stream};
 
 struct TestAttributes {
 	ignore: Option<Option<String>>,
@@ -36,34 +34,41 @@ fn test_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, To
 		return Err(compile_error(ident.span(), "async tests are not supported"));
 	}
 
-	let test_name_tokens = test_name_tokens(&ident);
-
 	let mut output = TokenStream::new();
 	output.extend(item);
 
-	let mut unstructured = option_option_string(&attrs.ignore);
-	unstructured.append(&mut option_option_string(&attrs.should_panic));
-
-	let section = custom_section(
-		"js_bindgen.test",
-		Some(&unstructured),
-		&[Argument {
+	let mut attr = option_option_string(&attrs.ignore);
+	attr.append(&mut option_option_string(&attrs.should_panic));
+	let data = [
+		Argument {
 			cfg: None,
-			kind: ArgumentKind::Interpolate(test_name_tokens),
-		}],
-	);
+			kind: ArgumentKind::Bytes(attr),
+		},
+		Argument {
+			cfg: None,
+			kind: ArgumentKind::Interpolate(
+				format!(
+					r#"::core::concat!(::core::module_path!(), "::", ::core::stringify!({ident}))"#
+				)
+				.parse::<TokenStream>()
+				.unwrap()
+				.into_iter()
+				.collect(),
+			),
+		},
+	];
+
+	let section = custom_section("js_bindgen.test", &data);
 	output.extend(section);
 
 	let wrapper = format!(
-		r#"
-const _: () = {{
-    #[unsafe(export_name = ::core::concat!(::core::module_path!(), "::", ::core::stringify!({ident})))]
-    extern "C" fn jbg_test() {{
-        js_bindgen_test::set_panic_hook();
-	    {ident}();
-    }}
-}};
-"#
+		r#"const _: () = {{
+    		#[unsafe(export_name = ::core::concat!(::core::module_path!(), "::", ::core::stringify!({ident})))]
+    		extern "C" fn jbg_test() {{
+				js_bindgen_test::set_panic_hook();
+				{ident}();
+			}}
+		}};"#
 	);
 	output.extend(wrapper.parse::<TokenStream>().unwrap());
 
@@ -74,7 +79,7 @@ fn option_option_string(option: &Option<Option<String>>) -> Vec<u8> {
 	match option {
 		Some(s) => {
 			if let Some(s) = s {
-				let len = u32::to_le_bytes(s.len() as u32);
+				let len = u16::try_from(s.len()).unwrap().to_le_bytes();
 				[2].iter()
 					.chain(&len)
 					.chain(s.as_bytes())
@@ -254,51 +259,4 @@ fn parse_should_panic_reason(
 	}
 
 	Ok(None)
-}
-
-fn test_name_tokens(ident: &Ident) -> Vec<TokenTree> {
-	let mut args = Vec::new();
-	args.extend(path_tokens(&["core", "module_path"]));
-	args.push(Punct::new('!', Spacing::Alone).into());
-	args.push(group(Delimiter::Parenthesis, iter::empty()));
-	args.push(Punct::new(',', Spacing::Alone).into());
-	args.push(Literal::string("::").into());
-	args.push(Punct::new(',', Spacing::Alone).into());
-	args.extend(path_tokens(&["core", "stringify"]));
-	args.push(Punct::new('!', Spacing::Alone).into());
-	args.push(group(
-		Delimiter::Parenthesis,
-		iter::once(ident.clone().into()),
-	));
-
-	let mut concat = Vec::new();
-	concat.extend(path_tokens(&["core", "concat"]));
-	concat.push(Punct::new('!', Spacing::Alone).into());
-	concat.push(group(Delimiter::Parenthesis, args));
-
-	concat
-}
-
-fn path_tokens(segments: &[&str]) -> Vec<TokenTree> {
-	let mut tokens = Vec::new();
-	tokens.push(Punct::new(':', Spacing::Joint).into());
-	tokens.push(Punct::new(':', Spacing::Alone).into());
-
-	for (index, segment) in segments.iter().enumerate() {
-		tokens.push(ident(segment));
-		if index + 1 < segments.len() {
-			tokens.push(Punct::new(':', Spacing::Joint).into());
-			tokens.push(Punct::new(':', Spacing::Alone).into());
-		}
-	}
-
-	tokens
-}
-
-fn group(delimiter: Delimiter, inner: impl IntoIterator<Item = TokenTree>) -> TokenTree {
-	Group::new(delimiter, inner.into_iter().collect()).into()
-}
-
-fn ident(string: &str) -> TokenTree {
-	Ident::new(string, Span::mixed_site()).into()
 }

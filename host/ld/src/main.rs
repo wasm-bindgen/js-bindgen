@@ -11,7 +11,9 @@ use std::{env, fs};
 
 use hashbrown::{HashMap, HashSet};
 use itertools::{Itertools, Position};
-use js_bindgen_ld_shared::CustomSectionParser;
+use js_bindgen_ld_shared::{
+	JsBindgenImportSection, JsBindgenImportSectionParser, JsBindgenPlainSectionParser,
+};
 use js_bindgen_shared::ReadFile;
 use wasm_encoder::{EntityType, ImportSection, Module, RawSection, Section};
 use wasmparser::{Encoding, Parser, Payload, TypeRef};
@@ -145,11 +147,7 @@ fn process_object(
 		if let Payload::CustomSection(c) = payload
 			&& c.name() == "js_bindgen.assembly"
 		{
-			for assembly in CustomSectionParser::new(c, false) {
-				if assembly.is_empty() {
-					continue;
-				}
-
+			for assembly in JsBindgenPlainSectionParser::new(c) {
 				file_counter += 1;
 				let asm_path = archive_path.with_added_extension(format!("asm.{file_counter}.o"));
 
@@ -181,9 +179,9 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 	let wasm_input = ReadFile::new(output_path).expect("output file should be readable");
 	let mut wasm_output = Vec::new();
 
-	let mut found_import: HashMap<&str, HashMap<&str, &str>> = HashMap::new();
+	let mut found_import: HashMap<&str, HashMap<&str, Option<&str>>> = HashMap::new();
 	let mut expected_import: HashMap<&str, HashSet<&str>> = HashMap::new();
-	let mut provided_import: HashMap<&str, HashMap<&str, &str>> = HashMap::new();
+	let mut provided_import: HashMap<&str, HashMap<&str, Option<&str>>> = HashMap::new();
 	let mut found_embed: HashMap<&str, HashMap<&str, &str>> = HashMap::new();
 	let mut expected_embed: HashMap<&str, HashSet<&str>> = HashMap::new();
 	let mut provided_embed: HashMap<&str, HashMap<&str, &str>> = HashMap::new();
@@ -264,38 +262,17 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 					panic!("found incorrectly formatted JS import custom section name: {stripped}")
 				});
 
-				let mut parser = CustomSectionParser::new(c, true);
-				let mut js = parser
+				let mut parser = JsBindgenImportSectionParser::new(c);
+				let import = parser
 					.next()
 					.unwrap_or_else(|| panic!("found no JS import for `{module}:{name}`"));
-
-				let js_name = js
-					.get(0..2)
-					.and_then(|length| {
-						let length = usize::from(u16::from_le_bytes(length.try_into().unwrap()));
-						js.get(2..2 + length)
-					})
-					.unwrap_or_else(|| {
-						panic!("found invalid JS import encoding `{module}:{name}`")
-					});
-				let js_name = str::from_utf8(js_name).unwrap_or_else(|e| {
-					panic!("found invalid JS import encoding `{module}:{name}`: {e}")
-				});
-				js = &js[2 + js_name.len()..];
-				let js = str::from_utf8(js).unwrap_or_else(|e| {
-					panic!("found invalid JS import encoding `{module}:{name}`: {e}")
-				});
-
-				if js.is_empty() {
-					continue;
-				}
 
 				if let Some(new_js) = parser.next() {
 					panic!(
 						"found multiple JS imports for `{module}:{name}`\n\tJS Import \
-						 1:\n{}\n\tJS Import 2:\n{}",
-						js,
-						String::from_utf8_lossy(new_js),
+						 1:\n{:?}\n\tJS Import 2:\n{:?}",
+						import.js(),
+						new_js.js(),
 					);
 				}
 
@@ -304,35 +281,37 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 					.map(|names| names.remove(name))
 					.unwrap_or_default()
 				{
-					found_import.entry(module).or_default().insert(name, js);
+					found_import
+						.entry(module)
+						.or_default()
+						.insert(name, import.js());
 				} else if let Some(js_old) = provided_import
 					.entry_ref(module)
 					.or_default()
-					.insert(name, js)
+					.insert(name, import.js())
 				{
 					panic!(
 						"found multiple JS imports for `{module}:{name}`\n\tJS Import \
-						 1:\n{}\n\tJS Import 2:\n{}",
-						js_old, js
+						 1:\n{:?}\n\tJS Import 2:\n{:?}",
+						js_old,
+						import.js()
 					);
 				}
 
-				if js_name.is_empty() {
-					continue;
-				}
-
-				if found_embed
-					.get_mut(module)
-					.map(|names| names.contains_key(js_name))
-					.unwrap_or(false)
-				{
-				} else if let Some(code) = provided_embed
-					.get_mut(module)
-					.and_then(|names| names.remove(js_name))
-				{
-					found_embed.entry(module).or_default().insert(js_name, code);
-				} else {
-					expected_embed.entry(module).or_default().insert(js_name);
+				if let JsBindgenImportSection::WithEmbed { embed, .. } = import {
+					if found_embed
+						.get_mut(module)
+						.map(|names| names.contains_key(embed))
+						.unwrap_or(false)
+					{
+					} else if let Some(code) = provided_embed
+						.get_mut(module)
+						.and_then(|names| names.remove(embed))
+					{
+						found_embed.entry(module).or_default().insert(embed, code);
+					} else {
+						expected_embed.entry(module).or_default().insert(embed);
+					}
 				}
 			}
 			// Extract all JS embeds.
@@ -342,24 +321,16 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 					panic!("found incorrectly formatted JS import custom section name: {stripped}")
 				});
 
-				let mut parser = CustomSectionParser::new(c, false);
+				let mut parser = JsBindgenPlainSectionParser::new(c);
 				let js = parser
 					.next()
 					.unwrap_or_else(|| panic!("found no JS embed for `{module}:{name}`"));
-				let js = str::from_utf8(js).unwrap_or_else(|e| {
-					panic!("found invalid JS import encoding `{module}:{name}`: {e}")
-				});
-
-				if js.is_empty() {
-					continue;
-				}
 
 				if let Some(new_js) = parser.next() {
 					panic!(
 						"found multiple JS embeds for `{module}:{name}`\n\tJS Embed 1:\n{}\n\tJS \
 						 Embed 2:\n{}",
-						js,
-						String::from_utf8_lossy(new_js),
+						js, new_js,
 					);
 				}
 
@@ -470,14 +441,20 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 
 	// Create our `importObject`.
 	js_output
-		.write_all(b"export const importObject = {\n")
+		.write_all(b"export default function() { return {\n")
 		.unwrap();
 	js_output.write_all(b"\tjs_bindgen: { memory },\n").unwrap();
 
-	for (module, names) in found_import {
+	for (module, names) in found_import
+		.into_iter()
+		.filter(|(_, names)| !names.values().all(Option::is_none))
+	{
 		writeln!(js_output, "\t{module}: {{").unwrap();
 
-		for (name, js) in names {
+		for (name, js) in names
+			.into_iter()
+			.filter_map(|(name, js)| js.map(|js| (name, js)))
+		{
 			write!(js_output, "\t\t\"{name}\": ").unwrap();
 
 			for (position, line) in js.lines().with_position() {
@@ -494,7 +471,7 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 		js_output.write_all(b"\t},\n").unwrap();
 	}
 
-	js_output.write_all(b"}\n").unwrap();
+	js_output.write_all(b"} }\n").unwrap();
 
 	js_output.into_inner().unwrap().sync_all().unwrap();
 

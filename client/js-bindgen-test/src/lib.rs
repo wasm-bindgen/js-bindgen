@@ -1,30 +1,15 @@
 use std::panic::PanicHookInfo;
 
-use js_sys::JsString;
-
 pub use js_bindgen_test_macro::test;
+use js_sys::{JsString, js_sys};
 
-js_bindgen::embed_js!(
-	name = "panic.set_message",
-	"(message) => {{",
-	"	globalThis.PanicMessage = String(message);",
-	"}}"
-);
-
-js_bindgen::embed_js!(
-	name = "panic.set_payload",
-	"(payload) => {{",
-	"	globalThis.PanicPayload = String(payload);",
-	"}}"
-);
-
-#[js_sys::js_sys(js_sys = js_sys)]
+#[js_sys]
 extern "C" {
-	#[js_sys(js_embed = "panic.set_message")]
-	fn set_panic_message(message: &JsString);
+	#[js_sys(js_import)]
+	fn set_message(message: &JsString);
 
-	#[js_sys(js_embed = "panic.set_payload")]
-	fn set_panic_payload(payload: &JsString);
+	#[js_sys(js_import)]
+	fn set_payload(payload: &JsString);
 }
 
 pub fn set_panic_hook() {
@@ -44,9 +29,9 @@ pub fn set_panic_hook() {
 	HOOK.call_once(|| {
 		std::panic::set_hook(Box::new(|info| {
 			let message = info.to_string();
-			set_panic_message(&JsString::from_str(&message));
+			set_message(&JsString::from_str(&message));
 			if let Some(payload) = payload_as_str(info) {
-				set_panic_payload(&JsString::from_str(payload));
+				set_payload(&JsString::from_str(payload));
 			}
 		}));
 	});

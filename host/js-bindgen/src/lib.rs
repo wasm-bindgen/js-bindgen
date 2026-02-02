@@ -34,8 +34,11 @@ pub fn unsafe_embed_asm(input: TokenStream) -> TokenStream {
 
 fn embed_asm_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let mut input = input.into_iter().peekable();
-	let assembly = parse_string_arguments(&mut input, Span::mixed_site())?;
-	Ok(custom_section("js_bindgen.assembly", None, &assembly))
+	let mut data = Vec::new();
+	parse_string_arguments(&mut input, Span::mixed_site(), &mut data)?;
+	let output = custom_section("js_bindgen.assembly", &data);
+
+	Ok(output)
 }
 
 #[cfg_attr(not(test), proc_macro)]
@@ -49,11 +52,11 @@ fn embed_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let package = package();
 	let name = expect_meta_name_value(&mut input, "name")?;
 
-	Ok(custom_section(
-		&format!("js_bindgen.js.{package}.{name}"),
-		None,
-		&parse_string_arguments(&mut input, Span::mixed_site())?,
-	))
+	let mut data = Vec::new();
+	parse_string_arguments(&mut input, Span::mixed_site(), &mut data)?;
+	let output = custom_section(&format!("js_bindgen.js.{package}.{name}"), &data);
+
+	Ok(output)
 }
 
 #[cfg_attr(not(test), proc_macro)]
@@ -67,32 +70,69 @@ fn import_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let package = package();
 	let import_name = expect_meta_name_value(&mut input, "name")?;
 
-	let required_embed = if let Some(TokenTree::Ident(_)) = input.peek() {
-		Some(expect_meta_name_value(&mut input, "required_embed")?)
+	let attr = if let Some(TokenTree::Ident(ident)) = input.peek() {
+		#[cfg_attr(test, allow(clippy::cmp_owned))]
+		let ident = ident.to_string();
+
+		if ident == "required_embed" {
+			let required_embed = expect_meta_name_value(&mut input, "required_embed")?;
+			let len = u16::try_from(required_embed.len())
+				.expect("`required_embed` name too long")
+				.to_le_bytes();
+			[[2].as_slice(), &len, required_embed.as_bytes()].concat()
+		} else {
+			let ident = expect_ident(
+				&mut input,
+				"no_import",
+				Span::mixed_site(),
+				"`required_embed` or `no_import`",
+				false,
+			)?;
+
+			if input.peek().is_some() {
+				expect_punct(
+					&mut input,
+					',',
+					ident.span(),
+					"a `,` after an attribute",
+					false,
+				)?;
+			}
+
+			if let Some(token) = input.next() {
+				return Err(compile_error(
+					token.span(),
+					"`no_import` requires no string tokens",
+				));
+			}
+
+			return Ok(custom_section(
+				&format!("js_bindgen.import.{package}.{import_name}"),
+				&[Argument {
+					cfg: None,
+					kind: ArgumentKind::Bytes(vec![1]),
+				}],
+			));
+		}
 	} else {
-		None
+		vec![0]
 	};
 
-	let len = u16::try_from(required_embed.as_deref().map(str::len).unwrap_or(0))
-		.expect("`required_embed` name too long")
-		.to_le_bytes();
-	let unstructured = [
-		&len,
-		required_embed.as_deref().map(str::as_bytes).unwrap_or(&[]),
-	]
-	.concat();
+	let mut data = vec![Argument {
+		cfg: None,
+		kind: ArgumentKind::Bytes(attr),
+	}];
+	parse_string_arguments(&mut input, Span::mixed_site(), &mut data)?;
+	let output = custom_section(&format!("js_bindgen.import.{package}.{import_name}"), &data);
 
-	Ok(custom_section(
-		&format!("js_bindgen.import.{package}.{import_name}"),
-		Some(&unstructured),
-		&parse_string_arguments(&mut input, Span::mixed_site())?,
-	))
+	Ok(output)
 }
 
 fn parse_string_arguments(
 	mut stream: &mut Peekable<token_stream::IntoIter>,
 	mut previous_span: Span,
-) -> Result<Vec<Argument>, TokenStream> {
+	arguments: &mut Vec<Argument>,
+) -> Result<(), TokenStream> {
 	let mut current_cfg = None;
 	let mut strings: Vec<(Option<[TokenTree; 2]>, String)> = Vec::new();
 
@@ -169,7 +209,6 @@ fn parse_string_arguments(
 		));
 	};
 
-	let mut arguments = Vec::new();
 	let mut current_string = String::new();
 
 	// Apply argument formatting.
@@ -178,7 +217,7 @@ fn parse_string_arguments(
 		if cfg.is_some() && !current_string.is_empty() {
 			arguments.push(Argument {
 				cfg: None,
-				kind: ArgumentKind::String(mem::take(&mut current_string)),
+				kind: ArgumentKind::Bytes(mem::take(&mut current_string).into_bytes()),
 			});
 		}
 
@@ -200,7 +239,9 @@ fn parse_string_arguments(
 							if !current_string.is_empty() {
 								arguments.push(Argument {
 									cfg: cfg.clone(),
-									kind: ArgumentKind::String(mem::take(&mut current_string)),
+									kind: ArgumentKind::Bytes(
+										mem::take(&mut current_string).into_bytes(),
+									),
 								});
 							}
 
@@ -266,7 +307,7 @@ fn parse_string_arguments(
 		if cfg.is_some() && !current_string.is_empty() {
 			arguments.push(Argument {
 				cfg: cfg.clone(),
-				kind: ArgumentKind::String(mem::take(&mut current_string)),
+				kind: ArgumentKind::Bytes(mem::take(&mut current_string).into_bytes()),
 			});
 		}
 	}
@@ -274,7 +315,7 @@ fn parse_string_arguments(
 	if !current_string.is_empty() {
 		arguments.push(Argument {
 			cfg: None,
-			kind: ArgumentKind::String(current_string),
+			kind: ArgumentKind::Bytes(current_string.into_bytes()),
 		});
 	}
 
@@ -284,7 +325,7 @@ fn parse_string_arguments(
 			"expected no tokens after string literals and formatting parameters",
 		))
 	} else {
-		Ok(arguments)
+		Ok(())
 	}
 }
 

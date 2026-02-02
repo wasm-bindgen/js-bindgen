@@ -27,7 +27,7 @@ fn test_should_panic() {
 }
 ```
 
-Wasm tests: Node runner (default):
+Wasm tests: Node.js runner (default):
 
 ```sh
 cargo test --target wasm32-unknown-unknown
@@ -47,14 +47,14 @@ JBG_TEST_RUNNER=server cargo test --target wasm32-unknown-unknown
 
 Runner options:
 
-- `JBG_TEST_RUNNER=node` (run in nodejs, set by default)
-- `JBG_TEST_RUNNER=deno` (run in deno)
+- `JBG_TEST_RUNNER=node-js` (run in Node.js)
+- `JBG_TEST_RUNNER=deno` (run in Deno)
 
-- `JBG_TEST_RUNNER=browser` (run in headless browser, auto detect driver)
-- `JBG_TEST_GECKODRIVER=<path>` (use firefix)
-- `JBG_TEST_CHROMEDRIVER=<path>` (use chrome)
-- `JBG_TEST_MSEDGEDRIVER=<path>` (use edge)
-- `JBG_TEST_WEBDRIVER_JSON` (set driver conf)
+- `JBG_TEST_RUNNER=browser` (run in headless browser, auto detect WebDriver)
+- `JBG_TEST_GECKODRIVER=<path>` (use Firefox)
+- `JBG_TEST_CHROMEDRIVER=<path>` (use Chrome)
+- `JBG_TEST_MSEDGEDRIVER=<path>` (use Edge)
+- `JBG_TEST_WEBDRIVER_JSON` (set WebDriver conf)
 - `JBG_TEST_WORKER=dedicated|shared|service`
 
 - `JBG_TEST_RUNNER=server` (serve browser runner and print URL)

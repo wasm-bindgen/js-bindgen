@@ -19,9 +19,10 @@
     - Wasm64.
     - Atomic.
     - Panic strategies.
-  - Run tests in alphabetical order to mimic `libtest`.
-  - Convert JS files to TS, then compile and lint them. Compiling and linting could be built into
-    the runner shim to ensure freshness. Don't forget to exclude the TS files from packaging.
+  - Split browser and server runner. Server runner should output in HTML, browser should rely output
+    to server which outputs in terminal.
+  - Exclude TS files from packaging.
+  - Lint and format TS files and minimize JS files.
   - Add support for `--test-threads` and multithread tests where possible for `panic = "abort"`.
   - Add support for `panic = "unwind"`.
   - Add support for `--force-run-in-process`.
@@ -33,14 +34,29 @@
   - Add multithread support when running with `target_feature = "atomics"` where possible.
   - Crate feature to switch to `native-tls`.
   - Add environment variable to set driver startup timeout.
-  - Properly emit errors when WebDrivers fail between startup and finish.
+  - Properly emit errors when WebDrivers fail between startup and finish. Make sure we don't wait
+    forever for something if the WebDriver or connection fails.
+  - Short-circuit if all tests are ignored.
+  - Don't actually print the JS stack on error. The panic handler should print a backtrace instead
+    to align with Rust.
+  - `expected substring` should escape control characters like newlines.
+  - Consider making the HTML background dark to make terminal colors more visible.
+  - Consider printing stacktraces in the console to make paths clickable. Alternatively explore
+    making paths clickable in the window output directly.
+  - Add buttons for the server runner to run tests in various worker setting on demand.
+  - Optimize HTML output by syncing with rAF.
+  - Validate `--no-capture` output against `libtest`.
 - E2E testing for the linker. Should also ensure deterministic output.
+- Can we use `TokenStream` from `str` parsing to simplify the code without affecting performance?
 - Add a `disable_hygiene` attribute to `#[js_sys]` to reduce the compile-time of the output to an
   absolute minimum. This can avoid all `interpolate`s.
 - Escape namespaces and function names if they are not valid JS identifiers.
 - Test raw Rust identifiers in function and parameter names.
 - `#[js_sys]` parameter and function name aren't allowed to collide. Internal
   `extern { fn <name> ... }` definition can shadow parameter values.
+- `js-bindgen` macro custom section generation can produce name collisions with intermediate
+  variables.
+- `js-bindgen` custom section output needs more hygiene for types.
 - Allocate slots on the `externref` table in batches.
 - Determine what to do with `js_sys::UnwrapThrowExt`. Avoiding the panic machinery is nice for some
   very niche use-cases but it might be very annoying for most users. Maybe hide it behind a `cfg`

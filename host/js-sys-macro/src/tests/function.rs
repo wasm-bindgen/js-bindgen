@@ -497,6 +497,67 @@ fn js_embed() {
 }
 
 #[test]
+fn js_import() {
+	super::test(
+		TokenStream::new(),
+		quote! {
+			extern "C" {
+				#[js_sys(js_import)]
+				pub fn log(data: &JsValue);
+			}
+		},
+		quote! {
+			pub fn log(data: &JsValue) {
+				::js_sys::js_bindgen::unsafe_embed_asm!(
+					".import_module test_crate.import.log, test_crate",
+					".import_name test_crate.import.log, log",
+					".functype test_crate.import.log ({},) -> ()",
+					"",
+					"{}",
+					"",
+					".globl test_crate.log",
+					"test_crate.log:",
+					"\t.functype test_crate.log ({},) -> ()",
+					"\tlocal.get 0",
+					"\t{}",
+					"\tcall test_crate.import.log",
+					"\tend_function",
+					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE,
+					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC,
+					interpolate <&JsValue as ::js_sys::hazard::Input>::TYPE,
+					interpolate <&JsValue as ::js_sys::hazard::Input>::CONV,
+				);
+
+				::js_sys::js_bindgen::import_js!(name = "log", no_import);
+
+				unsafe extern "C" {
+					#[link_name = "test_crate.log"]
+					fn log(data: <&JsValue as ::js_sys::hazard::Input>::Type);
+				}
+
+				unsafe { log(<&JsValue as ::js_sys::hazard::Input>::into_raw(data)) };
+			}
+		},
+		indoc::indoc!(
+			".import_module test_crate.import.log, test_crate
+			.import_name test_crate.import.log, log
+			.functype test_crate.import.log (externref,) -> ()
+
+			.functype js_sys.externref.get (i32) -> (externref)
+
+			.globl test_crate.log
+			test_crate.log:
+				.functype test_crate.log (i32,) -> ()
+				local.get 0
+				call js_sys.externref.get
+				call test_crate.import.log
+				end_function"
+		),
+		None,
+	);
+}
+
+#[test]
 fn r#return() {
 	super::test(
 		TokenStream::new(),

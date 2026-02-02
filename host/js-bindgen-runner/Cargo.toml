@@ -1,16 +1,18 @@
 [package]
 edition = { workspace = true }
 name = "js-bindgen-runner"
-rust-version = "1.87"
+rust-version = "1.93"
 
 [dependencies]
 anyhow = { workspace = true }
 axum = { workspace = true }
 clap = { workspace = true }
 fantoccini = { workspace = true }
+futures-util = { workspace = true }
 js-bindgen-shared = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_repr = { workspace = true }
 shlex = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = [
@@ -18,6 +20,7 @@ tokio = { workspace = true, features = [
 	"net",
 	"process",
 	"rt-multi-thread",
+	"signal",
 	"sync",
 	"time",
 ] }

@@ -39,6 +39,7 @@ pub fn js_sys(attr: TokenStream, original_item: TokenStream) -> TokenStream {
 enum JsFunction {
 	Global(String),
 	Embed(String),
+	Import,
 }
 
 fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, TokenStream> {
@@ -122,7 +123,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 	while fns.peek().is_some() {
 		let mut cfg = None;
 		let mut js_sys = false;
-		let mut js_function = None;
+		let mut js_function_attr = None;
 
 		while let Some(TokenTree::Punct(p)) = fns.peek() {
 			if p.as_char() == '#' {
@@ -166,12 +167,19 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 						)?;
 						let mut inner = meta.stream().into_iter().peekable();
 
-						while inner.peek().is_some() {
-							let (ident, string) = parse_meta_name_value(&mut inner)?;
+						while let Some(token) = inner.peek() {
+							let TokenTree::Ident(ident) = token else {
+								return Err(compile_error(
+									token.span(),
+									"`js_name`, `js_embed` or `js_import`",
+								));
+							};
 
 							match ident.to_string().as_str() {
 								"js_name" => {
-									if let Some(js_function) = js_function {
+									let (ident, string) = parse_meta_name_value(&mut inner)?;
+
+									if let Some(js_function) = js_function_attr {
 										match js_function {
 											JsFunction::Global(_) => {
 												return Err(compile_error(
@@ -186,13 +194,22 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 													 same time",
 												));
 											}
+											JsFunction::Import => {
+												return Err(compile_error(
+													ident.span(),
+													"can't set `js_name` and `js_import` at the \
+													 same time",
+												));
+											}
 										}
 									}
 
-									js_function = Some(JsFunction::Global(string));
+									js_function_attr = Some(JsFunction::Global(string));
 								}
 								"js_embed" => {
-									if let Some(js_function) = js_function {
+									let (ident, string) = parse_meta_name_value(&mut inner)?;
+
+									if let Some(js_function) = js_function_attr {
 										match js_function {
 											JsFunction::Embed(_) => {
 												return Err(compile_error(
@@ -207,10 +224,58 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 													 same time",
 												));
 											}
+											JsFunction::Import => {
+												return Err(compile_error(
+													ident.span(),
+													"can't set `js_embed` and `js_import` at the \
+													 same time",
+												));
+											}
 										}
 									}
 
-									js_function = Some(JsFunction::Embed(string));
+									js_function_attr = Some(JsFunction::Embed(string));
+								}
+								"js_import" => {
+									let span = ident.span();
+									let _ = inner.next();
+
+									if let Some(js_function) = js_function_attr {
+										match js_function {
+											JsFunction::Import => {
+												return Err(compile_error(
+													span,
+													"found duplicate `js_import` attributes",
+												));
+											}
+											JsFunction::Embed(_) => {
+												return Err(compile_error(
+													span,
+													"can't set `js_import` and `js_embed` at the \
+													 same time",
+												));
+											}
+											JsFunction::Global(_) => {
+												return Err(compile_error(
+													span,
+													"can't set `js_import` and `js_name` at the \
+													 same time",
+												));
+											}
+										}
+									}
+
+									if inner.peek().is_some() {
+										expect_punct(
+											&mut inner,
+											',',
+											span,
+											"a `,` after an attribute",
+											false,
+										)?;
+									}
+
+									js_function_attr = Some(JsFunction::Import);
 								}
 								_ => {
 									return Err(compile_error(
@@ -408,79 +473,89 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 			Punct::new(';', Spacing::Alone).into(),
 		]);
 
-		let js_function_name = match &js_function {
-			Some(JsFunction::Global(js_name)) => {
-				if let Some(namespace) = &namespace {
-					format!("globalThis.{namespace}.{js_name}")
-				} else {
-					format!("globalThis.{js_name}")
-				}
+		let js_function_name = match &js_function_attr {
+			Some(JsFunction::Global(js_name)) => Cow::Owned(if let Some(namespace) = &namespace {
+				format!("globalThis.{namespace}.{js_name}")
+			} else {
+				format!("globalThis.{js_name}")
+			}),
+			Some(JsFunction::Embed(js_name)) => {
+				Cow::Owned(format!("jsEmbed.{package}[\"{js_name}\"]"))
 			}
-			Some(JsFunction::Embed(js_name)) => format!("jsEmbed.{package}[\"{js_name}\"]"),
-			None => format!("globalThis.{namespace_import_name}"),
+			Some(JsFunction::Import) => Cow::Borrowed(namespace_import_name.as_ref()),
+			None => Cow::Owned(format!("globalThis.{namespace_import_name}")),
 		};
 
-		let mut js_parms = String::new();
+		let js_function = if parms.is_empty() {
+			vec![Literal::string(&js_function_name).into()]
+		} else if let Some(JsFunction::Global(_) | JsFunction::Embed(_)) | None = &js_function_attr
+		{
+			let mut js_parms = String::new();
 
-		for Parameter { name_string, .. } in &parms {
-			if js_parms.is_empty() {
-				js_parms.push_str(name_string);
-			} else {
-				js_parms.extend([", ", name_string]);
+			for Parameter { name_string, .. } in &parms {
+				if js_parms.is_empty() {
+					js_parms.push_str(name_string);
+				} else {
+					js_parms.extend([", ", name_string]);
+				}
 			}
-		}
 
-		let js_select_list = js_select_parms(&js_sys_path, parms.iter());
+			let js_select_list = js_select_parms(&js_sys_path, parms.iter());
 
-		let parms_fmt: String = parms.iter().map(|_| "{}{}{}").collect();
-		let parms_conv = [
-			Literal::string(&format!("{{}}{parms_fmt}{{}}")).into(),
-			Punct::new(',', Spacing::Alone).into(),
-		]
-		.into_iter()
-		.chain(select(
-			&js_sys_path,
-			&js_function_name,
-			iter::once(Literal::string(&format!("({js_parms}) => {{\n")).into()),
-			js_select_list.clone(),
-			name.span(),
-		))
-		.chain(parms.iter().flat_map(|p| {
-			select(
-				&js_sys_path,
-				"",
-				iter::once(Literal::string(&format!("\t{}", p.name_string)).into()),
-				js_select_parms(&js_sys_path, iter::once(p)),
-				p.ty_span,
-			)
+			let parms_fmt: String = parms.iter().map(|_| "{}{}{}").collect();
+
+			[
+				Literal::string(&format!("{{}}{parms_fmt}{{}}")).into(),
+				Punct::new(',', Spacing::Alone).into(),
+			]
+			.into_iter()
 			.chain(select(
 				&js_sys_path,
-				"",
-				js_sys_hazard(&p.ty, &js_sys_path, "Input", "JS_CONV", p.ty_span),
-				js_select_parms(&js_sys_path, iter::once(p)),
-				p.ty_span,
+				&js_function_name,
+				iter::once(Literal::string(&format!("({js_parms}) => {{\n")).into()),
+				js_select_list.clone(),
+				name.span(),
 			))
-			.chain(select(
-				&js_sys_path,
-				"",
-				iter::once(Literal::string("\n").into()),
-				js_select_parms(&js_sys_path, iter::once(p)),
-				p.ty_span,
-			))
-		}))
-		.chain(select(
-			&js_sys_path,
-			"",
-			iter::once(
-				Literal::string(&format!(
-					"\t{}{js_function_name}({js_parms})\n}}",
-					if ret_ty.is_some() { "return " } else { "" }
+			.chain(parms.iter().flat_map(|p| {
+				select(
+					&js_sys_path,
+					"",
+					iter::once(Literal::string(&format!("\t{}", p.name_string)).into()),
+					js_select_parms(&js_sys_path, iter::once(p)),
+					p.ty_span,
+				)
+				.chain(select(
+					&js_sys_path,
+					"",
+					js_sys_hazard(&p.ty, &js_sys_path, "Input", "JS_CONV", p.ty_span),
+					js_select_parms(&js_sys_path, iter::once(p)),
+					p.ty_span,
 				))
-				.into(),
-			),
-			js_select_list,
-			name.span(),
-		));
+				.chain(select(
+					&js_sys_path,
+					"",
+					iter::once(Literal::string("\n").into()),
+					js_select_parms(&js_sys_path, iter::once(p)),
+					p.ty_span,
+				))
+			}))
+			.chain(select(
+				&js_sys_path,
+				"",
+				iter::once(
+					Literal::string(&format!(
+						"\t{}{js_function_name}({js_parms})\n}}",
+						if ret_ty.is_some() { "return " } else { "" }
+					))
+					.into(),
+				),
+				js_select_list,
+				name.span(),
+			))
+			.collect()
+		} else {
+			Vec::new()
+		};
 
 		let import_js = path_with_js_sys(&js_sys_path, ["js_bindgen", "import_js"], name.span())
 			.chain([
@@ -496,31 +571,24 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 						]
 						.into_iter()
 						.chain(
-							js_function
+							js_function_attr
 								.as_ref()
 								.into_iter()
-								.filter_map(|f| {
-									if let JsFunction::Embed(n) = f {
-										Some(n)
-									} else {
-										None
-									}
-								})
-								.flat_map(|js_name| {
-									[
+								.filter_map(|f| match f {
+									JsFunction::Embed(js_name) => Some(vec![
 										Ident::new("required_embed", name.span()).into(),
 										Punct::new('=', Spacing::Alone).into(),
 										Literal::string(js_name).into(),
 										Punct::new(',', Spacing::Alone).into(),
-									]
-								}),
+									]),
+									JsFunction::Import => {
+										Some(vec![Ident::new("no_import", name.span()).into()])
+									}
+									JsFunction::Global(_) => None,
+								})
+								.flatten(),
 						)
-						.chain(if parms.is_empty() {
-							drop(parms_conv);
-							vec![Literal::string(&js_function_name).into()]
-						} else {
-							parms_conv.collect()
-						}),
+						.chain(js_function),
 					),
 				)
 				.into(),
