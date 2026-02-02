@@ -316,7 +316,7 @@ impl ChildWrapper {
 
 		if !stdout.is_empty() {
 			eprintln!(
-				"------ llvm-mc stdout ------\n{}",
+				"------ webdriver stdout ------\n{}",
 				String::from_utf8_lossy(&stdout)
 			);
 
@@ -330,7 +330,7 @@ impl ChildWrapper {
 
 		if !stderr.is_empty() {
 			eprintln!(
-				"------ llvm-mc stderr ------\n{}",
+				"------ webdriver stderr ------\n{}",
 				String::from_utf8_lossy(&stderr)
 			);
 
