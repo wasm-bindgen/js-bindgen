@@ -54,7 +54,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(String, String)> {
 		resolver = "2"
 
 		[dependencies]
-		js-sys = {{ path = "{}" }}
+		js-sys = {{ path = '{}' }}
 		"#,
 		js_sys.display(),
 	);
