@@ -31,12 +31,12 @@ use wasmparser::{Parser as WasmParser, Payload};
 
 use crate::driver::Driver;
 
-const NODE_RUNNER: &str = include_str!("../js/node-runner.mjs");
-const BROWSER_RUNNER: &str = include_str!("../js/browser-runner.mjs");
-const RUNNER_CORE: &str = include_str!("../js/runner-core.mjs");
-const SHARED_JS: &str = include_str!("../js/shared.mjs");
-const WORKER_RUNNER: &str = include_str!("../js/worker-runner.mjs");
-const CONSOLE_HOOK: &str = include_str!("../js/console-hook.mjs");
+const NODE_RUNNER: &str = include_str!("js/node-runner.mjs");
+const BROWSER_RUNNER: &str = include_str!("js/browser-runner.mjs");
+const RUNNER_CORE: &str = include_str!("js/runner-core.mjs");
+const SHARED_JS: &str = include_str!("js/shared.mjs");
+const WORKER_RUNNER: &str = include_str!("js/worker-runner.mjs");
+const CONSOLE_HOOK: &str = include_str!("js/console-hook.mjs");
 
 /// Possible values for the `--format` option.
 #[derive(Clone, Copy, ValueEnum)]
@@ -477,7 +477,7 @@ impl BrowserAssets {
 		let import_js = ReadFile::new(imports_path)?;
 
 		let index_html = format!(
-			include_str!("../js/index.html"),
+			include_str!("js/index.html"),
 			filtered_count = filtered_count,
 			no_capture_flag = if no_capture { "true" } else { "false" },
 			worker = if let Some(worker) = worker {
