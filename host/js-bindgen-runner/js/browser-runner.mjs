@@ -11,15 +11,15 @@ export async function runBrowser({ noCapture, filtered, worker }) {
 
 	let result = worker
 		? await runInWorker({
-			noCapture,
-			filtered,
-			worker,
-			baseLog,
-			baseError,
-			baseWarn,
-			baseInfo,
-			baseDebug,
-		})
+				noCapture,
+				filtered,
+				worker,
+				baseLog,
+				baseError,
+				baseWarn,
+				baseInfo,
+				baseDebug,
+			})
 		: await runInWindow({ noCapture, filtered, consoleHook })
 
 	return result
@@ -72,7 +72,6 @@ async function runInWorker({
 	baseInfo,
 	baseDebug,
 }) {
-
 	function handleMessage(event) {
 		const data = event.data || {}
 		if (data.type === "user-output") {
@@ -187,7 +186,7 @@ async function runServiceWorker({ filtered, noCapture, handleMessage }) {
 		if (!sessionStorage.getItem("jbtest-sw-reload")) {
 			sessionStorage.setItem("jbtest-sw-reload", "1")
 			location.reload()
-			return new Promise(() => { })
+			return new Promise(() => {})
 		}
 		throw new Error("service worker not controlling the page")
 	}

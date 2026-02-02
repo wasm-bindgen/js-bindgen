@@ -51,14 +51,11 @@ async function execute(port, { noCapture, filtered }) {
 }
 
 const isServiceWorker =
-	typeof ServiceWorkerGlobalScope !== "undefined" &&
-	self instanceof ServiceWorkerGlobalScope
+	typeof ServiceWorkerGlobalScope !== "undefined" && self instanceof ServiceWorkerGlobalScope
 const isSharedWorker =
-	typeof SharedWorkerGlobalScope !== "undefined" &&
-	self instanceof SharedWorkerGlobalScope
+	typeof SharedWorkerGlobalScope !== "undefined" && self instanceof SharedWorkerGlobalScope
 const isDedicatedWorker =
-	typeof DedicatedWorkerGlobalScope !== "undefined" &&
-	self instanceof DedicatedWorkerGlobalScope
+	typeof DedicatedWorkerGlobalScope !== "undefined" && self instanceof DedicatedWorkerGlobalScope
 
 if (isServiceWorker) {
 	self.addEventListener("message", event => {
