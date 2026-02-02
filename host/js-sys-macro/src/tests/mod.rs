@@ -145,7 +145,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(String, String)> {
 			filenames,
 			..
 		}) = message?
-			&& src_path == src
+			&& src_path.canonicalize()? == src.canonicalize()?
 		{
 			for filename in filenames {
 				js_bindgen_ld_shared::ld_input_parser(filename.as_os_str(), |_, data| {
