@@ -44,3 +44,36 @@ jobs:
           llvm-version: 21
       - name: Run Tests
         run: cargo test --no-fail-fast
+
+  client:
+    name: Test Client ${{ matrix.os.description }}
+
+    runs-on: ${{ matrix.os.os }}
+
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - { os: ubuntu-latest, description: Linux }
+          - { os: macos-latest, description: MacOS }
+          - { os: windows-latest, description: Windows }
+
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup target add wasm32-unknown-unknown
+      - name: Install LLVM
+        uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
+        with:
+          # Rustc v1.93
+          llvm-version: 21
+      - name: Run Tests
+        run: cargo test --target wasm32-unknown-unknown --no-fail-fast --workspace
+

@@ -92,7 +92,8 @@ fn main() {
 		js_bindgen_ld_shared::ld_input_parser::<Infallible>(input, |path, data| {
 			process_object(&arch_str, &mut add_args, path, data);
 			Ok(())
-		});
+		})
+		.unwrap();
 	}
 
 	let status = Command::new("rust-lld")
@@ -407,10 +408,10 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 		"missing JS embed: {expected_embed:?}"
 	);
 
-	let mut js_output = BufWriter::new(
-		File::create(output_path.with_file_name(package).with_extension("js"))
-			.expect("output JS file should be writable"),
-	);
+	// We also need a js file with a fingerprint, otherwise the test files might overwrite each other.
+	let js_output_path = output_path.with_extension("js");
+	let mut js_output =
+		BufWriter::new(File::create(&js_output_path).expect("output JS file should be writable"));
 
 	// Create our `WebAssembly.Memory`.
 	js_output
@@ -497,6 +498,14 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 	js_output.write_all(b"}\n").unwrap();
 
 	js_output.into_inner().unwrap().sync_all().unwrap();
+
+	// After the linker is done, Cargo copies the final output to be the name of the package without the fingerprint. We do the same for the JS file.
+	// TODO: Skip when detecting test.
+	fs::copy(
+		js_output_path,
+		output_path.with_file_name(package).with_extension("js"),
+	)
+	.expect("copy JS file should be success");
 
 	wasm_output
 }

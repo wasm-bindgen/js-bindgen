@@ -1,11 +1,12 @@
 [package]
 edition = { workspace = true }
-license = { workspace = true }
-name = "web-sys"
+name = "js-bindgen-test"
+
 rust-version = { workspace = true }
 
 [dependencies]
+js-bindgen-test-macro = { workspace = true }
 js-sys = { workspace = true }
 
-[dev-dependencies]
-js-bindgen-test = { workspace = true }
+[lints]
+workspace = true
