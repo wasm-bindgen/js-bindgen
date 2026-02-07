@@ -49,8 +49,6 @@ wasm-encoder = { version = "0.244", default-features = false, features = ["wasmp
 wasmparser = { version = "0.244", default-features = false }
 
 [patch.crates-io]
-# Detect unsupported platforms at run-time: https://github.com/RazrFalcon/memmap2-rs/pull/161.
-memmap2 = { git = "https://github.com/RazrFalcon/memmap2-rs", rev = "01273a7c4ae1fbe2b119c35399ae2d34dddf488e" }
 # Proc-macro bug: https://github.com/oli-obk/ui_test/issues/361.
 ui_test = { git = "https://github.com/daxpedda/ui_test", branch = "js-bindgen" }
 
