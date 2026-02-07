@@ -4,6 +4,7 @@
 
 extern crate alloc;
 
+mod array;
 mod externref;
 pub mod hazard;
 #[doc(hidden)]
@@ -11,12 +12,14 @@ pub mod r#macro;
 mod numeric;
 mod panic;
 mod string;
+mod util;
 
 use core::marker::PhantomData;
 
 pub use js_bindgen;
 pub use js_sys_macro::js_sys;
 
+pub use crate::array::JsArray;
 use crate::externref::EXTERNREF_TABLE;
 use crate::hazard::{Input, Output};
 pub use crate::panic::{UnwrapThrowExt, panic};

@@ -12,7 +12,8 @@ use std::{env, fs};
 use hashbrown::{HashMap, HashSet};
 use itertools::{Itertools, Position};
 use js_bindgen_ld_shared::{
-	JsBindgenImportSection, JsBindgenImportSectionParser, JsBindgenPlainSectionParser,
+	JsBindgenAssemblySectionParser, JsBindgenEmbedSection, JsBindgenEmbedSectionParser,
+	JsBindgenImportSection, JsBindgenImportSectionParser,
 };
 use js_bindgen_shared::ReadFile;
 use wasm_encoder::{EntityType, ImportSection, Module, RawSection, Section};
@@ -147,7 +148,7 @@ fn process_object(
 		if let Payload::CustomSection(c) = payload
 			&& c.name() == "js_bindgen.assembly"
 		{
-			for assembly in JsBindgenPlainSectionParser::new(c) {
+			for assembly in JsBindgenAssemblySectionParser::new(c) {
 				file_counter += 1;
 				let asm_path = archive_path.with_added_extension(format!("asm.{file_counter}.o"));
 
@@ -267,12 +268,12 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 					.next()
 					.unwrap_or_else(|| panic!("found no JS import for `{module}:{name}`"));
 
-				if let Some(new_js) = parser.next() {
+				if let Some(import_new) = parser.next() {
 					panic!(
 						"found multiple JS imports for `{module}:{name}`\n\tJS Import \
 						 1:\n{:?}\n\tJS Import 2:\n{:?}",
 						import.js(),
-						new_js.js(),
+						import_new.js(),
 					);
 				}
 
@@ -285,7 +286,7 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 						.entry(module)
 						.or_default()
 						.insert(name, import.js());
-				} else if let Some(js_old) = provided_import
+				} else if let Some(import_old) = provided_import
 					.entry_ref(module)
 					.or_default()
 					.insert(name, import.js())
@@ -293,7 +294,7 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 					panic!(
 						"found multiple JS imports for `{module}:{name}`\n\tJS Import \
 						 1:\n{:?}\n\tJS Import 2:\n{:?}",
-						js_old,
+						import_old,
 						import.js()
 					);
 				}
@@ -315,22 +316,23 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 				}
 			}
 			// Extract all JS embeds.
-			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.js.") => {
-				let stripped = c.name().strip_prefix("js_bindgen.js.").unwrap();
+			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.embed.") => {
+				let stripped = c.name().strip_prefix("js_bindgen.embed.").unwrap();
 				let (module, name) = stripped.split_once('.').unwrap_or_else(|| {
 					panic!("found incorrectly formatted JS import custom section name: {stripped}")
 				});
 
-				let mut parser = JsBindgenPlainSectionParser::new(c);
-				let js = parser
+				let mut parser = JsBindgenEmbedSectionParser::new(c);
+				let embed = parser
 					.next()
 					.unwrap_or_else(|| panic!("found no JS embed for `{module}:{name}`"));
 
-				if let Some(new_js) = parser.next() {
+				if let Some(embed_new) = parser.next() {
 					panic!(
 						"found multiple JS embeds for `{module}:{name}`\n\tJS Embed 1:\n{}\n\tJS \
 						 Embed 2:\n{}",
-						js, new_js,
+						embed.js(),
+						embed_new.js(),
 					);
 				}
 
@@ -339,17 +341,37 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 					.map(|names| names.remove(name))
 					.unwrap_or_default()
 				{
-					found_embed.entry(module).or_default().insert(name, js);
-				} else if let Some(js_old) = provided_embed
+					found_embed
+						.entry(module)
+						.or_default()
+						.insert(name, embed.js());
+				} else if let Some(embed_old) = provided_embed
 					.entry_ref(module)
 					.or_default()
-					.insert(name, js)
+					.insert(name, embed.js())
 				{
 					panic!(
 						"found multiple JS embeds for `{module}:{name}`\n\tJS Embed 1:\n{}\n\tJS \
 						 Embed 2:\n{}",
-						js_old, js
+						embed_old,
+						embed.js()
 					);
+				}
+
+				if let JsBindgenEmbedSection::WithEmbed { embed, .. } = embed {
+					if found_embed
+						.get_mut(module)
+						.map(|names| names.contains_key(embed))
+						.unwrap_or(false)
+					{
+					} else if let Some(code) = provided_embed
+						.get_mut(module)
+						.and_then(|names| names.remove(embed))
+					{
+						found_embed.entry(module).or_default().insert(embed, code);
+					} else {
+						expected_embed.entry(module).or_default().insert(embed);
+					}
 				}
 			}
 			Payload::CodeSectionEntry(_) | Payload::End(_) => (),

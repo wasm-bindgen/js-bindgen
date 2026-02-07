@@ -53,8 +53,28 @@ fn embed_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let name = expect_meta_name_value(&mut input, "name")?;
 
 	let mut data = Vec::new();
+
+	let embed = if let Some(TokenTree::Ident(_)) = input.peek() {
+		expect_meta_name_value(&mut input, "js_embed")?
+	} else {
+		String::new()
+	};
+
+	let mut embed_data = Vec::new();
+	embed_data.extend_from_slice(
+		&u16::try_from(embed.len())
+			.expect("`js_embed` name too long")
+			.to_le_bytes(),
+	);
+	embed_data.append(&mut embed.into_bytes());
+
+	data.push(Argument {
+		cfg: None,
+		kind: ArgumentKind::Bytes(embed_data),
+	});
+
 	parse_string_arguments(&mut input, Span::mixed_site(), &mut data)?;
-	let output = custom_section(&format!("js_bindgen.js.{package}.{name}"), &data);
+	let output = custom_section(&format!("js_bindgen.embed.{package}.{name}"), &data);
 
 	Ok(output)
 }

@@ -4,6 +4,7 @@ use js_sys_macro::js_sys;
 
 use crate::JsValue;
 use crate::hazard::{Input, Output};
+use crate::util::PtrLength;
 
 #[repr(transparent)]
 pub struct JsString(JsValue);
@@ -11,19 +12,32 @@ pub struct JsString(JsValue);
 impl JsString {
 	#[allow(clippy::should_implement_trait)]
 	pub fn from_str(string: &str) -> Self {
-		#[cfg(target_arch = "wasm32")]
-		let len = string.len();
-		#[cfg(target_arch = "wasm64")]
-		let len = {
-			let len = string.len();
-			debug_assert!(
-				string.as_ptr() as usize + len < 0x20000000000000,
-				"found pointer + string length bigger than `Number.MAX_SAFE_INTEGER`"
-			);
-			len as f64
-		};
+		js_bindgen::embed_js!(
+			name = "string.decode",
+			"(ptr, len) => {{",
+			"	const decoder = new TextDecoder(\"utf-8\", {{",
+			"		fatal: false,",
+			"		ignoreBOM: false,",
+			"	}})",
+			#[cfg(not(target_feature = "atomics"))]
+			"	const view = new Uint8Array(memory.buffer, ptr, len)",
+			#[cfg(target_feature = "atomics")]
+			"	const view = new Uint8Array(memory.buffer).slice(ptr, ptr + len)",
+			"",
+			"	return decoder.decode(view)",
+			"}}",
+		);
 
-		string_decode(string.as_ptr(), len)
+		#[js_sys(js_sys = crate)]
+		extern "C" {
+			#[js_sys(js_embed = "string.decode")]
+			fn string_decode(array: *const u8, len: PtrLength) -> JsString;
+		}
+
+		string_decode(
+			string.as_ptr(),
+			PtrLength::new(string.as_ptr(), string.len()),
+		)
 	}
 }
 
@@ -59,31 +73,4 @@ unsafe impl Output for JsString {
 	fn from_raw(raw: Self::Type) -> Self {
 		Self(JsValue::from_raw(raw))
 	}
-}
-
-js_bindgen::embed_js!(
-	name = "string.decode",
-	"(ptr, len) => {{",
-	"	const decoder = new TextDecoder(\"utf-8\", {{",
-	"		fatal: false,",
-	"		ignoreBOM: false,",
-	"	}})",
-	#[cfg(not(target_feature = "atomics"))]
-	"	const view = new Uint8Array(memory.buffer, ptr, len)",
-	#[cfg(target_feature = "atomics")]
-	"	const view = new Uint8Array(memory.buffer).slice(ptr, ptr + len)",
-	"",
-	"	return decoder.decode(view)",
-	"}}",
-);
-
-#[js_sys(js_sys = crate)]
-extern "C" {
-	#[cfg(target_arch = "wasm32")]
-	#[js_sys(js_embed = "string.decode")]
-	fn string_decode(array: *const u8, len: usize) -> JsString;
-
-	#[cfg(target_arch = "wasm64")]
-	#[js_sys(js_embed = "string.decode")]
-	fn string_decode(array: *const u8, len: f64) -> JsString;
 }

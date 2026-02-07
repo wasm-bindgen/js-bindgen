@@ -42,7 +42,7 @@ unsafe impl Input for f64 {
 	}
 }
 
-unsafe impl Input for *const u8 {
+unsafe impl<T> Input for *const T {
 	#[cfg(target_arch = "wasm32")]
 	const IMPORT_TYPE: &str = "i32";
 	#[cfg(target_arch = "wasm64")]
