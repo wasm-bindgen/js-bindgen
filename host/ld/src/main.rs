@@ -12,7 +12,8 @@ use std::{env, fs};
 use hashbrown::{HashMap, HashSet};
 use itertools::{Itertools, Position};
 use js_bindgen_ld_shared::{
-	JsBindgenImportSection, JsBindgenImportSectionParser, JsBindgenPlainSectionParser,
+	JsBindgenAssemblySectionParser, JsBindgenEmbedSection, JsBindgenEmbedSectionParser,
+	JsBindgenImportSection, JsBindgenImportSectionParser,
 };
 use js_bindgen_shared::ReadFile;
 use wasm_encoder::{EntityType, ImportSection, Module, RawSection, Section};
@@ -21,7 +22,8 @@ use wasmparser::{Encoding, Parser, Payload, TypeRef};
 use crate::wasm_ld::WasmLdArguments;
 
 fn main() {
-	let args: Vec<_> = env::args_os().collect();
+	let args = argfile::expand_args_from(env::args_os(), argfile::parse_response, argfile::PREFIX)
+		.unwrap();
 	let wasm_ld_args = WasmLdArguments::new(&args[1..]);
 
 	if wasm_ld_args
@@ -147,7 +149,7 @@ fn process_object(
 		if let Payload::CustomSection(c) = payload
 			&& c.name() == "js_bindgen.assembly"
 		{
-			for assembly in JsBindgenPlainSectionParser::new(c) {
+			for assembly in JsBindgenAssemblySectionParser::new(c) {
 				file_counter += 1;
 				let asm_path = archive_path.with_added_extension(format!("asm.{file_counter}.o"));
 
@@ -267,12 +269,12 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 					.next()
 					.unwrap_or_else(|| panic!("found no JS import for `{module}:{name}`"));
 
-				if let Some(new_js) = parser.next() {
+				if let Some(import_new) = parser.next() {
 					panic!(
 						"found multiple JS imports for `{module}:{name}`\n\tJS Import \
 						 1:\n{:?}\n\tJS Import 2:\n{:?}",
 						import.js(),
-						new_js.js(),
+						import_new.js(),
 					);
 				}
 
@@ -285,7 +287,7 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 						.entry(module)
 						.or_default()
 						.insert(name, import.js());
-				} else if let Some(js_old) = provided_import
+				} else if let Some(import_old) = provided_import
 					.entry_ref(module)
 					.or_default()
 					.insert(name, import.js())
@@ -293,7 +295,7 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 					panic!(
 						"found multiple JS imports for `{module}:{name}`\n\tJS Import \
 						 1:\n{:?}\n\tJS Import 2:\n{:?}",
-						js_old,
+						import_old,
 						import.js()
 					);
 				}
@@ -315,22 +317,23 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 				}
 			}
 			// Extract all JS embeds.
-			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.js.") => {
-				let stripped = c.name().strip_prefix("js_bindgen.js.").unwrap();
+			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.embed.") => {
+				let stripped = c.name().strip_prefix("js_bindgen.embed.").unwrap();
 				let (module, name) = stripped.split_once('.').unwrap_or_else(|| {
 					panic!("found incorrectly formatted JS import custom section name: {stripped}")
 				});
 
-				let mut parser = JsBindgenPlainSectionParser::new(c);
-				let js = parser
+				let mut parser = JsBindgenEmbedSectionParser::new(c);
+				let embed = parser
 					.next()
 					.unwrap_or_else(|| panic!("found no JS embed for `{module}:{name}`"));
 
-				if let Some(new_js) = parser.next() {
+				if let Some(embed_new) = parser.next() {
 					panic!(
 						"found multiple JS embeds for `{module}:{name}`\n\tJS Embed 1:\n{}\n\tJS \
 						 Embed 2:\n{}",
-						js, new_js,
+						embed.js(),
+						embed_new.js(),
 					);
 				}
 
@@ -339,17 +342,37 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 					.map(|names| names.remove(name))
 					.unwrap_or_default()
 				{
-					found_embed.entry(module).or_default().insert(name, js);
-				} else if let Some(js_old) = provided_embed
+					found_embed
+						.entry(module)
+						.or_default()
+						.insert(name, embed.js());
+				} else if let Some(embed_old) = provided_embed
 					.entry_ref(module)
 					.or_default()
-					.insert(name, js)
+					.insert(name, embed.js())
 				{
 					panic!(
 						"found multiple JS embeds for `{module}:{name}`\n\tJS Embed 1:\n{}\n\tJS \
 						 Embed 2:\n{}",
-						js_old, js
+						embed_old,
+						embed.js()
 					);
+				}
+
+				if let JsBindgenEmbedSection::WithEmbed { embed, .. } = embed {
+					if found_embed
+						.get_mut(module)
+						.map(|names| names.contains_key(embed))
+						.unwrap_or(false)
+					{
+					} else if let Some(code) = provided_embed
+						.get_mut(module)
+						.and_then(|names| names.remove(embed))
+					{
+						found_embed.entry(module).or_default().insert(embed, code);
+					} else {
+						expected_embed.entry(module).or_default().insert(embed);
+					}
 				}
 			}
 			Payload::CodeSectionEntry(_) | Payload::End(_) => (),
@@ -383,9 +406,14 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 	let mut js_output =
 		BufWriter::new(File::create(&js_output_path).expect("output JS file should be writable"));
 
+	// Create our `importObjectCreator`.
+	js_output
+		.write_all(b"export default function() {\n")
+		.unwrap();
+
 	// Create our `WebAssembly.Memory`.
 	js_output
-		.write_all(b"const memory = new WebAssembly.Memory({ ")
+		.write_all(b"\tconst memory = new WebAssembly.Memory({ ")
 		.unwrap();
 
 	if memory.memory64 {
@@ -414,64 +442,64 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 
 	// Output requested embedded JS.
 	if !found_embed.is_empty() {
-		js_output.write_all(b"const jsEmbed = {\n").unwrap();
+		js_output.write_all(b"\tconst jsEmbed = {\n").unwrap();
 
 		for (package, embeds) in found_embed {
-			writeln!(js_output, "\t{package}: {{").unwrap();
+			writeln!(js_output, "\t\t{package}: {{").unwrap();
 
 			for (name, js) in embeds {
-				write!(js_output, "\t\t\"{name}\": ").unwrap();
+				write!(js_output, "\t\t\t\"{name}\": ").unwrap();
 
 				for (position, line) in js.lines().with_position() {
 					js_output.write_all(line.as_bytes()).unwrap();
 
 					if let Position::First | Position::Middle = position {
-						js_output.write_all(b"\n\t\t").unwrap();
+						js_output.write_all(b"\n\t\t\t").unwrap();
 					}
 				}
 
 				js_output.write_all(b",\n").unwrap();
 			}
 
-			js_output.write_all(b"\t},\n").unwrap();
+			js_output.write_all(b"\t\t},\n").unwrap();
 		}
 
-		js_output.write_all(b"}\n\n").unwrap();
+		js_output.write_all(b"\t}\n\n").unwrap();
 	}
 
-	// Create our `importObject`.
+	js_output.write_all(b"\treturn {\n").unwrap();
 	js_output
-		.write_all(b"export default function() { return {\n")
+		.write_all(b"\t\tjs_bindgen: { memory },\n")
 		.unwrap();
-	js_output.write_all(b"\tjs_bindgen: { memory },\n").unwrap();
 
 	for (module, names) in found_import
 		.into_iter()
 		.filter(|(_, names)| !names.values().all(Option::is_none))
 	{
-		writeln!(js_output, "\t{module}: {{").unwrap();
+		writeln!(js_output, "\t\t{module}: {{").unwrap();
 
 		for (name, js) in names
 			.into_iter()
 			.filter_map(|(name, js)| js.map(|js| (name, js)))
 		{
-			write!(js_output, "\t\t\"{name}\": ").unwrap();
+			write!(js_output, "\t\t\t\"{name}\": ").unwrap();
 
 			for (position, line) in js.lines().with_position() {
 				js_output.write_all(line.as_bytes()).unwrap();
 
 				if let Position::First | Position::Middle = position {
-					js_output.write_all(b"\n\t\t").unwrap();
+					js_output.write_all(b"\n\t\t\t").unwrap();
 				}
 			}
 
 			js_output.write_all(b",\n").unwrap();
 		}
 
-		js_output.write_all(b"\t},\n").unwrap();
+		js_output.write_all(b"\t\t},\n").unwrap();
 	}
 
-	js_output.write_all(b"} }\n").unwrap();
+	js_output.write_all(b"\t}\n").unwrap();
+	js_output.write_all(b"}\n").unwrap();
 
 	js_output.into_inner().unwrap().sync_all().unwrap();
 

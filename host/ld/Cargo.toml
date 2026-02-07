@@ -5,6 +5,7 @@ name = "js-bindgen-ld"
 rust-version = "1.91"
 
 [dependencies]
+argfile = { workspace = true }
 hashbrown = { workspace = true }
 itertools = { workspace = true }
 js-bindgen-ld-shared = { workspace = true }

@@ -486,75 +486,77 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 			None => Cow::Owned(format!("globalThis.{namespace_import_name}")),
 		};
 
-		let js_function = if parms.is_empty() {
-			vec![Literal::string(&js_function_name).into()]
-		} else if let Some(JsFunction::Global(_) | JsFunction::Embed(_)) | None = &js_function_attr
-		{
-			let mut js_parms = String::new();
-
-			for Parameter { name_string, .. } in &parms {
-				if js_parms.is_empty() {
-					js_parms.push_str(name_string);
+		let js_function = match &js_function_attr {
+			Some(JsFunction::Global(_) | JsFunction::Embed(_)) | None => {
+				if parms.is_empty() {
+					vec![Literal::string(&js_function_name).into()]
 				} else {
-					js_parms.extend([", ", name_string]);
+					let mut js_parms = String::new();
+
+					for Parameter { name_string, .. } in &parms {
+						if js_parms.is_empty() {
+							js_parms.push_str(name_string);
+						} else {
+							js_parms.extend([", ", name_string]);
+						}
+					}
+
+					let js_select_list = js_select_parms(&js_sys_path, parms.iter());
+
+					let parms_fmt: String = parms.iter().map(|_| "{}{}{}").collect();
+
+					[
+						Literal::string(&format!("{{}}{parms_fmt}{{}}")).into(),
+						Punct::new(',', Spacing::Alone).into(),
+					]
+					.into_iter()
+					.chain(select(
+						&js_sys_path,
+						&js_function_name,
+						iter::once(Literal::string(&format!("({js_parms}) => {{\n")).into()),
+						js_select_list.clone(),
+						name.span(),
+					))
+					.chain(parms.iter().flat_map(|p| {
+						select(
+							&js_sys_path,
+							"",
+							iter::once(Literal::string(&format!("\t{}", p.name_string)).into()),
+							js_select_parms(&js_sys_path, iter::once(p)),
+							p.ty_span,
+						)
+						.chain(select(
+							&js_sys_path,
+							"",
+							js_sys_hazard(&p.ty, &js_sys_path, "Input", "JS_CONV", p.ty_span),
+							js_select_parms(&js_sys_path, iter::once(p)),
+							p.ty_span,
+						))
+						.chain(select(
+							&js_sys_path,
+							"",
+							iter::once(Literal::string("\n").into()),
+							js_select_parms(&js_sys_path, iter::once(p)),
+							p.ty_span,
+						))
+					}))
+					.chain(select(
+						&js_sys_path,
+						"",
+						iter::once(
+							Literal::string(&format!(
+								"\t{}{js_function_name}({js_parms})\n}}",
+								if ret_ty.is_some() { "return " } else { "" }
+							))
+							.into(),
+						),
+						js_select_list,
+						name.span(),
+					))
+					.collect()
 				}
 			}
-
-			let js_select_list = js_select_parms(&js_sys_path, parms.iter());
-
-			let parms_fmt: String = parms.iter().map(|_| "{}{}{}").collect();
-
-			[
-				Literal::string(&format!("{{}}{parms_fmt}{{}}")).into(),
-				Punct::new(',', Spacing::Alone).into(),
-			]
-			.into_iter()
-			.chain(select(
-				&js_sys_path,
-				&js_function_name,
-				iter::once(Literal::string(&format!("({js_parms}) => {{\n")).into()),
-				js_select_list.clone(),
-				name.span(),
-			))
-			.chain(parms.iter().flat_map(|p| {
-				select(
-					&js_sys_path,
-					"",
-					iter::once(Literal::string(&format!("\t{}", p.name_string)).into()),
-					js_select_parms(&js_sys_path, iter::once(p)),
-					p.ty_span,
-				)
-				.chain(select(
-					&js_sys_path,
-					"",
-					js_sys_hazard(&p.ty, &js_sys_path, "Input", "JS_CONV", p.ty_span),
-					js_select_parms(&js_sys_path, iter::once(p)),
-					p.ty_span,
-				))
-				.chain(select(
-					&js_sys_path,
-					"",
-					iter::once(Literal::string("\n").into()),
-					js_select_parms(&js_sys_path, iter::once(p)),
-					p.ty_span,
-				))
-			}))
-			.chain(select(
-				&js_sys_path,
-				"",
-				iter::once(
-					Literal::string(&format!(
-						"\t{}{js_function_name}({js_parms})\n}}",
-						if ret_ty.is_some() { "return " } else { "" }
-					))
-					.into(),
-				),
-				js_select_list,
-				name.span(),
-			))
-			.collect()
-		} else {
-			Vec::new()
+			Some(JsFunction::Import) => Vec::new(),
 		};
 
 		let import_js = path_with_js_sys(&js_sys_path, ["js_bindgen", "import_js"], name.span())

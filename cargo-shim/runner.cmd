@@ -1,6 +1,10 @@
 #!/usr/bin/env -S DUMMY=2>NUL sh
 :; # A very quirky solution to make things run cross-platform.
 
+:; # We explicitely specify `+stable` because even if we run client packages with Nightly,
+:; # we never want to run the linker on Nightly. Unless we are testing the linker,
+:; # in which case we don't go through the shim.
+
 :; # UNIX
 :; # Lines starting with `:;` are ignored on Windows but are executed on UNIX.
 :; (

@@ -4,6 +4,7 @@
 - Compatibility with `wasm-bindgen`.
 - Do we agree with the new name `js-bindgen`? Maybe `web-bindgen` is the most accurate?
 - `#[js_sys]` is probably also not the ideal name.
+- Stub implementation for non-supported targets.
 - The linker shim throws a warning on Windows because of the shebang. This is a problem because we
   want to e.g. deny linker warnings. Most likely solution is [Cosmopolitan].
 
@@ -76,6 +77,7 @@
   - Pass an environment variable from a `build.rs` pointing to the target folder and go from there.
     This seems to have failed. No build script instruction can reach the linker on Wasm.
 - Memory-mapped file reading should lock files to make it safe.
+- Add diagnostics for traits when they are not implemented, e.g. `Input`/`Output`.
 
 [Fantoccini]: https://crates.io/crates/fantoccini
 [Thirtyfour]: https://crates.io/crates/thirtyfour
@@ -120,7 +122,6 @@ This is a list of upstream issues that could make our lives significantly easier
   - `quote!`: [rust-lang/rust#54722].
   - Diagnostics: [rust-lang/rust#54140].
   - Execution in non-proc-macro crates: [rust-lang/rust#130856].
-- Wasm RAB integration: [WebAssembly/spec#1292].
 - Elevate `wasm64-unknown-unknown` to tier 2: [rust-lang/rust#146944].
 - A way to flag proc-macros as `unsafe`: [rust-lang/rfcs#3715].
 - Link internal functions without exporting them: [rust-lang/rust#29603] or [rust-lang/rfcs#3834].
@@ -139,7 +140,6 @@ This is a list of upstream issues that could make our lives significantly easier
 [rust-lang/rust#54722]: https://github.com/rust-lang/rust/issues/54722
 [rust-lang/rust#54140]: https://github.com/rust-lang/rust/issues/54140
 [rust-lang/rust#130856]: https://github.com/rust-lang/rust/issues/130856
-[WebAssembly/spec#1292]: https://github.com/WebAssembly/spec/issues/1292
 [rust-lang/rust#146944]: https://github.com/rust-lang/rust/issues/146944
 [rust-lang/rfcs#3715]: https://github.com/rust-lang/rfcs/pull/3715
 [rust-lang/rust#29603]: https://github.com/rust-lang/rust/issues/29603

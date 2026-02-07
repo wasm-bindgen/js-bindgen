@@ -9,7 +9,7 @@ use std::{env, fs};
 use anyhow::{Context, Result};
 use cargo_metadata::{Artifact, CompilerMessage, Message, Target};
 use itertools::Itertools;
-use js_bindgen_ld_shared::{JsBindgenImportSectionParser, JsBindgenPlainSectionParser};
+use js_bindgen_ld_shared::{JsBindgenAssemblySectionParser, JsBindgenImportSectionParser};
 use proc_macro2::TokenStream;
 use wasmparser::{Parser, Payload};
 
@@ -164,7 +164,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(String, Option<String>)> {
 
 						match payload {
 							Payload::CustomSection(c) if c.name() == "js_bindgen.assembly" => {
-								let assembly = JsBindgenPlainSectionParser::new(c)
+								let assembly = JsBindgenAssemblySectionParser::new(c)
 									.exactly_one()
 									.map_err(|asms| {
 										anyhow::anyhow!(
