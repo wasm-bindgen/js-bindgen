@@ -462,11 +462,11 @@ fn js_embed() {
 					name = "log",
 					required_embed = "custom",
 					"{}{}{}{}{}",
-					interpolate ::js_sys::r#macro::select("this.#jsEmbed.test_crate[\"custom\"]", "(data) => {\n", [<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
+					interpolate ::js_sys::r#macro::select("this.#jsEmbed.test_crate['custom']", "(data) => {\n", [<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
 					interpolate ::js_sys::r#macro::select("", "\tdata", [<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
 					interpolate ::js_sys::r#macro::select("", <&JsValue as ::js_sys::hazard::Input>::JS_CONV, [<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
 					interpolate ::js_sys::r#macro::select("", "\n", [<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
-					interpolate ::js_sys::r#macro::select("", "\tthis.#jsEmbed.test_crate[\"custom\"](data)\n}", [<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
+					interpolate ::js_sys::r#macro::select("", "\tthis.#jsEmbed.test_crate['custom'](data)\n}", [<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
 				);
 
 				unsafe extern "C" {
@@ -492,7 +492,7 @@ fn js_embed() {
 				call test_crate.import.log
 				end_function"
 		),
-		"this.#jsEmbed.test_crate[\"custom\"]",
+		"this.#jsEmbed.test_crate['custom']",
 	);
 }
 

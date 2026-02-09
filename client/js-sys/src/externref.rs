@@ -77,7 +77,7 @@ js_bindgen::import_js!(
 
 js_bindgen::embed_js!(
 	name = "externref.table",
-	"new WebAssembly.Table({{ initial: 1, element: \"externref\" }})",
+	"new WebAssembly.Table({{ initial: 1, element: 'externref' }})",
 );
 
 unsafe extern "C" {

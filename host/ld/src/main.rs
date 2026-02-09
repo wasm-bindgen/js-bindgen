@@ -450,7 +450,7 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 		writeln!(js_output, "\t\t\t{package}: {{").unwrap();
 
 		for (name, js) in embeds {
-			write!(js_output, "\t\t\t\t\"{name}\": ").unwrap();
+			write!(js_output, "\t\t\t\t'{name}': ").unwrap();
 
 			for (position, line) in js.lines().with_position() {
 				js_output.write_all(line.as_bytes()).unwrap();
@@ -486,7 +486,7 @@ fn post_processing(output_path: &Path, main_memory: MainMemory<'_>) -> Vec<u8> {
 			.into_iter()
 			.filter_map(|(name, js)| js.map(|js| (name, js)))
 		{
-			write!(js_output, "\t\t\t\t\"{name}\": ").unwrap();
+			write!(js_output, "\t\t\t\t'{name}': ").unwrap();
 
 			for (position, line) in js.lines().with_position() {
 				js_output.write_all(line.as_bytes()).unwrap();

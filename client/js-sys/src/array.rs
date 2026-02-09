@@ -18,7 +18,7 @@ impl From<&[u32]> for JsArray<u32> {
 			name = "array.u32.decode",
 			js_embed = "array.isLittleEndian",
 			"(ptr, len) => {{",
-			"	if (this.#jsEmbed.js_sys[\"array.isLittleEndian\"]) {{",
+			"	if (this.#jsEmbed.js_sys['array.isLittleEndian']) {{",
 			"		const view = new Uint32Array(this.#memory.buffer, ptr, len)",
 			"		return Array.from(view)",
 			"	}} else {{",

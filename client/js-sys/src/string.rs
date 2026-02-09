@@ -15,7 +15,7 @@ impl JsString {
 		js_bindgen::embed_js!(
 			name = "string.decode",
 			"(ptr, len) => {{",
-			"	const decoder = new TextDecoder(\"utf-8\", {{",
+			"	const decoder = new TextDecoder('utf-8', {{",
 			"		fatal: false,",
 			"		ignoreBOM: false,",
 			"	}})",

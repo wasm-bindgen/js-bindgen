@@ -471,7 +471,7 @@ fn js_sys_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, 
 				format!("globalThis.{js_name}")
 			}),
 			Some(JsFunction::Embed(js_name)) => {
-				Cow::Owned(format!("this.#jsEmbed.{package}[\"{js_name}\"]"))
+				Cow::Owned(format!("this.#jsEmbed.{package}['{js_name}']"))
 			}
 			Some(JsFunction::Import) => Cow::Borrowed(namespace_import_name.as_ref()),
 			None => Cow::Owned(format!("globalThis.{namespace_import_name}")),
