@@ -363,9 +363,10 @@ pub fn parse_ty_or_value(
 	mut stream: &mut Peekable<token_stream::IntoIter>,
 	previous_span: Span,
 	expected: &str,
-) -> Result<(SpanRange, Vec<TokenTree>), TokenStream> {
-	let mut ty = Vec::new();
+	out: &mut Vec<TokenTree>,
+) -> Result<SpanRange, TokenStream> {
 	let mut span = SpanRange::from(previous_span);
+	let mut found = false;
 
 	if let Some(tok) = stream.peek() {
 		span.start = tok.span();
@@ -373,16 +374,21 @@ pub fn parse_ty_or_value(
 		match tok {
 			TokenTree::Punct(p) => {
 				if p.as_char() == '&' {
-					ty.push(stream.next().unwrap());
+					out.push(stream.next().unwrap());
+					found = true;
 				} else if p.as_char() == '*' {
 					let star = stream.next().unwrap();
 					let r#const =
 						expect_ident(&mut stream, "const", star.span(), "`*const`", true)?;
 					span.end = r#const.span();
-					ty.extend_from_slice(&[star, r#const.into()]);
+					out.extend_from_slice(&[star, r#const.into()]);
+					found = true;
 				}
 			}
-			TokenTree::Literal(_) => return Ok((span, vec![stream.next().unwrap()])),
+			TokenTree::Literal(_) => {
+				out.push(stream.next().unwrap());
+				return Ok(span);
+			}
 			_ => (),
 		}
 	}
@@ -391,31 +397,35 @@ pub fn parse_ty_or_value(
 		match tok {
 			TokenTree::Ident(_) | TokenTree::Group(_) => {
 				span.end = tok.span();
-				ty.push(stream.next().unwrap());
+				out.push(stream.next().unwrap());
+				found = true;
 			}
 			TokenTree::Punct(p) if p.as_char() == '<' => {
-				ty.extend(parse_angular(&mut stream, previous_span)?);
-				span.end = ty.last().unwrap().span();
+				let generic = parse_angular(&mut stream, previous_span)?;
+				out.extend(generic.1);
+				found = true;
+				span.end = generic.0.end;
 			}
 			TokenTree::Punct(p) if [':', '.', '!'].contains(&p.as_char()) => {
 				span.end = p.span();
-				ty.push(stream.next().unwrap());
+				out.push(stream.next().unwrap());
+				found = true;
 			}
 			_ => break,
 		}
 	}
 
-	if ty.is_empty() {
-		Err(compile_error(span, format!("expected {expected}")))
+	if found {
+		Ok(span)
 	} else {
-		Ok((span, ty))
+		Err(compile_error(span, format!("expected {expected}")))
 	}
 }
 
 fn parse_angular(
 	mut stream: impl Iterator<Item = TokenTree>,
 	previous_span: impl Into<SpanRange>,
-) -> Result<TokenStream, TokenStream> {
+) -> Result<(SpanRange, TokenStream), TokenStream> {
 	let opening = expect_punct(&mut stream, '<', previous_span.into(), "`<`", false)?;
 	let mut span = SpanRange::from(opening.span());
 	let mut angular: TokenStream = iter::once(TokenTree::from(opening)).collect();
@@ -439,7 +449,7 @@ fn parse_angular(
 	}
 
 	if opened == 0 {
-		Ok(angular)
+		Ok((span, angular))
 	} else {
 		Err(compile_error(span, "type not completed, missing `>`"))
 	}

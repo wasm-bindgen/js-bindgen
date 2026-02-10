@@ -2,7 +2,6 @@
 
 - `#[js_sys]`:
   - Major re-factoring
-  - External types
   - Another pass on namespacing
 - More Primitive types:
   - Expand `JsString`

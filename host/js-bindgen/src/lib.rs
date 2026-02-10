@@ -258,11 +258,16 @@ fn parse_string_arguments(
 									false,
 								)?
 								.span();
+								let mut interpolate = Vec::new();
+								parse_ty_or_value(
+									stream,
+									previous_span,
+									"a value",
+									&mut interpolate,
+								)?;
 								arguments.push(Argument {
 									cfg: cfg.clone(),
-									kind: ArgumentKind::Interpolate(
-										parse_ty_or_value(stream, previous_span, "a value")?.1,
-									),
+									kind: ArgumentKind::Interpolate(interpolate),
 								});
 
 								if stream.peek().is_some() {

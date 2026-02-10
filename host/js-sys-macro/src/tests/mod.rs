@@ -1,4 +1,5 @@
 mod function;
+mod r#type;
 
 use std::ffi::OsStr;
 use std::io::{self, Cursor};
@@ -19,7 +20,7 @@ fn test(
 	attr: TokenStream,
 	input: TokenStream,
 	expected: TokenStream,
-	assembly: &str,
+	assembly: impl Into<Option<&'static str>>,
 	js_import: impl Into<Option<&'static str>>,
 ) {
 	let output = crate::js_sys_internal(attr.clone(), input.clone()).unwrap_or_else(|e| e);
@@ -32,11 +33,19 @@ fn test(
 	similar_asserts::assert_eq!(expected, output);
 
 	let dir = tempfile::tempdir().unwrap();
-	let result = inner(dir.path(), &format!("#[js_sys({attr})]\n{input}"));
+	let (assembly_output, js_import_output) =
+		inner(dir.path(), &format!("#[js_sys({attr})]\n{input}")).unwrap();
 
-	let (assembly_output, js_import_output) = result.unwrap();
-
-	similar_asserts::assert_eq!(assembly, assembly_output);
+	let assembly = assembly.into();
+	match (assembly, assembly_output) {
+		(Some(assembly), Some(assembly_output)) => {
+			similar_asserts::assert_eq!(assembly, assembly_output);
+		}
+		(None, None) => (),
+		(assembly, assembly_output) => {
+			similar_asserts::assert_eq!(assembly, assembly_output.as_deref());
+		}
+	}
 
 	let js_import = js_import.into();
 	match (js_import, js_import_output) {
@@ -50,7 +59,7 @@ fn test(
 	}
 }
 
-fn inner(tmp: &Path, source: &str) -> Result<(String, Option<String>)> {
+fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 	let js_sys = env::current_dir()?
 		.parent()
 		.and_then(Path::parent)
@@ -212,8 +221,6 @@ fn inner(tmp: &Path, source: &str) -> Result<(String, Option<String>)> {
 			}
 		}
 	}
-
-	let assembly_output = assembly_output.context("found no assembly output")?;
 
 	Ok((assembly_output, js_import_output))
 }

@@ -1,16 +1,9 @@
 use core::marker::PhantomData;
-use core::ops::Deref;
 
 use js_sys_macro::js_sys;
 
 use crate::JsValue;
-use crate::hazard::{Input, Output};
 use crate::util::PtrLength;
-
-pub struct JsArray<T = JsValue> {
-	value: JsValue,
-	_type: PhantomData<T>,
-}
 
 impl<T> JsArray<T> {
 	#[must_use]
@@ -42,52 +35,7 @@ impl From<&[u32]> for JsArray<u32> {
 			"}}",
 		);
 
-		#[js_sys(js_sys = crate)]
-		extern "C" {
-			#[js_sys(js_embed = "array.u32.decode")]
-			fn array_u32_decode(array: *const u32, len: PtrLength) -> JsArray<u32>;
-		}
-
 		array_u32_decode(value.as_ptr(), PtrLength::new(value.as_ptr(), value.len()))
-	}
-}
-
-impl<T> Deref for JsArray<T> {
-	type Target = JsValue;
-
-	fn deref(&self) -> &Self::Target {
-		&self.value
-	}
-}
-
-// SAFETY: TODO
-unsafe impl<T> Input for &JsArray<T> {
-	const IMPORT_FUNC: &'static str = ".functype js_sys.externref.get (i32) -> (externref)";
-	const IMPORT_TYPE: &'static str = "externref";
-	const TYPE: &'static str = "i32";
-	const CONV: &'static str = "call js_sys.externref.get";
-
-	type Type = i32;
-
-	fn into_raw(self) -> Self::Type {
-		self.value.into_raw()
-	}
-}
-
-// SAFETY: TODO
-unsafe impl<T> Output for JsArray<T> {
-	const IMPORT_FUNC: &str = ".functype js_sys.externref.insert (externref) -> (i32)";
-	const IMPORT_TYPE: &str = "externref";
-	const TYPE: &str = "i32";
-	const CONV: &str = "call js_sys.externref.insert";
-
-	type Type = i32;
-
-	fn from_raw(raw: Self::Type) -> Self {
-		Self {
-			value: JsValue::from_raw(raw),
-			_type: PhantomData,
-		}
 	}
 }
 
@@ -99,3 +47,11 @@ js_bindgen::embed_js!(
 	"	return new Int16Array(buffer)[0] === 256;",
 	"}})()",
 );
+
+#[js_sys(js_sys = crate)]
+extern "C" {
+	pub type JsArray<T = JsValue>;
+
+	#[js_sys(js_embed = "array.u32.decode")]
+	fn array_u32_decode(array: *const u32, len: PtrLength) -> JsArray<u32>;
+}
