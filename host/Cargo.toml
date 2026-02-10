@@ -25,8 +25,12 @@ axum = { version = "0.8", default-features = false, features = ["tokio", "json",
 cargo_metadata = "0.23"
 clap = { version = "4", features = ["derive"] }
 fantoccini = { version = "0.22.0", default-features = false, features = ["rustls-tls"] }
+foldhash = { version = "0.2", default-features = false }
 futures-util = { version = "0.3", default-features = false }
-hashbrown = "0.16"
+hashbrown = { version = "0.16", default-features = false, features = [
+	"default-hasher",
+	"inline-more",
+] }
 indoc = "2"
 itertools = { version = "0.14", default-features = false }
 js-bindgen-ld-lib = { path = "ld-lib" }

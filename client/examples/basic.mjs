@@ -25,11 +25,6 @@ export class JsBindgen {
 		};
         this.#importObject = {
 			js_bindgen: { memory: this.#memory },
-			web_sys: {
-				'console.log': globalThis.console.log,
-				'console.log0': globalThis.console.log,
-				'console.log2': globalThis.console.log,
-			},
 			js_sys: {
 				'externref.table': new WebAssembly.Table({ initial: 1, element: 'externref' }),
 				'string_decode': (array, len) => {
@@ -37,6 +32,11 @@ export class JsBindgen {
 					len >>>= 0
 					return this.#jsEmbed.js_sys['string.decode'](array, len)
 				},
+			},
+			web_sys: {
+				'console.log2': globalThis.console.log,
+				'console.log': globalThis.console.log,
+				'console.log0': globalThis.console.log,
 			},
 		};
     }

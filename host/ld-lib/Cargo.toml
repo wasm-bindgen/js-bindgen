@@ -6,6 +6,7 @@ rust-version = "1.87"
 
 [dependencies]
 anyhow = { workspace = true }
+foldhash = { workspace = true }
 hashbrown = { workspace = true }
 itertools = { workspace = true }
 js-bindgen-ld-shared = { workspace = true }

@@ -2,6 +2,7 @@ use std::io::Write;
 use std::str;
 
 use anyhow::{Context, Result, bail, ensure};
+use foldhash::fast::FixedState;
 use hashbrown::{HashMap, HashSet};
 use itertools::{Itertools, Position};
 use js_bindgen_ld_shared::{JsBindgenEmbedSectionParser, JsBindgenImportSectionParser};
@@ -272,12 +273,14 @@ pub fn post_processing(wasm_input: &[u8], mut js_output: impl Write) -> Result<V
 	Ok(wasm_output)
 }
 
+type FixedHashMap<K, V> = HashMap<K, V, FixedState>;
+
 #[derive(Default)]
 struct JsStore<'a> {
-	import: HashMap<&'a str, HashMap<&'a str, Option<&'a str>>>,
+	import: FixedHashMap<&'a str, FixedHashMap<&'a str, Option<&'a str>>>,
 	expected_import: HashMap<&'a str, HashSet<&'a str>>,
 	provided_import: HashMap<&'a str, HashMap<&'a str, Option<JsWithEmbed<'a>>>>,
-	embed: HashMap<&'a str, HashMap<&'a str, &'a str>>,
+	embed: FixedHashMap<&'a str, FixedHashMap<&'a str, &'a str>>,
 	expected_embed: HashMap<&'a str, HashSet<&'a str>>,
 	provided_embed: HashMap<&'a str, HashMap<&'a str, JsWithEmbed<'a>>>,
 }
@@ -461,11 +464,11 @@ impl<'a> JsStore<'a> {
 		Ok(())
 	}
 
-	fn js_import(&self) -> &HashMap<&'a str, HashMap<&'a str, Option<&'a str>>> {
+	fn js_import(&self) -> &FixedHashMap<&'a str, FixedHashMap<&'a str, Option<&'a str>>> {
 		&self.import
 	}
 
-	fn js_embed(&self) -> &HashMap<&'a str, HashMap<&'a str, &'a str>> {
+	fn js_embed(&self) -> &FixedHashMap<&'a str, FixedHashMap<&'a str, &'a str>> {
 		&self.embed
 	}
 }
