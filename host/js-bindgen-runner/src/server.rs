@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::io::{self, ErrorKind, Write};
 use std::net::{Ipv4Addr, SocketAddr};
 use std::ops::DerefMut;
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
 
@@ -13,13 +14,14 @@ use axum::http::header::CONTENT_TYPE;
 use axum::response::Response;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use js_bindgen_shared::ReadFile;
 use serde::Deserialize;
 use serde_repr::Deserialize_repr;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
 use crate::util::AtomicFlag;
-use crate::{BrowserAssets, SHARED_JS, SHARED_TERMINAL_JS, WorkerKind};
+use crate::{SHARED_JS, SHARED_TERMINAL_JS, WorkerKind};
 
 const INDEX_HTML: &str = include_str!("js/index.html");
 const BROWSER_JS: &str = include_str!("js/browser.mjs");
@@ -40,9 +42,11 @@ pub struct HttpServer {
 }
 
 struct ServerState {
-	assets: BrowserAssets,
 	signals: Signals,
 	reports: Mutex<ReportState>,
+	wasm_bytes: ReadFile,
+	import_js: ReadFile,
+	test_data_json: String,
 }
 
 #[derive(Default)]
@@ -60,10 +64,12 @@ struct ReportState {
 
 impl HttpServer {
 	pub async fn start(
-		assets: BrowserAssets,
 		address: Option<SocketAddr>,
 		headless: bool,
 		worker: Option<WorkerKind>,
+		wasm_bytes: ReadFile,
+		imports_path: &Path,
+		test_data_json: String,
 	) -> Result<Self> {
 		let listener = Self::bind_address(address).await?;
 		let local_addr = listener.local_addr()?;
@@ -76,7 +82,9 @@ impl HttpServer {
 		);
 
 		let state = Arc::new(ServerState {
-			assets,
+			wasm_bytes,
+			import_js: ReadFile::new(imports_path)?,
+			test_data_json,
 			signals: Signals::default(),
 			reports: Mutex::new(ReportState::default()),
 		});
@@ -131,19 +139,19 @@ impl HttpServer {
 			.route(
 				"/test-data.json",
 				get(async |State(state): State<Arc<ServerState>>| {
-					response("application/json", state.assets.test_data_json.clone())
+					response("application/json", state.test_data_json.clone())
 				}),
 			)
 			.route(
 				"/wasm.wasm",
 				get(async |State(state): State<Arc<ServerState>>| -> Response {
-					response("application/wasm", state.assets.wasm_bytes.to_owned())
+					response("application/wasm", state.wasm_bytes.to_owned())
 				}),
 			)
 			.route(
 				"/imports.mjs",
 				get(async |State(state): State<Arc<ServerState>>| {
-					response("application/javascript", state.assets.import_js.to_owned())
+					response("application/javascript", state.import_js.to_owned())
 				}),
 			);
 

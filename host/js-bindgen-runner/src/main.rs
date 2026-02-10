@@ -4,7 +4,7 @@ mod web_driver;
 
 use std::env::VarError;
 use std::net::{IpAddr, SocketAddr};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{self, Command};
 use std::str::FromStr;
 use std::time::Duration;
@@ -460,8 +460,6 @@ impl Runner {
 	}
 
 	async fn http_server(self, headless: bool, worker: Option<WorkerKind>) -> Result<HttpServer> {
-		let assets = BrowserAssets::new(self.wasm_bytes, &self.imports_path, self.test_data_json)?;
-
 		let address = env::var_os("JBG_TEST_SERVER_ADDRESS")
 			.map(|var| {
 				var.into_string()
@@ -476,25 +474,15 @@ impl Runner {
 					.context("unable to parse `JBG_TEST_SERVER_ADDRESS`")
 			})
 			.transpose()?;
-		HttpServer::start(assets, address, headless, worker).await
-	}
-}
-
-struct BrowserAssets {
-	wasm_bytes: ReadFile,
-	import_js: ReadFile,
-	test_data_json: String,
-}
-
-impl BrowserAssets {
-	fn new(wasm_bytes: ReadFile, imports_path: &Path, test_data_json: String) -> Result<Self> {
-		let import_js = ReadFile::new(imports_path)?;
-
-		Ok(Self {
-			wasm_bytes,
-			import_js,
-			test_data_json,
-		})
+		HttpServer::start(
+			address,
+			headless,
+			worker,
+			self.wasm_bytes,
+			&self.imports_path,
+			self.test_data_json,
+		)
+		.await
 	}
 }
 
