@@ -4,7 +4,7 @@
 		<title>Basic Example</title>
 		<link rel="icon" href="data:," />
 		<script type="module">
-			import { JsBindgen } from "../target/wasm32-unknown-unknown/release/examples/basic.mjs"
+			import { JsBindgen } from "./basic.mjs"
 
 			const instance = await JsBindgen.instantiateStreaming()
 			instance.exports.foo()

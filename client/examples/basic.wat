@@ -1,4 +1,4 @@
-(module $basic-2be9113d34cbacad.wasm
+(module $basic-d74ee8a000377818.wasm
   (type (;0;) (func (param i32 i32) (result externref)))
   (type (;1;) (func (param externref)))
   (type (;2;) (func))
@@ -40,7 +40,7 @@
     local.tee 0
     call $web_sys.console.log
     local.get 0
-    call $_ZN57_$LT$js_sys..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h36317a40048f97e9E
+    call $_ZN57_$LT$js_sys..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h52bad29b4b93c128E
     i32.const 1048589
     i32.const 5
     call $js_sys.string_decode
@@ -51,11 +51,11 @@
     local.tee 1
     call $web_sys.console.log2
     local.get 1
-    call $_ZN57_$LT$js_sys..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h36317a40048f97e9E
+    call $_ZN57_$LT$js_sys..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h52bad29b4b93c128E
     local.get 0
-    call $_ZN57_$LT$js_sys..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h36317a40048f97e9E
+    call $_ZN57_$LT$js_sys..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h52bad29b4b93c128E
   )
-  (func $_ZN57_$LT$js_sys..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h36317a40048f97e9E (;6;) (type 4) (param i32)
+  (func $_ZN57_$LT$js_sys..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h52bad29b4b93c128E (;6;) (type 4) (param i32)
     (local i32 i32 i32 i32)
     global.get $__stack_pointer
     i32.const 16
@@ -101,7 +101,7 @@
             i32.gt_u
             select
             local.tee 4
-            call $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17h8a3382b4d7970919E
+            call $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17hb49575499dbbac61E
             local.get 1
             i32.load offset=4
             br_if 2 (;@2;)
@@ -156,7 +156,7 @@
     call $_ZN4core9panicking9panic_fmt17ha9276d4d9f74c64eE
     unreachable
   )
-  (func $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17h8a3382b4d7970919E (;9;) (type 5) (param i32 i32 i32 i32)
+  (func $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17hb49575499dbbac61E (;9;) (type 5) (param i32 i32 i32 i32)
     (local i32 i32 i32 i32)
     block ;; label = @1
       block ;; label = @2

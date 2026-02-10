@@ -212,6 +212,13 @@ impl<'cs> JsBindgenEmbedSection<'cs> {
 			JsBindgenEmbedSection::WithEmbed { js, .. } => js,
 		}
 	}
+
+	pub fn embed(self) -> Option<&'cs str> {
+		match self {
+			JsBindgenEmbedSection::Plain(_) => None,
+			JsBindgenEmbedSection::WithEmbed { embed, .. } => Some(embed),
+		}
+	}
 }
 
 impl<'cs> Debug for JsBindgenEmbedSectionParser<'cs> {
@@ -275,6 +282,13 @@ impl<'cs> JsBindgenImportSection<'cs> {
 			JsBindgenImportSection::Plain(js) => Some(js),
 			JsBindgenImportSection::WithEmbed { js, .. } => Some(js),
 			JsBindgenImportSection::NoImport => None,
+		}
+	}
+
+	pub fn embed(self) -> Option<&'cs str> {
+		match self {
+			JsBindgenImportSection::Plain(_) | JsBindgenImportSection::NoImport => None,
+			JsBindgenImportSection::WithEmbed { embed, .. } => Some(embed),
 		}
 	}
 }
