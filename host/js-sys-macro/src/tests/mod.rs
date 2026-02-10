@@ -98,11 +98,11 @@ fn inner(tmp: &Path, source: &str) -> Result<(String, Option<String>)> {
 
 			unsafe impl GlobalAlloc for Allocator {{
 				unsafe fn alloc(&self, _: Layout) -> *mut u8 {{
-					todo!()
+					unimplemented!()
 				}}
 
 				unsafe fn dealloc(&self, _: *mut u8, _: Layout) {{
-					todo!()
+					unimplemented!()
 				}}
 			}}
 

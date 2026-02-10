@@ -6,10 +6,9 @@
 - `#[js_sys]` is probably also not the ideal name.
 - Stub implementation for non-supported targets.
 - The linker shim throws a warning on Windows because of the shebang. This is a problem because we
-  want to e.g. deny linker warnings. Most likely solution is [Cosmopolitan].
+  want to e.g. deny linker warnings. Instead use a pre-compiled binary for Windows.
 
 [bytecodealliance/wasm-tools#2405]: https://github.com/bytecodealliance/wasm-tools/issues/2405
-[Cosmopolitan]: https://justine.lol/cosmopolitan/index.html
 
 # High Priority
 
@@ -20,8 +19,12 @@
     - Wasm64.
     - Atomic.
     - Panic strategies.
-  - Split browser and server runner. Server runner should output in HTML, browser should rely output
-    to server which outputs in terminal.
+  - Fold WebDrivers into `JBG_TEST_RUNNER`:
+    - `browser` should stay to use the automatic search, `engine` should be introduced to search for
+      engines and should be the default.
+    - Rename `JBG_TEST_<driver>` to `JBG_TEST_<driver>_PATH`.
+    - Introduce `JBG_TEST_NODE_PATH` and `JBG_TEST_DENO_PATH` as well.
+  - Consider moving environment variables to CLI arguments.
   - Exclude TS files from packaging.
   - Lint and format TS files and minimize JS files.
   - Add support for `--test-threads` and multithread tests where possible for `panic = "abort"`.
