@@ -1,15 +1,14 @@
 [package]
 edition = { workspace = true }
 license = { workspace = true }
-name = "js-bindgen-ld"
-rust-version = "1.91"
+name = "js-bindgen-ld-lib"
+rust-version = { workspace = true }
 
 [dependencies]
-argfile = { workspace = true }
 hashbrown = { workspace = true }
-js-bindgen-ld-lib = { workspace = true }
+itertools = { workspace = true }
 js-bindgen-ld-shared = { workspace = true }
-js-bindgen-shared = { workspace = true }
+wasm-encoder = { workspace = true }
 wasmparser = { workspace = true }
 
 [lints]
