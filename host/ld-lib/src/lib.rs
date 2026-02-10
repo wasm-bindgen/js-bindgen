@@ -1,6 +1,7 @@
 use std::io::Write;
 use std::str;
 
+use anyhow::{Context, Result, bail, ensure};
 use hashbrown::{HashMap, HashSet};
 use itertools::{Itertools, Position};
 use js_bindgen_ld_shared::{JsBindgenEmbedSectionParser, JsBindgenImportSectionParser};
@@ -10,59 +11,60 @@ use wasmparser::{CustomSectionReader, Encoding, Import, Parser, Payload, TypeRef
 const IMPORTS_JS: &str = include_str!("js/imports.mjs");
 
 /// This removes our custom sections and generates the JS import file.
-pub fn post_processing(wasm_input: &[u8], mut js_output: impl Write) -> Vec<u8> {
+pub fn post_processing(wasm_input: &[u8], mut js_output: impl Write) -> Result<Vec<u8>> {
 	// Find main memory first.
-	let main_memory = Parser::new(0)
-		.parse_all(wasm_input)
-		.find_map(|payload| {
-			let payload = payload.expect("object file should be valid Wasm");
+	let mut main_memory = None;
 
-			if let Payload::CustomSection(c) = payload
-				&& c.name() == "js_bindgen.main_memory"
-			{
-				let mut data = c.data();
-				let module_len = u16::from_le_bytes(
-					data.split_off(..2)
-						.expect("invalid main memory encoding")
-						.try_into()
-						.unwrap(),
-				);
-				let module = data
-					.split_off(..module_len.into())
-					.and_then(|b| str::from_utf8(b).ok())
-					.expect("invalid main memory encoding");
-				let name_len = u16::from_le_bytes(
-					data.split_off(..2)
-						.expect("invalid main memory encoding")
-						.try_into()
-						.unwrap(),
-				);
-				let name = data
-					.split_off(..name_len.into())
-					.and_then(|b| str::from_utf8(b).ok())
-					.expect("invalid main memory encoding");
-				assert!(data.is_empty(), "invalid main memory encoding");
+	for payload in Parser::new(0).parse_all(wasm_input) {
+		let payload = payload.context("input should be valid Wasm")?;
 
-				Some((module, name))
-			} else {
-				None
-			}
-		})
-		.expect("no main memory found");
+		if let Payload::CustomSection(c) = payload
+			&& c.name() == "js_bindgen.main_memory"
+		{
+			let mut data = c.data();
+			let module_len = u16::from_le_bytes(
+				data.split_off(..2)
+					.context("invalid main memory encoding")?
+					.try_into()
+					.unwrap(),
+			);
+			let module = data
+				.split_off(..module_len.into())
+				.and_then(|b| str::from_utf8(b).ok())
+				.context("invalid main memory encoding")?;
+			let name_len = u16::from_le_bytes(
+				data.split_off(..2)
+					.context("invalid main memory encoding")?
+					.try_into()
+					.unwrap(),
+			);
+			let name = data
+				.split_off(..name_len.into())
+				.and_then(|b| str::from_utf8(b).ok())
+				.context("invalid main memory encoding")?;
+			ensure!(data.is_empty(), "invalid main memory encoding");
 
+			main_memory = Some((module, name));
+			break;
+		}
+	}
+
+	let main_memory = main_memory.context("no main memory found")?;
+
+	// Start building final Wasm and JS.
 	let mut wasm_output = Vec::new();
 
 	let mut js_store = JsStore::default();
 	let mut memory = None;
 
 	for payload in Parser::new(0).parse_all(wasm_input) {
-		let payload = payload.expect("object file should be valid Wasm");
+		let payload = payload.context("object file should be valid Wasm")?;
 
 		match payload {
 			Payload::Version { encoding, .. } => wasm_output.extend_from_slice(match encoding {
 				Encoding::Module => &Module::HEADER,
 				Encoding::Component => {
-					unimplemented!("objects with components are not supported")
+					bail!("objects with components are not supported")
 				}
 			}),
 			// Read what imports we need. This has already undergone dead-code elimination by LLD.
@@ -70,7 +72,7 @@ pub fn post_processing(wasm_input: &[u8], mut js_output: impl Write) -> Vec<u8> 
 				let mut import_section = ImportSection::new();
 
 				for i in i.into_imports() {
-					let mut import = i.expect("import should be parsable");
+					let mut import = i.context("import should be parsable")?;
 
 					// This is `llvm-mc` workaround for 32-bit tables when compiling to Wasm64.
 					// See https://github.com/llvm/llvm-project/issues/172907.
@@ -86,7 +88,7 @@ pub fn post_processing(wasm_input: &[u8], mut js_output: impl Write) -> Vec<u8> 
 						import.module,
 						import.name,
 						EntityType::try_from(import.ty)
-							.expect("`wasmparser` type should be convertible"),
+							.context("`wasmparser` type should be convertible")?,
 					);
 
 					// The main memory has its own dedicated JS output handling.
@@ -98,7 +100,7 @@ pub fn post_processing(wasm_input: &[u8], mut js_output: impl Write) -> Vec<u8> 
 						continue;
 					}
 
-					js_store.add_import(import);
+					js_store.add_import(import)?;
 				}
 
 				import_section.append_to(&mut wasm_output);
@@ -110,26 +112,26 @@ pub fn post_processing(wasm_input: &[u8], mut js_output: impl Write) -> Vec<u8> 
 			// Extract all JS imports.
 			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.import.") => {
 				let stripped = c.name().strip_prefix("js_bindgen.import.").unwrap();
-				let (module, name) = stripped.split_once('.').unwrap_or_else(|| {
-					panic!("found incorrectly formatted JS import custom section name: {stripped}")
-				});
+				let (module, name) = stripped.split_once('.').with_context(|| {
+					format!("found incorrectly formatted JS import custom section name: {stripped}")
+				})?;
 
-				js_store.add_js_import(module, name, c);
+				js_store.add_js_import(module, name, c)?;
 			}
 			// Extract all JS embeds.
 			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.embed.") => {
 				let stripped = c.name().strip_prefix("js_bindgen.embed.").unwrap();
-				let (module, name) = stripped.split_once('.').unwrap_or_else(|| {
-					panic!("found incorrectly formatted JS import custom section name: {stripped}")
-				});
+				let (module, name) = stripped.split_once('.').with_context(|| {
+					format!("found incorrectly formatted JS import custom section name: {stripped}",)
+				})?;
 
-				js_store.add_js_embed(module, name, c);
+				js_store.add_js_embed(module, name, c)?;
 			}
 			Payload::CodeSectionEntry(_) | Payload::End(_) => (),
 			payload => {
 				let (id, range) = payload
 					.as_section()
-					.unwrap_or_else(|| panic!("expected parsable Wasm payload:\n{payload:?}"));
+					.with_context(|| format!("expected parsable Wasm payload:\n{payload:?}"))?;
 				RawSection {
 					id,
 					data: &wasm_input[range],
@@ -139,110 +141,108 @@ pub fn post_processing(wasm_input: &[u8], mut js_output: impl Write) -> Vec<u8> 
 		}
 	}
 
-	let memory = memory.expect("main memory should be present");
-	js_store.assert_expected();
+	let memory = memory.context("main memory should be present")?;
+	js_store.assert_expected()?;
 
 	let (js_memory, rest) = IMPORTS_JS.split_once("JBG_PLACEHOLDER_MEMORY").unwrap();
 	let (js_embed, rest) = rest.split_once("JBG_PLACEHOLDER_JS_EMBED").unwrap();
 	let (js_import_object, js_rest) = rest.split_once("JBG_PLACEHOLDER_IMPORT_OBJECT").unwrap();
 
 	// `WebAssembly.Memory`.
-	js_output.write_all(js_memory.as_bytes()).unwrap();
+	js_output.write_all(js_memory.as_bytes())?;
 
-	js_output.write_all(b"new WebAssembly.Memory({ ").unwrap();
+	js_output.write_all(b"new WebAssembly.Memory({ ")?;
 
 	if memory.memory64 {
-		write!(js_output, "initial: {}n", memory.initial).unwrap();
+		write!(js_output, "initial: {}n", memory.initial)?;
 	} else {
-		write!(js_output, "initial: {}", memory.initial).unwrap();
+		write!(js_output, "initial: {}", memory.initial)?;
 	}
 
 	if let Some(max) = memory.maximum {
 		if memory.memory64 {
-			write!(js_output, ", maximum: {max}n").unwrap();
+			write!(js_output, ", maximum: {max}n")?;
 		} else {
-			write!(js_output, ", maximum: {max}").unwrap();
+			write!(js_output, ", maximum: {max}")?;
 		}
 	}
 
 	if memory.memory64 {
-		js_output.write_all(b", address: 'i64'").unwrap();
+		js_output.write_all(b", address: 'i64'")?;
 	}
 
 	if memory.shared {
-		js_output.write_all(b", shared: true").unwrap();
+		js_output.write_all(b", shared: true")?;
 	}
 
-	js_output.write_all(b" })").unwrap();
+	js_output.write_all(b" })")?;
 
 	// Requested embedded JS.
-	js_output.write_all(js_embed.as_bytes()).unwrap();
+	js_output.write_all(js_embed.as_bytes())?;
 
-	js_output.write_all(b"{\n").unwrap();
+	js_output.write_all(b"{\n")?;
 
 	for (package, embeds) in js_store.js_embed() {
-		writeln!(js_output, "\t\t\t{package}: {{").unwrap();
+		writeln!(js_output, "\t\t\t{package}: {{")?;
 
 		for (name, js) in embeds {
-			write!(js_output, "\t\t\t\t'{name}': ").unwrap();
+			write!(js_output, "\t\t\t\t'{name}': ")?;
 
 			for (position, line) in js.lines().with_position() {
-				js_output.write_all(line.as_bytes()).unwrap();
+				js_output.write_all(line.as_bytes())?;
 
 				if let Position::First | Position::Middle = position {
-					js_output.write_all(b"\n\t\t\t\t").unwrap();
+					js_output.write_all(b"\n\t\t\t\t")?;
 				}
 			}
 
-			js_output.write_all(b",\n").unwrap();
+			js_output.write_all(b",\n")?;
 		}
 
-		js_output.write_all(b"\t\t\t},\n").unwrap();
+		js_output.write_all(b"\t\t\t},\n")?;
 	}
 
-	js_output.write_all(b"\t\t}").unwrap();
+	js_output.write_all(b"\t\t}")?;
 
 	// `importObject`
-	js_output.write_all(js_import_object.as_bytes()).unwrap();
+	js_output.write_all(js_import_object.as_bytes())?;
 
-	js_output.write_all(b"{\n").unwrap();
-	js_output
-		.write_all(b"\t\t\tjs_bindgen: { memory: this.#memory },\n")
-		.unwrap();
+	js_output.write_all(b"{\n")?;
+	js_output.write_all(b"\t\t\tjs_bindgen: { memory: this.#memory },\n")?;
 
 	for (module, names) in js_store
 		.js_import()
 		.into_iter()
 		.filter(|(_, names)| !names.values().all(Option::is_none))
 	{
-		writeln!(js_output, "\t\t\t{module}: {{").unwrap();
+		writeln!(js_output, "\t\t\t{module}: {{")?;
 
 		for (name, js) in names
 			.into_iter()
 			.filter_map(|(name, js)| js.map(|js| (name, js)))
 		{
-			write!(js_output, "\t\t\t\t'{name}': ").unwrap();
+			write!(js_output, "\t\t\t\t'{name}': ")?;
 
 			for (position, line) in js.lines().with_position() {
-				js_output.write_all(line.as_bytes()).unwrap();
+				js_output.write_all(line.as_bytes())?;
 
 				if let Position::First | Position::Middle = position {
-					js_output.write_all(b"\n\t\t\t\t").unwrap();
+					js_output.write_all(b"\n\t\t\t\t")?;
 				}
 			}
 
-			js_output.write_all(b",\n").unwrap();
+			js_output.write_all(b",\n")?;
 		}
 
-		js_output.write_all(b"\t\t\t},\n").unwrap();
+		js_output.write_all(b"\t\t\t},\n")?;
 	}
 
-	js_output.write_all(b"\t\t}").unwrap();
+	js_output.write_all(b"\t\t}")?;
 
 	// Finish
-	js_output.write_all(js_rest.as_bytes()).unwrap();
+	js_output.write_all(js_rest.as_bytes())?;
 
-	wasm_output
+	Ok(wasm_output)
 }
 
 #[derive(Default)]
@@ -262,7 +262,7 @@ struct JsWithEmbed<'a> {
 }
 
 impl<'a> JsStore<'a> {
-	fn add_import(&mut self, import: Import<'a>) {
+	fn add_import(&mut self, import: Import<'a>) -> Result<()> {
 		if let Some(js) = self
 			.provided_import
 			.get_mut(import.module)
@@ -282,11 +282,14 @@ impl<'a> JsStore<'a> {
 			.or_default()
 			.insert(import.name)
 		{
-			panic!(
+			bail!(
 				"found duplicate JS import: `{}:{}`",
-				import.module, import.name
+				import.module,
+				import.name
 			);
 		}
+
+		Ok(())
 	}
 
 	fn add_js_import(
@@ -294,14 +297,14 @@ impl<'a> JsStore<'a> {
 		module: &'a str,
 		name: &'a str,
 		custom_section: CustomSectionReader<'a>,
-	) {
+	) -> Result<()> {
 		let mut parser = JsBindgenImportSectionParser::new(custom_section);
 		let import = parser
 			.next()
-			.unwrap_or_else(|| panic!("found no JS import for `{module}:{name}`"));
+			.with_context(|| format!("found no JS import for `{module}:{name}`"))?;
 
 		if let Some(import_new) = parser.next() {
-			panic!(
+			bail!(
 				"found multiple JS imports for `{module}:{name}`\n\tJS Import 1:\n{:?}\n\tJS \
 				 Import 2:\n{:?}",
 				import.js(),
@@ -330,13 +333,15 @@ impl<'a> JsStore<'a> {
 				embed: import.embed(),
 			}),
 		) {
-			panic!(
+			bail!(
 				"found multiple JS imports for `{module}:{name}`\n\tJS Import 1:\n{:?}\n\tJS \
 				 Import 2:\n{:?}",
 				import_old.map(|js| js.js),
 				import.js()
 			);
 		}
+
+		Ok(())
 	}
 
 	fn add_js_embed(
@@ -344,14 +349,14 @@ impl<'a> JsStore<'a> {
 		module: &'a str,
 		name: &'a str,
 		custom_section: CustomSectionReader<'a>,
-	) {
+	) -> Result<()> {
 		let mut parser = JsBindgenEmbedSectionParser::new(custom_section);
 		let embed = parser
 			.next()
-			.unwrap_or_else(|| panic!("found no JS embed for `{module}:{name}`"));
+			.with_context(|| format!("found no JS embed for `{module}:{name}`"))?;
 
 		if let Some(embed_new) = parser.next() {
-			panic!(
+			bail!(
 				"found multiple JS embeds for `{module}:{name}`\n\tJS Embed 1:\n{}\n\tJS Embed \
 				 2:\n{}",
 				embed.js(),
@@ -380,13 +385,15 @@ impl<'a> JsStore<'a> {
 				embed: embed.embed(),
 			},
 		) {
-			panic!(
+			bail!(
 				"found multiple JS embeds for `{module}:{name}`\n\tJS Embed 1:\n{}\n\tJS Embed \
 				 2:\n{}",
 				embed_old.js,
 				embed.js()
 			);
 		}
+
+		Ok(())
 	}
 
 	fn require_js_embed(&mut self, module: &'a str, name: &'a str) {
@@ -412,17 +419,19 @@ impl<'a> JsStore<'a> {
 		}
 	}
 
-	fn assert_expected(&self) {
-		assert!(
+	fn assert_expected(&self) -> Result<()> {
+		ensure!(
 			self.expected_import.values().all(HashSet::is_empty),
 			"missing JS imports: {:?}",
 			self.expected_import
 		);
-		assert!(
+		ensure!(
 			self.expected_embed.values().all(HashSet::is_empty),
 			"missing JS embed: {:?}",
 			self.expected_embed
 		);
+
+		Ok(())
 	}
 
 	fn js_import(&self) -> &HashMap<&'a str, HashMap<&'a str, Option<&'a str>>> {

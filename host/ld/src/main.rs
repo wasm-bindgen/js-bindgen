@@ -79,7 +79,7 @@ fn main() {
 			File::create(&js_output_path).expect("output JS file should be writable"),
 		);
 
-		let wasm_output = js_bindgen_ld_lib::post_processing(&wasm_input, &mut js_output);
+		let wasm_output = js_bindgen_ld_lib::post_processing(&wasm_input, &mut js_output).unwrap();
 		drop(wasm_input);
 
 		// We could write into the file directly, but `wasm-encoder` doesn't support
