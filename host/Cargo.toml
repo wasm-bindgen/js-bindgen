@@ -2,13 +2,13 @@
 members = [
 	"js-bindgen",
 	"js-sys-macro",
-	"js-bindgen-test-macro",
-	"js-bindgen-runner",
 	"ld",
 	"ld-lib",
 	"ld-shared",
 	"macro-shared",
+	"runner",
 	"shared",
+	"test-macro",
 	"wasm-ld-opt",
 ]
 resolver = "2"
