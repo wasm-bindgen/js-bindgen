@@ -20,7 +20,7 @@ rust-version = "1.85"
 
 [workspace.dependencies]
 anyhow = "1"
-argfile = { version = "0.2", features = ["response"] }
+argfile = { version = "1", features = ["response"] }
 axum = { version = "0.8", default-features = false, features = ["tokio", "json", "http1", "http2"] }
 cargo_metadata = "0.23"
 clap = { version = "4", features = ["derive"] }
@@ -52,8 +52,8 @@ tempfile = "3"
 tokio = "1"
 ui_test = { version = "0.30", default-features = false, features = ["rustc"] }
 url = { version = "2.5.8", default-features = false }
-wasm-encoder = { version = "0.244", default-features = false, features = ["wasmparser"] }
-wasmparser = { version = "0.244", default-features = false }
+wasm-encoder = { version = "0.245", default-features = false, features = ["wasmparser"] }
+wasmparser = { version = "0.245", default-features = false }
 
 [patch.crates-io]
 # Proc-macro bug: https://github.com/oli-obk/ui_test/issues/361.
