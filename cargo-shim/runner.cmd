@@ -12,7 +12,7 @@
 :;   tsc --build; exit $?
 :; ) || exit $?
 :; (
-:;   cd "$(dirname "$0")/../host/js-bindgen-runner/src/js"
+:;   cd "$(dirname "$0")/../host/runner/src/js"
 :;   npm install -s --prefer-offline --no-audit --no-fund || exit $?
 :;   tsc --build; exit $?
 :; ) || exit $?
@@ -27,7 +27,7 @@
 pushd "%~dp0..\host\ld-lib\src\js"
 tsc --build || exit /b %ERRORLEVEL%
 popd
-pushd "%~dp0..\host\js-bindgen-runner\src\js"
+pushd "%~dp0..\host\runner\src\js"
 npm install -s --prefer-offline --no-audit --no-fund || exit /b %ERRORLEVEL%
 tsc --build || exit /b %ERRORLEVEL%
 popd

@@ -23,12 +23,12 @@ fn basic() {
 			}
 
 			unsafe impl ::js_sys::hazard::Input for &JsString {
-				const IMPORT_FUNC: &'static ::core::primitive::str = ".functype js_sys.externref.get (i32) -> (externref)";
-				const IMPORT_TYPE: &'static ::core::primitive::str = "externref";
-				const TYPE: &'static ::core::primitive::str = "i32";
-				const CONV: &'static ::core::primitive::str = "call js_sys.externref.get";
+				const IMPORT_FUNC: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC;
+				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
+				const TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::TYPE;
+				const CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::CONV;
 
-				type Type = ::core::primitive::i32;
+				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
 				fn into_raw(self) -> Self::Type {
 					::js_sys::hazard::Input::into_raw(&self.0)
@@ -36,12 +36,12 @@ fn basic() {
 			}
 
 			unsafe impl ::js_sys::hazard::Output for JsString {
-				const IMPORT_FUNC: &::core::primitive::str = ".functype js_sys.externref.insert (externref) -> (i32)";
-				const IMPORT_TYPE: &::core::primitive::str = "externref";
-				const TYPE: &::core::primitive::str = "i32";
-				const CONV: &::core::primitive::str = "call js_sys.externref.insert";
+				const IMPORT_FUNC: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_FUNC;
+				const IMPORT_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_TYPE;
+				const TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::TYPE;
+				const CONV: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::CONV;
 
-				type Type = ::core::primitive::i32;
+				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
 
 				fn from_raw(raw: Self::Type) -> Self {
 					Self(::js_sys::hazard::Output::from_raw(raw))
@@ -78,12 +78,12 @@ fn generic() {
 			}
 
 			unsafe impl<T> ::js_sys::hazard::Input for &JsString<T> {
-				const IMPORT_FUNC: &'static ::core::primitive::str = ".functype js_sys.externref.get (i32) -> (externref)";
-				const IMPORT_TYPE: &'static ::core::primitive::str = "externref";
-				const TYPE: &'static ::core::primitive::str = "i32";
-				const CONV: &'static ::core::primitive::str = "call js_sys.externref.get";
+				const IMPORT_FUNC: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC;
+				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
+				const TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::TYPE;
+				const CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::CONV;
 
-				type Type = ::core::primitive::i32;
+				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
 				fn into_raw(self) -> Self::Type {
 					::js_sys::hazard::Input::into_raw(&self.value)
@@ -91,12 +91,12 @@ fn generic() {
 			}
 
 			unsafe impl<T> ::js_sys::hazard::Output for JsString<T> {
-				const IMPORT_FUNC: &::core::primitive::str = ".functype js_sys.externref.insert (externref) -> (i32)";
-				const IMPORT_TYPE: &::core::primitive::str = "externref";
-				const TYPE: &::core::primitive::str = "i32";
-				const CONV: &::core::primitive::str = "call js_sys.externref.insert";
+				const IMPORT_FUNC: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_FUNC;
+				const IMPORT_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_TYPE;
+				const TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::TYPE;
+				const CONV: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::CONV;
 
-				type Type = ::core::primitive::i32;
+				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
 
 				fn from_raw(raw: Self::Type) -> Self {
 					Self {
@@ -136,12 +136,12 @@ fn default() {
 			}
 
 			unsafe impl<T> ::js_sys::hazard::Input for &JsString<T> {
-				const IMPORT_FUNC: &'static ::core::primitive::str = ".functype js_sys.externref.get (i32) -> (externref)";
-				const IMPORT_TYPE: &'static ::core::primitive::str = "externref";
-				const TYPE: &'static ::core::primitive::str = "i32";
-				const CONV: &'static ::core::primitive::str = "call js_sys.externref.get";
+				const IMPORT_FUNC: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC;
+				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
+				const TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::TYPE;
+				const CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::CONV;
 
-				type Type = ::core::primitive::i32;
+				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
 				fn into_raw(self) -> Self::Type {
 					::js_sys::hazard::Input::into_raw(&self.value)
@@ -149,12 +149,12 @@ fn default() {
 			}
 
 			unsafe impl<T> ::js_sys::hazard::Output for JsString<T> {
-				const IMPORT_FUNC: &::core::primitive::str = ".functype js_sys.externref.insert (externref) -> (i32)";
-				const IMPORT_TYPE: &::core::primitive::str = "externref";
-				const TYPE: &::core::primitive::str = "i32";
-				const CONV: &::core::primitive::str = "call js_sys.externref.insert";
+				const IMPORT_FUNC: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_FUNC;
+				const IMPORT_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_TYPE;
+				const TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::TYPE;
+				const CONV: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::CONV;
 
-				type Type = ::core::primitive::i32;
+				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
 
 				fn from_raw(raw: Self::Type) -> Self {
 					Self {
@@ -194,12 +194,12 @@ fn r#trait() {
 			}
 
 			unsafe impl<T: Sized> ::js_sys::hazard::Input for &JsString<T> {
-				const IMPORT_FUNC: &'static ::core::primitive::str = ".functype js_sys.externref.get (i32) -> (externref)";
-				const IMPORT_TYPE: &'static ::core::primitive::str = "externref";
-				const TYPE: &'static ::core::primitive::str = "i32";
-				const CONV: &'static ::core::primitive::str = "call js_sys.externref.get";
+				const IMPORT_FUNC: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC;
+				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
+				const TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::TYPE;
+				const CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::CONV;
 
-				type Type = ::core::primitive::i32;
+				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
 				fn into_raw(self) -> Self::Type {
 					::js_sys::hazard::Input::into_raw(&self.value)
@@ -207,12 +207,12 @@ fn r#trait() {
 			}
 
 			unsafe impl<T: Sized> ::js_sys::hazard::Output for JsString<T> {
-				const IMPORT_FUNC: &::core::primitive::str = ".functype js_sys.externref.insert (externref) -> (i32)";
-				const IMPORT_TYPE: &::core::primitive::str = "externref";
-				const TYPE: &::core::primitive::str = "i32";
-				const CONV: &::core::primitive::str = "call js_sys.externref.insert";
+				const IMPORT_FUNC: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_FUNC;
+				const IMPORT_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_TYPE;
+				const TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::TYPE;
+				const CONV: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::CONV;
 
-				type Type = ::core::primitive::i32;
+				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
 
 				fn from_raw(raw: Self::Type) -> Self {
 					Self {
