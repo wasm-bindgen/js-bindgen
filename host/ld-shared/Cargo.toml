@@ -1,5 +1,6 @@
 [package]
 edition = { workspace = true }
+include = { workspace = true }
 license = { workspace = true }
 name = "js-bindgen-ld-shared"
 rust-version = "1.91"

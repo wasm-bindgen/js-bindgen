@@ -26,7 +26,6 @@
     - Rename `JBG_TEST_<driver>` to `JBG_TEST_<driver>_PATH`.
     - Introduce `JBG_TEST_NODE_PATH` and `JBG_TEST_DENO_PATH` as well.
   - Consider moving environment variables to CLI arguments.
-  - Exclude TS files from packaging.
   - Lint and format TS files and minimize JS files.
   - Add support for `--test-threads` and multithread tests where possible for `panic = "abort"`.
   - Add support for `panic = "unwind"`.
