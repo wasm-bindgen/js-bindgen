@@ -19,6 +19,7 @@ include = [
 	"/LICENSE-MIT",
 	"/Cargo.toml",
 	"/src/**/*.rs",
+	"!/src/**/tests/**",
 	"/src/**/*.html",
 	"/src/**/*.mjs",
 ]
