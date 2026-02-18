@@ -6,7 +6,7 @@ fn basic() {
 	super::test(
 		TokenStream::new(),
 		quote! {
-			extern "C" {
+			extern "js-sys" {
 				pub type JsString;
 			}
 		},
@@ -58,7 +58,7 @@ fn generic() {
 	super::test(
 		TokenStream::new(),
 		quote! {
-			extern "C" {
+			extern "js-sys" {
 				pub type JsString<T>;
 			}
 		},
@@ -116,7 +116,7 @@ fn default() {
 	super::test(
 		TokenStream::new(),
 		quote! {
-			extern "C" {
+			extern "js-sys" {
 				pub type JsString<T = JsValue>;
 			}
 		},
@@ -174,7 +174,7 @@ fn r#trait() {
 	super::test(
 		TokenStream::new(),
 		quote! {
-			extern "C" {
+			extern "js-sys" {
 				pub type JsString<T: Sized = JsValue>;
 			}
 		},

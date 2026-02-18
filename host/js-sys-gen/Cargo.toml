@@ -1,0 +1,37 @@
+[package]
+edition = { workspace = true }
+license = { workspace = true }
+name = "js-sys-gen"
+rust-version = "1.87"
+
+[features]
+macro = []
+web-idl = ["dep:weedle2"]
+
+[dependencies]
+foldhash = { workspace = true }
+hashbrown = { workspace = true }
+itertools = { workspace = true, features = ["use_alloc"] }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true, features = [
+	"clone-impls",
+	"extra-traits",
+	"full",
+	"parsing",
+	"printing",
+] }
+weedle2 = { workspace = true, optional = true }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+cargo_metadata = { workspace = true }
+indoc = { workspace = true }
+js-bindgen-ld-shared = { workspace = true }
+prettyplease = { workspace = true }
+similar-asserts = { workspace = true }
+tempfile = { workspace = true }
+wasmparser = { workspace = true }
+
+[lints]
+workspace = true

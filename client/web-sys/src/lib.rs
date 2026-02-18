@@ -13,7 +13,7 @@ pub mod console {
 	use js_sys::JsValue;
 
 	#[js_sys::js_sys(namespace = "console")]
-	extern "C" {
+	extern "js-sys" {
 		#[js_sys(js_name = "log")]
 		pub fn log0();
 

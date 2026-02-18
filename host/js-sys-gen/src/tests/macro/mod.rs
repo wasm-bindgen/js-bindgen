@@ -23,7 +23,7 @@ fn test(
 	assembly: impl Into<Option<&'static str>>,
 	js_import: impl Into<Option<&'static str>>,
 ) {
-	let output = crate::js_sys_internal(attr.clone(), input.clone()).unwrap_or_else(|e| e);
+	let output = crate::js_sys(attr.clone(), input.clone()).unwrap_or_else(|e| e);
 
 	let output = syn::parse2(output).unwrap();
 	let output = prettyplease::unparse(&output);

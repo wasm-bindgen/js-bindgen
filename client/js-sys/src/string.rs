@@ -33,7 +33,7 @@ impl JsString {
 }
 
 #[js_sys(js_sys = crate)]
-extern "C" {
+extern "js-sys" {
 	pub type JsString;
 
 	#[js_sys(js_embed = "string.decode")]

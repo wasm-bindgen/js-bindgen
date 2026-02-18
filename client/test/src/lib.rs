@@ -4,7 +4,7 @@ pub use js_bindgen_test_macro::test;
 use js_sys::{JsString, js_sys};
 
 #[js_sys]
-extern "C" {
+extern "js-sys" {
 	#[js_sys(js_import)]
 	fn set_message(message: &JsString);
 

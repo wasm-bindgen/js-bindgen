@@ -1,4 +1,4 @@
-(module $basic-d74ee8a000377818.wasm
+(module $basic-083d9c088c739881.wasm
   (type (;0;) (func (param i32 i32) (result externref)))
   (type (;1;) (func (param externref)))
   (type (;2;) (func))
@@ -40,7 +40,7 @@
     local.tee 0
     call $web_sys.console.log
     local.get 0
-    call $_ZN57_$LT$js_sys..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h52bad29b4b93c128E
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hdac132484fbaae55E
     i32.const 1048589
     i32.const 5
     call $js_sys.string_decode
@@ -51,11 +51,11 @@
     local.tee 1
     call $web_sys.console.log2
     local.get 1
-    call $_ZN57_$LT$js_sys..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h52bad29b4b93c128E
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hdac132484fbaae55E
     local.get 0
-    call $_ZN57_$LT$js_sys..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h52bad29b4b93c128E
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hdac132484fbaae55E
   )
-  (func $_ZN57_$LT$js_sys..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h52bad29b4b93c128E (;6;) (type 4) (param i32)
+  (func $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hdac132484fbaae55E (;6;) (type 4) (param i32)
     (local i32 i32 i32 i32)
     global.get $__stack_pointer
     i32.const 16
@@ -101,7 +101,7 @@
             i32.gt_u
             select
             local.tee 4
-            call $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17hb49575499dbbac61E
+            call $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17hdbf4c5d35d163004E
             local.get 1
             i32.load offset=4
             br_if 2 (;@2;)
@@ -142,21 +142,21 @@
         return
       end
       i32.const 22
-      call $_ZN4core6result13unwrap_failed17hd3da41c67c4586a8E
+      call $_ZN4core6result13unwrap_failed17h28bb9ae37aca2287E
       unreachable
     end
     i32.const 43
-    call $_ZN4core6result13unwrap_failed17hd3da41c67c4586a8E
+    call $_ZN4core6result13unwrap_failed17h28bb9ae37aca2287E
     unreachable
   )
-  (func $_ZN4core9panicking9panic_fmt17ha9276d4d9f74c64eE (;7;) (type 2)
+  (func $_ZN4core9panicking9panic_fmt17h806e647715990138E (;7;) (type 2)
     unreachable
   )
-  (func $_ZN4core6result13unwrap_failed17hd3da41c67c4586a8E (;8;) (type 4) (param i32)
-    call $_ZN4core9panicking9panic_fmt17ha9276d4d9f74c64eE
+  (func $_ZN4core6result13unwrap_failed17h28bb9ae37aca2287E (;8;) (type 4) (param i32)
+    call $_ZN4core9panicking9panic_fmt17h806e647715990138E
     unreachable
   )
-  (func $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17hb49575499dbbac61E (;9;) (type 5) (param i32 i32 i32 i32)
+  (func $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17hdbf4c5d35d163004E (;9;) (type 5) (param i32 i32 i32 i32)
     (local i32 i32 i32 i32)
     block ;; label = @1
       block ;; label = @2
@@ -443,7 +443,7 @@
         unreachable
       end
       i32.const 43
-      call $_ZN4core6result13unwrap_failed17hd3da41c67c4586a8E
+      call $_ZN4core6result13unwrap_failed17h28bb9ae37aca2287E
       unreachable
     end
     i32.const 0
@@ -498,7 +498,7 @@
   (data $.data (;1;) (i32.const 1048600) "\04\00\00\00")
   (@producers
     (language "Rust" "")
-    (processed-by "rustc" "1.93.0 (254b59607 2026-01-19)")
+    (processed-by "rustc" "1.93.1 (01f6ddf75 2026-02-11)")
     (processed-by "js-bindgen" "0.0.0")
   )
   (@custom "target_features" (after data) "\08+\0bbulk-memory+\0fbulk-memory-opt+\16call-indirect-overlong+\0amultivalue+\0fmutable-globals+\13nontrapping-fptoint+\0freference-types+\08sign-ext")

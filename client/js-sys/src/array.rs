@@ -49,7 +49,7 @@ js_bindgen::embed_js!(
 );
 
 #[js_sys(js_sys = crate)]
-extern "C" {
+extern "js-sys" {
 	pub type JsArray<T = JsValue>;
 
 	#[js_sys(js_embed = "array.u32.decode")]

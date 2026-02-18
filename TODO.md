@@ -83,21 +83,16 @@
 - Memory-mapped file reading should lock files to make it safe.
 - Add diagnostics for traits when they are not implemented, e.g. `Input`/`Output`.
 
-[Fantoccini]: https://crates.io/crates/fantoccini
-[Thirtyfour]: https://crates.io/crates/thirtyfour
+[Emscripten's]:
+	https://github.com/emscripten-core/emscripten/blob/28bcb86466a273859b8adb43cb167b97e05e145d/src/lib/libstrings.js
+[`wasm-bindgen`'s]:
+	https://github.com/wasm-bindgen/wasm-bindgen/blob/086af5a849ba86a176ebbf60f4182e9b82607584/crates/cli-support/src/js/mod.rs#L1954-L1983
 
 # Medium Priority
 
 - Find a way to link to imports directly if no wrapper function is needed. This happens when no
   conversions on the ASM level are necessary.
 - Provide an absolutely minimal allocator.
-- The `js_sys` proc-macro should remove the `extern "C" { ... }` part of the input on error to avoid
-  triggering the `unsafe` requirement downstream.
-
-[Emscripten's]:
-	https://github.com/emscripten-core/emscripten/blob/28bcb86466a273859b8adb43cb167b97e05e145d/src/lib/libstrings.js
-[`wasm-bindgen`'s]:
-	https://github.com/wasm-bindgen/wasm-bindgen/blob/086af5a849ba86a176ebbf60f4182e9b82607584/crates/cli-support/src/js/mod.rs#L1954-L1983
 
 # Low Priority
 
