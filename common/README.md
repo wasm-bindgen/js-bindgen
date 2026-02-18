@@ -1,7 +1,7 @@
 # Description
 
-`js-bindgen` uses a custom linker. However, during development we can't use this linker
-pre-installed or pre-compiled, we need the one being worked on now!
+`js-bindgen` uses a custom linker and runner. However, during development we can't use these
+binaries pre-installed or pre-compiled, we need the one being worked on now!
 
 The issue is that specifying a custom linker via
 [`target.<triple>.linker`](https://doc.rust-lang.org/1.92.0/cargo/reference/config.html#targettriplelinker)

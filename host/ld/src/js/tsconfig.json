@@ -1,23 +1,7 @@
 {
+	"extends": "../../../../common/tsconfig.base.json",
 	"compilerOptions": {
-		"allowArbitraryExtensions": true,
 		"declaration": true,
-		"module": "esnext",
-		"moduleResolution": "bundler",
-		"rewriteRelativeImportExtensions": true,
-		"target": "esnext",
-		"types": [],
-		// Lints
-		"allowUnreachableCode": false,
-		"allowUnusedLabels": false,
-		"exactOptionalPropertyTypes": true,
-		"noFallthroughCasesInSwitch": true,
-		"noImplicitOverride": true,
-		"noImplicitReturns": true,
-		"noPropertyAccessFromIndexSignature": true,
-		"noUncheckedIndexedAccess": true,
-		"noUnusedLocals": true,
-		"noUnusedParameters": true,
-		"strict": true
+		"lib": ["ESNext", "WebWorker"]
 	}
 }
