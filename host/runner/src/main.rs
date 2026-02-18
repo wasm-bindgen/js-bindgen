@@ -23,12 +23,9 @@ use crate::server::{HttpServer, Status};
 use crate::web_driver::WebDriver;
 
 const NODE_JS_JS: &str = include_str!("js/node-js.mjs");
+const DENO_JS: &str = include_str!("js/deno.mjs");
 const SHARED_JS: &str = include_str!("js/shared.mjs");
 const SHARED_TERMINAL_JS: &str = include_str!("js/shared-terminal.mjs");
-
-const DENO_TS: &str = include_str!("js/deno.mts");
-const SHARED_TS: &str = include_str!("js/shared.mts");
-const SHARED_TERMINAL_TS: &str = include_str!("js/shared-terminal.mts");
 
 #[derive(Parser)]
 #[command(name = "js-bindgen-runner", version, about, long_about = None)]
@@ -423,13 +420,13 @@ impl Runner {
 		let dir = tempfile::tempdir()?;
 
 		let runner_path = dir.path().join("runner.mts");
-		fs::write(&runner_path, DENO_TS)?;
+		fs::write(&runner_path, DENO_JS)?;
 
 		fs::write(dir.path().join("test-data.json"), self.test_data_json)?;
 		fs::copy(self.wasm_path, dir.path().join("wasm.wasm"))?;
 		fs::copy(self.imports_path, dir.path().join("imports.mjs"))?;
-		fs::write(dir.path().join("shared.mts"), SHARED_TS)?;
-		fs::write(dir.path().join("shared-terminal.mts"), SHARED_TERMINAL_TS)?;
+		fs::write(dir.path().join("shared.mjs"), SHARED_JS)?;
+		fs::write(dir.path().join("shared-terminal.mjs"), SHARED_TERMINAL_JS)?;
 
 		let status = Command::new("deno")
 			.arg("run")

@@ -1,5 +1,6 @@
 {
 	"devDependencies": {
-		"@types/node": "^25"
+		"@types/node": "^25",
+		"@types/deno": "^2"
 	}
 }

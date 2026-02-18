@@ -1,6 +1,7 @@
 {
 	"compilerOptions": {
 		"allowArbitraryExtensions": true,
+		"lib": [],
 		"module": "esnext",
 		"moduleResolution": "bundler",
 		"rewriteRelativeImportExtensions": true,
