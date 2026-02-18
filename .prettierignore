@@ -1,2 +1,2 @@
 *.mjs
-/host/ld-lib/src/js/imports.d.mts
+/host/ld/src/js/imports.d.mts

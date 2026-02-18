@@ -1,3 +1,4 @@
+mod post;
 mod wasm_ld;
 
 use std::borrow::Cow;
@@ -11,9 +12,9 @@ use std::{env, fs};
 
 use js_bindgen_ld_shared::JsBindgenAssemblySectionParser;
 use js_bindgen_shared::ReadFile;
-use wasm_encoder::{CustomSection, Module};
 use wasmparser::{Parser, Payload};
 
+use crate::post::MainMemory;
 use crate::wasm_ld::WasmLdArguments;
 
 fn main() {
@@ -50,8 +51,9 @@ fn main() {
 	// Here we store additional arguments we want to pass to `wasm-ld`.
 	let mut add_args: Vec<OsString> = Vec::new();
 
-	// Ensure main memory is imported and embed path to it.
-	process_main_memory(&wasm_ld_args, &mut add_args);
+	// Extract path to the main memory if user-specified, otherwise force export
+	// with our own path.
+	let main_memory = main_memory(&wasm_ld_args, &mut add_args);
 
 	// Extract embedded assembly from object files.
 	for input in wasm_ld_args.inputs() {
@@ -79,7 +81,7 @@ fn main() {
 			File::create(&js_output_path).expect("output JS file should be writable"),
 		);
 
-		let wasm_output = js_bindgen_ld_lib::post_processing(&wasm_input, &mut js_output).unwrap();
+		let wasm_output = post::processing(&wasm_input, &mut js_output, main_memory).unwrap();
 		drop(wasm_input);
 
 		// We could write into the file directly, but `wasm-encoder` doesn't support
@@ -152,16 +154,11 @@ fn process_object(
 	}
 }
 
-fn process_main_memory(wasm_ld_args: &WasmLdArguments<'_>, add_args: &mut Vec<OsString>) {
-	let output_path = Path::new(
-		wasm_ld_args
-			.arg_single("o")
-			.expect("output path argument should be present"),
-	);
-
-	// Extract path to the main memory if user-specified, otherwise force import
-	// with our own path.
-	let main_memory = match wasm_ld_args.arg_single("import-memory=") {
+fn main_memory<'m>(
+	wasm_ld_args: &'m WasmLdArguments<'_>,
+	add_args: &mut Vec<OsString>,
+) -> MainMemory<'m> {
+	match wasm_ld_args.arg_single("import-memory=") {
 		Some(arg) => {
 			let arg = arg
 				.to_str()
@@ -171,9 +168,9 @@ fn process_main_memory(wasm_ld_args: &WasmLdArguments<'_>, add_args: &mut Vec<Os
 			let module = split.next().expect("should yield something even if empty");
 
 			if let Some(name) = split.next() {
-				(module, name)
+				MainMemory { module, name }
 			} else {
-				(module, "")
+				MainMemory { module, name: "" }
 			}
 		}
 		None => {
@@ -183,31 +180,17 @@ fn process_main_memory(wasm_ld_args: &WasmLdArguments<'_>, add_args: &mut Vec<Os
 					"`js-bindgen` already imports the main memory by default under \
 					 `js-bindgen:memory`"
 				);
-				("env", "memory")
+				MainMemory {
+					module: "env",
+					name: "memory",
+				}
 			} else {
 				add_args.push(OsString::from("--import-memory=js_bindgen,memory"));
-				("js_bindgen", "memory")
+				MainMemory {
+					module: "js_bindgen",
+					name: "memory",
+				}
 			}
 		}
-	};
-
-	// Embed main memory path.
-	let main_memory_obj_path = output_path.with_extension("main_memory.asm.o");
-	let mut module = Module::new();
-	let mut data = Vec::new();
-	data.extend_from_slice(&u16::try_from(main_memory.0.len()).unwrap().to_le_bytes());
-	data.extend_from_slice(main_memory.0.as_bytes());
-	data.extend_from_slice(&u16::try_from(main_memory.1.len()).unwrap().to_le_bytes());
-	data.extend_from_slice(main_memory.1.as_bytes());
-	module.section(&CustomSection {
-		name: Cow::Borrowed("js_bindgen.main_memory"),
-		data: Cow::Owned(data),
-	});
-	module.section(&CustomSection {
-		name: Cow::Borrowed("linking"),
-		data: Cow::Borrowed(&[2]),
-	});
-	fs::write(&main_memory_obj_path, module.finish())
-		.expect("output main memory should be writable");
-	add_args.push(main_memory_obj_path.into());
+	}
 }

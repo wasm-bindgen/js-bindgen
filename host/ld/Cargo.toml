@@ -6,9 +6,11 @@ name = "js-bindgen-ld"
 rust-version = "1.91"
 
 [dependencies]
+anyhow = { workspace = true }
 argfile = { workspace = true }
-hashbrown = { workspace = true }
-js-bindgen-ld-lib = { workspace = true }
+foldhash = { workspace = true }
+hashbrown = { workspace = true, features = ["default-hasher"] }
+itertools = { workspace = true }
 js-bindgen-ld-shared = { workspace = true }
 js-bindgen-shared = { workspace = true }
 wasm-encoder = { workspace = true }

@@ -4,7 +4,6 @@ members = [
 	"js-sys-gen",
 	"js-sys-macro",
 	"ld",
-	"ld-lib",
 	"ld-shared",
 	"runner",
 	"shared",
@@ -38,7 +37,6 @@ futures-util = { version = "0.3", default-features = false }
 hashbrown = { version = "0.16", default-features = false, features = ["inline-more"] }
 indoc = "2"
 itertools = { version = "0.14", default-features = false }
-js-bindgen-ld-lib = { path = "ld-lib" }
 js-bindgen-ld-shared = { path = "ld-shared" }
 js-bindgen-shared = { path = "shared" }
 js-sys-gen = { path = "js-sys-gen" }
