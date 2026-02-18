@@ -51,6 +51,7 @@
   - Add buttons for the server runner to run tests in various worker setting on demand.
   - Optimize HTML output by syncing with rAF.
   - Validate `--no-capture` output against `libtest`.
+  - Support return values.
 - E2E testing for the linker. Should also ensure deterministic output.
 - Can we use `TokenStream` from `str` parsing to simplify the code without affecting performance?
 - Add a `disable_hygiene` attribute to `#[js_sys]` to reduce the compile-time of the output to an

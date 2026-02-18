@@ -1,4 +1,5 @@
-use std::panic::PanicHookInfo;
+use std::panic::{self, PanicHookInfo};
+use std::sync::Once;
 
 pub use js_bindgen_test_macro::test;
 use js_sys::{JsString, js_sys};
@@ -12,6 +13,7 @@ extern "js-sys" {
 	fn set_payload(payload: &JsString);
 }
 
+#[doc(hidden)]
 pub fn set_panic_hook() {
 	// TODO: Bump msrv rustc to 1.91.0 and remove this func
 	fn payload_as_str<'a>(info: &'a PanicHookInfo) -> Option<&'a str> {
@@ -24,12 +26,13 @@ pub fn set_panic_hook() {
 		}
 	}
 
-	static HOOK: std::sync::Once = std::sync::Once::new();
+	static HOOK: Once = Once::new();
 
 	HOOK.call_once(|| {
-		std::panic::set_hook(Box::new(|info| {
+		panic::set_hook(Box::new(|info| {
 			let message = info.to_string();
 			set_message(&JsString::from_str(&message));
+
 			if let Some(payload) = payload_as_str(info) {
 				set_payload(&JsString::from_str(payload));
 			}

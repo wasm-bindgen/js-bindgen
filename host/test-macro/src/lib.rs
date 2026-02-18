@@ -1,29 +1,18 @@
-use std::iter::Peekable;
-use std::mem;
+use std::borrow::Cow;
 
-use js_bindgen_macro_shared::*;
-use proc_macro2::{Delimiter, Group, Ident, Span, TokenStream, TokenTree, token_stream};
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::parse::Parser;
+use syn::spanned::Spanned;
+use syn::{
+	Error, Expr, ExprLit, ItemFn, Lit, LitByteStr, Meta, MetaNameValue, Path, Result, ReturnType,
+	meta, parse_quote,
+};
 
-struct TestAttributes {
-	ignore: TestAttributeValue,
-	should_panic: TestAttributeValue,
-}
-
-#[derive(Default)]
-enum TestAttributeValue {
-	#[default]
+enum TestAttribute {
 	None,
 	Present,
 	WithText(String),
-}
-
-impl TestAttributes {
-	fn new() -> Self {
-		Self {
-			ignore: TestAttributeValue::None,
-			should_panic: TestAttributeValue::None,
-		}
-	}
 }
 
 #[proc_macro_attribute]
@@ -32,264 +21,175 @@ pub fn test(
 	item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
 	test_internal(attr.into(), item.into())
-		.unwrap_or_else(|e| e)
+		.unwrap_or_else(Error::into_compile_error)
 		.into()
 }
 
-fn test_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream, TokenStream> {
-	let mut attr = attr.into_iter();
-	if let Some(tok) = attr.next() {
-		return Err(compile_error(tok.span(), "expected empty attribute"));
-	}
+fn test_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
+	let mut crate_: Option<Path> = None;
 
-	let (item, attrs) = strip_test_attributes(item)?;
-	let (ident, is_async) = find_test_ident(&item)?;
-	if is_async {
-		return Err(compile_error(ident.span(), "async tests are not supported"));
-	}
-
-	let mut output = TokenStream::new();
-	output.extend(item);
-
-	let mut attr = attrs.ignore.encode();
-	attr.append(&mut attrs.should_panic.encode());
-	let data = [
-		Argument {
-			cfg: None,
-			kind: ArgumentKind::Bytes(attr),
-		},
-		Argument {
-			cfg: None,
-			kind: ArgumentKind::Interpolate(
-				format!(
-					r#"::core::concat!(::core::module_path!(), "::", ::core::stringify!({ident}))"#
-				)
-				.parse::<TokenStream>()
-				.unwrap()
-				.into_iter()
-				.collect(),
-			),
-		},
-	];
-
-	let section = custom_section("js_bindgen.test", &data);
-	output.extend(section);
-
-	let wrapper = format!(
-		r#"const _: () = {{
-    		#[unsafe(export_name = ::core::concat!(::core::module_path!(), "::", ::core::stringify!({ident})))]
-    		extern "C" fn jbg_test() {{
-				js_bindgen_test::set_panic_hook();
-				{ident}();
-			}}
-		}};"#
-	);
-	output.extend(wrapper.parse::<TokenStream>().unwrap());
-
-	Ok(output)
-}
-
-impl TestAttributeValue {
-	fn replace(&mut self, other: Option<String>) -> Self {
-		let old = mem::take(self);
-
-		*self = if let Some(s) = other {
-			Self::WithText(s)
+	meta::parser(|meta| {
+		if meta.path.is_ident("js_sys_test") {
+			if crate_.is_some() {
+				Err(meta.error("duplicate attribute"))
+			} else {
+				crate_ = Some(meta.value()?.parse()?);
+				Ok(())
+			}
 		} else {
-			Self::Present
-		};
-
-		old
-	}
-
-	fn is_some(&self) -> bool {
-		match self {
-			Self::None => false,
-			Self::Present | Self::WithText(_) => true,
+			Err(meta.error("unsupported attribute"))
 		}
-	}
+	})
+	.parse2(attr)?;
 
-	fn encode(self) -> Vec<u8> {
-		match self {
-			Self::WithText(s) => {
-				let len = u16::try_from(s.len()).unwrap().to_le_bytes();
-				let mut data = Vec::with_capacity(1 + len.len() + s.len());
-				data.push(2);
-				data.extend_from_slice(&len);
-				data.append(&mut s.into_bytes());
-				data
+	let crate_ = crate_.unwrap_or_else(|| parse_quote!(::js_bindgen_test));
+
+	let mut function: ItemFn = syn::parse2(item)?;
+	let span = function.span();
+	let mut ignore = TestAttribute::None;
+	let mut should_panic = TestAttribute::None;
+
+	for attr in function.attrs.extract_if(.., |attr| {
+		attr.path().is_ident("ignore") || attr.path().is_ident("should_panic")
+	}) {
+		if attr.path().is_ident("ignore") {
+			if !matches!(ignore, TestAttribute::None) {
+				return Err(Error::new_spanned(
+					attr,
+					"only one `ignore` attribute supported",
+				));
 			}
-			Self::Present => {
-				vec![1]
-			}
-			Self::None => vec![0],
-		}
-	}
-}
 
-fn find_test_ident(item: &TokenStream) -> Result<(Ident, bool), TokenStream> {
-	let mut iter = item.clone().into_iter().peekable();
-	let mut saw_async = false;
-	let mut last_span = Span::mixed_site();
-
-	while let Some(tok) = iter.next() {
-		last_span = tok.span();
-		if let TokenTree::Ident(ident) = &tok {
-			let name = ident.to_string();
-			if name == "async" {
-				saw_async = true;
-			}
-			if name == "fn" {
-				let ident = parse_ident(&mut iter, ident.span(), "a function name")?;
-				return Ok((ident, saw_async));
-			}
-		}
-	}
-
-	Err(compile_error(last_span, "expected a function"))
-}
-
-enum TestAttribute {
-	Ignore(Option<String>),
-	ShouldPanic(Option<String>),
-}
-
-fn strip_test_attributes(item: TokenStream) -> Result<(TokenStream, TestAttributes), TokenStream> {
-	let mut iter = item.into_iter().peekable();
-	let mut output = Vec::new();
-	let mut attrs = TestAttributes::new();
-
-	while let Some(tok) = iter.next() {
-		let TokenTree::Punct(punct) = &tok else {
-			output.push(tok);
-			continue;
-		};
-
-		if punct.as_char() != '#' {
-			output.push(tok);
-			continue;
-		}
-
-		let Some(TokenTree::Group(group)) = iter.peek() else {
-			output.push(tok);
-			continue;
-		};
-		if group.delimiter() != Delimiter::Bracket {
-			output.push(tok);
-			continue;
-		}
-
-		match parse_test_attribute(group)? {
-			Some(TestAttribute::Ignore(reason)) => {
-				if attrs.ignore.replace(reason).is_some() {
-					return Err(compile_error(group.span(), "duplicate `ignore` attribute"));
+			match attr.meta {
+				Meta::Path(_) => ignore = TestAttribute::Present,
+				Meta::NameValue(MetaNameValue {
+					value: Expr::Lit(ExprLit {
+						lit: Lit::Str(reason),
+						..
+					}),
+					..
+				}) => ignore = TestAttribute::WithText(reason.value()),
+				meta => {
+					return Err(Error::new_spanned(meta, "`ignore` syntax not supported"));
 				}
-				iter.next();
 			}
-			Some(TestAttribute::ShouldPanic(message)) => {
-				if attrs.should_panic.replace(message).is_some() {
-					return Err(compile_error(
-						group.span(),
-						"duplicate `should_panic` attribute",
+		} else if attr.path().is_ident("should_panic") {
+			if !matches!(should_panic, TestAttribute::None) {
+				return Err(Error::new_spanned(
+					attr,
+					"only one `should_panic` attribute supported",
+				));
+			}
+
+			if let Meta::Path(_) = attr.meta {
+				should_panic = TestAttribute::Present;
+			} else {
+				let value = if let Meta::NameValue(MetaNameValue { value, .. }) = &attr.meta {
+					Some(Cow::Borrowed(value))
+				} else if let Meta::List(list) = &attr.meta
+					&& let MetaNameValue { path, value, .. } = list.parse_args()?
+					&& path.is_ident("expected")
+				{
+					Some(Cow::Owned(value))
+				} else {
+					None
+				};
+
+				if let Some(Expr::Lit(ExprLit {
+					lit: Lit::Str(expected),
+					..
+				})) = value.as_deref()
+				{
+					should_panic = TestAttribute::WithText(expected.value());
+				} else {
+					return Err(Error::new_spanned(
+						attr.meta,
+						"`should_panic` syntax not supported",
 					));
 				}
-				iter.next();
-			}
-			None => {
-				output.push(tok);
-				output.push(TokenTree::Group(group.clone()));
-				iter.next();
 			}
 		}
 	}
 
-	Ok((TokenStream::from_iter(output), attrs))
-}
+	if let Some(constness) = function.sig.constness {
+		return Err(Error::new_spanned(constness, "`const` test not supported"));
+	}
 
-fn parse_test_attribute(group: &Group) -> Result<Option<TestAttribute>, TokenStream> {
-	let mut stream = group.stream().into_iter().peekable();
-	let Some(TokenTree::Ident(ident)) = stream.next() else {
-		return Ok(None);
+	if let Some(asyncness) = function.sig.asyncness {
+		return Err(Error::new_spanned(asyncness, "`async` test not supported"));
+	}
+
+	if !function.sig.inputs.is_empty() {
+		return Err(Error::new_spanned(
+			function.sig.inputs,
+			"test with parameters not supported",
+		));
+	}
+
+	if let ReturnType::Type(..) = function.sig.output {
+		return Err(Error::new_spanned(
+			function.sig.output,
+			"test with return value not supported",
+		));
+	}
+
+	let mut data = Vec::new();
+	ignore.encode_into(&mut data);
+	should_panic.encode_into(&mut data);
+	let data_len = data.len();
+	let data = LitByteStr::new(&data, span);
+	let ident = &function.sig.ident;
+	let foreign_test = quote! {
+		::core::concat!(::core::module_path!(), "::", ::core::stringify!(#ident))
 	};
 
-	match ident.to_string().as_str() {
-		"ignore" => {
-			let reason = parse_optional_reason(&mut stream, ident.span())?;
-			Ok(Some(TestAttribute::Ignore(reason)))
-		}
-		"should_panic" => {
-			let reason = parse_should_panic_reason(&mut stream, ident.span())?;
-			Ok(Some(TestAttribute::ShouldPanic(reason)))
-		}
-		_ => Ok(None),
-	}
+	Ok(quote! {
+		#function
+
+		const _: () = {
+			const DATA: [::core::primitive::u8; #data_len] = *#data;
+
+			const TEST: &::core::primitive::str = #foreign_test;
+			const TEST_LEN: ::core::primitive::usize = ::core::primitive::str::len(TEST);
+			const TEST_PTR: *const ::core::primitive::u8 = ::core::primitive::str::as_ptr(TEST);
+			const TEST_ARR: [::core::primitive::u8; TEST_LEN] = unsafe { *(TEST_PTR as *const _) };
+
+			const LEN: ::core::primitive::usize = #data_len + TEST_LEN;
+			const LEN_ARR: [::core::primitive::u8; 4] = ::core::primitive::usize::to_le_bytes(LEN);
+
+			#[repr(C)]
+			struct Layout(
+				[::core::primitive::u8; 4],
+				[::core::primitive::u8; #data_len],
+				[::core::primitive::u8; TEST_LEN],
+			);
+
+			#[unsafe(link_section = "js_bindgen.test")]
+			static CUSTOM_SECTION: Layout = Layout(LEN_ARR, DATA, TEST_ARR);
+		};
+
+		const _: () = {
+			#[unsafe(export_name = #foreign_test)]
+			extern "C" fn test() {
+				#crate_::set_panic_hook();
+				#ident();
+			}
+		};
+	})
 }
 
-fn parse_optional_reason(
-	stream: &mut Peekable<token_stream::IntoIter>,
-	span: Span,
-) -> Result<Option<String>, TokenStream> {
-	if let Some(TokenTree::Punct(punct)) = stream.peek() {
-		if punct.as_char() == '=' {
-			let punct = expect_punct(&mut *stream, '=', span, "`=`", false)?;
-			let (_, reason) =
-				parse_string_literal(&mut *stream, punct.span(), "a string literal", false)?;
-			if stream.peek().is_some() {
-				return Err(compile_error(span, "unexpected tokens"));
+impl TestAttribute {
+	fn encode_into(self, buffer: &mut Vec<u8>) {
+		match self {
+			Self::None => buffer.push(0),
+			Self::Present => buffer.push(1),
+			Self::WithText(s) => {
+				let len = u16::try_from(s.len()).unwrap().to_le_bytes();
+				buffer.reserve(1 + len.len() + s.len());
+				buffer.push(2);
+				buffer.extend_from_slice(&len);
+				buffer.append(&mut s.into_bytes());
 			}
-			return Ok(Some(reason));
 		}
 	}
-	if stream.peek().is_some() {
-		return Err(compile_error(span, "unexpected tokens"));
-	}
-	Ok(None)
-}
-
-fn parse_should_panic_reason(
-	stream: &mut Peekable<token_stream::IntoIter>,
-	span: Span,
-) -> Result<Option<String>, TokenStream> {
-	// Support `#[should_panic = "..."]` and `#[should_panic(expected = "...")]`.
-	if let Some(TokenTree::Punct(punct)) = stream.peek() {
-		if punct.as_char() == '=' {
-			let punct = expect_punct(&mut *stream, '=', span, "`=`", false)?;
-			let (_, reason) =
-				parse_string_literal(&mut *stream, punct.span(), "a string literal", false)?;
-			if stream.peek().is_some() {
-				return Err(compile_error(span, "unexpected tokens"));
-			}
-			return Ok(Some(reason));
-		}
-	}
-
-	if let Some(TokenTree::Group(group)) = stream.peek() {
-		if group.delimiter() != Delimiter::Parenthesis {
-			return Err(compile_error(span, "unexpected tokens"));
-		}
-		let Some(TokenTree::Group(group)) = stream.next() else {
-			return Err(compile_error(span, "unexpected tokens"));
-		};
-		let mut inner = group.stream().into_iter().peekable();
-		let Some(TokenTree::Ident(ident)) = inner.next() else {
-			return Err(compile_error(group.span(), "expected `expected`"));
-		};
-		let name = ident.to_string();
-		if name.as_str() != "expected" {
-			return Err(compile_error(ident.span(), "expected `expected = \"...\"`"));
-		}
-		let punct = expect_punct(&mut inner, '=', ident.span(), "`=`", false)?;
-		let (_, reason) =
-			parse_string_literal(&mut inner, punct.span(), "a string literal", false)?;
-		if inner.peek().is_some() || stream.peek().is_some() {
-			return Err(compile_error(span, "unexpected tokens"));
-		}
-		return Ok(Some(reason));
-	}
-
-	if stream.peek().is_some() {
-		return Err(compile_error(span, "unexpected tokens"));
-	}
-
-	Ok(None)
 }

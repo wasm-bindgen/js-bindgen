@@ -6,7 +6,6 @@ members = [
 	"ld",
 	"ld-lib",
 	"ld-shared",
-	"macro-shared",
 	"runner",
 	"shared",
 	"test-macro",
@@ -33,7 +32,6 @@ indoc = "2"
 itertools = { version = "0.14", default-features = false }
 js-bindgen-ld-lib = { path = "ld-lib" }
 js-bindgen-ld-shared = { path = "ld-shared" }
-js-bindgen-macro-shared = { path = "macro-shared" }
 js-bindgen-shared = { path = "shared" }
 js-sys-gen = { path = "js-sys-gen" }
 memmap2 = "0.9"

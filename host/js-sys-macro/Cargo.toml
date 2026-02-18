@@ -9,6 +9,7 @@ proc-macro = true
 
 [dependencies]
 js-sys-gen = { workspace = true, features = ["macro"] }
+proc-macro2 = { workspace = true, features = ["proc-macro"] }
 
 [lints]
 workspace = true

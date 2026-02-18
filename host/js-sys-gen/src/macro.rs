@@ -9,7 +9,7 @@ use syn::{Error, ForeignItem, ItemForeignMod, LitStr, Path, meta};
 use crate::{Function, FunctionJsOutput, Hygiene, Type};
 
 pub fn js_sys(attr: TokenStream, item: TokenStream) -> Result<TokenStream, TokenStream> {
-	let foreign_mod: ItemForeignMod = match syn::parse2(item) {
+	let mut foreign_mod: ItemForeignMod = match syn::parse2(item) {
 		Ok(foreign_mod) => foreign_mod,
 		Err(e) => return Err(e.into_compile_error()),
 	};
@@ -20,11 +20,19 @@ pub fn js_sys(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Token
 
 	if let Err(e) = meta::parser(|meta| {
 		if meta.path.is_ident("js_sys") {
-			js_sys = Some(meta.value()?.parse()?);
-			Ok(())
+			if js_sys.is_some() {
+				Err(meta.error("duplicate attribute"))
+			} else {
+				js_sys = Some(meta.value()?.parse()?);
+				Ok(())
+			}
 		} else if meta.path.is_ident("namespace") {
-			namespace = Some(meta.value()?.parse::<LitStr>()?.value());
-			Ok(())
+			if namespace.is_some() {
+				Err(meta.error("duplicate attribute"))
+			} else {
+				namespace = Some(meta.value()?.parse::<LitStr>()?.value());
+				Ok(())
+			}
 		} else {
 			Err(meta.error("unsupported attribute"))
 		}
@@ -32,6 +40,16 @@ pub fn js_sys(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Token
 	.parse2(attr)
 	{
 		error.push(e);
+	}
+
+	for attr in foreign_mod
+		.attrs
+		.extract_if(.., |attr| attr.path().is_ident("js_sys"))
+	{
+		error.push(Error::new_spanned(
+			attr,
+			"`js_sys` attribute not supported at that position",
+		));
 	}
 
 	let mut output = TokenStream::new();
