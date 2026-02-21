@@ -1,6 +1,32 @@
-## FAQ
+# FAQ
 
-### How Does This Improve on [`wasm-bindgen`]?
+## Why Not Use the Component Model Proposal
+
+This decision was largely made because we need a solution at the time and the component model
+proposal was still at phase 1. In detail, there has been two big issues for us.
+
+### Lack of Features
+
+There is a lack of support for existing Wasm proposals that we would otherwise be able to make use
+of today. Most notably the reference types, exception handling, GC and Wasm64 proposal.
+
+While we could extend WIT or modify/make our own component generator, this already brings us back to
+square one: we are not actually adopting the proposal and instead are doing our own thing, again.
+
+### The Future
+
+The future of the component model proposal is not set in stone. The proposal is huge, it is as big
+if not bigger than the whole Wasm spec! To this date there is only one working implementation:
+Wasmtime, which is largely driven by the same people working on the proposal. We don't know if the
+component proposal will ever be adopted by browsers and JS engines.
+
+We also don't know how the component model proposal will evolve. At the time of writing there have
+been no efforts in the proposal for JS interoperability. Unless this happens running a component in
+a JS engine will always require some sort of JS glue code, which again, brings us back to square
+one: that glue will always be worse than the glue we would make ourselves, which isn't constrained
+by interacting with a component.
+
+## How Does This Improve on [`wasm-bindgen`]?
 
 The main improvement is the lack of an interpreter and code-level post-processing. While this
 document has a small description on both, we encourage anybody to look at [`wasm-bindgen`s issue
@@ -17,7 +43,7 @@ In conclusion `js-bindgen` is much leaner and significantly less complex than `w
 [`wasm-bindgen`]: https://github.com/wasm-bindgen/wasm-bindgen
 [`wasm-bindgen`s issue tracker]: https://github.com/wasm-bindgen/wasm-bindgen/issues
 
-#### Breaking Changes
+### Breaking Changes
 
 Another major point was splitting up the crate further to more easily support breaking changes.
 Specifically making a breaking change in `wasm-bindgen` had such a high cost it was not considered
@@ -33,7 +59,7 @@ your dependency tree would be quite a bad experience for our users. Over time `w
 accumulated more and more APIs that were not up-to-date with the changing Web API and we felt quite
 unable to make the jump without collecting all those changes, making a breaking change quite costly.
 
-#### Interpreter
+### Interpreter
 
 `wasm-bindgen` encoded some information, like traits, in run-time code. Extracting that information
 required running an interpreter during post-processing.
@@ -59,7 +85,7 @@ behavior.
 [`__wasm_call_ctors`]:
 	https://github.com/WebAssembly/tool-conventions/blob/8e3191e4992b7e96369ebcfec3af86610464ec27/Linking.md#start-section
 
-#### Code-Level Post-Processing
+### Code-Level Post-Processing
 
 Because Rust, at the time of writing, doesn't not support inline assembly, `wasm-bindgen` had to
 insert many instructions via post-processing. `wasm-bindgen` did this very successfully over a very
@@ -94,7 +120,7 @@ LLVM and Rust to enable the compiler to make this optimization.
 
 [`walrus`]: https://github.com/wasm-bindgen/walrus
 
-### Why Don't We Compile the Assembly Code on the Proc-Macro Level?
+## Why Don't We Compile the Assembly Code on the Proc-Macro Level?
 
 This was one of the initial experiments of this project. However, it turned out to have some major
 issues:
@@ -109,7 +135,7 @@ issues:
 - Because we build our JS code via associated trait variables, which we can't evaluate in a
   proc-macro, we are stuck doing post-processing anyway.
 
-### Why Don't We Compile the Assembly in a Build Script?
+## Why Don't We Compile the Assembly in a Build Script?
 
 Crucially the assembly code is put together by a proc-macro by accessing various traits and creating
 a long string that can be embedded into a custom section.
@@ -118,7 +144,7 @@ While there has been some past work on evaluating single Rust files from build s
 largely duplicate the compilers work and in many cases is just not feasible because of all the
 interactions with traits that often live in a separate crate.
 
-### Why Don't We Remove Our Custom Sections Before Passing Them into the Linker?
+## Why Don't We Remove Our Custom Sections Before Passing Them into the Linker?
 
 This was also an early experiment in the development of this project. While this works in some
 cases, like with object files, it doesn't work easily with `*.rlib` archives. Crucially the `*.rlib`
@@ -133,7 +159,7 @@ improvement. We invite any expert on the topic to chime in on what we can and ca
 Rust's archive format and how we could modify and much more importantly parse its contents more
 reliably.
 
-### Why Do We Use WAT Instead of X?
+## Why Do We Use WAT Instead of X?
 
 We have a couple of constraints to work under:
 
@@ -145,7 +171,7 @@ We have a couple of constraints to work under:
 Ultimately we have decided to go with WAT and a `wasm-tools` toolchain. Below you will find a
 detailed evaluation of every scenario that has come up.
 
-#### GAS
+### GAS
 
 Rust's `asm!` uses GAS so it would be perfectly forward-compatible.
 
@@ -153,7 +179,7 @@ It would also be very low maintenance because we can rely on LLVM to maintain it
 GAS is seriously behind on new proposals, which could turn this into very high-maintenance if it
 ends up requiring us contributing to LLVM.
 
-##### With `llvm-mc`
+#### With `llvm-mc`
 
 `llvm-mc` would require compiling LLVM on the users machine during installation. Considering the
 build time requirements this is completely off the tables. We might consider shipping binaries,
@@ -161,13 +187,13 @@ which is often very undesirable by users.
 
 We are already shipping LLVM and therefor can use their parser to transform the input.
 
-##### Rust's `asm!`
+#### Rust's `asm!`
 
 At the time of writing it is unstable and therefor can't be shipped to users.
 
 We can't transform the input unless we build our own GAS parser.
 
-#### WAT
+### WAT
 
 We have high-quality parsers and code generators from `wasm-tools` that would help us easily
 transform the input.
@@ -176,7 +202,7 @@ However, it will not be forward-compatible with Rust's `asm!` unless Rust decide
 to WAT. We would have to write our own WAT to GAS compiler, which should be quite straightforward
 but nonetheless a big chunk of work.
 
-##### With `wat2wasm`
+#### With `wat2wasm`
 
 Similarly to `llvm-mc` shipping this to users would require compiling WABT, the project `wat2wasm`
 lives in, on the users machine during installation. While the build time is orders of magnitude
@@ -186,14 +212,14 @@ very undesirable by users.
 Maintenance is currently an issue seeing that there are new proposals that are not yet supported by
 WABT.
 
-##### With `wasm-tools`
+#### With `wasm-tools`
 
 Shipping this to users would be ideal because they are just Rust libraries.
 
 These tools are very well maintained, even though at the time of writing they are missing compiling
 relocatable object files which we would have to contribute.
 
-### Why Is the MSRV So High?
+## Why Is the MSRV So High?
 
 `js-sys` currently requires the reference types proposal, which Rust enabled by default since v1.82.
 But detection via `#[cfg(target_feature = "reference-types")]` was only possible since its
