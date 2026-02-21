@@ -1,34 +1,28 @@
 use std::io::Write;
 use std::str;
 
-use anyhow::{Context, Result, bail, ensure};
-use foldhash::fast::FixedState;
-use hashbrown::{HashMap, HashSet};
+use anyhow::{Context, Result, bail};
 use itertools::{Itertools, Position};
-use js_bindgen_ld_shared::{JsBindgenEmbedSectionParser, JsBindgenImportSectionParser};
 use wasm_encoder::{
 	EntityType, ImportSection, Module, ProducersField, ProducersSection, RawSection, Section,
 };
-use wasmparser::{CustomSectionReader, Encoding, Import, KnownCustom, Parser, Payload, TypeRef};
+use wasmparser::{Encoding, KnownCustom, Parser, Payload, TypeRef};
+
+use crate::js::JsStore;
+use crate::pre::MainMemory;
 
 const IMPORTS_JS: &str = include_str!("js/imports.mjs");
-
-#[derive(Clone, Copy)]
-pub struct MainMemory<'a> {
-	pub module: &'a str,
-	pub name: &'a str,
-}
 
 /// This removes our custom sections and generates the JS import file.
 pub fn processing(
 	wasm_input: &[u8],
 	mut js_output: impl Write,
 	main_memory: MainMemory<'_>,
+	mut js_store: JsStore,
 ) -> Result<Vec<u8>> {
 	// Start building final Wasm and JS.
 	let mut wasm_output = Vec::new();
 
-	let mut js_store = JsStore::default();
 	let mut memory = None;
 
 	for payload in Parser::new(0).parse_all(wasm_input) {
@@ -79,26 +73,11 @@ pub fn processing(
 
 				import_section.append_to(&mut wasm_output);
 			}
-			// Don't write back our assembly sections.
+			// Don't write back our own custom sections.
 			Payload::CustomSection(c) if c.name() == "js_bindgen.assembly" => (),
-			// Extract all JS imports.
-			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.import.") => {
-				let stripped = c.name().strip_prefix("js_bindgen.import.").unwrap();
-				let (module, name) = stripped.split_once('.').with_context(|| {
-					format!("found incorrectly formatted JS import custom section name: {stripped}")
-				})?;
-
-				js_store.add_js_import(module, name, &c)?;
-			}
-			// Extract all JS embeds.
-			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.embed.") => {
-				let stripped = c.name().strip_prefix("js_bindgen.embed.").unwrap();
-				let (module, name) = stripped.split_once('.').with_context(|| {
-					format!("found incorrectly formatted JS import custom section name: {stripped}",)
-				})?;
-
-				js_store.add_js_embed(module, name, &c)?;
-			}
+			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.import.") => (),
+			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.embed.") => (),
+			// Register ourselves in the producer section.
 			Payload::CustomSection(c) if c.name() == "producers" => {
 				let KnownCustom::Producers(c) = c.as_known() else {
 					bail!("unexpected producer section encoding")
@@ -216,7 +195,7 @@ pub fn processing(
 
 		for (name, js) in names
 			.into_iter()
-			.filter_map(|(name, js)| js.map(|js| (name, js)))
+			.filter_map(|(name, js)| js.as_ref().map(|js| (name, js)))
 		{
 			write!(js_output, "\t\t\t\t'{name}': ")?;
 
@@ -240,202 +219,4 @@ pub fn processing(
 	js_output.write_all(js_rest.as_bytes())?;
 
 	Ok(wasm_output)
-}
-
-type FixedHashMap<K, V> = HashMap<K, V, FixedState>;
-
-#[derive(Default)]
-struct JsStore<'a> {
-	import: FixedHashMap<&'a str, FixedHashMap<&'a str, Option<&'a str>>>,
-	expected_import: HashMap<&'a str, HashSet<&'a str>>,
-	provided_import: HashMap<&'a str, HashMap<&'a str, Option<JsWithEmbed<'a>>>>,
-	embed: FixedHashMap<&'a str, FixedHashMap<&'a str, &'a str>>,
-	expected_embed: HashMap<&'a str, HashSet<&'a str>>,
-	provided_embed: HashMap<&'a str, HashMap<&'a str, JsWithEmbed<'a>>>,
-}
-
-#[derive(Clone, Copy)]
-struct JsWithEmbed<'a> {
-	js: &'a str,
-	embed: Option<&'a str>,
-}
-
-impl<'a> JsStore<'a> {
-	fn add_import(&mut self, import: Import<'a>) -> Result<()> {
-		if let Some(js) = self
-			.provided_import
-			.get_mut(import.module)
-			.and_then(|names| names.remove(import.name))
-		{
-			self.import
-				.entry(import.module)
-				.or_default()
-				.insert(import.name, js.map(|js| js.js));
-
-			if let Some(embed) = js.and_then(|js| js.embed) {
-				self.require_js_embed(import.module, embed);
-			}
-		} else if !self
-			.expected_import
-			.entry(import.module)
-			.or_default()
-			.insert(import.name)
-		{
-			bail!(
-				"found duplicate JS import: `{}:{}`",
-				import.module,
-				import.name
-			);
-		}
-
-		Ok(())
-	}
-
-	fn add_js_import(
-		&mut self,
-		module: &'a str,
-		name: &'a str,
-		custom_section: &CustomSectionReader<'a>,
-	) -> Result<()> {
-		let mut parser = JsBindgenImportSectionParser::new(custom_section);
-		let import = parser
-			.next()
-			.with_context(|| format!("found no JS import for `{module}:{name}`"))?;
-
-		if let Some(import_new) = parser.next() {
-			bail!(
-				"found multiple JS imports for `{module}:{name}`\n\tJS Import 1:\n{:?}\n\tJS \
-				 Import 2:\n{:?}",
-				import.js(),
-				import_new.js(),
-			);
-		}
-
-		if self
-			.expected_import
-			.get_mut(module)
-			.is_some_and(|names| names.remove(name))
-		{
-			self.import
-				.entry(module)
-				.or_default()
-				.insert(name, import.js());
-
-			if let Some(embed) = import.embed() {
-				self.require_js_embed(module, embed);
-			}
-		} else if let Some(import_old) = self.provided_import.entry_ref(module).or_default().insert(
-			name,
-			import.js().map(|js| JsWithEmbed {
-				js,
-				embed: import.embed(),
-			}),
-		) {
-			bail!(
-				"found multiple JS imports for `{module}:{name}`\n\tJS Import 1:\n{:?}\n\tJS \
-				 Import 2:\n{:?}",
-				import_old.map(|js| js.js),
-				import.js()
-			);
-		}
-
-		Ok(())
-	}
-
-	fn add_js_embed(
-		&mut self,
-		module: &'a str,
-		name: &'a str,
-		custom_section: &CustomSectionReader<'a>,
-	) -> Result<()> {
-		let mut parser = JsBindgenEmbedSectionParser::new(custom_section);
-		let embed = parser
-			.next()
-			.with_context(|| format!("found no JS embed for `{module}:{name}`"))?;
-
-		if let Some(embed_new) = parser.next() {
-			bail!(
-				"found multiple JS embeds for `{module}:{name}`\n\tJS Embed 1:\n{}\n\tJS Embed \
-				 2:\n{}",
-				embed.js(),
-				embed_new.js(),
-			);
-		}
-
-		if self
-			.expected_embed
-			.get_mut(module)
-			.is_some_and(|names| names.remove(name))
-		{
-			self.embed
-				.entry(module)
-				.or_default()
-				.insert(name, embed.js());
-
-			if let Some(embed) = embed.embed() {
-				self.require_js_embed(module, embed);
-			}
-		} else if let Some(embed_old) = self.provided_embed.entry_ref(module).or_default().insert(
-			name,
-			JsWithEmbed {
-				js: embed.js(),
-				embed: embed.embed(),
-			},
-		) {
-			bail!(
-				"found multiple JS embeds for `{module}:{name}`\n\tJS Embed 1:\n{}\n\tJS Embed \
-				 2:\n{}",
-				embed_old.js,
-				embed.js()
-			);
-		}
-
-		Ok(())
-	}
-
-	fn require_js_embed(&mut self, module: &'a str, name: &'a str) {
-		if !self
-			.embed
-			.get(module)
-			.iter()
-			.any(|names| names.contains_key(name))
-		{
-			if let Some(embed) = self
-				.provided_embed
-				.get_mut(module)
-				.and_then(|names| names.remove(name))
-			{
-				self.embed.entry(module).or_default().insert(name, embed.js);
-
-				if let Some(name) = embed.embed {
-					self.require_js_embed(module, name);
-				}
-			} else {
-				self.expected_embed.entry(module).or_default().insert(name);
-			}
-		}
-	}
-
-	fn assert_expected(&self) -> Result<()> {
-		ensure!(
-			self.expected_import.values().all(HashSet::is_empty),
-			"missing JS imports: {:?}",
-			self.expected_import
-		);
-		ensure!(
-			self.expected_embed.values().all(HashSet::is_empty),
-			"missing JS embed: {:?}",
-			self.expected_embed
-		);
-
-		Ok(())
-	}
-
-	fn js_import(&self) -> &FixedHashMap<&'a str, FixedHashMap<&'a str, Option<&'a str>>> {
-		&self.import
-	}
-
-	fn js_embed(&self) -> &FixedHashMap<&'a str, FixedHashMap<&'a str, &'a str>> {
-		&self.embed
-	}
 }

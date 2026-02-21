@@ -4,7 +4,14 @@ resolver = "2"
 
 [workspace.package]
 edition = "2024"
-include = ["/LICENSE-APACHE", "/LICENSE-MIT", "/Cargo.toml", "/src/**/*.rs", "!/src/**/tests/**"]
+include = [
+	"/LICENSE-APACHE",
+	"/LICENSE-MIT",
+	"/Cargo.toml",
+	"/src/**/*.rs",
+	"!/src/**/*.js-sys.rs",
+	"!/src/**/tests/**",
+]
 license = "MIT OR Apache-2.0"
 rust-version = "1.85"
 

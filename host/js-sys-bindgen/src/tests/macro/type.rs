@@ -22,6 +22,12 @@ fn basic() {
 				}
 			}
 
+			impl ::core::convert::From<JsString> for ::js_sys::JsValue {
+				fn from(value: JsString) -> Self {
+					value.0
+				}
+			}
+
 			unsafe impl ::js_sys::hazard::Input for &JsString {
 				const IMPORT_FUNC: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC;
 				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
@@ -45,6 +51,13 @@ fn basic() {
 
 				fn from_raw(raw: Self::Type) -> Self {
 					Self(::js_sys::hazard::Output::from_raw(raw))
+				}
+			}
+
+			impl JsString {
+				#[must_use]
+				pub fn unchecked_from(value: ::js_sys::JsValue) -> Self {
+					Self(value)
 				}
 			}
 		},
@@ -77,6 +90,12 @@ fn generic() {
 				}
 			}
 
+			impl<T> ::core::convert::From<JsString<T>> for ::js_sys::JsValue {
+				fn from(value: JsString<T>) -> Self {
+					value.value
+				}
+			}
+
 			unsafe impl<T> ::js_sys::hazard::Input for &JsString<T> {
 				const IMPORT_FUNC: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC;
 				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
@@ -101,6 +120,16 @@ fn generic() {
 				fn from_raw(raw: Self::Type) -> Self {
 					Self {
 						value: ::js_sys::hazard::Output::from_raw(raw),
+						_type: ::core::marker::PhantomData,
+					}
+				}
+			}
+
+			impl<T> JsString<T> {
+				#[must_use]
+				pub fn unchecked_from(value: ::js_sys::JsValue) -> Self {
+					Self {
+						value,
 						_type: ::core::marker::PhantomData,
 					}
 				}
@@ -135,6 +164,12 @@ fn default() {
 				}
 			}
 
+			impl<T> ::core::convert::From<JsString<T>> for ::js_sys::JsValue {
+				fn from(value: JsString<T>) -> Self {
+					value.value
+				}
+			}
+
 			unsafe impl<T> ::js_sys::hazard::Input for &JsString<T> {
 				const IMPORT_FUNC: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC;
 				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
@@ -159,6 +194,16 @@ fn default() {
 				fn from_raw(raw: Self::Type) -> Self {
 					Self {
 						value: ::js_sys::hazard::Output::from_raw(raw),
+						_type: ::core::marker::PhantomData,
+					}
+				}
+			}
+
+			impl<T> JsString<T> {
+				#[must_use]
+				pub fn unchecked_from(value: ::js_sys::JsValue) -> Self {
+					Self {
+						value,
 						_type: ::core::marker::PhantomData,
 					}
 				}
@@ -193,6 +238,12 @@ fn r#trait() {
 				}
 			}
 
+			impl<T: Sized> ::core::convert::From<JsString<T>> for ::js_sys::JsValue {
+				fn from(value: JsString<T>) -> Self {
+					value.value
+				}
+			}
+
 			unsafe impl<T: Sized> ::js_sys::hazard::Input for &JsString<T> {
 				const IMPORT_FUNC: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC;
 				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
@@ -217,6 +268,16 @@ fn r#trait() {
 				fn from_raw(raw: Self::Type) -> Self {
 					Self {
 						value: ::js_sys::hazard::Output::from_raw(raw),
+						_type: ::core::marker::PhantomData,
+					}
+				}
+			}
+
+			impl<T: Sized> JsString<T> {
+				#[must_use]
+				pub fn unchecked_from(value: ::js_sys::JsValue) -> Self {
+					Self {
+						value,
 						_type: ::core::marker::PhantomData,
 					}
 				}

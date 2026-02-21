@@ -9,7 +9,7 @@ rust-version = "1.87"
 proc-macro = true
 
 [dependencies]
-js-sys-gen = { workspace = true, features = ["macro"] }
+js-sys-bindgen = { workspace = true, features = ["macro"] }
 proc-macro2 = { workspace = true, features = ["proc-macro"] }
 
 [lints]

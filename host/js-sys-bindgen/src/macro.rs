@@ -1,18 +1,41 @@
-#[cfg(not(test))]
 use std::env;
 
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::parse::Parser;
-use syn::{Error, ForeignItem, ItemForeignMod, LitStr, Path, meta};
+use syn::{Error, ForeignItem, Item, ItemForeignMod, LitStr, Path, meta};
 
-use crate::{Function, FunctionJsOutput, Hygiene, Type};
+use crate::{Function, FunctionJsOutput, Hygiene, ImportManager, Type};
 
-pub fn js_sys(attr: TokenStream, item: TokenStream) -> Result<TokenStream, TokenStream> {
-	let mut foreign_mod: ItemForeignMod = match syn::parse2(item) {
-		Ok(foreign_mod) => foreign_mod,
-		Err(e) => return Err(e.into_compile_error()),
-	};
+pub fn r#macro(
+	attr: TokenStream,
+	item: TokenStream,
+	imports: Option<&mut ImportManager>,
+) -> Result<TokenStream, TokenStream> {
+	let foreign_mod: ItemForeignMod = syn::parse2(item).map_err(Error::into_compile_error)?;
+
+	internal(attr, foreign_mod, None, imports)
+		.map(|items| items.into_iter().map(Item::into_token_stream).collect())
+		.map_err(|(output, error)| {
+			let error = error.into_compile_error();
+
+			if let Some(output) = output {
+				let mut output: TokenStream =
+					output.into_iter().map(Item::into_token_stream).collect();
+				output.extend(error);
+				output
+			} else {
+				error
+			}
+		})
+}
+
+pub(crate) fn internal(
+	attr: TokenStream,
+	mut foreign_mod: ItemForeignMod,
+	crate_: Option<&str>,
+	imports: Option<&mut ImportManager>,
+) -> Result<Vec<Item>, (Option<Vec<Item>>, Error)> {
 	let mut error = ErrorStack::new();
 
 	let mut js_sys: Option<Path> = None;
@@ -20,7 +43,9 @@ pub fn js_sys(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Token
 
 	if let Err(e) = meta::parser(|meta| {
 		if meta.path.is_ident("js_sys") {
-			if js_sys.is_some() {
+			if imports.is_some() {
+				Err(meta.error("`js_sys` attribute only allowed with proc-macro hygiene"))
+			} else if js_sys.is_some() {
 				Err(meta.error("duplicate attribute"))
 			} else {
 				js_sys = Some(meta.value()?.parse()?);
@@ -42,6 +67,14 @@ pub fn js_sys(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Token
 		error.push(e);
 	}
 
+	let mut hygiene = if let Some(imports) = imports {
+		Hygiene::Imports(imports)
+	} else {
+		Hygiene::Hygiene {
+			js_sys: js_sys.as_ref(),
+		}
+	};
+
 	for attr in foreign_mod
 		.attrs
 		.extract_if(.., |attr| attr.path().is_ident("js_sys"))
@@ -52,7 +85,7 @@ pub fn js_sys(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Token
 		));
 	}
 
-	let mut output = TokenStream::new();
+	let mut output = Vec::new();
 
 	if foreign_mod
 		.abi
@@ -104,21 +137,20 @@ pub fn js_sys(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Token
 					}
 				}
 
-				#[cfg(not(test))]
-				let crate_ = env::var("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` not found");
-				#[cfg(test)]
-				let crate_ = String::from("test_crate");
+				let crate_ = if let Some(crate_) = crate_ {
+					crate_
+				} else {
+					&env::var("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` not found")
+				};
 
 				match Function::new(
-					Hygiene::Hygiene {
-						js_sys: js_sys.as_ref(),
-					},
+					&mut hygiene,
 					&js_output,
 					namespace.as_deref(),
-					&crate_,
+					crate_,
 					&item,
 				) {
-					Ok(function) => function.to_tokens(&mut output),
+					Ok(function) => output.push(function.0.into()),
 					Err(e) => error.push(e),
 				}
 			}
@@ -131,13 +163,7 @@ pub fn js_sys(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Token
 					error.push(Error::new_spanned(attr, "unsupported attribute"));
 				}
 
-				Type::new(
-					Hygiene::Hygiene {
-						js_sys: js_sys.as_ref(),
-					},
-					item,
-				)
-				.to_tokens(&mut output);
+				output.extend(Type::new(&mut hygiene, item).into_iter());
 			}
 			item => {
 				error.push(Error::new_spanned(
@@ -148,29 +174,28 @@ pub fn js_sys(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Token
 		}
 	}
 
-	if let Some(error) = error.into_token_stream() {
-		output.extend(error);
-		Err(output)
+	if let Some(error) = error.resolve() {
+		Err((Some(output), error))
 	} else {
 		Ok(output)
 	}
 }
 
-struct ErrorStack(Option<Error>);
+pub(crate) struct ErrorStack(Option<Error>);
 
 impl ErrorStack {
-	fn new() -> Self {
+	pub(crate) fn new() -> Self {
 		Self(None)
 	}
 
-	fn push(&mut self, error: Error) {
+	pub(crate) fn push(&mut self, error: Error) {
 		match &mut self.0 {
 			Some(this) => this.combine(error),
 			None => self.0 = Some(error),
 		}
 	}
 
-	fn into_token_stream(self) -> Option<TokenStream> {
-		self.0.map(Error::into_compile_error)
+	pub(crate) fn resolve(self) -> Option<Error> {
+		self.0
 	}
 }

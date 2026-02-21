@@ -2,10 +2,11 @@
 edition = { workspace = true }
 include = { workspace = true }
 license = { workspace = true }
-name = "js-sys-gen"
+name = "js-sys-bindgen"
 rust-version = "1.87"
 
 [features]
+file = ["macro"]
 macro = []
 web-idl = ["dep:weedle2"]
 

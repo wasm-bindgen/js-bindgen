@@ -9,12 +9,12 @@ use crate::Hygiene;
 
 pub struct Type {
 	pub r#struct: ItemStruct,
-	pub impls: [ItemImpl; 3],
+	pub impls: [ItemImpl; 5],
 }
 
 impl Type {
 	#[must_use]
-	pub fn new(mut hygiene: Hygiene<'_>, item: ForeignItemType) -> Self {
+	pub fn new(hygiene: &mut Hygiene<'_>, item: ForeignItemType) -> Self {
 		let span = item.span();
 		let ForeignItemType {
 			attrs,
@@ -29,21 +29,23 @@ impl Type {
 		let output = hygiene.output(&attrs, span);
 		let deref = hygiene.deref(&attrs, span);
 		let str = hygiene.str(span);
+		let from = hygiene.from(span);
 
 		let mut item_attrs = attrs;
 		let attrs: Vec<_> = item_attrs
 			.iter()
-			.filter(|attr| !attr.path().is_ident("doc"))
+			.filter(|attr| attr.path().is_ident("cfg"))
 			.collect();
 
 		let (gen_impl, gen_type, gen_where) = generics.split_for_impl();
 
-		let (fields, semi_token, value, from_raw) = if generics.params.is_empty() {
+		let (fields, semi_token, value, from_raw, constructor) = if generics.params.is_empty() {
 			(
 				Fields::Unnamed(parse_quote_spanned! {span=>(#js_value)}),
 				Some(Token![;](span)),
 				quote_spanned! {span=>0},
 				quote_spanned! {span=>Self(#output::from_raw(raw))},
+				quote_spanned! {span=>Self(value)},
 			)
 		} else {
 			let phantom_data = hygiene.phantom_data(&item_attrs, span);
@@ -63,10 +65,16 @@ impl Type {
 						_type: #phantom_data,
 					}
 				},
+				quote_spanned! {span=>
+					Self {
+						value,
+						_type: #phantom_data,
+					}
+				},
 			)
 		};
 
-		let impls: [ItemImpl; 3] = [
+		let impls = [
 			parse_quote_spanned! {span=>
 				#(#attrs)*
 				impl #gen_impl #deref for #ident #gen_type #gen_where {
@@ -74,6 +82,14 @@ impl Type {
 
 					fn deref(&self) -> &Self::Target {
 						&self.#value
+					}
+				}
+			},
+			parse_quote_spanned! {span=>
+				#(#attrs)*
+				impl #gen_impl #from<#ident #gen_type> for #js_value #gen_where {
+					fn from(value: #ident #gen_type) -> Self {
+						value.#value
 					}
 				}
 			},
@@ -107,6 +123,15 @@ impl Type {
 					}
 				}
 			},
+			parse_quote_spanned! {span=>
+				#(#attrs)*
+				impl #gen_impl #ident #gen_type #gen_where {
+					#[must_use]
+					#vis fn unchecked_from(value: #js_value) -> Self {
+						#constructor
+					}
+				}
+			},
 		];
 
 		item_attrs.push(parse_quote_spanned! {span=>#[repr(transparent)]});
@@ -127,15 +152,17 @@ impl Type {
 
 impl IntoIterator for Type {
 	type Item = Item;
-	type IntoIter = array::IntoIter<Item, 4>;
+	type IntoIter = array::IntoIter<Item, 6>;
 
 	fn into_iter(self) -> Self::IntoIter {
-		let [impl_1, impl_2, impl_3] = self.impls;
+		let [impl_1, impl_2, impl_3, impl_4, impl_5] = self.impls;
 		[
 			Item::from(self.r#struct),
 			impl_1.into(),
 			impl_2.into(),
 			impl_3.into(),
+			impl_4.into(),
+			impl_5.into(),
 		]
 		.into_iter()
 	}

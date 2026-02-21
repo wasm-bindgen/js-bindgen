@@ -15,7 +15,7 @@ extern "js-sys" {
 
 #[doc(hidden)]
 pub fn set_panic_hook() {
-	// TODO: Bump msrv rustc to 1.91.0 and remove this func
+	// MSRV: Stable on v1.91.
 	fn payload_as_str<'a>(info: &'a PanicHookInfo) -> Option<&'a str> {
 		if let Some(s) = info.payload().downcast_ref::<&str>() {
 			Some(s)

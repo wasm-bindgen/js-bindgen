@@ -16,6 +16,7 @@ mod util;
 mod value;
 
 pub use js_bindgen;
+#[cfg(feature = "macro")]
 pub use js_sys_macro::js_sys;
 
 pub use crate::array::JsArray;

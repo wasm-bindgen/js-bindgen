@@ -12,7 +12,10 @@ use cargo_metadata::{Artifact, CompilerMessage, Message, Target};
 use itertools::Itertools;
 use js_bindgen_ld_shared::{JsBindgenAssemblySectionParser, JsBindgenImportSectionParser};
 use proc_macro2::TokenStream;
+use syn::File;
 use wasmparser::{Parser, Payload};
+
+use crate::r#macro;
 
 #[track_caller]
 #[expect(clippy::needless_pass_by_value, reason = "test")]
@@ -23,10 +26,14 @@ fn test(
 	assembly: impl Into<Option<&'static str>>,
 	js_import: impl Into<Option<&'static str>>,
 ) {
-	let output = crate::js_sys(attr.clone(), input.clone()).unwrap_or_else(|e| e);
+	let foreign_mod = syn::parse2(input.clone()).unwrap();
+	let output = r#macro::internal(attr.clone(), foreign_mod, Some("test_crate"), None).unwrap();
+	let output = prettyplease::unparse(&File {
+		shebang: None,
+		attrs: Vec::new(),
+		items: output,
+	});
 
-	let output = syn::parse2(output).unwrap();
-	let output = prettyplease::unparse(&output);
 	let expected = syn::parse2(expected).unwrap();
 	let expected = prettyplease::unparse(&expected);
 
@@ -74,7 +81,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 		resolver = "2"
 
 		[dependencies]
-		js-sys = {{ path = '{}' }}
+		js-sys = {{ path = '{}', features = ["macro"] }}
 		"#,
 		js_sys.display(),
 	);

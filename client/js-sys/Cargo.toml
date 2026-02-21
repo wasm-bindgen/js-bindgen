@@ -5,9 +5,12 @@ license = { workspace = true }
 name = "js-sys"
 rust-version = { workspace = true }
 
+[features]
+macro = ["dep:js-sys-macro"]
+
 [dependencies]
 js-bindgen = { workspace = true }
-js-sys-macro = { workspace = true }
+js-sys-macro = { workspace = true, optional = true }
 
 [lints]
 workspace = true

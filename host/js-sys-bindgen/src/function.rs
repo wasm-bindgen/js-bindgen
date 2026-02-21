@@ -14,7 +14,7 @@ use syn::{
 
 use crate::Hygiene;
 
-pub struct Function(ItemFn);
+pub struct Function(pub ItemFn);
 
 #[derive(Eq, PartialEq)]
 pub enum FunctionJsOutput {
@@ -31,7 +31,7 @@ impl Default for FunctionJsOutput {
 
 impl Function {
 	pub fn new(
-		mut hygiene: Hygiene<'_>,
+		hygiene: &mut Hygiene<'_>,
 		js_output: &FunctionJsOutput,
 		namespace: Option<&str>,
 		crate_: &str,

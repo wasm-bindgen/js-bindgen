@@ -1,7 +1,8 @@
 [workspace]
 members = [
+	"cargo-js-sys",
 	"js-bindgen",
-	"js-sys-gen",
+	"js-sys-bindgen",
 	"js-sys-macro",
 	"ld",
 	"ld-shared",
@@ -27,11 +28,14 @@ license = "MIT OR Apache-2.0"
 rust-version = "1.85"
 
 [workspace.dependencies]
+annotate-snippets = { version = "0.12", default-features = false }
+anstyle = { version = "1", default-features = false }
 anyhow = "1"
 argfile = { version = "1", features = ["response"] }
 axum = { version = "0.8", default-features = false, features = ["tokio", "json", "http1", "http2"] }
 cargo_metadata = "0.23"
 clap = { version = "4", features = ["derive"] }
+clap-cargo = { version = "0.18", features = ["cargo_metadata"] }
 fantoccini = { version = "0.22.0", default-features = false, features = ["rustls-tls"] }
 foldhash = { version = "0.2", default-features = false }
 futures-util = { version = "0.3", default-features = false }
@@ -40,7 +44,7 @@ indoc = "2"
 itertools = { version = "0.14", default-features = false }
 js-bindgen-ld-shared = { path = "ld-shared" }
 js-bindgen-shared = { path = "shared" }
-js-sys-gen = { path = "js-sys-gen" }
+js-sys-bindgen = { path = "js-sys-bindgen" }
 memmap2 = "0.9"
 object = { version = "0.38", default-features = false, features = ["archive", "read_core", "std"] }
 prettyplease = "0.2"

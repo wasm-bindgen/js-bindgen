@@ -1,5 +1,7 @@
-use js_sys_macro::js_sys;
+#[rustfmt::skip]
+mod r#gen;
 
+pub use self::r#gen::JsString;
 use crate::util::PtrLength;
 
 impl JsString {
@@ -25,17 +27,9 @@ impl JsString {
 			"}}",
 		);
 
-		string_decode(
+		r#gen::string_decode(
 			string.as_ptr(),
 			PtrLength::new(string.as_ptr(), string.len()),
 		)
 	}
-}
-
-#[js_sys(js_sys = crate)]
-extern "js-sys" {
-	pub type JsString;
-
-	#[js_sys(js_embed = "string.decode")]
-	fn string_decode(array: *const u8, len: PtrLength) -> JsString;
 }

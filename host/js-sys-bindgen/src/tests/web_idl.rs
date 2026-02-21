@@ -3,7 +3,7 @@ use syn::Visibility;
 
 #[test]
 fn basic() {
-	let file = crate::from_web_idl("interface Test { };", None, &Visibility::Inherited).unwrap();
+	let file = crate::web_idl("interface Test { };", None, &Visibility::Inherited).unwrap();
 
 	super::test(
 		file.into_token_stream(),

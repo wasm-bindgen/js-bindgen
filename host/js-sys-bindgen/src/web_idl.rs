@@ -5,12 +5,13 @@ use weedle::{Definition, Err, Error, InterfaceDefinition};
 
 use crate::{Hygiene, ImportManager, Type};
 
-pub fn from_web_idl<'i>(
+pub fn web_idl<'i>(
 	web_idl: &'i str,
 	js_sys: Option<Path>,
 	vis: &Visibility,
 ) -> Result<File, Err<Error<&'i str>>> {
 	let mut imports = ImportManager::new(js_sys);
+	let mut hygiene = Hygiene::Imports(&mut imports);
 	let mut items: Vec<Item> = Vec::new();
 
 	for definition in weedle::parse(web_idl)? {
@@ -35,7 +36,7 @@ pub fn from_web_idl<'i>(
 
 				let identifier = Ident::new(identifier.0, Span::mixed_site());
 				items.extend(Type::new(
-					Hygiene::Imports(&mut imports),
+					&mut hygiene,
 					parse_quote!(#(#attrs)* #vis type #identifier;),
 				));
 

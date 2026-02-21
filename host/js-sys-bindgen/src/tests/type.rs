@@ -7,7 +7,7 @@ use crate::{Hygiene, ImportManager, Type};
 fn basic() {
 	let mut imports = ImportManager::new(None);
 	let items = Type::new(
-		Hygiene::Imports(&mut imports),
+		&mut Hygiene::Imports(&mut imports),
 		parse_quote!(
 			type Test;
 		),
@@ -36,6 +36,12 @@ fn basic() {
 				}
 			}
 
+			impl From<Test> for JsValue {
+				fn from(value: Test) -> Self {
+					value.0
+				}
+			}
+
 			unsafe impl Input for &Test {
 				const IMPORT_FUNC: &'static str = <&JsValue as Input>::IMPORT_FUNC;
 				const IMPORT_TYPE: &'static str = <&JsValue as Input>::IMPORT_TYPE;
@@ -61,6 +67,13 @@ fn basic() {
 					Self(Output::from_raw(raw))
 				}
 			}
+
+			impl Test {
+				#[must_use]
+				fn unchecked_from(value: JsValue) -> Self {
+					Self(value)
+				}
+			}
 		},
 	);
 }
@@ -69,7 +82,7 @@ fn basic() {
 fn generic() {
 	let mut imports = ImportManager::new(None);
 	let items = Type::new(
-		Hygiene::Imports(&mut imports),
+		&mut Hygiene::Imports(&mut imports),
 		parse_quote!(
 			type Test<T = JsValue>;
 		),
@@ -102,6 +115,12 @@ fn generic() {
 				}
 			}
 
+			impl<T> From<Test<T>> for JsValue {
+				fn from(value: Test<T>) -> Self {
+					value.value
+				}
+			}
+
 			unsafe impl<T> Input for &Test<T> {
 				const IMPORT_FUNC: &'static str = <&JsValue as Input>::IMPORT_FUNC;
 				const IMPORT_TYPE: &'static str = <&JsValue as Input>::IMPORT_TYPE;
@@ -126,6 +145,16 @@ fn generic() {
 				fn from_raw(raw: Self::Type) -> Self {
 					Self {
 						value: Output::from_raw(raw),
+						_type: PhantomData,
+					}
+				}
+			}
+
+			impl<T> Test<T> {
+				#[must_use]
+				fn unchecked_from(value: JsValue) -> Self {
+					Self {
+						value,
 						_type: PhantomData,
 					}
 				}

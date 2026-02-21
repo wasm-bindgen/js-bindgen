@@ -6,7 +6,7 @@ rust-version = "1.87"
 
 [dependencies]
 js-bindgen-test-macro = { workspace = true }
-js-sys = { workspace = true }
+js-sys = { workspace = true, features = ["macro"] }
 
 [lints]
 workspace = true

@@ -1,17 +1,13 @@
-use core::marker::PhantomData;
+#[rustfmt::skip]
+mod r#gen;
 
-use js_sys_macro::js_sys;
-
-use crate::JsValue;
+pub use self::r#gen::JsArray;
 use crate::util::PtrLength;
 
 impl<T> JsArray<T> {
 	#[must_use]
 	pub fn as_any(self) -> JsArray {
-		JsArray {
-			value: self.value,
-			_type: PhantomData,
-		}
+		JsArray::unchecked_from(self.into())
 	}
 }
 
@@ -35,7 +31,7 @@ impl From<&[u32]> for JsArray<u32> {
 			"}}",
 		);
 
-		array_u32_decode(value.as_ptr(), PtrLength::new(value.as_ptr(), value.len()))
+		r#gen::array_u32_decode(value.as_ptr(), PtrLength::new(value.as_ptr(), value.len()))
 	}
 }
 
@@ -47,11 +43,3 @@ js_bindgen::embed_js!(
 	"	return new Int16Array(buffer)[0] === 256;",
 	"}})()",
 );
-
-#[js_sys(js_sys = crate)]
-extern "js-sys" {
-	pub type JsArray<T = JsValue>;
-
-	#[js_sys(js_embed = "array.u32.decode")]
-	fn array_u32_decode(array: *const u32, len: PtrLength) -> JsArray<u32>;
-}
