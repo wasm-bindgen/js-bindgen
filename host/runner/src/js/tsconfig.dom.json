@@ -1,0 +1,8 @@
+{
+	"extends": "../../../../common/tsconfig.base.json",
+	"compilerOptions": {
+		"lib": ["ESNext", "DOM"]
+	},
+	"include": ["*"],
+	"exclude": ["*-dedicated.mts", "*-shared.mts", "*-service.mts", "node-js.mts", "deno.mts"]
+}

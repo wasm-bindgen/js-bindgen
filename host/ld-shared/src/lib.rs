@@ -192,50 +192,50 @@ impl<'cs> Iterator for JsBindgenAssemblySectionParser<'cs> {
 }
 
 #[derive(Clone)]
-pub struct JsBindgenEmbedSectionParser<'cs>(CustomSectionParser<'cs>);
+pub struct JsBindgenJsSectionParser<'cs>(CustomSectionParser<'cs>);
 
 #[derive(Clone, Copy, Debug)]
-pub enum JsBindgenEmbedSection<'cs> {
+pub enum JsBindgenJsSection<'cs> {
 	Plain(&'cs str),
 	WithEmbed { embed: &'cs str, js: &'cs str },
 }
 
-impl<'cs> JsBindgenEmbedSectionParser<'cs> {
+impl<'cs> JsBindgenJsSectionParser<'cs> {
 	#[must_use]
 	pub fn new(custom_section: &CustomSectionReader<'cs>) -> Self {
 		Self(CustomSectionParser::new(custom_section))
 	}
 }
 
-impl<'cs> JsBindgenEmbedSection<'cs> {
+impl<'cs> JsBindgenJsSection<'cs> {
 	#[must_use]
 	pub fn js(self) -> &'cs str {
 		match self {
-			JsBindgenEmbedSection::Plain(js) | JsBindgenEmbedSection::WithEmbed { js, .. } => js,
+			JsBindgenJsSection::Plain(js) | JsBindgenJsSection::WithEmbed { js, .. } => js,
 		}
 	}
 
 	#[must_use]
 	pub fn embed(self) -> Option<&'cs str> {
 		match self {
-			JsBindgenEmbedSection::Plain(_) => None,
-			JsBindgenEmbedSection::WithEmbed { embed, .. } => Some(embed),
+			JsBindgenJsSection::Plain(_) => None,
+			JsBindgenJsSection::WithEmbed { embed, .. } => Some(embed),
 		}
 	}
 }
 
-impl Debug for JsBindgenEmbedSectionParser<'_> {
+impl Debug for JsBindgenJsSectionParser<'_> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		let rest: Vec<_> = self.clone().collect();
 
-		f.debug_tuple("JsBindgenEmbedSectionParser")
+		f.debug_tuple("JsBindgenJsSectionParser")
 			.field(&rest.as_slice())
 			.finish()
 	}
 }
 
-impl<'cs> Iterator for JsBindgenEmbedSectionParser<'cs> {
-	type Item = JsBindgenEmbedSection<'cs>;
+impl<'cs> Iterator for JsBindgenJsSectionParser<'cs> {
+	type Item = JsBindgenJsSection<'cs>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.0.next().map(|mut data| {
@@ -245,131 +245,17 @@ impl<'cs> Iterator for JsBindgenEmbedSectionParser<'cs> {
 					let length = usize::from(u16::from_le_bytes(length.try_into().unwrap()));
 					data.split_off(..length)
 				})
-				.unwrap_or_else(|| panic!("found invalid JS embed encoding `{}`", self.0.name));
-			let embed = str::from_utf8(embed).unwrap_or_else(|e| {
-				panic!("found invalid JS embed encoding `{}`: {e}", self.0.name)
-			});
+				.unwrap_or_else(|| panic!("found invalid JS encoding `{}`", self.0.name));
+			let embed = str::from_utf8(embed)
+				.unwrap_or_else(|e| panic!("found invalid JS encoding `{}`: {e}", self.0.name));
 
-			let js = str::from_utf8(data).unwrap_or_else(|e| {
-				panic!("found invalid JS import encoding `{}`: {e}", self.0.name)
-			});
+			let js = str::from_utf8(data)
+				.unwrap_or_else(|e| panic!("found invalid JS encoding `{}`: {e}", self.0.name));
 
 			if embed.is_empty() {
-				JsBindgenEmbedSection::Plain(js)
+				JsBindgenJsSection::Plain(js)
 			} else {
-				JsBindgenEmbedSection::WithEmbed { embed, js }
-			}
-		})
-	}
-}
-
-#[derive(Clone)]
-pub struct JsBindgenImportSectionParser<'cs>(CustomSectionParser<'cs>);
-
-#[derive(Clone, Copy, Debug)]
-pub enum JsBindgenImportSection<'cs> {
-	Plain(&'cs str),
-	WithEmbed { embed: &'cs str, js: &'cs str },
-	NoImport,
-}
-
-impl<'cs> JsBindgenImportSectionParser<'cs> {
-	#[must_use]
-	pub fn new(custom_section: &CustomSectionReader<'cs>) -> Self {
-		Self(CustomSectionParser::new(custom_section))
-	}
-}
-
-impl<'cs> JsBindgenImportSection<'cs> {
-	#[must_use]
-	pub fn js(self) -> Option<&'cs str> {
-		match self {
-			JsBindgenImportSection::Plain(js) | JsBindgenImportSection::WithEmbed { js, .. } => {
-				Some(js)
-			}
-			JsBindgenImportSection::NoImport => None,
-		}
-	}
-
-	#[must_use]
-	pub fn embed(self) -> Option<&'cs str> {
-		match self {
-			JsBindgenImportSection::Plain(_) | JsBindgenImportSection::NoImport => None,
-			JsBindgenImportSection::WithEmbed { embed, .. } => Some(embed),
-		}
-	}
-}
-
-impl Debug for JsBindgenImportSectionParser<'_> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		let rest: Vec<_> = self.clone().collect();
-
-		f.debug_tuple("JsBindgenImportSectionParser")
-			.field(&rest.as_slice())
-			.finish()
-	}
-}
-
-impl<'cs> Iterator for JsBindgenImportSectionParser<'cs> {
-	type Item = JsBindgenImportSection<'cs>;
-
-	fn next(&mut self) -> Option<Self::Item> {
-		enum Attr<'e> {
-			NoImport,
-			Embed(&'e str),
-		}
-
-		self.0.next().map(|mut data| {
-			let attr = data
-				.split_off_first()
-				.unwrap_or_else(|| panic!("found invalid JS import encoding `{}`", self.0.name));
-
-			let attr = match attr {
-				0 => None,
-				1 => {
-					assert!(
-						data.is_empty(),
-						"found invalid JS import encoding `{}`",
-						self.0.name
-					);
-					Some(Attr::NoImport)
-				}
-				2 => {
-					let embed = data
-						.split_off(..2)
-						.and_then(|length| {
-							let length =
-								usize::from(u16::from_le_bytes(length.try_into().unwrap()));
-							data.split_off(..length)
-						})
-						.unwrap_or_else(|| {
-							panic!("found invalid JS import encoding `{}`", self.0.name)
-						});
-					let embed = str::from_utf8(embed).unwrap_or_else(|e| {
-						panic!("found invalid JS import encoding `{}`: {e}", self.0.name)
-					});
-
-					Some(Attr::Embed(embed))
-				}
-				_ => panic!("found invalid JS import encoding `{}`", self.0.name),
-			};
-
-			if !matches!(attr, Some(Attr::NoImport)) {
-				assert!(
-					!data.is_empty(),
-					"found invalid JS import encoding `{}`",
-					self.0.name
-				);
-			}
-
-			let js = str::from_utf8(data).unwrap_or_else(|e| {
-				panic!("found invalid JS import encoding `{}`: {e}", self.0.name)
-			});
-
-			match attr {
-				Some(Attr::Embed(embed)) => JsBindgenImportSection::WithEmbed { embed, js },
-				None => JsBindgenImportSection::Plain(js),
-				Some(Attr::NoImport) => JsBindgenImportSection::NoImport,
+				JsBindgenJsSection::WithEmbed { embed, js }
 			}
 		})
 	}

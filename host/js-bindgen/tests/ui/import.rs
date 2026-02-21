@@ -35,10 +35,10 @@ js_bindgen::import_js!(name = "foo", 42);
 //~^ ERROR: requires at least a string argument
 
 js_bindgen::import_js!(name = "foo", bar = Baz);
-//~^ ERROR: expected `required_embed` or `no_import`
+//~^ ERROR: expected `<attribute> = "..."`
 
 js_bindgen::import_js!(name = "foo", bar = "baz");
-//~^ ERROR: expected `required_embed` or `no_import`
+//~^ ERROR: expected `required_embed`
 
 js_bindgen::embed_js!();
 //~^ ERROR: expected `<attribute> = "..."`

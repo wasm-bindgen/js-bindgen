@@ -18,12 +18,12 @@ enum OptKind {
 	Separate,
 }
 
-pub(crate) struct WasmLdArguments<'a> {
-	table: HashMap<&'a str, Vec<&'a OsStr>>,
-	inputs: Vec<&'a OsString>,
+pub(crate) struct WasmLdArguments<'args> {
+	table: HashMap<&'args str, Vec<&'args OsStr>>,
+	inputs: Vec<&'args OsString>,
 }
 
-impl WasmLdArguments<'_> {
+impl<'args> WasmLdArguments<'args> {
 	// See the LLVM parser implementation:
 	// https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/llvm/lib/Option/OptTable.cpp#L436-L498.
 	pub(crate) fn new(args: &[OsString]) -> WasmLdArguments<'_> {
@@ -87,7 +87,7 @@ impl WasmLdArguments<'_> {
 		WasmLdArguments { table, inputs }
 	}
 
-	pub(crate) fn arg_single(&self, arg: &str) -> Option<&OsStr> {
+	pub(crate) fn arg_single(&self, arg: &str) -> Option<&'args OsStr> {
 		match self.table.get(arg).map(Vec::as_slice) {
 			Some([value]) => Some(value),
 			Some([]) => panic!("found unexpected empty argument for `{arg}`"),

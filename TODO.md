@@ -26,7 +26,6 @@
     - Rename `JBG_TEST_<driver>` to `JBG_TEST_<driver>_PATH`.
     - Introduce `JBG_TEST_NODE_PATH` and `JBG_TEST_DENO_PATH` as well.
   - Consider moving environment variables to CLI arguments.
-  - Exclude TS files from packaging.
   - Lint and format TS files and minimize JS files.
   - Add support for `--test-threads` and multithread tests where possible for `panic = "abort"`.
   - Add support for `panic = "unwind"`.
@@ -51,6 +50,10 @@
   - Add buttons for the server runner to run tests in various worker setting on demand.
   - Optimize HTML output by syncing with rAF.
   - Validate `--no-capture` output against `libtest`.
+  - Support return values.
+- Because sometimes custom sections get lost after linking, we should collect them during
+  pre-processing and re-insert them afterwards or pass them along some other way. Some tests also
+  rely on this.
 - E2E testing for the linker. Should also ensure deterministic output.
 - Can we use `TokenStream` from `str` parsing to simplify the code without affecting performance?
 - Add a `disable_hygiene` attribute to `#[js_sys]` to reduce the compile-time of the output to an
@@ -83,21 +86,16 @@
 - Memory-mapped file reading should lock files to make it safe.
 - Add diagnostics for traits when they are not implemented, e.g. `Input`/`Output`.
 
-[Fantoccini]: https://crates.io/crates/fantoccini
-[Thirtyfour]: https://crates.io/crates/thirtyfour
+[Emscripten's]:
+	https://github.com/emscripten-core/emscripten/blob/28bcb86466a273859b8adb43cb167b97e05e145d/src/lib/libstrings.js
+[`wasm-bindgen`'s]:
+	https://github.com/wasm-bindgen/wasm-bindgen/blob/086af5a849ba86a176ebbf60f4182e9b82607584/crates/cli-support/src/js/mod.rs#L1954-L1983
 
 # Medium Priority
 
 - Find a way to link to imports directly if no wrapper function is needed. This happens when no
   conversions on the ASM level are necessary.
 - Provide an absolutely minimal allocator.
-- The `js_sys` proc-macro should remove the `extern "C" { ... }` part of the input on error to avoid
-  triggering the `unsafe` requirement downstream.
-
-[Emscripten's]:
-	https://github.com/emscripten-core/emscripten/blob/28bcb86466a273859b8adb43cb167b97e05e145d/src/lib/libstrings.js
-[`wasm-bindgen`'s]:
-	https://github.com/wasm-bindgen/wasm-bindgen/blob/086af5a849ba86a176ebbf60f4182e9b82607584/crates/cli-support/src/js/mod.rs#L1954-L1983
 
 # Low Priority
 
@@ -130,12 +128,13 @@ This is a list of upstream issues that could make our lives significantly easier
 - A way to flag proc-macros as `unsafe`: [rust-lang/rfcs#3715].
 - Link internal functions without exporting them: [rust-lang/rust#29603] or [rust-lang/rfcs#3834].
 - Our linker warnings should show up for users: [rust-lang/rust#136096].
-- Safe slice to array conversion: [rust-lang/rust#133508].
 - `TextDe/Encoder` could support `SharedArrayBuffer`s:
   - [Chrome Bug](https://issues.chromium.org/issues/40102463)
   - [Firefox Bug](https://bugzilla.mozilla.org/show_bug.cgi?id=1561594)
 - `wasm-encoder` `io::Write` support: [bytecodealliance/wasm-tools#778]
 - Improved test coverage data merging: [llvm/llvm-project#121194]
+- Cargo support for local development pre-processing: [rust-lang/cargo#12552] or
+  [rust-lang/cargo#4511]
 
 [llvm/llvm-project#136594]: https://github.com/llvm/llvm-project/issues/136594
 [rust-lang/rust#136382]: https://github.com/rust-lang/rust/issues/136382
@@ -149,6 +148,7 @@ This is a list of upstream issues that could make our lives significantly easier
 [rust-lang/rust#29603]: https://github.com/rust-lang/rust/issues/29603
 [rust-lang/rfcs#3834]: https://github.com/rust-lang/rfcs/pull/3834
 [rust-lang/rust#136096]: https://github.com/rust-lang/rust/issues/136096
-[rust-lang/rust#133508]: https://github.com/rust-lang/rust/issues/133508
 [bytecodealliance/wasm-tools#778]: https://github.com/bytecodealliance/wasm-tools/issues/778
 [llvm/llvm-project#121194]: https://github.com/llvm/llvm-project/pull/121194
+[rust-lang/cargo#12552]: https://github.com/rust-lang/cargo/issues/12552
+[rust-lang/cargo#4511]: https://github.com/rust-lang/cargo/issues/4511

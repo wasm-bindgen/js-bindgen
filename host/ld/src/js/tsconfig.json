@@ -1,0 +1,7 @@
+{
+	"extends": "../../../../common/tsconfig.base.json",
+	"compilerOptions": {
+		"declaration": true,
+		"lib": ["ESNext", "WebWorker"]
+	}
+}
