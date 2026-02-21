@@ -40,8 +40,7 @@ fn test(
 	similar_asserts::assert_eq!(expected, output);
 
 	let dir = tempfile::tempdir().unwrap();
-	let (assembly_output, js_import_output) =
-		inner(dir.path(), &format!("#[js_sys({attr})]\n{input}")).unwrap();
+	let (assembly_output, js_import_output) = inner(dir.path(), &output).unwrap();
 
 	let assembly = assembly.into();
 	match (assembly, assembly_output) {
@@ -81,7 +80,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 		resolver = "2"
 
 		[dependencies]
-		js-sys = {{ path = '{}', features = ["macro"] }}
+		js-sys = {{ path = '{}' }}
 		"#,
 		js_sys.display(),
 	);
@@ -89,9 +88,9 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 
 	let src = tmp.join("src");
 	fs::create_dir(&src)?;
-	let src = src.join("lib.rs");
+	let lib = src.join("lib.rs");
 	fs::write(
-		&src,
+		&lib,
 		indoc::formatdoc!(
 			r#"#![no_std]
 			#![cfg_attr(target_arch = "wasm64", feature(simd_wasm64))]
@@ -172,7 +171,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 			filenames,
 			..
 		}) = message?
-			&& src_path.canonicalize()? == src.canonicalize()?
+			&& src_path.canonicalize()? == lib.canonicalize()?
 		{
 			for filename in filenames {
 				js_bindgen_ld_shared::ld_input_parser(filename.as_os_str(), |_, data| {
