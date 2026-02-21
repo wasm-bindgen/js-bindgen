@@ -10,7 +10,7 @@ use std::{env, fs};
 use anyhow::{Context, Result};
 use cargo_metadata::{Artifact, CompilerMessage, Message, Target};
 use itertools::Itertools;
-use js_bindgen_ld_shared::{JsBindgenAssemblySectionParser, JsBindgenImportSectionParser};
+use js_bindgen_ld_shared::{JsBindgenAssemblySectionParser, JsBindgenJsSectionParser};
 use proc_macro2::TokenStream;
 use syn::File;
 use wasmparser::{Parser, Payload};
@@ -202,7 +202,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 							Payload::CustomSection(c)
 								if c.name().starts_with("js_bindgen.import.test_crate.") =>
 							{
-								let import = JsBindgenImportSectionParser::new(&c)
+								let import = JsBindgenJsSectionParser::new(&c)
 									.exactly_one()
 									.map_err(|imports| {
 										anyhow::anyhow!(
@@ -216,7 +216,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 									js_import_output.is_none(),
 									"found multiple JS import outputs"
 								);
-								js_import_output = import.map(str::to_owned);
+								js_import_output = Some(import.to_owned());
 							}
 							_ => (),
 						}

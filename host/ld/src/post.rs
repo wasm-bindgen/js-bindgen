@@ -189,14 +189,11 @@ pub fn processing(
 	for (module, names) in js_store
 		.js_import()
 		.into_iter()
-		.filter(|(_, names)| !names.values().all(Option::is_none))
+		.filter(|(_, names)| !names.is_empty())
 	{
 		writeln!(js_output, "\t\t\t{module}: {{")?;
 
-		for (name, js) in names
-			.into_iter()
-			.filter_map(|(name, js)| js.as_ref().map(|js| (name, js)))
-		{
+		for (name, js) in names {
 			write!(js_output, "\t\t\t\t'{name}': ")?;
 
 			for (position, line) in js.lines().with_position() {

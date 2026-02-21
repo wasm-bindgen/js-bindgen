@@ -165,7 +165,7 @@ impl Function {
 			})
 			.collect();
 
-		let js: Stmt = 'js: {
+		let js: Option<Stmt> = 'js: {
 			let js_call = match js_output {
 				FunctionJsOutput::Generate(None) => format!("globalThis.{import_name}"),
 				FunctionJsOutput::Generate(Some(name)) => {
@@ -178,11 +178,7 @@ impl Function {
 				FunctionJsOutput::Embed(name) => {
 					format!("this.#jsEmbed.{crate_}['{name}']")
 				}
-				FunctionJsOutput::Import => {
-					break 'js parse_quote_spanned! {span=>
-						#js_bindgen::import_js!(name = #import_name, no_import);
-					};
-				}
+				FunctionJsOutput::Import => break 'js None,
 			};
 
 			let required_embed = if let FunctionJsOutput::Embed(name) = js_output {
@@ -192,13 +188,13 @@ impl Function {
 			};
 
 			if sig.inputs.is_empty() {
-				break 'js parse_quote_spanned! {span=>
+				break 'js Some(parse_quote_spanned! {span=>
 					#js_bindgen::import_js!(
 						name = #import_name,
 						#(required_embed = #required_embed,)*
 						#js_call
 					);
-				};
+				});
 			}
 
 			let placeholder: String = iter::once("{}")
@@ -216,7 +212,7 @@ impl Function {
 			let js_arrow_close = format!("\t{ret_call}{js_call}({input_names_joined})\n}}");
 			let r#macro = hygiene.r#macro(attrs, span);
 
-			parse_quote_spanned! {span=>
+			Some(parse_quote_spanned! {span=>
 				#js_bindgen::import_js! {
 					name = #import_name,
 					#(required_embed = #required_embed,)*
@@ -229,7 +225,7 @@ impl Function {
 					)*
 					interpolate #r#macro::select("", #js_arrow_close, [#(<#input_tys as #input>::JS_CONV),*]),
 				}
-			}
+			})
 		};
 
 		let mut foreign_call =

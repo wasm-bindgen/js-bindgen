@@ -1,16 +1,16 @@
 use anyhow::{Context, Result, bail, ensure};
 use foldhash::fast::FixedState;
 use hashbrown::{HashMap, HashSet};
-use js_bindgen_ld_shared::{JsBindgenEmbedSectionParser, JsBindgenImportSectionParser};
+use js_bindgen_ld_shared::JsBindgenJsSectionParser;
 use wasmparser::{CustomSectionReader, Import};
 
 type FixedHashMap<K, V> = HashMap<K, V, FixedState>;
 
 #[derive(Default)]
 pub struct JsStore {
-	import: FixedHashMap<String, FixedHashMap<String, Option<String>>>,
+	import: FixedHashMap<String, FixedHashMap<String, String>>,
 	expected_import: HashMap<String, HashSet<String>>,
-	provided_import: HashMap<String, HashMap<String, Option<JsWithEmbed>>>,
+	provided_import: HashMap<String, HashMap<String, JsWithEmbed>>,
 	embed: FixedHashMap<String, FixedHashMap<String, String>>,
 	expected_embed: HashMap<String, HashSet<String>>,
 	provided_embed: HashMap<String, HashMap<String, JsWithEmbed>>,
@@ -28,18 +28,12 @@ impl JsStore {
 			.get_mut(import.module)
 			.and_then(|names| names.remove(import.name))
 		{
-			let (js, embed) = if let Some(js) = js {
-				(Some(js.js), js.embed)
-			} else {
-				(None, None)
-			};
-
 			self.import
 				.entry(import.module.to_owned())
 				.or_default()
-				.insert(import.name.to_owned(), js);
+				.insert(import.name.to_owned(), js.js);
 
-			if let Some(embed) = embed {
+			if let Some(embed) = js.embed {
 				self.require_js_embed(import.module.to_owned(), embed);
 			}
 		} else if !self
@@ -64,7 +58,7 @@ impl JsStore {
 		name: String,
 		custom_section: &CustomSectionReader<'_>,
 	) -> Result<()> {
-		let mut parser = JsBindgenImportSectionParser::new(custom_section);
+		let mut parser = JsBindgenJsSectionParser::new(custom_section);
 		let import = parser
 			.next()
 			.with_context(|| format!("found no JS import for `{module}:{name}`"))?;
@@ -86,7 +80,7 @@ impl JsStore {
 			self.import
 				.entry_ref(&module)
 				.or_default()
-				.insert(name, import.js().map(str::to_owned));
+				.insert(name, import.js().to_owned());
 
 			if let Some(embed) = import.embed() {
 				self.require_js_embed(module, embed.to_owned());
@@ -97,16 +91,16 @@ impl JsStore {
 			.or_default()
 			.try_insert(
 				name,
-				import.js().map(|js| JsWithEmbed {
-					js: js.to_owned(),
+				JsWithEmbed {
+					js: import.js().to_owned(),
 					embed: import.embed().map(str::to_owned),
-				}),
+				},
 			) {
 			bail!(
 				"found multiple JS imports for `{module}:{}`\n\tJS Import 1:\n{:?}\n\tJS Import \
 				 2:\n{:?}",
 				error.entry.key(),
-				error.entry.get().as_ref().map(|js| &js.js),
+				error.entry.get().js,
 				import.js()
 			);
 		}
@@ -120,7 +114,7 @@ impl JsStore {
 		name: String,
 		custom_section: &CustomSectionReader<'_>,
 	) -> Result<()> {
-		let mut parser = JsBindgenEmbedSectionParser::new(custom_section);
+		let mut parser = JsBindgenJsSectionParser::new(custom_section);
 		let embed = parser
 			.next()
 			.with_context(|| format!("found no JS embed for `{module}:{name}`"))?;
@@ -197,11 +191,6 @@ impl JsStore {
 
 	pub fn assert_expected(&self) -> Result<()> {
 		ensure!(
-			self.expected_import.values().all(HashSet::is_empty),
-			"missing JS imports: {:?}",
-			self.expected_import
-		);
-		ensure!(
 			self.expected_embed.values().all(HashSet::is_empty),
 			"missing JS embed: {:?}",
 			self.expected_embed
@@ -210,7 +199,7 @@ impl JsStore {
 		Ok(())
 	}
 
-	pub fn js_import(&self) -> &FixedHashMap<String, FixedHashMap<String, Option<String>>> {
+	pub fn js_import(&self) -> &FixedHashMap<String, FixedHashMap<String, String>> {
 		&self.import
 	}
 

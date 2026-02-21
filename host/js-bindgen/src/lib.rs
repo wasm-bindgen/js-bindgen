@@ -91,56 +91,20 @@ fn import_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let package = package();
 	let import_name = expect_meta_name_value(&mut input, "name")?;
 
-	let attr = if let Some(TokenTree::Ident(ident)) = input.peek() {
-		let ident = ident.to_string();
+	let data = if let Some(TokenTree::Ident(_)) = input.peek() {
+		let required_embed = expect_meta_name_value(&mut input, "required_embed")?;
+		let len = u16::try_from(required_embed.len())
+			.expect("`required_embed` name too long")
+			.to_le_bytes();
 
-		if ident == "required_embed" {
-			let required_embed = expect_meta_name_value(&mut input, "required_embed")?;
-			let len = u16::try_from(required_embed.len())
-				.expect("`required_embed` name too long")
-				.to_le_bytes();
-			[[2].as_slice(), &len, required_embed.as_bytes()].concat()
-		} else {
-			let ident = expect_ident(
-				&mut input,
-				"no_import",
-				Span::mixed_site(),
-				"`required_embed` or `no_import`",
-				false,
-			)?;
-
-			if input.peek().is_some() {
-				expect_punct(
-					&mut input,
-					',',
-					ident.span(),
-					"a `,` after an attribute",
-					false,
-				)?;
-			}
-
-			if let Some(token) = input.next() {
-				return Err(compile_error(
-					token.span(),
-					"`no_import` requires no string tokens",
-				));
-			}
-
-			return Ok(custom_section(
-				&format!("js_bindgen.import.{package}.{import_name}"),
-				&[Argument {
-					cfg: None,
-					kind: ArgumentKind::Bytes(vec![1]),
-				}],
-			));
-		}
+		[&len, required_embed.as_bytes()].concat()
 	} else {
-		vec![0]
+		vec![0, 0]
 	};
 
 	let mut data = vec![Argument {
 		cfg: None,
-		kind: ArgumentKind::Bytes(attr),
+		kind: ArgumentKind::Bytes(data),
 	}];
 	parse_string_arguments(&mut input, Span::mixed_site(), &mut data)?;
 	let output = custom_section(&format!("js_bindgen.import.{package}.{import_name}"), &data);

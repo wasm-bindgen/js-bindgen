@@ -455,8 +455,6 @@ fn js_import() {
 					interpolate <&JsValue as ::js_sys::hazard::Input>::CONV,
 				}
 
-				::js_sys::js_bindgen::import_js!(name = "log", no_import);
-
 				unsafe extern "C" {
 					#[link_name = "test_crate.log"]
 					fn log(data: <&JsValue as ::js_sys::hazard::Input>::Type);
