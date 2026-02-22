@@ -50,7 +50,7 @@ fn embed_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let mut data = Vec::new();
 
 	let embed = if let Some(TokenTree::Ident(_)) = input.peek() {
-		expect_meta_name_value(&mut input, "js_embed")?
+		expect_meta_name_value(&mut input, "required_embed")?
 	} else {
 		String::new()
 	};
@@ -58,7 +58,7 @@ fn embed_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let mut embed_data = Vec::new();
 	embed_data.extend_from_slice(
 		&u16::try_from(embed.len())
-			.expect("`js_embed` name too long")
+			.expect("`required_embed` name too long")
 			.to_le_bytes(),
 	);
 	embed_data.append(&mut embed.into_bytes());

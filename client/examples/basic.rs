@@ -5,13 +5,14 @@
 use core::arch::wasm32 as wasm;
 #[cfg(target_arch = "wasm64")]
 use core::arch::wasm64 as wasm;
+use core::panic;
 
 use mini_alloc::MiniAlloc;
 use web_sys::console;
 use web_sys::js_sys::JsString;
 
 #[panic_handler]
-fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
+fn panic(_: &panic::PanicInfo<'_>) -> ! {
 	wasm::unreachable();
 }
 

@@ -2,20 +2,50 @@
 mod r#gen;
 
 pub use self::r#gen::JsArray;
+use crate::JsValue;
 use crate::util::PtrLength;
 
 impl<T> JsArray<T> {
 	#[must_use]
-	pub fn as_any(self) -> JsArray {
+	pub fn into_any(self) -> JsArray {
 		JsArray::unchecked_from(self.into())
+	}
+}
+
+impl From<&[JsValue]> for JsArray<JsValue> {
+	fn from(value: &[JsValue]) -> Self {
+		js_bindgen::embed_js!(
+			name = "array.js_value.encode",
+			required_embed = "array.isLittleEndian",
+			"(ptr, len) => {{",
+			"	const array = new Array(len)",
+			"",
+			"	if (this.#jsEmbed.js_sys['array.isLittleEndian']) {{",
+			"		const view = new Uint32Array(this.#memory.buffer, ptr, len)",
+			"		for (let i = 0; i < len; i++) {{",
+			"			array[i] = this.#jsEmbed.js_sys['externref.table'].get(view[index])",
+			"		}}",
+			"	}} else {{",
+			"		const view = new DataView(this.#memory.buffer, ptr, len * 4)",
+			"		for (let i = 0; i < len; i++) {{",
+			"			const index = view.getUint32(i * 4, true)",
+			"			array[i] = this.#jsEmbed.js_sys['externref.table'].get(index)",
+			"		}}",
+			"	}}",
+			"",
+			"	return array",
+			"}}",
+		);
+
+		r#gen::array_js_value_encode(value.as_ptr(), PtrLength::new(value))
 	}
 }
 
 impl From<&[u32]> for JsArray<u32> {
 	fn from(value: &[u32]) -> Self {
 		js_bindgen::embed_js!(
-			name = "array.u32.decode",
-			js_embed = "array.isLittleEndian",
+			name = "array.u32.encode",
+			required_embed = "array.isLittleEndian",
 			"(ptr, len) => {{",
 			"	if (this.#jsEmbed.js_sys['array.isLittleEndian']) {{",
 			"		const view = new Uint32Array(this.#memory.buffer, ptr, len)",
@@ -31,7 +61,7 @@ impl From<&[u32]> for JsArray<u32> {
 			"}}",
 		);
 
-		r#gen::array_u32_decode(value.as_ptr(), PtrLength::new(value.as_ptr(), value.len()))
+		r#gen::array_u32_encode(value.as_ptr(), PtrLength::new(value))
 	}
 }
 

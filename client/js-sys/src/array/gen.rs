@@ -50,14 +50,63 @@ impl<T> JsArray<T> {
         Self { value, _type: PhantomData }
     }
 }
-pub(super) fn array_u32_decode(array: *const u32, len: PtrLength) -> JsArray<u32> {
+pub(super) fn array_js_value_encode(
+    array: *const JsValue,
+    len: PtrLength,
+) -> JsArray<JsValue> {
     js_bindgen::unsafe_embed_asm! {
-        ".import_module js_sys.import.array_u32_decode, js_sys",
-        ".import_name js_sys.import.array_u32_decode, array_u32_decode",
-        ".functype js_sys.import.array_u32_decode ({}, {}) -> ({})", "", "{}", "", "{}",
-        "", "{}", "", ".globl js_sys.array_u32_decode", "js_sys.array_u32_decode:",
-        "\t.functype js_sys.array_u32_decode ({}, {}) -> ({})", "\tlocal.get 0", "\t{}",
-        "\tlocal.get 1", "\t{}", "\tcall js_sys.import.array_u32_decode", "\t{}",
+        ".import_module js_sys.import.array_js_value_encode, js_sys",
+        ".import_name js_sys.import.array_js_value_encode, array_js_value_encode",
+        ".functype js_sys.import.array_js_value_encode ({}, {}) -> ({})", "", "{}", "",
+        "{}", "", "{}", "", ".globl js_sys.array_js_value_encode",
+        "js_sys.array_js_value_encode:",
+        "\t.functype js_sys.array_js_value_encode ({}, {}) -> ({})", "\tlocal.get 0",
+        "\t{}", "\tlocal.get 1", "\t{}", "\tcall js_sys.import.array_js_value_encode",
+        "\t{}", "\tend_function", interpolate < * const JsValue as Input > ::IMPORT_TYPE,
+        interpolate < PtrLength as Input > ::IMPORT_TYPE, interpolate < JsArray < JsValue
+        > as Output > ::IMPORT_TYPE, interpolate < * const JsValue as Input >
+        ::IMPORT_FUNC, interpolate < PtrLength as Input > ::IMPORT_FUNC, interpolate <
+        JsArray < JsValue > as Output > ::IMPORT_FUNC, interpolate < * const JsValue as
+        Input > ::TYPE, interpolate < PtrLength as Input > ::TYPE, interpolate < JsArray
+        < JsValue > as Output > ::TYPE, interpolate < * const JsValue as Input > ::CONV,
+        interpolate < PtrLength as Input > ::CONV, interpolate < JsArray < JsValue > as
+        Output > ::CONV,
+    }
+    js_bindgen::import_js! {
+        name = "array_js_value_encode", required_embed = "array.js_value.encode",
+        "{}{}{}{}{}{}{}{}", interpolate
+        r#macro::select("this.#jsEmbed.js_sys['array.js_value.encode']",
+        "(array, len) => {\n", [< * const JsValue as Input > ::JS_CONV, < PtrLength as
+        Input > ::JS_CONV]), interpolate r#macro::select("", "\tarray", [< * const
+        JsValue as Input > ::JS_CONV]), interpolate r#macro::select("", < * const JsValue
+        as Input > ::JS_CONV, [< * const JsValue as Input > ::JS_CONV]), interpolate
+        r#macro::select("", "\n", [< * const JsValue as Input > ::JS_CONV]), interpolate
+        r#macro::select("", "\tlen", [< PtrLength as Input > ::JS_CONV]), interpolate
+        r#macro::select("", < PtrLength as Input > ::JS_CONV, [< PtrLength as Input >
+        ::JS_CONV]), interpolate r#macro::select("", "\n", [< PtrLength as Input >
+        ::JS_CONV]), interpolate r#macro::select("",
+        "\treturn this.#jsEmbed.js_sys['array.js_value.encode'](array, len)\n}", [< *
+        const JsValue as Input > ::JS_CONV, < PtrLength as Input > ::JS_CONV]),
+    }
+    unsafe extern "C" {
+        #[link_name = "js_sys.array_js_value_encode"]
+        fn array_js_value_encode(
+            array: <*const JsValue as Input>::Type,
+            len: <PtrLength as Input>::Type,
+        ) -> <JsArray<JsValue> as Output>::Type;
+    }
+    Output::from_raw(unsafe {
+        array_js_value_encode(Input::into_raw(array), Input::into_raw(len))
+    })
+}
+pub(super) fn array_u32_encode(array: *const u32, len: PtrLength) -> JsArray<u32> {
+    js_bindgen::unsafe_embed_asm! {
+        ".import_module js_sys.import.array_u32_encode, js_sys",
+        ".import_name js_sys.import.array_u32_encode, array_u32_encode",
+        ".functype js_sys.import.array_u32_encode ({}, {}) -> ({})", "", "{}", "", "{}",
+        "", "{}", "", ".globl js_sys.array_u32_encode", "js_sys.array_u32_encode:",
+        "\t.functype js_sys.array_u32_encode ({}, {}) -> ({})", "\tlocal.get 0", "\t{}",
+        "\tlocal.get 1", "\t{}", "\tcall js_sys.import.array_u32_encode", "\t{}",
         "\tend_function", interpolate < * const u32 as Input > ::IMPORT_TYPE, interpolate
         < PtrLength as Input > ::IMPORT_TYPE, interpolate < JsArray < u32 > as Output >
         ::IMPORT_TYPE, interpolate < * const u32 as Input > ::IMPORT_FUNC, interpolate <
@@ -68,9 +117,9 @@ pub(super) fn array_u32_decode(array: *const u32, len: PtrLength) -> JsArray<u32
         ::CONV, interpolate < JsArray < u32 > as Output > ::CONV,
     }
     js_bindgen::import_js! {
-        name = "array_u32_decode", required_embed = "array.u32.decode",
+        name = "array_u32_encode", required_embed = "array.u32.encode",
         "{}{}{}{}{}{}{}{}", interpolate
-        r#macro::select("this.#jsEmbed.js_sys['array.u32.decode']",
+        r#macro::select("this.#jsEmbed.js_sys['array.u32.encode']",
         "(array, len) => {\n", [< * const u32 as Input > ::JS_CONV, < PtrLength as Input
         > ::JS_CONV]), interpolate r#macro::select("", "\tarray", [< * const u32 as Input
         > ::JS_CONV]), interpolate r#macro::select("", < * const u32 as Input >
@@ -80,17 +129,17 @@ pub(super) fn array_u32_decode(array: *const u32, len: PtrLength) -> JsArray<u32
         PtrLength as Input > ::JS_CONV, [< PtrLength as Input > ::JS_CONV]), interpolate
         r#macro::select("", "\n", [< PtrLength as Input > ::JS_CONV]), interpolate
         r#macro::select("",
-        "\treturn this.#jsEmbed.js_sys['array.u32.decode'](array, len)\n}", [< * const
+        "\treturn this.#jsEmbed.js_sys['array.u32.encode'](array, len)\n}", [< * const
         u32 as Input > ::JS_CONV, < PtrLength as Input > ::JS_CONV]),
     }
     unsafe extern "C" {
-        #[link_name = "js_sys.array_u32_decode"]
-        fn array_u32_decode(
+        #[link_name = "js_sys.array_u32_encode"]
+        fn array_u32_encode(
             array: <*const u32 as Input>::Type,
             len: <PtrLength as Input>::Type,
         ) -> <JsArray<u32> as Output>::Type;
     }
     Output::from_raw(unsafe {
-        array_u32_decode(Input::into_raw(array), Input::into_raw(len))
+        array_u32_encode(Input::into_raw(array), Input::into_raw(len))
     })
 }

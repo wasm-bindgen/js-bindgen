@@ -21,12 +21,13 @@ export class JsBindgen {
 				
 					return decoder.decode(view)
 				},
+				'externref.table': new WebAssembly.Table({ initial: 1, element: 'externref' }),
 			},
 		};
         this.#importObject = {
 			js_bindgen: { memory: this.#memory },
 			js_sys: {
-				'externref.table': new WebAssembly.Table({ initial: 1, element: 'externref' }),
+				'externref.table': this.#jsEmbed.js_sys['externref.table'],
 				'string_decode': (array, len) => {
 					array >>>= 0
 					len >>>= 0

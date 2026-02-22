@@ -27,9 +27,6 @@ impl JsString {
 			"}}",
 		);
 
-		r#gen::string_decode(
-			string.as_ptr(),
-			PtrLength::new(string.as_ptr(), string.len()),
-		)
+		r#gen::string_decode(string.as_ptr(), PtrLength::new(string.as_bytes()))
 	}
 }

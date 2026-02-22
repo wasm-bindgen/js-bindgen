@@ -6,18 +6,13 @@ pub(crate) struct PtrLength(
 );
 
 impl PtrLength {
-	pub(crate) fn new<T>(
-		#[cfg_attr(
-			target_arch = "wasm32",
-			expect(unused_variables, reason = "32-bit is unchecked")
-		)]
-		ptr: *const T,
-		len: usize,
-	) -> Self {
+	pub(crate) fn new<T>(value: &[T]) -> Self {
+		let len = value.len();
+
 		#[cfg(target_arch = "wasm64")]
 		let len = {
 			debug_assert!(
-				ptr as usize + len * core::mem::size_of::<T>() < 0x20000000000000,
+				value.as_ptr() as usize + len * core::mem::size_of::<T>() < 0x20000000000000,
 				"found pointer + length bigger than `Number.MAX_SAFE_INTEGER`"
 			);
 			len as f64

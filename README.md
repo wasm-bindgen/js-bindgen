@@ -1,15 +1,3 @@
-## Currently Working on
-
-- `#[js_sys]`:
-  - Major re-factoring
-  - Another pass on namespacing
-- More Primitive types:
-  - Expand `JsString`
-  - Expand `JsArray`
-  - `JsNumber`
-  - `BigInt`
-- Basic runner
-
 ## Example
 
 There is a very basic working example in `client/examples/basic.rs`. To run it:
