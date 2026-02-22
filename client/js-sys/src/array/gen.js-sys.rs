@@ -13,7 +13,7 @@ extern "js-sys" {
 	#[js_sys(js_embed = "array.js_value.decode")]
 	pub(super) fn array_js_value_decode(
 		array: &JsArray,
-		array_ptr: *const JsValue,
+		array_ptr: *mut JsValue,
 		array_len: PtrLength,
 		externref_ptr: *const i32,
 		externref_len: PtrLength,
@@ -25,7 +25,7 @@ extern "js-sys" {
 	#[js_sys(js_embed = "array.u32.decode")]
 	pub(super) fn array_u32_decode(
 		array: &JsArray<u32>,
-		ptr: *const u32,
+		ptr: *mut u32,
 		len: PtrLength,
 	) -> bool;
 }

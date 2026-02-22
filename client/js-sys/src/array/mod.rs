@@ -1,6 +1,8 @@
 #[rustfmt::skip]
 mod r#gen;
 
+use core::mem::MaybeUninit;
+
 pub use self::r#gen::JsArray;
 use crate::JsValue;
 use crate::externref::ExternrefTable;
@@ -81,20 +83,21 @@ impl JsArray {
 			"}}",
 		);
 
-		let array = [JsValue::UNDEFINED; N];
+		let mut array: MaybeUninit<[JsValue; N]> = MaybeUninit::uninit();
 		let externref = ExternrefTable::current_into();
 
 		let result = r#gen::array_js_value_decode(
 			self,
-			array.as_ptr(),
-			PtrLength::new(&array),
+			array.as_mut_ptr().cast(),
+			PtrLength::from_uninit(&array),
 			externref.ptr,
 			externref.len,
 		);
 
 		if result {
 			ExternrefTable::report_growth(N);
-			Some(array)
+			// SAFETY: Correctly initialized in JS.
+			Some(unsafe { array.assume_init() })
 		} else {
 			None
 		}
@@ -155,13 +158,18 @@ impl JsArray<u32> {
 			"}}",
 		);
 
-		let array = [0; N];
+		let mut array: MaybeUninit<[u32; N]> = MaybeUninit::uninit();
 
-		let result = r#gen::array_u32_decode(self, array.as_ptr(), PtrLength::new(&array));
+		let result = r#gen::array_u32_decode(
+			self,
+			array.as_mut_ptr().cast(),
+			PtrLength::from_uninit(&array),
+		);
 
 		if result {
 			ExternrefTable::report_growth(N);
-			Some(array)
+			// SAFETY: Correctly initialized in JS.
+			Some(unsafe { array.assume_init() })
 		} else {
 			None
 		}

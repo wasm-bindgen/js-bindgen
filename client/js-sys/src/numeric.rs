@@ -114,3 +114,37 @@ unsafe impl<T> Input for *const T {
 		addr as f64
 	}
 }
+
+// SAFETY: Implementation.
+unsafe impl<T> Input for *mut T {
+	#[cfg(target_arch = "wasm32")]
+	const IMPORT_TYPE: &str = "i32";
+	#[cfg(target_arch = "wasm64")]
+	const IMPORT_TYPE: &str = "f64";
+	#[cfg(target_arch = "wasm32")]
+	const TYPE: &str = "i32";
+	#[cfg(target_arch = "wasm64")]
+	const TYPE: &str = "f64";
+	#[cfg(target_arch = "wasm32")]
+	const JS_CONV: &str = " >>>= 0";
+
+	#[cfg(target_arch = "wasm32")]
+	type Type = Self;
+	#[cfg(target_arch = "wasm64")]
+	type Type = f64;
+
+	#[cfg(target_arch = "wasm32")]
+	fn into_raw(self) -> Self::Type {
+		self
+	}
+
+	#[cfg(target_arch = "wasm64")]
+	fn into_raw(self) -> Self::Type {
+		let addr = self as usize;
+		debug_assert!(
+			addr < 0x20000000000000,
+			"found pointer bigger than `Number.MAX_SAFE_INTEGER`"
+		);
+		addr as f64
+	}
+}
