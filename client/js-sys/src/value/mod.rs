@@ -1,3 +1,6 @@
+#[rustfmt::skip]
+mod r#gen;
+
 use core::marker::PhantomData;
 
 use crate::externref::EXTERNREF_TABLE;
@@ -53,5 +56,16 @@ unsafe impl Output for JsValue {
 
 	fn from_raw(raw: Self::Type) -> Self {
 		Self::new(raw)
+	}
+}
+
+impl PartialEq for JsValue {
+	fn eq(&self, other: &Self) -> bool {
+		js_bindgen::embed_js!(
+			name = "js_value.partial_eq",
+			"(value1, value2) => value1 === value2",
+		);
+
+		r#gen::js_value_partial_eq(self, other)
 	}
 }

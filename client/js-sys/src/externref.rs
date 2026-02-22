@@ -2,6 +2,7 @@ use alloc::vec::Vec;
 use core::cell::RefCell;
 
 use crate::panic::panic;
+use crate::util::PtrLength;
 
 macro_rules! thread_local {
     ($($vis:vis static $name:ident: $ty:ty = $value:expr;)*) => {
@@ -124,4 +125,26 @@ impl Slab {
 #[unsafe(export_name = "js_sys.externref.next")]
 extern "C" fn next() -> i32 {
 	EXTERNREF_TABLE.with(|slab| slab.try_borrow_mut().unwrap().next())
+}
+
+pub(crate) struct ExternrefTable;
+
+impl ExternrefTable {
+	pub(crate) fn current_into() -> ExternrefTableInfo {
+		let slab = &EXTERNREF_TABLE.0.try_borrow().unwrap().0;
+
+		ExternrefTableInfo {
+			ptr: slab.as_ptr(),
+			len: PtrLength::new(slab),
+		}
+	}
+
+	pub(crate) fn report_growth(size: usize) {
+		EXTERNREF_TABLE.0.try_borrow_mut().unwrap().0.truncate(size);
+	}
+}
+
+pub(crate) struct ExternrefTableInfo {
+	pub(crate) ptr: *const i32,
+	pub(crate) len: PtrLength,
 }

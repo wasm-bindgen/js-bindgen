@@ -85,6 +85,8 @@
     This seems to have failed. No build script instruction can reach the linker on Wasm.
 - Memory-mapped file reading should lock files to make it safe.
 - Add diagnostics for traits when they are not implemented, e.g. `Input`/`Output`.
+- Inline JS code is getting quite complex, consider moving to external TS file.
+- Introduce `cfg` flag to remove big-endian support.
 
 [Emscripten's]:
 	https://github.com/emscripten-core/emscripten/blob/28bcb86466a273859b8adb43cb167b97e05e145d/src/lib/libstrings.js

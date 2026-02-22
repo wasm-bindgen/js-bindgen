@@ -6,9 +6,7 @@ use std::process::Command;
 use std::{env, fs, io, process};
 
 fn main() -> io::Result<()> {
-	println!("cargo::rerun-if-env-changed=JS_SYS_LOCAL_DEV");
-
-	if env::var("JS_SYS_LOCAL_DEV").is_ok_and(|value| value == "1") {
+	if option_env!("JS_SYS_LOCAL_DEV").is_some_and(|value| value == "1") {
 		search_folder(&env::current_dir()?)?;
 
 		let status = Command::new("cargo")

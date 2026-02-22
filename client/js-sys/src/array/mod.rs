@@ -3,6 +3,7 @@ mod r#gen;
 
 pub use self::r#gen::JsArray;
 use crate::JsValue;
+use crate::externref::ExternrefTable;
 use crate::util::PtrLength;
 
 impl<T> JsArray<T> {
@@ -12,7 +13,95 @@ impl<T> JsArray<T> {
 	}
 }
 
-impl From<&[JsValue]> for JsArray<JsValue> {
+impl<T, const N: usize> From<&[T; N]> for JsArray<T>
+where
+	Self: for<'a> From<&'a [T]>,
+{
+	fn from(value: &[T; N]) -> Self {
+		value.as_slice().into()
+	}
+}
+
+impl JsArray {
+	#[must_use]
+	pub fn as_array<const N: usize>(&self) -> Option<[JsValue; N]> {
+		js_bindgen::embed_js!(
+			name = "array.js_value.decode",
+			required_embed = "array.isLittleEndian",
+			"(array, arrPtr, arrLen, refPtr, refLen) => {{",
+			"	if (array.length !== arrLen) return false",
+			"",
+			"	const table = this.#jsEmbed.js_sys['externref.table']",
+			"	const isLe = this.#jsEmbed.js_sys['array.isLittleEndian']",
+			"",
+			// Default value helps browsers to optimize.
+			"	let tableIndex = 0",
+			"	if (arrLen > refLen) {{",
+			"		tableIndex = table.grow(arrLen - refLen)",
+			"	}}",
+			"",
+			"	let refIndex = refLen - 1",
+			"",
+			"	let arrView",
+			"	if (isLe)",
+			"		arrView = new Int32Array(this.#memory.buffer, arrPtr, arrLen)",
+			"	else",
+			"		arrView = new DataView(this.#memory.buffer, arrPtr, arrLen * 4)",
+			"",
+			"	let refView",
+			"	if (isLe)",
+			"		refView = new Int32Array(this.#memory.buffer, refPtr, refLen)",
+			"	else",
+			"		refView = new DataView(this.#memory.buffer, refPtr, refLen * 4)",
+			"",
+			"	for (let i = 0; i < arrLen; i++) {{",
+			"		let elemIndex",
+			"",
+			"		if (refIndex >= 0) {{",
+			"			if (isLe)",
+			"				elemIndex = refView[refIndex]",
+			"			else",
+			"				elemIndex = refView.getInt32(refIndex * 4, true)",
+			"",
+			"			refIndex--",
+			"		}} else {{",
+			"			elemIndex = tableIndex",
+			"			tableIndex++",
+			"		}}",
+			"",
+			"		table.set(elemIndex, array[i])",
+			"",
+			"		if (isLe)",
+			"			arrView[i] = elemIndex",
+			"		else",
+			"			arrView.setInt32(i * 4, elemIndex, true)",
+			"	}}",
+			"",
+			"	return true",
+			"}}",
+		);
+
+		let array = [JsValue::UNDEFINED; N];
+		let externref = ExternrefTable::current_into();
+
+		let result = r#gen::array_js_value_decode(
+			self,
+			array.as_ptr(),
+			PtrLength::new(&array),
+			externref.ptr,
+			externref.len,
+		);
+
+		if result {
+			ExternrefTable::report_growth(N);
+			Some(array)
+		} else {
+			None
+		}
+	}
+}
+
+impl From<&[JsValue]> for JsArray {
 	fn from(value: &[JsValue]) -> Self {
 		js_bindgen::embed_js!(
 			name = "array.js_value.encode",
@@ -21,14 +110,14 @@ impl From<&[JsValue]> for JsArray<JsValue> {
 			"	const array = new Array(len)",
 			"",
 			"	if (this.#jsEmbed.js_sys['array.isLittleEndian']) {{",
-			"		const view = new Uint32Array(this.#memory.buffer, ptr, len)",
+			"		const view = new Int32Array(this.#memory.buffer, ptr, len)",
 			"		for (let i = 0; i < len; i++) {{",
-			"			array[i] = this.#jsEmbed.js_sys['externref.table'].get(view[index])",
+			"			array[i] = this.#jsEmbed.js_sys['externref.table'].get(view[i])",
 			"		}}",
 			"	}} else {{",
 			"		const view = new DataView(this.#memory.buffer, ptr, len * 4)",
 			"		for (let i = 0; i < len; i++) {{",
-			"			const index = view.getUint32(i * 4, true)",
+			"			const index = view.getInt32(i * 4, true)",
 			"			array[i] = this.#jsEmbed.js_sys['externref.table'].get(index)",
 			"		}}",
 			"	}}",
@@ -41,9 +130,41 @@ impl From<&[JsValue]> for JsArray<JsValue> {
 	}
 }
 
-impl<const N: usize> From<&[u32; N]> for JsArray<u32> {
-	fn from(value: &[u32; N]) -> Self {
-		value.as_slice().into()
+impl JsArray<u32> {
+	#[must_use]
+	pub fn as_array<const N: usize>(&self) -> Option<[u32; N]> {
+		js_bindgen::embed_js!(
+			name = "array.u32.decode",
+			required_embed = "array.isLittleEndian",
+			"(array, ptr, len) => {{",
+			"	if (array.length !== len) return false",
+			"",
+			"	if (this.#jsEmbed.js_sys['array.isLittleEndian']) {{",
+			"		const view = new Uint32Array(this.#memory.buffer, ptr, len)",
+			"		for (let i = 0; i < len; i++) {{",
+			"			view[i] = array[i]",
+			"		}}",
+			"	}} else {{",
+			"		const view = new DataView(this.#memory.buffer, ptr, len * 4)",
+			"		for (let i = 0; i < len; i++) {{",
+			"			view.setUint32(i * 4, array[i], true)",
+			"		}}",
+			"	}}",
+			"",
+			"	return true",
+			"}}",
+		);
+
+		let array = [0; N];
+
+		let result = r#gen::array_u32_decode(self, array.as_ptr(), PtrLength::new(&array));
+
+		if result {
+			ExternrefTable::report_growth(N);
+			Some(array)
+		} else {
+			None
+		}
 	}
 }
 

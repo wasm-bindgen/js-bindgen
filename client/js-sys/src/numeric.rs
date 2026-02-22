@@ -1,6 +1,30 @@
 use crate::hazard::{Input, Output};
 
 // SAFETY: Implementation.
+unsafe impl Input for bool {
+	const IMPORT_TYPE: &str = "i32";
+	const TYPE: &str = "i32";
+
+	type Type = Self;
+
+	fn into_raw(self) -> Self::Type {
+		self
+	}
+}
+
+// SAFETY: Implementation.
+unsafe impl Output for bool {
+	const IMPORT_TYPE: &str = "i32";
+	const TYPE: &str = "i32";
+
+	type Type = Self;
+
+	fn from_raw(raw: Self::Type) -> Self {
+		raw
+	}
+}
+
+// SAFETY: Implementation.
 unsafe impl Input for u32 {
 	const IMPORT_TYPE: &str = "i32";
 	const TYPE: &str = "i32";

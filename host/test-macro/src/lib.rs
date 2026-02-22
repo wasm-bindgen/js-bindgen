@@ -154,8 +154,8 @@ fn test_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 			const TEST_PTR: *const ::core::primitive::u8 = ::core::primitive::str::as_ptr(TEST);
 			const TEST_ARR: [::core::primitive::u8; TEST_LEN] = unsafe { *(TEST_PTR as *const _) };
 
-			const LEN: ::core::primitive::usize = #data_len + TEST_LEN;
-			const LEN_ARR: [::core::primitive::u8; 4] = ::core::primitive::usize::to_le_bytes(LEN);
+			const LEN: ::core::primitive::u32 = (#data_len + TEST_LEN) as _;
+			const LEN_ARR: [::core::primitive::u8; 4] = ::core::primitive::u32::to_le_bytes(LEN);
 
 			#[repr(C)]
 			struct Layout(
