@@ -12,5 +12,8 @@ macro = ["dep:js-sys-macro"]
 js-bindgen = { workspace = true }
 js-sys-macro = { workspace = true, optional = true }
 
+[dev-dependencies]
+js-bindgen-test = { workspace = true }
+
 [lints]
 workspace = true

@@ -1,4 +1,5 @@
 mod function;
+mod member;
 mod r#type;
 
 use std::ffi::OsStr;

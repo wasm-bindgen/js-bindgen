@@ -1,4 +1,4 @@
-use crate::hazard::Input;
+use crate::hazard::{Input, Output};
 
 // SAFETY: Implementation.
 unsafe impl Input for u32 {
@@ -10,6 +10,18 @@ unsafe impl Input for u32 {
 
 	fn into_raw(self) -> Self::Type {
 		self
+	}
+}
+
+// SAFETY: Implementation.
+unsafe impl Output for u32 {
+	const IMPORT_TYPE: &str = "i32";
+	const TYPE: &str = "i32";
+
+	type Type = Self;
+
+	fn from_raw(raw: Self::Type) -> Self {
+		raw
 	}
 }
 

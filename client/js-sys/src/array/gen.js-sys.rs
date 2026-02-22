@@ -4,6 +4,9 @@ use crate::util::PtrLength;
 extern "js-sys" {
 	pub type JsArray<T = JsValue>;
 
+	#[js_sys(property)]
+	pub fn length<T>(self: &JsArray<T>) -> u32;
+
 	#[js_sys(js_embed = "array.js_value.encode")]
 	pub(super) fn array_js_value_encode(array: *const JsValue, len: PtrLength) -> JsArray<JsValue>;
 

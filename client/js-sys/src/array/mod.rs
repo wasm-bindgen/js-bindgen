@@ -41,6 +41,12 @@ impl From<&[JsValue]> for JsArray<JsValue> {
 	}
 }
 
+impl<const N: usize> From<&[u32; N]> for JsArray<u32> {
+	fn from(value: &[u32; N]) -> Self {
+		value.as_slice().into()
+	}
+}
+
 impl From<&[u32]> for JsArray<u32> {
 	fn from(value: &[u32]) -> Self {
 		js_bindgen::embed_js!(

@@ -135,6 +135,8 @@ This is a list of upstream issues that could make our lives significantly easier
 - Improved test coverage data merging: [llvm/llvm-project#121194]
 - Cargo support for local development pre-processing: [rust-lang/cargo#12552] or
   [rust-lang/cargo#4511]
+- Rust has an issue with duplicate symbols during tests. E.g. this prevents us from having unit
+  tests in `js-sys`. [rust-lang/rust#145616]
 
 [llvm/llvm-project#136594]: https://github.com/llvm/llvm-project/issues/136594
 [rust-lang/rust#136382]: https://github.com/rust-lang/rust/issues/136382
@@ -152,3 +154,4 @@ This is a list of upstream issues that could make our lives significantly easier
 [llvm/llvm-project#121194]: https://github.com/llvm/llvm-project/pull/121194
 [rust-lang/cargo#12552]: https://github.com/rust-lang/cargo/issues/12552
 [rust-lang/cargo#4511]: https://github.com/rust-lang/cargo/issues/4511
+[rust-lang/rust#145616]: https://github.com/rust-lang/rust/issues/145616

@@ -50,6 +50,38 @@ impl<T> JsArray<T> {
         Self { value, _type: PhantomData }
     }
 }
+impl<T> JsArray<T> {
+    pub fn length(self: &JsArray<T>) -> u32 {
+        js_bindgen::unsafe_embed_asm! {
+            ".import_module js_sys.import.length, js_sys",
+            ".import_name js_sys.import.length, length",
+            ".functype js_sys.import.length ({}) -> ({})", "", "{}", "", "{}", "",
+            ".globl js_sys.length", "js_sys.length:",
+            "\t.functype js_sys.length ({}) -> ({})", "\tlocal.get 0", "\t{}",
+            "\tcall js_sys.import.length", "\t{}", "\tend_function", interpolate < &
+            JsValue as Input > ::IMPORT_TYPE, interpolate < u32 as Output >
+            ::IMPORT_TYPE, interpolate < & JsValue as Input > ::IMPORT_FUNC, interpolate
+            < u32 as Output > ::IMPORT_FUNC, interpolate < & JsValue as Input > ::TYPE,
+            interpolate < u32 as Output > ::TYPE, interpolate < & JsValue as Input >
+            ::CONV, interpolate < u32 as Output > ::CONV,
+        }
+        js_bindgen::import_js! {
+            name = "length", "{}{}{}{}{}", interpolate
+            r#macro::select("(self) => self.length", "(self) => {\n", [< & JsValue as
+            Input > ::JS_CONV]), interpolate r#macro::select("", "\tself", [< & JsValue
+            as Input > ::JS_CONV]), interpolate r#macro::select("", < & JsValue as Input
+            > ::JS_CONV, [< & JsValue as Input > ::JS_CONV]), interpolate
+            r#macro::select("", "\n", [< & JsValue as Input > ::JS_CONV]), interpolate
+            r#macro::select("", "\treturn self.length\n}", [< & JsValue as Input >
+            ::JS_CONV]),
+        }
+        unsafe extern "C" {
+            #[link_name = "js_sys.length"]
+            fn length(this: <&JsValue as Input>::Type) -> <u32 as Output>::Type;
+        }
+        Output::from_raw(unsafe { length(Input::into_raw(self)) })
+    }
+}
 pub(super) fn array_js_value_encode(
     array: *const JsValue,
     len: PtrLength,

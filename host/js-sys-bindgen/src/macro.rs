@@ -109,14 +109,13 @@ pub(crate) fn internal(
 					.extract_if(.., |attr| attr.path().is_ident("js_sys"))
 				{
 					if let Err(e) = attr.parse_nested_meta(|meta| {
-						if js_output != FunctionJsOutput::default() {
+						let FunctionJsOutput::Generate { js_name, property } = &mut js_output
+						else {
 							return Err(meta.error("found duplicate/incompatible attribute"));
-						}
+						};
 
 						if meta.path.is_ident("js_name") {
-							js_output = FunctionJsOutput::Generate(Some(
-								meta.value()?.parse::<LitStr>()?.value(),
-							));
+							*js_name = Some(meta.value()?.parse::<LitStr>()?.value());
 							Ok(())
 						} else if meta.path.is_ident("js_import") {
 							if meta.input.is_empty() {
@@ -128,6 +127,13 @@ pub(crate) fn internal(
 						} else if meta.path.is_ident("js_embed") {
 							js_output =
 								FunctionJsOutput::Embed(meta.value()?.parse::<LitStr>()?.value());
+							Ok(())
+						} else if meta.path.is_ident("property") {
+							if *property {
+								return Err(meta.error("duplicate attribute"));
+							}
+
+							*property = true;
 							Ok(())
 						} else {
 							Err(meta.error("unsupported attribute"))
@@ -143,14 +149,8 @@ pub(crate) fn internal(
 					&env::var("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` not found")
 				};
 
-				match Function::new(
-					&mut hygiene,
-					&js_output,
-					namespace.as_deref(),
-					crate_,
-					&item,
-				) {
-					Ok(function) => output.push(function.0.into()),
+				match Function::new(&mut hygiene, js_output, namespace.as_deref(), crate_, item) {
+					Ok(function) => output.push(function.into()),
 					Err(e) => error.push(e),
 				}
 			}
