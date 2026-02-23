@@ -1,5 +1,6 @@
 #![no_std]
 
+#[rustfmt::skip]
 pub mod console;
 
 pub use js_sys;

@@ -6,4 +6,4 @@ linker = "../common/linker.cmd"
 runner = "../common/runner.cmd"
 
 [env]
-JS_SYS_LOCAL_DEV = "1"
+JBG_LOCAL_DEV = "1"

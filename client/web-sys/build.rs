@@ -17,7 +17,7 @@ fn main() -> io::Result<()> {
 			.arg("--")
 			.arg("-q")
 			.arg("js-sys")
-			.args(["--manifest-path", "../client/js-sys/Cargo.toml"])
+			.args(["--manifest-path", "../client/web-sys/Cargo.toml"])
 			.status()?;
 
 		if !status.success() {

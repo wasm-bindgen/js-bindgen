@@ -13,7 +13,8 @@ use cargo_metadata::{Artifact, CompilerMessage, Message, Target};
 use itertools::Itertools;
 use js_bindgen_ld_shared::{JsBindgenAssemblySectionParser, JsBindgenJsSectionParser};
 use proc_macro2::TokenStream;
-use syn::File;
+use quote::ToTokens;
+use syn::{File, parse_quote};
 use wasmparser::{Parser, Payload};
 
 use crate::r#macro;
@@ -87,6 +88,18 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 	);
 	fs::write(tmp.join("Cargo.toml"), cargo_toml)?;
 
+	let js_test = r#macro::internal(
+		TokenStream::new(),
+		parse_quote! { extern "js-sys" { pub type JsTest; } },
+		Some("test_crate"),
+		None,
+	)
+	.unwrap();
+	let js_test: TokenStream = js_test.into_iter().fold(TokenStream::new(), |mut acc, x| {
+		x.to_tokens(&mut acc);
+		acc
+	});
+
 	let src = tmp.join("src");
 	fs::create_dir(&src)?;
 	let lib = src.join("lib.rs");
@@ -125,6 +138,8 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 
 			#[global_allocator]
 			static ALLOC: Allocator = Allocator;
+
+			{js_test}
 
 			{source}
 			"#

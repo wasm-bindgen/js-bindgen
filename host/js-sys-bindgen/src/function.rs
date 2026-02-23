@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::fmt::Write;
 use std::ops::Deref;
 use std::str::FromStr;
+use std::string::ToString;
 use std::{iter, mem, slice};
 
 use itertools::Itertools;
@@ -507,24 +508,36 @@ impl<'a, 'h> State<'a, 'h> {
 			OutputType::Import => return None,
 		};
 
-		let required_embed = if let OutputType::Embed(name) = &r#type {
-			slice::from_ref(name)
+		let required_embeds: Vec<_> = if let OutputType::Embed(name) = &r#type {
+			Some(quote_spanned!(*span=> #name))
 		} else {
-			&[]
+			None
+		}
+		.into_iter()
+		.chain(
+			input_tys
+				.iter()
+				.map(|ty| quote_spanned!(*span=> <#ty as #input>::JS_CONV_EMBED)),
+		)
+		.collect();
+		let required_embeds = if required_embeds.is_empty() {
+			[].as_slice()
+		} else {
+			&[quote_spanned!(*span=> required_embeds = [#(#required_embeds),*])]
 		};
 
 		if input_tys.is_empty() {
 			return Some(parse_quote_spanned! {*span=>
 				#js_bindgen::import_js!(
 					name = #import_name,
-					#(required_embeds = [#required_embed],)*
+					#(#required_embeds,)*
 					#js_path
 				);
 			});
 		}
 
 		let placeholder: String = iter::once("{}")
-			.chain(iter::repeat_n("{}{}{}", input_tys.len()))
+			.chain(iter::repeat_n("{}{}{}{}{}", input_tys.len()))
 			.chain(iter::once("{}"))
 			.collect();
 
@@ -536,6 +549,7 @@ impl<'a, 'h> State<'a, 'h> {
 		};
 		let js_arrow_open = format!("({input_names_joined}) => {{\n",);
 		let input_conv = intern_input_names.iter().map(|arg| format!("\t{arg}"));
+		let input_conv_post = intern_input_names.iter().map(ToString::to_string);
 		let ret_call = if output_ty.is_empty() { "" } else { "return " };
 		let direct_js_call = if let Some(member) = r#type.member() {
 			match member.r#type {
@@ -565,15 +579,17 @@ impl<'a, 'h> State<'a, 'h> {
 		Some(parse_quote_spanned! {*span=>
 			#js_bindgen::import_js! {
 				name = #import_name,
-				#(required_embeds = [#required_embed],)*
+				#(#required_embeds,)*
 				#placeholder,
-				interpolate #r#macro::select(#direct_js_call, #js_arrow_open, [#(<#input_tys as #input>::JS_CONV),*]),
+				interpolate #r#macro::select(#direct_js_call, #js_arrow_open, &[#(<#input_tys as #input>::JS_CONV),*]),
 				#(
-					interpolate #r#macro::select("", #input_conv, [<#input_tys as #input>::JS_CONV]),
-					interpolate #r#macro::select("", <#input_tys as #input>::JS_CONV, [<#input_tys as #input>::JS_CONV]),
-					interpolate #r#macro::select("", "\n", [<#input_tys as #input>::JS_CONV]),
+					interpolate #r#macro::select("", #input_conv, &[<#input_tys as #input>::JS_CONV]),
+					interpolate #r#macro::select("", <#input_tys as #input>::JS_CONV, &[<#input_tys as #input>::JS_CONV]),
+					interpolate #r#macro::select("", #input_conv_post, &[<#input_tys as #input>::JS_CONV_POST]),
+					interpolate #r#macro::select("", <#input_tys as #input>::JS_CONV_POST, &[<#input_tys as #input>::JS_CONV_POST]),
+					interpolate #r#macro::select("", "\n", &[<#input_tys as #input>::JS_CONV]),
 				)*
-				interpolate #r#macro::select("", #js_arrow_close, [#(<#input_tys as #input>::JS_CONV),*]),
+				interpolate #r#macro::select("", #js_arrow_close, &[#(<#input_tys as #input>::JS_CONV),*]),
 			}
 		})
 	}

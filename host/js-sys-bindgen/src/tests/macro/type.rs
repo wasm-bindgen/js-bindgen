@@ -33,6 +33,8 @@ fn basic() {
 				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
 				const TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::TYPE;
 				const CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::CONV;
+				const JS_CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
+				const JS_CONV_POST: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST;
 
 				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
@@ -101,6 +103,8 @@ fn generic() {
 				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
 				const TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::TYPE;
 				const CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::CONV;
+				const JS_CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
+				const JS_CONV_POST: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST;
 
 				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
@@ -175,6 +179,8 @@ fn default() {
 				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
 				const TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::TYPE;
 				const CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::CONV;
+				const JS_CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
+				const JS_CONV_POST: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST;
 
 				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
@@ -249,6 +255,8 @@ fn r#trait() {
 				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
 				const TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::TYPE;
 				const CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::CONV;
+				const JS_CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
+				const JS_CONV_POST: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST;
 
 				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 

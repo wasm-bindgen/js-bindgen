@@ -1,13 +1,9 @@
 #[must_use]
-pub const fn select<const L: usize>(
-	a: &'static str,
-	b: &'static str,
-	conversions: [&'static str; L],
-) -> &'static str {
+pub const fn select(a: &'static str, b: &'static str, conversions: &[&str]) -> &'static str {
 	let mut any_conversions = false;
 	let mut index = 0;
 
-	while index < L {
+	while index < conversions.len() {
 		if !conversions[index].is_empty() {
 			any_conversions = true;
 			break;

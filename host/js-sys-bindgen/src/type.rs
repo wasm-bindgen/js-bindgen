@@ -100,6 +100,8 @@ impl Type {
 					const IMPORT_TYPE: &'static #str = <&#js_value as #input>::IMPORT_TYPE;
 					const TYPE: &'static #str = <&#js_value as #input>::TYPE;
 					const CONV: &'static #str = <&#js_value as #input>::CONV;
+					const JS_CONV: &'static #str = <&#js_value as #input>::JS_CONV;
+					const JS_CONV_POST: &'static #str = <&#js_value as #input>::JS_CONV_POST;
 
 					type Type = <&'static #js_value as #input>::Type;
 

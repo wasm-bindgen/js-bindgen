@@ -21,7 +21,11 @@ export class JsBindgen {
 				
 					return decoder.decode(view)
 				},
-				'externref.table': new WebAssembly.Table({ initial: 1, element: 'externref' }),
+				'externref.table': (() => {
+					const table = new WebAssembly.Table({ initial: 2, element: 'externref' })
+					table.set(1, null)
+					return table
+				})(),
 			},
 		};
         this.#importObject = {

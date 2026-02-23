@@ -231,6 +231,11 @@ impl<'cs> Iterator for JsBindgenJsSectionParser<'cs> {
 						let length = usize::from(u16::from_le_bytes(
 							data.split_off(..2)?.try_into().unwrap(),
 						));
+
+						if length == 0 {
+							continue;
+						}
+
 						let embed = data.split_off(..length)?;
 						embeds.push(str::from_utf8(embed).ok()?);
 					}

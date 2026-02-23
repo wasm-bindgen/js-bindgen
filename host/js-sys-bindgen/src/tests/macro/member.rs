@@ -7,62 +7,10 @@ fn method() {
 		TokenStream::new(),
 		quote! {
 			extern "js-sys" {
-				pub type JsTest;
-
 				pub fn test(self: &JsTest);
 			}
 		},
 		quote! {
-			#[repr(transparent)]
-			pub struct JsTest(::js_sys::JsValue);
-
-			impl ::core::ops::Deref for JsTest {
-				type Target = ::js_sys::JsValue;
-
-				fn deref(&self) -> &Self::Target {
-					&self.0
-				}
-			}
-
-			impl ::core::convert::From<JsTest> for ::js_sys::JsValue {
-				fn from(value: JsTest) -> Self {
-					value.0
-				}
-			}
-
-			unsafe impl ::js_sys::hazard::Input for &JsTest {
-				const IMPORT_FUNC: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC;
-				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
-				const TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::TYPE;
-				const CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::CONV;
-
-				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
-
-				fn into_raw(self) -> Self::Type {
-					::js_sys::hazard::Input::into_raw(&self.0)
-				}
-			}
-
-			unsafe impl ::js_sys::hazard::Output for JsTest {
-				const IMPORT_FUNC: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_FUNC;
-				const IMPORT_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_TYPE;
-				const TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::TYPE;
-				const CONV: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::CONV;
-
-				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
-
-				fn from_raw(raw: Self::Type) -> Self {
-					Self(::js_sys::hazard::Output::from_raw(raw))
-				}
-			}
-
-			impl JsTest {
-				#[must_use]
-				pub fn unchecked_from(value: ::js_sys::JsValue) -> Self {
-					Self(value)
-				}
-			}
-
 			impl JsTest {
 				pub fn test(self: &JsTest) {
 					::js_sys::js_bindgen::unsafe_embed_asm! {
@@ -86,20 +34,20 @@ fn method() {
 					}
 
 					::js_sys::js_bindgen::import_js! {
-						name = "test", "{}{}{}{}{}",
+						name = "test",
+						required_embeds = [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
+						"{}{}{}{}{}{}{}",
 						interpolate::js_sys::r#macro::select(
 							"(self) => self.test()",
 							"(self) => {\n",
-							[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]
+							&[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]
 						),
-						interpolate::js_sys::r#macro::select("", "\tself", [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
-						interpolate::js_sys::r#macro::select(
-							"",
-							<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV,
-							[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]
-						),
-						interpolate::js_sys::r#macro::select("", "\n", [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
-						interpolate::js_sys::r#macro::select("", "\tself.test()\n}", [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "\tself", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV, &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "self", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST]),
+						interpolate::js_sys::r#macro::select("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST, &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST]),
+						interpolate::js_sys::r#macro::select("", "\n", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "\tself.test()\n}", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
 					}
 
 					unsafe extern "C" {
@@ -136,62 +84,10 @@ fn method_par() {
 		TokenStream::new(),
 		quote! {
 			extern "js-sys" {
-				pub type JsTest;
-
 				pub fn test(self: &JsTest, par1: &JsValue, par2: &JsValue);
 			}
 		},
 		quote! {
-			#[repr(transparent)]
-			pub struct JsTest(::js_sys::JsValue);
-
-			impl ::core::ops::Deref for JsTest {
-				type Target = ::js_sys::JsValue;
-
-				fn deref(&self) -> &Self::Target {
-					&self.0
-				}
-			}
-
-			impl ::core::convert::From<JsTest> for ::js_sys::JsValue {
-				fn from(value: JsTest) -> Self {
-					value.0
-				}
-			}
-
-			unsafe impl ::js_sys::hazard::Input for &JsTest {
-				const IMPORT_FUNC: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC;
-				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
-				const TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::TYPE;
-				const CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::CONV;
-
-				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
-
-				fn into_raw(self) -> Self::Type {
-					::js_sys::hazard::Input::into_raw(&self.0)
-				}
-			}
-
-			unsafe impl ::js_sys::hazard::Output for JsTest {
-				const IMPORT_FUNC: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_FUNC;
-				const IMPORT_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_TYPE;
-				const TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::TYPE;
-				const CONV: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::CONV;
-
-				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
-
-				fn from_raw(raw: Self::Type) -> Self {
-					Self(::js_sys::hazard::Output::from_raw(raw))
-				}
-			}
-
-			impl JsTest {
-				#[must_use]
-				pub fn unchecked_from(value: ::js_sys::JsValue) -> Self {
-					Self(value)
-				}
-			}
-
 			impl JsTest {
 				pub fn test(self: &JsTest, par1: &JsValue, par2: &JsValue) {
 					::js_sys::js_bindgen::unsafe_embed_asm! {
@@ -231,41 +127,41 @@ fn method_par() {
 					}
 
 					::js_sys::js_bindgen::import_js! {
-						name = "test", "{}{}{}{}{}{}{}{}{}{}{}",
+						name = "test",
+						required_embeds = [
+							<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED,
+							<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED,
+							<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED
+						],
+						"{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}",
 						interpolate::js_sys::r#macro::select(
 							"(self, par1, par2) => self.test(par1, par2)",
 							"(self, par1, par2) => {\n",
-							[
+							&[
 								<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV,
 								<&JsValue as ::js_sys::hazard::Input>::JS_CONV,
 								<&JsValue as ::js_sys::hazard::Input>::JS_CONV
 							]
 						),
-						interpolate::js_sys::r#macro::select("", "\tself", [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
-						interpolate::js_sys::r#macro::select(
-							"",
-							<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV,
-							[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]
-						),
-						interpolate::js_sys::r#macro::select("", "\n", [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
-						interpolate::js_sys::r#macro::select("", "\tpar1", [<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
-						interpolate::js_sys::r#macro::select(
-							"",
-							<&JsValue as ::js_sys::hazard::Input>::JS_CONV,
-							[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]
-						),
-						interpolate::js_sys::r#macro::select("", "\n", [<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
-						interpolate::js_sys::r#macro::select("", "\tpar2", [<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
-						interpolate::js_sys::r#macro::select(
-							"",
-							<&JsValue as ::js_sys::hazard::Input>::JS_CONV,
-							[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]
-						),
-						interpolate::js_sys::r#macro::select("", "\n", [<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "\tself", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV, &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "self", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST]),
+						interpolate::js_sys::r#macro::select("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST, &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST]),
+						interpolate::js_sys::r#macro::select("", "\n", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "\tpar1", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", <&JsValue as ::js_sys::hazard::Input>::JS_CONV, &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "par1", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST]),
+						interpolate::js_sys::r#macro::select("", <&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST, &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST]),
+						interpolate::js_sys::r#macro::select("", "\n", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "\tpar2", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", <&JsValue as ::js_sys::hazard::Input>::JS_CONV, &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "par2", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST]),
+						interpolate::js_sys::r#macro::select("", <&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST, &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST]),
+						interpolate::js_sys::r#macro::select("", "\n", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
 						interpolate::js_sys::r#macro::select(
 							"",
 							"\tself.test(par1, par2)\n}",
-							[
+							&[
 								<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV,
 								<&JsValue as ::js_sys::hazard::Input>::JS_CONV,
 								<&JsValue as ::js_sys::hazard::Input>::JS_CONV
@@ -323,63 +219,11 @@ fn getter() {
 		TokenStream::new(),
 		quote! {
 			extern "js-sys" {
-				pub type JsTest;
-
 				#[js_sys(property)]
 				pub fn test(self: &JsTest) -> JsValue;
 			}
 		},
 		quote! {
-			#[repr(transparent)]
-			pub struct JsTest(::js_sys::JsValue);
-
-			impl ::core::ops::Deref for JsTest {
-				type Target = ::js_sys::JsValue;
-
-				fn deref(&self) -> &Self::Target {
-					&self.0
-				}
-			}
-
-			impl ::core::convert::From<JsTest> for ::js_sys::JsValue {
-				fn from(value: JsTest) -> Self {
-					value.0
-				}
-			}
-
-			unsafe impl ::js_sys::hazard::Input for &JsTest {
-				const IMPORT_FUNC: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC;
-				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
-				const TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::TYPE;
-				const CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::CONV;
-
-				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
-
-				fn into_raw(self) -> Self::Type {
-					::js_sys::hazard::Input::into_raw(&self.0)
-				}
-			}
-
-			unsafe impl ::js_sys::hazard::Output for JsTest {
-				const IMPORT_FUNC: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_FUNC;
-				const IMPORT_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_TYPE;
-				const TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::TYPE;
-				const CONV: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::CONV;
-
-				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
-
-				fn from_raw(raw: Self::Type) -> Self {
-					Self(::js_sys::hazard::Output::from_raw(raw))
-				}
-			}
-
-			impl JsTest {
-				#[must_use]
-				pub fn unchecked_from(value: ::js_sys::JsValue) -> Self {
-					Self(value)
-				}
-			}
-
 			impl JsTest {
 				pub fn test(self: &JsTest) -> JsValue{
 					::js_sys::js_bindgen::unsafe_embed_asm! {
@@ -410,20 +254,20 @@ fn getter() {
 					}
 
 					::js_sys::js_bindgen::import_js! {
-						name = "test", "{}{}{}{}{}",
+						name = "test",
+						required_embeds = [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
+						"{}{}{}{}{}{}{}",
 						interpolate::js_sys::r#macro::select(
 							"(self) => self.test",
 							"(self) => {\n",
-							[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]
+							&[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]
 						),
-						interpolate::js_sys::r#macro::select("", "\tself", [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
-						interpolate::js_sys::r#macro::select(
-							"",
-							<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV,
-							[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]
-						),
-						interpolate::js_sys::r#macro::select("", "\n", [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
-						interpolate::js_sys::r#macro::select("", "\treturn self.test\n}", [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "\tself", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV, &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "self", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST]),
+						interpolate::js_sys::r#macro::select("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST, &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST]),
+						interpolate::js_sys::r#macro::select("", "\n", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "\treturn self.test\n}", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
 					}
 
 					unsafe extern "C" {
@@ -467,63 +311,11 @@ fn setter() {
 		TokenStream::new(),
 		quote! {
 			extern "js-sys" {
-				pub type JsTest;
-
 				#[js_sys(property)]
 				pub fn test(self: &JsTest, value: &JsValue);
 			}
 		},
 		quote! {
-			#[repr(transparent)]
-			pub struct JsTest(::js_sys::JsValue);
-
-			impl ::core::ops::Deref for JsTest {
-				type Target = ::js_sys::JsValue;
-
-				fn deref(&self) -> &Self::Target {
-					&self.0
-				}
-			}
-
-			impl ::core::convert::From<JsTest> for ::js_sys::JsValue {
-				fn from(value: JsTest) -> Self {
-					value.0
-				}
-			}
-
-			unsafe impl ::js_sys::hazard::Input for &JsTest {
-				const IMPORT_FUNC: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC;
-				const IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE;
-				const TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::TYPE;
-				const CONV: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::CONV;
-
-				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
-
-				fn into_raw(self) -> Self::Type {
-					::js_sys::hazard::Input::into_raw(&self.0)
-				}
-			}
-
-			unsafe impl ::js_sys::hazard::Output for JsTest {
-				const IMPORT_FUNC: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_FUNC;
-				const IMPORT_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::IMPORT_TYPE;
-				const TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::TYPE;
-				const CONV: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::CONV;
-
-				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
-
-				fn from_raw(raw: Self::Type) -> Self {
-					Self(::js_sys::hazard::Output::from_raw(raw))
-				}
-			}
-
-			impl JsTest {
-				#[must_use]
-				pub fn unchecked_from(value: ::js_sys::JsValue) -> Self {
-					Self(value)
-				}
-			}
-
 			impl JsTest {
 				pub fn test(self: &JsTest, value: &JsValue) {
 					::js_sys::js_bindgen::unsafe_embed_asm! {
@@ -555,33 +347,31 @@ fn setter() {
 					}
 
 					::js_sys::js_bindgen::import_js! {
-						name = "test", "{}{}{}{}{}{}{}{}",
+						name = "test",
+						required_embeds = [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
+						"{}{}{}{}{}{}{}{}{}{}{}{}",
 						interpolate::js_sys::r#macro::select(
 							"(self, value) => self.test = value",
 							"(self, value) => {\n",
-							[
+							&[
 								<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV,
 								<&JsValue as ::js_sys::hazard::Input>::JS_CONV
 							]
 						),
-						interpolate::js_sys::r#macro::select("", "\tself", [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
-						interpolate::js_sys::r#macro::select(
-							"",
-							<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV,
-							[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]
-						),
-						interpolate::js_sys::r#macro::select("", "\n", [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
-						interpolate::js_sys::r#macro::select("", "\tvalue", [<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
-						interpolate::js_sys::r#macro::select(
-							"",
-							<&JsValue as ::js_sys::hazard::Input>::JS_CONV,
-							[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]
-						),
-						interpolate::js_sys::r#macro::select("", "\n", [<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "\tself", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV, &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "self", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST]),
+						interpolate::js_sys::r#macro::select("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST, &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST]),
+						interpolate::js_sys::r#macro::select("", "\n", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "\tvalue", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", <&JsValue as ::js_sys::hazard::Input>::JS_CONV, &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
+						interpolate::js_sys::r#macro::select("", "value", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST]),
+						interpolate::js_sys::r#macro::select("", <&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST, &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST]),
+						interpolate::js_sys::r#macro::select("", "\n", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
 						interpolate::js_sys::r#macro::select(
 							"",
 							"\tself.test = value\n}",
-							[
+							&[
 								<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV,
 								<&JsValue as ::js_sys::hazard::Input>::JS_CONV
 							]

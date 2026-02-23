@@ -1,4 +1,4 @@
-(module $basic-6368476a757e710f.wasm
+(module $basic-a6379d50f3a60b06.wasm
   (type (;0;) (func (param i32 i32) (result externref)))
   (type (;1;) (func (param externref)))
   (type (;2;) (func))
@@ -66,7 +66,7 @@
       block ;; label = @2
         block ;; label = @3
           local.get 0
-          i32.const 1
+          i32.const 2
           i32.lt_s
           br_if 0 (;@3;)
           i32.const 0
