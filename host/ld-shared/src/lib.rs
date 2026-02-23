@@ -199,7 +199,13 @@ pub struct JsBindgenJsSection<'cs> {
 	pub module: &'cs str,
 	pub name: &'cs str,
 	pub js: &'cs str,
-	pub embeds: Vec<&'cs str>,
+	pub embeds: Vec<JsRequiredEmbed<'cs>>,
+}
+
+#[derive(Debug)]
+pub struct JsRequiredEmbed<'cs> {
+	pub module: &'cs str,
+	pub name: &'cs str,
 }
 
 impl<'cs> JsBindgenJsSectionParser<'cs> {
@@ -253,13 +259,20 @@ impl<'cs> Iterator for JsBindgenJsSectionParser<'cs> {
 						let length = usize::from(u16::from_le_bytes(
 							data.split_off(..2)?.try_into().unwrap(),
 						));
+						let module = data.split_off(..length)?;
+						let module = str::from_utf8(module).ok()?;
 
-						if length == 0 {
+						let length = usize::from(u16::from_le_bytes(
+							data.split_off(..2)?.try_into().unwrap(),
+						));
+						let name = data.split_off(..length)?;
+						let name = str::from_utf8(name).ok()?;
+
+						if module.is_empty() {
 							continue;
 						}
 
-						let embed = data.split_off(..length)?;
-						embeds.push(str::from_utf8(embed).ok()?);
+						embeds.push(JsRequiredEmbed { module, name });
 					}
 
 					Some(embeds)

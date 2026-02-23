@@ -395,7 +395,7 @@ fn import() {
 fn required_embeds() {
 	super::test(
 		crate::import_js_internal(quote! {
-			module = "foo", name = "bar", required_embeds = ["baz"], "",
+			module = "foo", name = "bar", required_embeds = [("baz", "qux")], "",
 		}),
 		quote! {
 			const _: () = {
@@ -405,6 +405,11 @@ fn required_embeds() {
 				const PTR_1: *const u8 = ::core::primitive::str::as_ptr(VAL_1);
 				const ARR_1: [u8; LEN_1] = unsafe { *(PTR_1 as *const _) };
 				const VAL_1_LEN: [u8; 2] = ::core::primitive::u16::to_le_bytes(LEN_1 as u16);
+				const VAL_2: &str = "qux";
+				const LEN_2: usize = ::core::primitive::str::len(VAL_2);
+				const PTR_2: *const u8 = ::core::primitive::str::as_ptr(VAL_2);
+				const ARR_2: [u8; LEN_2] = unsafe { *(PTR_2 as *const _) };
+				const VAL_2_LEN: [u8; 2] = ::core::primitive::u16::to_le_bytes(LEN_2 as u16);
 				const LEN: u32 = {
 					let mut len: usize = 0;
 					{ len += 11; }
@@ -412,15 +417,22 @@ fn required_embeds() {
 						len += LEN_1;
 						len += 2;
 					}
+					{
+						len += LEN_2;
+						len += 2;
+					}
 					len as u32
 				};
 
 				const _: () = {
 					#[repr(C)]
-					struct Layout([u8; 4], [u8; 11], [u8; 2], [u8; LEN_1]);
+					struct Layout([u8; 4], [u8; 11], [u8; 2], [u8; LEN_1], [u8; 2], [u8; LEN_2]);
 
 					#[unsafe(link_section = "js_bindgen.import")]
-					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0, VAL_1_LEN, ARR_1);
+					static CUSTOM_SECTION: Layout = Layout(
+						::core::primitive::u32::to_le_bytes(LEN),
+						ARR_0, VAL_1_LEN, ARR_1, VAL_2_LEN, ARR_2
+					);
 				};
 			};
 		},

@@ -35,7 +35,7 @@ fn basic() {
 				::js_sys::js_bindgen::import_js! {
 					module = "test_crate",
 					name = "log",
-					required_embeds = [<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
+					required_embeds = [(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)],
 					"{}{}{}{}{}{}{}",
 					interpolate ::js_sys::r#macro::select("globalThis.log", "(data) => {\n", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
 					interpolate ::js_sys::r#macro::select("", "\tdata", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
@@ -107,7 +107,7 @@ fn namespace() {
 				::js_sys::js_bindgen::import_js! {
 					module = "test_crate",
 					name = "console.log",
-					required_embeds = [<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
+					required_embeds = [(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)],
 					"{}{}{}{}{}{}{}",
 					interpolate ::js_sys::r#macro::select(
 						"globalThis.console.log",
@@ -183,7 +183,7 @@ fn js_sys() {
 				js_sys::js_bindgen::import_js! {
 					module = "test_crate",
 					name = "log",
-					required_embeds = [<&JsValue as js_sys::hazard::Input>::JS_CONV_EMBED],
+					required_embeds = [(<&JsValue as js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as js_sys::hazard::Input>::JS_CONV_EMBED.1)],
 					"{}{}{}{}{}{}{}",
 					interpolate js_sys::r#macro::select("globalThis.log", "(data) => {\n", &[<&JsValue as js_sys::hazard::Input>::JS_CONV]),
 					interpolate js_sys::r#macro::select("", "\tdata", &[<&JsValue as js_sys::hazard::Input>::JS_CONV]),
@@ -263,7 +263,10 @@ fn two_parameters() {
 				::js_sys::js_bindgen::import_js! {
 					module = "test_crate",
 					name = "log",
-					required_embeds = [<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
+					required_embeds = [
+						(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1),
+						(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)
+					],
 					"{}{}{}{}{}{}{}{}{}{}{}{}",
 					interpolate ::js_sys::r#macro::select(
 						"globalThis.log",
@@ -407,7 +410,7 @@ fn js_name() {
 				::js_sys::js_bindgen::import_js! {
 					module = "test_crate",
 					name = "logx",
-					required_embeds = [<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
+					required_embeds = [(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)],
 					"{}{}{}{}{}{}{}",
 					interpolate ::js_sys::r#macro::select("globalThis.log", "(data) => {\n", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
 					interpolate ::js_sys::r#macro::select("", "\tdata", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
@@ -539,7 +542,10 @@ fn js_embed() {
 				::js_sys::js_bindgen::import_js! {
 					module = "test_crate",
 					name = "log",
-					required_embeds = ["embed", <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
+					required_embeds = [
+						("test_crate", "embed"),
+						(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)
+					],
 					"{}{}{}{}{}{}{}",
 					interpolate ::js_sys::r#macro::select("this.#jsEmbed.test_crate['embed']", "(data) => {\n", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
 					interpolate ::js_sys::r#macro::select("", "\tdata", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
@@ -675,7 +681,7 @@ fn pointer() {
 				::js_sys::js_bindgen::import_js! {
 					module = "test_crate",
 					name = "array",
-					required_embeds = [<*const u8 as ::js_sys::hazard::Input>::JS_CONV_EMBED],
+					required_embeds = [(<*const u8 as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <*const u8 as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)],
 					"{}{}{}{}{}{}{}",
 					interpolate ::js_sys::r#macro::select("globalThis.array", "(ptr) => {\n", &[<*const u8 as ::js_sys::hazard::Input>::JS_CONV]),
 					interpolate ::js_sys::r#macro::select("", "\tptr", &[<*const u8 as ::js_sys::hazard::Input>::JS_CONV]),

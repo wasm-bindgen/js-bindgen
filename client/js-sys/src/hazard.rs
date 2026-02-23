@@ -7,7 +7,7 @@ pub unsafe trait Input {
 	const IMPORT_TYPE: &str;
 	const TYPE: &str;
 	const CONV: &str = "";
-	const JS_CONV_EMBED: &str = "";
+	const JS_CONV_EMBED: (&str, &str) = ("", "");
 	const JS_CONV: &str = "";
 	const JS_CONV_POST: &str = "";
 

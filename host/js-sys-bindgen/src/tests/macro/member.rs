@@ -36,7 +36,7 @@ fn method() {
 					::js_sys::js_bindgen::import_js! {
 						module = "test_crate",
 						name = "test",
-						required_embeds = [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
+						required_embeds = [(<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)],
 						"{}{}{}{}{}{}{}",
 						interpolate::js_sys::r#macro::select(
 							"(self) => self.test()",
@@ -131,9 +131,9 @@ fn method_par() {
 						module = "test_crate",
 						name = "test",
 						required_embeds = [
-							<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED,
-							<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED,
-							<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED
+							(<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1),
+							(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1),
+							(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)
 						],
 						"{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}",
 						interpolate::js_sys::r#macro::select(
@@ -258,7 +258,7 @@ fn getter() {
 					::js_sys::js_bindgen::import_js! {
 						module = "test_crate",
 						name = "test",
-						required_embeds = [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
+						required_embeds = [(<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)],
 						"{}{}{}{}{}{}{}",
 						interpolate::js_sys::r#macro::select(
 							"(self) => self.test",
@@ -352,7 +352,10 @@ fn setter() {
 					::js_sys::js_bindgen::import_js! {
 						module = "test_crate",
 						name = "test",
-						required_embeds = [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
+						required_embeds = [
+							(<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1),
+							(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)
+						],
 						"{}{}{}{}{}{}{}{}{}{}{}{}",
 						interpolate::js_sys::r#macro::select(
 							"(self, value) => self.test = value",

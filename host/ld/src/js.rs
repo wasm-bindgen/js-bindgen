@@ -1,7 +1,7 @@
 use anyhow::{Result, bail, ensure};
 use foldhash::fast::FixedState;
 use hashbrown::{HashMap, HashSet};
-use js_bindgen_ld_shared::JsBindgenJsSectionParser;
+use js_bindgen_ld_shared::{JsBindgenJsSectionParser, JsRequiredEmbed};
 use wasmparser::{CustomSectionReader, Import};
 
 type FixedHashMap<K, V> = HashMap<K, V, FixedState>;
@@ -18,7 +18,12 @@ pub struct JsStore {
 
 struct JsWithEmbeds {
 	js: String,
-	embeds: Vec<String>,
+	embeds: Vec<JsEmbed>,
+}
+
+struct JsEmbed {
+	module: String,
+	name: String,
 }
 
 impl JsStore {
@@ -34,7 +39,7 @@ impl JsStore {
 				.insert(import.name.to_owned(), js.js);
 
 			for embed in js.embeds {
-				self.require_js_embed(import.module, embed);
+				self.require_js_embed(embed);
 			}
 		} else if !self
 			.expected_import
@@ -65,7 +70,7 @@ impl JsStore {
 					.insert(import.name.to_owned(), import.js.to_owned());
 
 				for embed in import.embeds {
-					self.require_js_embed(import.module, embed.to_owned());
+					self.require_js_embed(embed.into());
 				}
 			} else if let Err(error) = self
 				.provided_import
@@ -75,7 +80,7 @@ impl JsStore {
 					import.name.to_owned(),
 					JsWithEmbeds {
 						js: import.js.to_owned(),
-						embeds: import.embeds.into_iter().map(str::to_owned).collect(),
+						embeds: import.embeds.into_iter().map(JsEmbed::from).collect(),
 					},
 				) {
 				bail!(
@@ -105,7 +110,7 @@ impl JsStore {
 					.insert(embed.name.to_owned(), embed.js.to_owned());
 
 				for required_embed in embed.embeds {
-					self.require_js_embed(embed.module, required_embed.to_owned());
+					self.require_js_embed(required_embed.into());
 				}
 			} else if let Err(error) = self
 				.provided_embed
@@ -115,7 +120,7 @@ impl JsStore {
 					embed.name.to_owned(),
 					JsWithEmbeds {
 						js: embed.js.to_owned(),
-						embeds: embed.embeds.into_iter().map(str::to_owned).collect(),
+						embeds: embed.embeds.into_iter().map(JsEmbed::from).collect(),
 					},
 				) {
 				bail!(
@@ -131,31 +136,31 @@ impl JsStore {
 		Ok(())
 	}
 
-	fn require_js_embed(&mut self, module: &str, name: String) {
+	fn require_js_embed(&mut self, embed: JsEmbed) {
 		if !self
 			.embed
-			.get(module)
+			.get(&embed.module)
 			.iter()
-			.any(|names| names.contains_key(&name))
+			.any(|names| names.contains_key(&embed.name))
 		{
-			if let Some(embed) = self
+			if let Some(js) = self
 				.provided_embed
-				.get_mut(module)
-				.and_then(|names| names.remove(&name))
+				.get_mut(&embed.module)
+				.and_then(|names| names.remove(&embed.name))
 			{
 				self.embed
-					.entry_ref(module)
+					.entry_ref(&embed.module)
 					.or_default()
-					.insert(name, embed.js);
+					.insert(embed.name, js.js);
 
-				for name in embed.embeds {
-					self.require_js_embed(module, name);
+				for embed in js.embeds {
+					self.require_js_embed(embed);
 				}
 			} else {
 				self.expected_embed
-					.entry(module.to_owned())
+					.entry(embed.module)
 					.or_default()
-					.insert(name);
+					.insert(embed.name);
 			}
 		}
 	}
@@ -176,5 +181,14 @@ impl JsStore {
 
 	pub fn js_embed(&self) -> &FixedHashMap<String, FixedHashMap<String, String>> {
 		&self.embed
+	}
+}
+
+impl From<JsRequiredEmbed<'_>> for JsEmbed {
+	fn from(value: JsRequiredEmbed<'_>) -> Self {
+		Self {
+			module: value.module.to_owned(),
+			name: value.name.to_owned(),
+		}
 	}
 }

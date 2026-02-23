@@ -116,17 +116,69 @@ error: requires at least a string argument
 52 | js_bindgen::import_js!(module = "foo", name = "bar", 42);
    |                                                      ^^
 
-error: expected array of strings
-  --> tests/ui/import.rs:55:54
+error: expected array of string pairs
+  --> tests/ui/import.rs:55:60
    |
 55 | js_bindgen::import_js!(module = "foo", name = "bar", baz = Qux);
-   |                                                      ^^^^^^^^^
+   |                                                            ^^^
 
-error: expected array of strings
-  --> tests/ui/import.rs:58:54
+error: expected array of string pairs
+  --> tests/ui/import.rs:58:60
    |
 58 | js_bindgen::import_js!(module = "foo", name = "bar", baz = "qux");
-   |                                                      ^^^^^^^^^^^
+   |                                                            ^^^^^
 
-error: aborting due to 20 previous errors
+error: expected tuple string pair
+  --> tests/ui/import.rs:61:61
+   |
+61 | js_bindgen::import_js!(module = "foo", name = "bar", baz = ["qux"]);
+   |                                                             ^^^^^
+
+error: expected a `,` after a string value
+  --> tests/ui/import.rs:64:61
+   |
+64 | js_bindgen::import_js!(module = "foo", name = "bar", baz = [("qux")]);
+   |                                                             ^^^^^^
+
+error: expected string value
+  --> tests/ui/import.rs:67:62
+   |
+67 | js_bindgen::import_js!(module = "foo", name = "bar", baz = [("qux",)]);
+   |                                                              ^^^^^^
+
+error: expected `required_embeds`
+  --> tests/ui/import.rs:70:54
+   |
+70 | js_bindgen::import_js!(module = "foo", name = "bar", baz = [("qux", "quux")]);
+   |                                                      ^^^
+
+error: requires at least a string argument
+  --> tests/ui/import.rs:73:1
+   |
+73 | js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = [("qux", "quux")]);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `js_bindgen::import_js` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: requires at least a string argument
+  --> tests/ui/import.rs:76:1
+   |
+76 | js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = [("qux", "quux")],);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `js_bindgen::import_js` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: requires at least a string argument
+  --> tests/ui/import.rs:79:91
+   |
+79 | js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = [("qux", "quux")], 42);
+   |                                                                                           ^^
+
+error: requires at least a string argument
+  --> tests/ui/import.rs:82:91
+   |
+82 | js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = [("qux", "quux")], baz = Qux);
+   |                                                                                           ^^^
+
+error: aborting due to 28 previous errors
 

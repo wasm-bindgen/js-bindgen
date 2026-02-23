@@ -53,7 +53,31 @@ js_bindgen::import_js!(module = "foo", name = "bar", 42);
 //~^ ERROR: requires at least a string argument
 
 js_bindgen::import_js!(module = "foo", name = "bar", baz = Qux);
-//~^ ERROR: expected array of strings
+//~^ ERROR: expected array of string pairs
 
 js_bindgen::import_js!(module = "foo", name = "bar", baz = "qux");
-//~^ ERROR: expected array of strings
+//~^ ERROR: expected array of string pairs
+
+js_bindgen::import_js!(module = "foo", name = "bar", baz = ["qux"]);
+//~^ ERROR: expected tuple string pair
+
+js_bindgen::import_js!(module = "foo", name = "bar", baz = [("qux")]);
+//~^ ERROR: expected a `,` after a string value
+
+js_bindgen::import_js!(module = "foo", name = "bar", baz = [("qux",)]);
+//~^ ERROR: expected string value
+
+js_bindgen::import_js!(module = "foo", name = "bar", baz = [("qux", "quux")]);
+//~^ ERROR: expected `required_embeds`
+
+js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = [("qux", "quux")]);
+//~^ ERROR: requires at least a string argument
+
+js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = [("qux", "quux")],);
+//~^ ERROR: requires at least a string argument
+
+js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = [("qux", "quux")], 42);
+//~^ ERROR: requires at least a string argument
+
+js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = [("qux", "quux")], baz = Qux);
+//~^ ERROR: requires at least a string argument

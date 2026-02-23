@@ -95,18 +95,18 @@ fn parse_required_embeds(
 	let mut data = Vec::new();
 
 	if let Some(TokenTree::Ident(_)) = input.peek() {
-		let required_embeds = expect_meta_name_array(input, "required_embeds")?;
-		data.reserve(required_embeds.len() + 1);
+		let embeds = expect_meta_name_required_embeds(input, "required_embeds")?;
+		data.reserve(embeds.len() + 1);
 
-		let len = u8::try_from(required_embeds.len()).expect("too many `required_embeds` elements");
+		let len = u8::try_from(embeds.len()).expect("too many `required_embeds` elements");
 		names.push(len);
 		data.push(Argument::bytes(names));
 
-		for required_embed in required_embeds {
-			data.extend([Argument {
-				cfg: None,
-				kind: ArgumentKind::InterpolateWithLength(required_embed),
-			}]);
+		for embed in embeds {
+			data.extend([
+				Argument::interpolate_with_length(embed.module),
+				Argument::interpolate_with_length(embed.name),
+			]);
 		}
 	} else {
 		names.push(0);

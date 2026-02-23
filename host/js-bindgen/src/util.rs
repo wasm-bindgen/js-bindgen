@@ -26,6 +26,13 @@ impl Argument {
 			kind: ArgumentKind::Bytes(value),
 		}
 	}
+
+	pub fn interpolate_with_length(value: Vec<TokenTree>) -> Self {
+		Self {
+			cfg: None,
+			kind: ArgumentKind::InterpolateWithLength(value),
+		}
+	}
 }
 
 /// ```"not rust"
@@ -494,8 +501,13 @@ pub fn parse_string_arguments(
 			}
 			TokenTree::Punct(p) if p.as_char() == '#' => {
 				let punct = expect_punct(&mut stream, '#', previous_span, "`#`", false).unwrap();
-				let group =
-					expect_group(&mut stream, Delimiter::Bracket, punct.span(), "`#[...]`")?;
+				let group = expect_group(
+					&mut stream,
+					Delimiter::Bracket,
+					punct.span(),
+					"`#[...]`",
+					true,
+				)?;
 
 				if current_cfg.is_some() {
 					return Err(compile_error(
@@ -650,11 +662,16 @@ pub fn parse_string_arguments(
 	}
 }
 
-pub fn expect_meta_name_array(
+pub struct RequiredEmbed {
+	pub module: Vec<TokenTree>,
+	pub name: Vec<TokenTree>,
+}
+
+pub fn expect_meta_name_required_embeds(
 	stream: &mut Peekable<token_stream::IntoIter>,
 	attribute: &str,
-) -> Result<Vec<Vec<TokenTree>>, TokenStream> {
-	let (ident, string) = parse_meta_name_array(stream)?;
+) -> Result<Vec<RequiredEmbed>, TokenStream> {
+	let (ident, required_embed) = parse_meta_name_required_embeds(stream)?;
 
 	#[cfg_attr(test, expect(clippy::cmp_owned, reason = "`proc-macro2` compatiblity"))]
 	if ident.to_string() != attribute {
@@ -664,33 +681,76 @@ pub fn expect_meta_name_array(
 		));
 	}
 
-	Ok(string)
+	Ok(required_embed)
 }
 
-fn parse_meta_name_array(
+fn parse_meta_name_required_embeds(
 	mut stream: &mut Peekable<token_stream::IntoIter>,
-) -> Result<(Ident, Vec<Vec<TokenTree>>), TokenStream> {
+) -> Result<(Ident, Vec<RequiredEmbed>), TokenStream> {
 	let ident = parse_ident(&mut stream, Span::mixed_site(), "`<attribute> = \"...\"`")?;
 	let mut span = SpanRange::from(ident.span());
 	span.end = expect_punct(&mut stream, '=', span, "`<attribute> = \"...\"`", true)?.span();
 
-	let group = expect_group(&mut stream, Delimiter::Bracket, span, "array of strings")?;
+	let array = expect_group(
+		&mut stream,
+		Delimiter::Bracket,
+		span,
+		"array of string pairs",
+		false,
+	)?;
 	let mut values = Vec::new();
-	let mut group_stream = group.stream().into_iter().peekable();
+	let mut array_stream = array.stream().into_iter().peekable();
 
-	while group_stream.peek().is_some() {
-		let mut value = Vec::new();
-		span.end = parse_ty_or_value(&mut group_stream, span, "string value", &mut value)?.end;
-		values.push(value);
+	while array_stream.peek().is_some() {
+		let tuple = expect_group(
+			&mut array_stream,
+			Delimiter::Parenthesis,
+			span,
+			"tuple string pair",
+			false,
+		)?;
+		let mut tuple_span = SpanRange::from(tuple.span_open());
+		let mut tuple_stream = tuple.stream().into_iter().peekable();
 
-		if group_stream.peek().is_some() {
-			expect_punct(
-				&mut group_stream,
+		let mut module = Vec::new();
+		let mut module_span =
+			parse_ty_or_value(&mut tuple_stream, tuple_span, "string value", &mut module)?;
+
+		module_span.end = expect_punct(
+			&mut tuple_stream,
+			',',
+			module_span,
+			"a `,` after a string value",
+			false,
+		)?
+		.span();
+
+		let mut name = Vec::new();
+		tuple_span.end =
+			parse_ty_or_value(&mut tuple_stream, module_span, "string value", &mut name)?.end;
+
+		values.push(RequiredEmbed { module, name });
+
+		if tuple_stream.peek().is_some() {
+			span.end = expect_punct(
+				&mut tuple_stream,
 				',',
-				span,
-				"a `,` after a string value",
+				tuple_span,
+				"a `,` after a tuple",
 				false,
-			)?;
+			)?
+			.span();
+		}
+
+		if array_stream.peek().is_some() {
+			span.end = expect_punct(
+				&mut array_stream,
+				',',
+				(tuple_span.start, tuple.span_close()),
+				"a `,` after a tuple",
+				false,
+			)?
+			.span();
 		}
 	}
 
@@ -698,7 +758,7 @@ fn parse_meta_name_array(
 		expect_punct(
 			&mut stream,
 			',',
-			(span.start, group.span_close()),
+			(span.start, array.span_close()),
 			"a `,` after an attribute",
 			false,
 		)?;
@@ -781,7 +841,7 @@ pub fn parse_ty_or_value(
 
 	while let Some(tok) = stream.peek() {
 		match tok {
-			TokenTree::Ident(_) | TokenTree::Group(_) => {
+			TokenTree::Ident(_) | TokenTree::Literal(_) | TokenTree::Group(_) => {
 				span.end = tok.span();
 				out.push(stream.next().unwrap());
 				found = true;
@@ -797,7 +857,7 @@ pub fn parse_ty_or_value(
 				out.push(stream.next().unwrap());
 				found = true;
 			}
-			_ => break,
+			TokenTree::Punct(_) => break,
 		}
 	}
 
@@ -911,13 +971,19 @@ pub fn expect_group(
 	delimiter: Delimiter,
 	previous_span: impl Into<SpanRange>,
 	expected: &str,
+	with_previous: bool,
 ) -> Result<Group, TokenStream> {
 	match stream.next() {
 		Some(TokenTree::Group(g)) if g.delimiter() == delimiter => Ok(g),
-		Some(tok) => Err(compile_error(
-			(previous_span.into().start, tok.span()),
-			format!("expected {expected}"),
-		)),
+		Some(tok) => {
+			let span: SpanRange = if with_previous {
+				(previous_span.into().start, tok.span()).into()
+			} else {
+				tok.span().into()
+			};
+
+			Err(compile_error(span, format!("expected {expected}")))
+		}
 		None => Err(compile_error(previous_span, format!("expected {expected}"))),
 	}
 }

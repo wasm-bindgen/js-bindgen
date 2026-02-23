@@ -509,16 +509,16 @@ impl<'a, 'h> State<'a, 'h> {
 		};
 
 		let required_embeds: Vec<_> = if let OutputType::Embed(name) = &r#type {
-			Some(quote_spanned!(*span=> #name))
+			Some(quote_spanned!(*span=> (#crate_, #name)))
 		} else {
 			None
 		}
 		.into_iter()
-		.chain(
-			input_tys
-				.iter()
-				.map(|ty| quote_spanned!(*span=> <#ty as #input>::JS_CONV_EMBED)),
-		)
+		.chain(input_tys.iter().map(|ty| {
+			quote_spanned! {*span=>
+				(<#ty as #input>::JS_CONV_EMBED.0, <#ty as #input>::JS_CONV_EMBED.1)
+			}
+		}))
 		.collect();
 		let required_embeds = if required_embeds.is_empty() {
 			[].as_slice()
