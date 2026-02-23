@@ -517,7 +517,7 @@ impl<'a, 'h> State<'a, 'h> {
 			return Some(parse_quote_spanned! {*span=>
 				#js_bindgen::import_js!(
 					name = #import_name,
-					#(required_embed = #required_embed,)*
+					#(required_embeds = [#required_embed],)*
 					#js_path
 				);
 			});
@@ -565,7 +565,7 @@ impl<'a, 'h> State<'a, 'h> {
 		Some(parse_quote_spanned! {*span=>
 			#js_bindgen::import_js! {
 				name = #import_name,
-				#(required_embed = #required_embed,)*
+				#(required_embeds = [#required_embed],)*
 				#placeholder,
 				interpolate #r#macro::select(#direct_js_call, #js_arrow_open, [#(<#input_tys as #input>::JS_CONV),*]),
 				#(

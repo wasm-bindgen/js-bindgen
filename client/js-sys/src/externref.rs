@@ -83,7 +83,7 @@ js_bindgen::embed_js!(
 
 js_bindgen::import_js!(
 	name = "externref.table",
-	required_embed = "externref.table",
+	required_embeds = ["externref.table"],
 	"this.#jsEmbed.js_sys['externref.table']",
 );
 

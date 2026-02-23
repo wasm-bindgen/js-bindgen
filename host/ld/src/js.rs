@@ -10,15 +10,15 @@ type FixedHashMap<K, V> = HashMap<K, V, FixedState>;
 pub struct JsStore {
 	import: FixedHashMap<String, FixedHashMap<String, String>>,
 	expected_import: HashMap<String, HashSet<String>>,
-	provided_import: HashMap<String, HashMap<String, JsWithEmbed>>,
+	provided_import: HashMap<String, HashMap<String, JsWithEmbeds>>,
 	embed: FixedHashMap<String, FixedHashMap<String, String>>,
 	expected_embed: HashMap<String, HashSet<String>>,
-	provided_embed: HashMap<String, HashMap<String, JsWithEmbed>>,
+	provided_embed: HashMap<String, HashMap<String, JsWithEmbeds>>,
 }
 
-struct JsWithEmbed {
+struct JsWithEmbeds {
 	js: String,
-	embed: Option<String>,
+	embeds: Vec<String>,
 }
 
 impl JsStore {
@@ -33,8 +33,8 @@ impl JsStore {
 				.or_default()
 				.insert(import.name.to_owned(), js.js);
 
-			if let Some(embed) = js.embed {
-				self.require_js_embed(import.module.to_owned(), embed);
+			for embed in js.embeds {
+				self.require_js_embed(import.module, embed);
 			}
 		} else if !self
 			.expected_import
@@ -54,7 +54,7 @@ impl JsStore {
 
 	pub fn add_js_import(
 		&mut self,
-		module: String,
+		module: &str,
 		name: String,
 		custom_section: &CustomSectionReader<'_>,
 	) -> Result<()> {
@@ -67,33 +67,33 @@ impl JsStore {
 			bail!(
 				"found multiple JS imports for `{module}:{name}`\n\tJS Import 1:\n{:?}\n\tJS \
 				 Import 2:\n{:?}",
-				import.js(),
-				import_new.js(),
+				import.js,
+				import_new.js,
 			);
 		}
 
 		if self
 			.expected_import
-			.get_mut(&module)
+			.get_mut(module)
 			.is_some_and(|names| names.remove(&name))
 		{
 			self.import
-				.entry_ref(&module)
+				.entry_ref(module)
 				.or_default()
-				.insert(name, import.js().to_owned());
+				.insert(name, import.js.to_owned());
 
-			if let Some(embed) = import.embed() {
+			for embed in import.embeds {
 				self.require_js_embed(module, embed.to_owned());
 			}
 		} else if let Err(error) = self
 			.provided_import
-			.entry_ref(&module)
+			.entry_ref(module)
 			.or_default()
 			.try_insert(
 				name,
-				JsWithEmbed {
-					js: import.js().to_owned(),
-					embed: import.embed().map(str::to_owned),
+				JsWithEmbeds {
+					js: import.js.to_owned(),
+					embeds: import.embeds.into_iter().map(str::to_owned).collect(),
 				},
 			) {
 			bail!(
@@ -101,7 +101,7 @@ impl JsStore {
 				 2:\n{:?}",
 				error.entry.key(),
 				error.entry.get().js,
-				import.js()
+				import.js
 			);
 		}
 
@@ -110,7 +110,7 @@ impl JsStore {
 
 	pub fn add_js_embed(
 		&mut self,
-		module: String,
+		module: &str,
 		name: String,
 		custom_section: &CustomSectionReader<'_>,
 	) -> Result<()> {
@@ -123,68 +123,71 @@ impl JsStore {
 			bail!(
 				"found multiple JS embeds for `{module}:{name}`\n\tJS Embed 1:\n{}\n\tJS Embed \
 				 2:\n{}",
-				embed.js(),
-				embed_new.js(),
+				embed.js,
+				embed_new.js,
 			);
 		}
 
 		if self
 			.expected_embed
-			.get_mut(&module)
+			.get_mut(module)
 			.is_some_and(|names| names.remove(&name))
 		{
 			self.embed
-				.entry_ref(&module)
+				.entry_ref(module)
 				.or_default()
-				.insert(name, embed.js().to_owned());
+				.insert(name, embed.js.to_owned());
 
-			if let Some(embed) = embed.embed() {
+			for embed in embed.embeds {
 				self.require_js_embed(module, embed.to_owned());
 			}
 		} else if let Err(error) = self
 			.provided_embed
-			.entry_ref(&module)
+			.entry_ref(module)
 			.or_default()
 			.try_insert(
 				name,
-				JsWithEmbed {
-					js: embed.js().to_owned(),
-					embed: embed.embed().map(str::to_owned),
+				JsWithEmbeds {
+					js: embed.js.to_owned(),
+					embeds: embed.embeds.into_iter().map(str::to_owned).collect(),
 				},
 			) {
 			bail!(
 				"found multiple JS embeds for `{module}:{}`\n\tJS Embed 1:\n{}\n\tJS Embed 2:\n{}",
 				error.entry.key(),
 				error.entry.get().js,
-				embed.js()
+				embed.js
 			);
 		}
 
 		Ok(())
 	}
 
-	fn require_js_embed(&mut self, module: String, name: String) {
+	fn require_js_embed(&mut self, module: &str, name: String) {
 		if !self
 			.embed
-			.get(&module)
+			.get(module)
 			.iter()
 			.any(|names| names.contains_key(&name))
 		{
 			if let Some(embed) = self
 				.provided_embed
-				.get_mut(&module)
+				.get_mut(module)
 				.and_then(|names| names.remove(&name))
 			{
 				self.embed
-					.entry_ref(&module)
+					.entry_ref(module)
 					.or_default()
 					.insert(name, embed.js);
 
-				if let Some(name) = embed.embed {
+				for name in embed.embeds {
 					self.require_js_embed(module, name);
 				}
 			} else {
-				self.expected_embed.entry(module).or_default().insert(name);
+				self.expected_embed
+					.entry(module.to_owned())
+					.or_default()
+					.insert(name);
 			}
 		}
 	}

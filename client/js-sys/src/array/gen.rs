@@ -105,7 +105,7 @@ pub(super) fn array_js_value_encode(
         Output > ::CONV,
     }
     js_bindgen::import_js! {
-        name = "array_js_value_encode", required_embed = "array.js_value.encode",
+        name = "array_js_value_encode", required_embeds = ["array.js_value.encode"],
         "{}{}{}{}{}{}{}{}", interpolate
         r#macro::select("this.#jsEmbed.js_sys['array.js_value.encode']",
         "(array, len) => {\n", [< * const JsValue as Input > ::JS_CONV, < PtrLength as
@@ -165,7 +165,7 @@ pub(super) fn array_js_value_decode(
         bool as Output > ::CONV,
     }
     js_bindgen::import_js! {
-        name = "array_js_value_decode", required_embed = "array.js_value.decode",
+        name = "array_js_value_decode", required_embeds = ["array.js_value.decode"],
         "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}", interpolate
         r#macro::select("this.#jsEmbed.js_sys['array.js_value.decode']",
         "(array, array_ptr, array_len, externref_ptr, externref_len) => {\n", [< &
@@ -232,7 +232,7 @@ pub(super) fn array_u32_encode(array: *const u32, len: PtrLength) -> JsArray<u32
         ::CONV, interpolate < JsArray < u32 > as Output > ::CONV,
     }
     js_bindgen::import_js! {
-        name = "array_u32_encode", required_embed = "array.u32.encode",
+        name = "array_u32_encode", required_embeds = ["array.u32.encode"],
         "{}{}{}{}{}{}{}{}", interpolate
         r#macro::select("this.#jsEmbed.js_sys['array.u32.encode']",
         "(array, len) => {\n", [< * const u32 as Input > ::JS_CONV, < PtrLength as Input
@@ -284,7 +284,7 @@ pub(super) fn array_u32_decode(
         interpolate < bool as Output > ::CONV,
     }
     js_bindgen::import_js! {
-        name = "array_u32_decode", required_embed = "array.u32.decode",
+        name = "array_u32_decode", required_embeds = ["array.u32.decode"],
         "{}{}{}{}{}{}{}{}{}{}{}", interpolate
         r#macro::select("this.#jsEmbed.js_sys['array.u32.decode']",
         "(array, ptr, len) => {\n", [< & JsArray < u32 > as Input > ::JS_CONV, < * mut

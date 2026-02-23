@@ -16,6 +16,7 @@ pub struct Argument {
 pub enum ArgumentKind {
 	Bytes(Vec<u8>),
 	Interpolate(Vec<TokenTree>),
+	InterpolateWithLength(Vec<TokenTree>),
 }
 
 /// ```"not rust"
@@ -41,11 +42,15 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		Group::new(delimiter, inner.into_iter().collect()).into()
 	}
 
-	fn r#const(
+	fn r#const<TY, VALUE>(
 		name: &str,
-		ty: impl IntoIterator<Item = TokenTree>,
-		value: impl IntoIterator<Item = TokenTree>,
-	) -> impl Iterator<Item = TokenTree> {
+		ty: TY,
+		value: VALUE,
+	) -> impl use<TY, VALUE> + Iterator<Item = TokenTree>
+	where
+		TY: IntoIterator<Item = TokenTree>,
+		VALUE: IntoIterator<Item = TokenTree>,
+	{
 		[
 			ident("const"),
 			ident(name),
@@ -76,6 +81,11 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 	// const PTR_<index>: *const u8 = ::core::primitive::str::as_ptr(VAL_<index>);
 	// const ARR_<index>: [u8; LEN_<index>] = unsafe { *(PTR_<index> as *const _) };
 	// ```
+	//
+	// Formatting arguments with length prefix additionally get:
+	// ```
+	// const VAL_<index>_LEN: [u8; 2] = ::core::primitive::usize::to_le_bytes(LEN_<index>);
+	// ```
 	let consts = data
 		.iter()
 		.enumerate()
@@ -103,7 +113,8 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 					))
 					.collect::<Vec<_>>()
 			}
-			ArgumentKind::Interpolate(interpolate) => {
+			ArgumentKind::Interpolate(interpolate)
+			| ArgumentKind::InterpolateWithLength(interpolate) => {
 				let value_name = format!("VAL_{index}");
 				let value = ident(&value_name);
 				let len_name = format!("LEN_{index}");
@@ -174,6 +185,32 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 							),
 						],
 					))
+					.chain(
+						matches!(arg.kind, ArgumentKind::InterpolateWithLength(_))
+							.then(|| {
+								// const VAL_<index>_LEN: [u8; 2] =
+								// ::core::primitive::u16::to_le_bytes(LEN_<index> as u16);
+								arg.cfg.clone().into_iter().flatten().chain(r#const(
+									&format!("VAL_{index}_LEN"),
+									iter::once(group(
+										Delimiter::Bracket,
+										[
+											ident("u8"),
+											Punct::new(';', Spacing::Alone).into(),
+											Literal::usize_unsuffixed(2).into(),
+										],
+									)),
+									path(["core", "primitive", "u16", "to_le_bytes"], span).chain(
+										iter::once(group(
+											Delimiter::Parenthesis,
+											[ident(&len_name), ident("as"), ident("u16")],
+										)),
+									),
+								))
+							})
+							.into_iter()
+							.flatten(),
+					)
 					.collect::<Vec<_>>()
 			}
 		});
@@ -216,10 +253,26 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 								ArgumentKind::Bytes(bytes) => {
 									Literal::usize_unsuffixed(bytes.len()).into()
 								}
-								ArgumentKind::Interpolate(_) => ident(&format!("LEN_{index}")),
+								ArgumentKind::Interpolate(_)
+								| ArgumentKind::InterpolateWithLength(_) => ident(&format!("LEN_{index}")),
 							},
 							Punct::new(';', Spacing::Alone).into(),
-						],
+						]
+						.into_iter()
+						.chain(
+							matches!(par.kind, ArgumentKind::InterpolateWithLength(_))
+								.then(|| {
+									[
+										ident("len"),
+										Punct::new('+', Spacing::Joint).into(),
+										Punct::new('=', Spacing::Alone).into(),
+										Literal::usize_unsuffixed(2).into(),
+										Punct::new(';', Spacing::Alone).into(),
+									]
+								})
+								.into_iter()
+								.flatten(),
+						),
 					)))
 			}))
 			.chain([ident("len"), ident("as"), ident("u32")]),
@@ -240,20 +293,47 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 	]
 	.into_iter()
 	.chain(data.iter().enumerate().flat_map(move |(index, arg)| {
-		arg.cfg.clone().into_iter().flatten().chain([
-			group(
-				Delimiter::Bracket,
-				[
-					ident("u8"),
-					Punct::new(';', Spacing::Alone).into(),
-					match &arg.kind {
-						ArgumentKind::Bytes(bytes) => Literal::usize_unsuffixed(bytes.len()).into(),
-						ArgumentKind::Interpolate(_) => ident(&format!("LEN_{index}")),
-					},
-				],
-			),
-			Punct::new(',', Spacing::Alone).into(),
-		])
+		arg.cfg
+			.clone()
+			.into_iter()
+			.flatten()
+			.chain([
+				group(
+					Delimiter::Bracket,
+					[
+						ident("u8"),
+						Punct::new(';', Spacing::Alone).into(),
+						match &arg.kind {
+							ArgumentKind::Bytes(bytes) => {
+								Literal::usize_unsuffixed(bytes.len()).into()
+							}
+							ArgumentKind::Interpolate(_) => ident(&format!("LEN_{index}")),
+							ArgumentKind::InterpolateWithLength(_) => {
+								Literal::usize_unsuffixed(2).into()
+							}
+						},
+					],
+				),
+				Punct::new(',', Spacing::Alone).into(),
+			])
+			.chain(
+				matches!(arg.kind, ArgumentKind::InterpolateWithLength(_))
+					.then(|| {
+						arg.cfg.clone().into_iter().flatten().chain([
+							group(
+								Delimiter::Bracket,
+								[
+									ident("u8"),
+									Punct::new(';', Spacing::Alone).into(),
+									ident(&format!("LEN_{index}")),
+								],
+							),
+							Punct::new(',', Spacing::Alone).into(),
+						])
+					})
+					.into_iter()
+					.flatten(),
+			)
 	}));
 
 	// ```
@@ -303,10 +383,29 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 				Punct::new(',', Spacing::Alone).into(),
 			])
 			.chain(data.iter().enumerate().flat_map(move |(index, arg)| {
-				arg.cfg.clone().into_iter().flatten().chain([
-					ident(&format!("ARR_{index}")),
-					Punct::new(',', Spacing::Alone).into(),
-				])
+				arg.cfg
+					.clone()
+					.into_iter()
+					.flatten()
+					.chain([
+						if let ArgumentKind::InterpolateWithLength(_) = arg.kind {
+							ident(&format!("VAL_{index}_LEN"))
+						} else {
+							ident(&format!("ARR_{index}"))
+						},
+						Punct::new(',', Spacing::Alone).into(),
+					])
+					.chain(
+						matches!(arg.kind, ArgumentKind::InterpolateWithLength(_))
+							.then(|| {
+								arg.cfg.clone().into_iter().flatten().chain([
+									ident(&format!("ARR_{index}")),
+									Punct::new(',', Spacing::Alone).into(),
+								])
+							})
+							.into_iter()
+							.flatten(),
+					)
 			})),
 	);
 
@@ -542,11 +641,11 @@ pub fn parse_string_arguments(
 	}
 }
 
-pub fn expect_meta_name_value(
+pub fn expect_meta_name_array(
 	stream: &mut Peekable<token_stream::IntoIter>,
 	attribute: &str,
-) -> Result<String, TokenStream> {
-	let (ident, string) = parse_meta_name_value(stream)?;
+) -> Result<Vec<Vec<TokenTree>>, TokenStream> {
+	let (ident, string) = parse_meta_name_array(stream)?;
 
 	#[cfg_attr(test, expect(clippy::cmp_owned, reason = "`proc-macro2` compatiblity"))]
 	if ident.to_string() != attribute {
@@ -559,7 +658,64 @@ pub fn expect_meta_name_value(
 	Ok(string)
 }
 
-pub fn parse_meta_name_value(
+fn parse_meta_name_array(
+	mut stream: &mut Peekable<token_stream::IntoIter>,
+) -> Result<(Ident, Vec<Vec<TokenTree>>), TokenStream> {
+	let ident = parse_ident(&mut stream, Span::mixed_site(), "`<attribute> = \"...\"`")?;
+	let mut span = SpanRange::from(ident.span());
+	span.end = expect_punct(&mut stream, '=', span, "`<attribute> = \"...\"`", true)?.span();
+
+	let group = expect_group(&mut stream, Delimiter::Bracket, span, "array of strings")?;
+	let mut values = Vec::new();
+	let mut group_stream = group.stream().into_iter().peekable();
+
+	while group_stream.peek().is_some() {
+		let mut value = Vec::new();
+		span.end = parse_ty_or_value(&mut group_stream, span, "string value", &mut value)?.end;
+		values.push(value);
+
+		if group_stream.peek().is_some() {
+			expect_punct(
+				&mut group_stream,
+				',',
+				span,
+				"a `,` after a string value",
+				false,
+			)?;
+		}
+	}
+
+	if stream.peek().is_some() {
+		expect_punct(
+			&mut stream,
+			',',
+			(span.start, group.span_close()),
+			"a `,` after an attribute",
+			false,
+		)?;
+	}
+
+	Ok((ident, values))
+}
+
+pub fn expect_meta_name_string(
+	stream: &mut Peekable<token_stream::IntoIter>,
+	attribute: &str,
+) -> Result<String, TokenStream> {
+	let (ident, string) = parse_meta_name_string(stream)?;
+
+	#[cfg_attr(test, expect(clippy::cmp_owned, reason = "`proc-macro2` compatiblity"))]
+	if ident.to_string() != attribute {
+		return Err(compile_error(
+			ident.span(),
+			format!("expected `{attribute}`"),
+		));
+	}
+
+	Ok(string)
+}
+
+fn parse_meta_name_string(
 	mut stream: &mut Peekable<token_stream::IntoIter>,
 ) -> Result<(Ident, String), TokenStream> {
 	let ident = parse_ident(&mut stream, Span::mixed_site(), "`<attribute> = \"...\"`")?;
@@ -582,11 +738,11 @@ pub fn parse_meta_name_value(
 
 pub fn parse_ty_or_value(
 	mut stream: &mut Peekable<token_stream::IntoIter>,
-	previous_span: Span,
+	previous_span: impl Into<SpanRange>,
 	expected: &str,
 	out: &mut Vec<TokenTree>,
 ) -> Result<SpanRange, TokenStream> {
-	let mut span = SpanRange::from(previous_span);
+	let mut span = previous_span.into();
 	let mut found = false;
 
 	if let Some(tok) = stream.peek() {
@@ -622,7 +778,7 @@ pub fn parse_ty_or_value(
 				found = true;
 			}
 			TokenTree::Punct(p) if p.as_char() == '<' => {
-				let generic = parse_angular(&mut stream, previous_span)?;
+				let generic = parse_angular(&mut stream, span)?;
 				out.extend(generic.1);
 				found = true;
 				span.end = generic.0.end;
@@ -744,13 +900,13 @@ pub fn parse_ident(
 pub fn expect_group(
 	mut stream: impl Iterator<Item = TokenTree>,
 	delimiter: Delimiter,
-	previous_span: Span,
+	previous_span: impl Into<SpanRange>,
 	expected: &str,
 ) -> Result<Group, TokenStream> {
 	match stream.next() {
 		Some(TokenTree::Group(g)) if g.delimiter() == delimiter => Ok(g),
 		Some(tok) => Err(compile_error(
-			(previous_span, tok.span()),
+			(previous_span.into().start, tok.span()),
 			format!("expected {expected}"),
 		)),
 		None => Err(compile_error(previous_span, format!("expected {expected}"))),

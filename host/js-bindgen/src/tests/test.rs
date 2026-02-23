@@ -370,19 +370,19 @@ fn import() {
 		}),
 		quote! {
 			const _: () = {
-				const ARR_0: [u8; 2] = *b"\0\0";
+				const ARR_0: [u8; 1] = *b"\0";
 				const ARR_1: [u8; 7] = *b"bar\nbaz";
 
 				const LEN: u32 = {
 					let mut len: usize = 0;
-					{ len += 2; }
+					{ len += 1; }
 					{ len += 7; }
 					len as u32
 				};
 
 				const _: () = {
 					#[repr(C)]
-					struct Layout([u8; 4], [u8; 2], [u8; 7]);
+					struct Layout([u8; 4], [u8; 1], [u8; 7]);
 
 					#[unsafe(link_section = "js_bindgen.import.test_crate.foo")]
 					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0, ARR_1);
@@ -393,28 +393,35 @@ fn import() {
 }
 
 #[test]
-fn required_embed() {
+fn required_embeds() {
 	super::test(
 		crate::import_js_internal(quote! {
-			name = "foo", required_embed = "bar", "",
+			name = "foo", required_embeds = ["bar"], "",
 		}),
 		quote! {
 			const _: () = {
-				const ARR_0: [u8; 5] = *b"\x03\0bar";
+				const ARR_0: [u8; 1] = *b"\x01";
+				const VAL_1: &str = "bar";
+				const LEN_1: usize = ::core::primitive::str::len(VAL_1);
+				const PTR_1: *const u8 = ::core::primitive::str::as_ptr(VAL_1);
+				const ARR_1: [u8; LEN_1] = unsafe { *(PTR_1 as *const _) };
+				const VAL_1_LEN: [u8; 2] = ::core::primitive::u16::to_le_bytes(LEN_1 as u16);
 				const LEN: u32 = {
 					let mut len: usize = 0;
+					{ len += 1; }
 					{
-						len += 5;
+						len += LEN_1;
+						len += 2;
 					}
 					len as u32
 				};
 
 				const _: () = {
 					#[repr(C)]
-					struct Layout([u8; 4], [u8; 5]);
+					struct Layout([u8; 4], [u8; 1], [u8; 2], [u8; LEN_1]);
 
 					#[unsafe(link_section = "js_bindgen.import.test_crate.foo")]
-					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
+					static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0, VAL_1_LEN, ARR_1);
 				};
 			};
 		},
@@ -429,16 +436,16 @@ fn embed() {
 		}),
 		quote! {
 			const _: () = {
-				const ARR_0: [u8; 2] = *b"\0\0";
+				const ARR_0: [u8; 1] = *b"\0";
 				const LEN: u32 = {
 					let mut len: usize = 0;
-					{ len += 2; }
+					{ len += 1; }
 					len as u32
 				};
 
 				const _: () = {
 					#[repr(C)]
-					struct Layout([u8; 4], [u8; 2]);
+					struct Layout([u8; 4], [u8; 1]);
 
 					#[unsafe(link_section = "js_bindgen.embed.test_crate.foo")]
 					static CUSTOM_SECTION: Layout = Layout(

@@ -516,7 +516,7 @@ fn js_embed() {
 
 				::js_sys::js_bindgen::import_js! {
 					name = "log",
-					required_embed = "embed",
+					required_embeds = ["embed"],
 					"{}{}{}{}{}",
 					interpolate ::js_sys::r#macro::select("this.#jsEmbed.test_crate['embed']", "(data) => {\n", [<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),
 					interpolate ::js_sys::r#macro::select("", "\tdata", [<&JsValue as ::js_sys::hazard::Input>::JS_CONV]),

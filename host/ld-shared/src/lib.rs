@@ -194,33 +194,16 @@ impl<'cs> Iterator for JsBindgenAssemblySectionParser<'cs> {
 #[derive(Clone)]
 pub struct JsBindgenJsSectionParser<'cs>(CustomSectionParser<'cs>);
 
-#[derive(Clone, Copy, Debug)]
-pub enum JsBindgenJsSection<'cs> {
-	Plain(&'cs str),
-	WithEmbed { embed: &'cs str, js: &'cs str },
+#[derive(Debug)]
+pub struct JsBindgenJsSection<'cs> {
+	pub js: &'cs str,
+	pub embeds: Vec<&'cs str>,
 }
 
 impl<'cs> JsBindgenJsSectionParser<'cs> {
 	#[must_use]
 	pub fn new(custom_section: &CustomSectionReader<'cs>) -> Self {
 		Self(CustomSectionParser::new(custom_section))
-	}
-}
-
-impl<'cs> JsBindgenJsSection<'cs> {
-	#[must_use]
-	pub fn js(self) -> &'cs str {
-		match self {
-			JsBindgenJsSection::Plain(js) | JsBindgenJsSection::WithEmbed { js, .. } => js,
-		}
-	}
-
-	#[must_use]
-	pub fn embed(self) -> Option<&'cs str> {
-		match self {
-			JsBindgenJsSection::Plain(_) => None,
-			JsBindgenJsSection::WithEmbed { embed, .. } => Some(embed),
-		}
 	}
 }
 
@@ -239,24 +222,27 @@ impl<'cs> Iterator for JsBindgenJsSectionParser<'cs> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.0.next().map(|mut data| {
-			let embed = data
-				.split_off(..2)
+			let embeds = data
+				.split_off_first()
 				.and_then(|length| {
-					let length = usize::from(u16::from_le_bytes(length.try_into().unwrap()));
-					data.split_off(..length)
+					let mut embeds = Vec::new();
+
+					for _ in 0..*length {
+						let length = usize::from(u16::from_le_bytes(
+							data.split_off(..2)?.try_into().unwrap(),
+						));
+						let embed = data.split_off(..length)?;
+						embeds.push(str::from_utf8(embed).ok()?);
+					}
+
+					Some(embeds)
 				})
 				.unwrap_or_else(|| panic!("found invalid JS encoding `{}`", self.0.name));
-			let embed = str::from_utf8(embed)
-				.unwrap_or_else(|e| panic!("found invalid JS encoding `{}`: {e}", self.0.name));
 
 			let js = str::from_utf8(data)
 				.unwrap_or_else(|e| panic!("found invalid JS encoding `{}`: {e}", self.0.name));
 
-			if embed.is_empty() {
-				JsBindgenJsSection::Plain(js)
-			} else {
-				JsBindgenJsSection::WithEmbed { embed, js }
-			}
+			JsBindgenJsSection { js, embeds }
 		})
 	}
 }

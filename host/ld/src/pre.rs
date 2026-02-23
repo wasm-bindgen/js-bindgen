@@ -130,7 +130,7 @@ fn process_object(
 					format!("found incorrectly formatted JS import custom section name: {stripped}")
 				})?;
 
-				js_store.add_js_import(module.to_owned(), name.to_owned(), c)?;
+				js_store.add_js_import(module, name.to_owned(), c)?;
 			}
 			// Extract all JS embeds.
 			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.embed.") => {
@@ -139,7 +139,7 @@ fn process_object(
 					format!("found incorrectly formatted JS import custom section name: {stripped}",)
 				})?;
 
-				js_store.add_js_embed(module.to_owned(), name.to_owned(), c)?;
+				js_store.add_js_embed(module, name.to_owned(), c)?;
 			}
 			_ => (),
 		}

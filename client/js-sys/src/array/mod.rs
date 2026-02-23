@@ -29,7 +29,7 @@ impl JsArray {
 	pub fn as_array<const N: usize>(&self) -> Option<[JsValue; N]> {
 		js_bindgen::embed_js!(
 			name = "array.js_value.decode",
-			required_embed = "array.isLittleEndian",
+			required_embeds = ["array.isLittleEndian"],
 			"(array, arrPtr, arrLen, refPtr, refLen) => {{",
 			"	if (array.length !== arrLen) return false",
 			"",
@@ -108,7 +108,7 @@ impl From<&[JsValue]> for JsArray {
 	fn from(value: &[JsValue]) -> Self {
 		js_bindgen::embed_js!(
 			name = "array.js_value.encode",
-			required_embed = "array.isLittleEndian",
+			required_embeds = ["array.isLittleEndian"],
 			"(ptr, len) => {{",
 			"	const array = new Array(len)",
 			"",
@@ -138,7 +138,7 @@ impl JsArray<u32> {
 	pub fn as_array<const N: usize>(&self) -> Option<[u32; N]> {
 		js_bindgen::embed_js!(
 			name = "array.u32.decode",
-			required_embed = "array.isLittleEndian",
+			required_embeds = ["array.isLittleEndian"],
 			"(array, ptr, len) => {{",
 			"	if (array.length !== len) return false",
 			"",
@@ -180,7 +180,7 @@ impl From<&[u32]> for JsArray<u32> {
 	fn from(value: &[u32]) -> Self {
 		js_bindgen::embed_js!(
 			name = "array.u32.encode",
-			required_embed = "array.isLittleEndian",
+			required_embeds = ["array.isLittleEndian"],
 			"(ptr, len) => {{",
 			"	if (this.#jsEmbed.js_sys['array.isLittleEndian']) {{",
 			"		const view = new Uint32Array(this.#memory.buffer, ptr, len)",

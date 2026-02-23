@@ -211,7 +211,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 											 section: {imports:?}"
 										)
 									})?
-									.js();
+									.js;
 
 								anyhow::ensure!(
 									js_import_output.is_none(),

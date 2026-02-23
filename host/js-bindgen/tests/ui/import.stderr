@@ -76,17 +76,17 @@ error: requires at least a string argument
 34 | js_bindgen::import_js!(name = "foo", 42);
    |                                      ^^
 
-error: expected `<attribute> = "..."`
+error: expected array of strings
   --> tests/ui/import.rs:37:38
    |
 37 | js_bindgen::import_js!(name = "foo", bar = Baz);
    |                                      ^^^^^^^^^
 
-error: expected `required_embed`
+error: expected array of strings
   --> tests/ui/import.rs:40:38
    |
 40 | js_bindgen::import_js!(name = "foo", bar = "baz");
-   |                                      ^^^
+   |                                      ^^^^^^^^^^^
 
 error: expected `<attribute> = "..."`
   --> tests/ui/import.rs:43:1
