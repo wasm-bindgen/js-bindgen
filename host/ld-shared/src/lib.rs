@@ -196,6 +196,8 @@ pub struct JsBindgenJsSectionParser<'cs>(CustomSectionParser<'cs>);
 
 #[derive(Debug)]
 pub struct JsBindgenJsSection<'cs> {
+	pub module: &'cs str,
+	pub name: &'cs str,
 	pub js: &'cs str,
 	pub embeds: Vec<&'cs str>,
 }
@@ -222,6 +224,26 @@ impl<'cs> Iterator for JsBindgenJsSectionParser<'cs> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.0.next().map(|mut data| {
+			let module = data
+				.split_off(..2)
+				.and_then(|length| {
+					let length = usize::from(u16::from_le_bytes(length.try_into().unwrap()));
+
+					let module = data.split_off(..length)?;
+					str::from_utf8(module).ok()
+				})
+				.unwrap_or_else(|| panic!("found invalid JS encoding `{}`", self.0.name));
+
+			let name = data
+				.split_off(..2)
+				.and_then(|length| {
+					let length = usize::from(u16::from_le_bytes(length.try_into().unwrap()));
+
+					let name = data.split_off(..length)?;
+					str::from_utf8(name).ok()
+				})
+				.unwrap_or_else(|| panic!("found invalid JS encoding `{}`", self.0.name));
+
 			let embeds = data
 				.split_off_first()
 				.and_then(|length| {
@@ -247,7 +269,12 @@ impl<'cs> Iterator for JsBindgenJsSectionParser<'cs> {
 			let js = str::from_utf8(data)
 				.unwrap_or_else(|e| panic!("found invalid JS encoding `{}`: {e}", self.0.name));
 
-			JsBindgenJsSection { js, embeds }
+			JsBindgenJsSection {
+				module,
+				name,
+				js,
+				embeds,
+			}
 		})
 	}
 }

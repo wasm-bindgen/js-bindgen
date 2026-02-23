@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Result, bail, ensure};
 use foldhash::fast::FixedState;
 use hashbrown::{HashMap, HashSet};
 use js_bindgen_ld_shared::JsBindgenJsSectionParser;
@@ -52,112 +52,80 @@ impl JsStore {
 		Ok(())
 	}
 
-	pub fn add_js_import(
-		&mut self,
-		module: &str,
-		name: String,
-		custom_section: &CustomSectionReader<'_>,
-	) -> Result<()> {
-		let mut parser = JsBindgenJsSectionParser::new(custom_section);
-		let import = parser
-			.next()
-			.with_context(|| format!("found no JS import for `{module}:{name}`"))?;
+	pub fn add_js_imports(&mut self, custom_section: &CustomSectionReader<'_>) -> Result<()> {
+		for import in JsBindgenJsSectionParser::new(custom_section) {
+			if self
+				.expected_import
+				.get_mut(import.module)
+				.is_some_and(|names| names.remove(import.name))
+			{
+				self.import
+					.entry_ref(import.module)
+					.or_default()
+					.insert(import.name.to_owned(), import.js.to_owned());
 
-		if let Some(import_new) = parser.next() {
-			bail!(
-				"found multiple JS imports for `{module}:{name}`\n\tJS Import 1:\n{:?}\n\tJS \
-				 Import 2:\n{:?}",
-				import.js,
-				import_new.js,
-			);
-		}
-
-		if self
-			.expected_import
-			.get_mut(module)
-			.is_some_and(|names| names.remove(&name))
-		{
-			self.import
-				.entry_ref(module)
+				for embed in import.embeds {
+					self.require_js_embed(import.module, embed.to_owned());
+				}
+			} else if let Err(error) = self
+				.provided_import
+				.entry_ref(import.module)
 				.or_default()
-				.insert(name, import.js.to_owned());
-
-			for embed in import.embeds {
-				self.require_js_embed(module, embed.to_owned());
+				.try_insert(
+					import.name.to_owned(),
+					JsWithEmbeds {
+						js: import.js.to_owned(),
+						embeds: import.embeds.into_iter().map(str::to_owned).collect(),
+					},
+				) {
+				bail!(
+					"found multiple JS imports for `{}:{}`\n\tJS Import 1:\n{:?}\n\tJS Import \
+					 2:\n{:?}",
+					import.module,
+					error.entry.key(),
+					error.entry.get().js,
+					import.js
+				);
 			}
-		} else if let Err(error) = self
-			.provided_import
-			.entry_ref(module)
-			.or_default()
-			.try_insert(
-				name,
-				JsWithEmbeds {
-					js: import.js.to_owned(),
-					embeds: import.embeds.into_iter().map(str::to_owned).collect(),
-				},
-			) {
-			bail!(
-				"found multiple JS imports for `{module}:{}`\n\tJS Import 1:\n{:?}\n\tJS Import \
-				 2:\n{:?}",
-				error.entry.key(),
-				error.entry.get().js,
-				import.js
-			);
 		}
 
 		Ok(())
 	}
 
-	pub fn add_js_embed(
-		&mut self,
-		module: &str,
-		name: String,
-		custom_section: &CustomSectionReader<'_>,
-	) -> Result<()> {
-		let mut parser = JsBindgenJsSectionParser::new(custom_section);
-		let embed = parser
-			.next()
-			.with_context(|| format!("found no JS embed for `{module}:{name}`"))?;
+	pub fn add_js_embeds(&mut self, custom_section: &CustomSectionReader<'_>) -> Result<()> {
+		for embed in JsBindgenJsSectionParser::new(custom_section) {
+			if self
+				.expected_embed
+				.get_mut(embed.module)
+				.is_some_and(|names| names.remove(embed.name))
+			{
+				self.embed
+					.entry_ref(embed.module)
+					.or_default()
+					.insert(embed.name.to_owned(), embed.js.to_owned());
 
-		if let Some(embed_new) = parser.next() {
-			bail!(
-				"found multiple JS embeds for `{module}:{name}`\n\tJS Embed 1:\n{}\n\tJS Embed \
-				 2:\n{}",
-				embed.js,
-				embed_new.js,
-			);
-		}
-
-		if self
-			.expected_embed
-			.get_mut(module)
-			.is_some_and(|names| names.remove(&name))
-		{
-			self.embed
-				.entry_ref(module)
+				for required_embed in embed.embeds {
+					self.require_js_embed(embed.module, required_embed.to_owned());
+				}
+			} else if let Err(error) = self
+				.provided_embed
+				.entry_ref(embed.module)
 				.or_default()
-				.insert(name, embed.js.to_owned());
-
-			for embed in embed.embeds {
-				self.require_js_embed(module, embed.to_owned());
+				.try_insert(
+					embed.name.to_owned(),
+					JsWithEmbeds {
+						js: embed.js.to_owned(),
+						embeds: embed.embeds.into_iter().map(str::to_owned).collect(),
+					},
+				) {
+				bail!(
+					"found multiple JS embeds for `{}:{}`\n\tJS Embed 1:\n{}\n\tJS Embed 2:\n{}",
+					embed.module,
+					error.entry.key(),
+					error.entry.get().js,
+					embed.js
+				);
 			}
-		} else if let Err(error) = self
-			.provided_embed
-			.entry_ref(module)
-			.or_default()
-			.try_insert(
-				name,
-				JsWithEmbeds {
-					js: embed.js.to_owned(),
-					embeds: embed.embeds.into_iter().map(str::to_owned).collect(),
-				},
-			) {
-			bail!(
-				"found multiple JS embeds for `{module}:{}`\n\tJS Embed 1:\n{}\n\tJS Embed 2:\n{}",
-				error.entry.key(),
-				error.entry.get().js,
-				embed.js
-			);
 		}
 
 		Ok(())

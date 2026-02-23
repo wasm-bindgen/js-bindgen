@@ -19,6 +19,15 @@ pub enum ArgumentKind {
 	InterpolateWithLength(Vec<TokenTree>),
 }
 
+impl Argument {
+	pub fn bytes(value: Vec<u8>) -> Self {
+		Self {
+			cfg: None,
+			kind: ArgumentKind::Bytes(value),
+		}
+	}
+}
+
 /// ```"not rust"
 /// const _: () = {
 /// 	const LEN: u32 = {

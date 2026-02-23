@@ -23,9 +23,9 @@ pub(super) fn js_value_partial_eq(value1: &JsValue, value2: &JsValue) -> bool {
         ::CONV,
     }
     js_bindgen::import_js! {
-        name = "js_value_partial_eq", required_embeds = ["js_value.partial_eq", < &
-        JsValue as Input > ::JS_CONV_EMBED, < & JsValue as Input > ::JS_CONV_EMBED],
-        "{}{}{}{}{}{}{}{}{}{}{}{}", interpolate
+        module = "js_sys", name = "js_value_partial_eq", required_embeds =
+        ["js_value.partial_eq", < & JsValue as Input > ::JS_CONV_EMBED, < & JsValue as
+        Input > ::JS_CONV_EMBED], "{}{}{}{}{}{}{}{}{}{}{}{}", interpolate
         r#macro::select("this.#jsEmbed.js_sys['js_value.partial_eq']",
         "(value1, value2) => {\n", & [< & JsValue as Input > ::JS_CONV, < & JsValue as
         Input > ::JS_CONV]), interpolate r#macro::select("", "\tvalue1", & [< & JsValue

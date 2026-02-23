@@ -21,6 +21,7 @@ impl JsString {
 	#[must_use]
 	pub fn from_str(string: &str) -> Self {
 		js_bindgen::embed_js!(
+			module = "js_sys",
 			name = "string.decode",
 			"(ptr, len) => {{",
 			"	const decoder = new TextDecoder('utf-8', {{",
@@ -43,11 +44,13 @@ impl JsString {
 impl From<&JsString> for String {
 	fn from(value: &JsString) -> Self {
 		js_bindgen::embed_js!(
+			module = "js_sys",
 			name = "string.utf8_length",
 			"(string) => new TextEncoder().encode(string).length",
 		);
 
 		js_bindgen::embed_js!(
+			module = "js_sys",
 			name = "string.encode",
 			"(string, ptr, len) => {{",
 			"	const view = new Uint8Array(this.#memory.buffer, ptr, len)",

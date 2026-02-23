@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use js_bindgen_ld_shared::JsBindgenAssemblySectionParser;
 use wasmparser::{Parser, Payload};
 
@@ -124,22 +124,12 @@ fn process_object(
 				}
 			}
 			// Extract all JS imports.
-			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.import.") => {
-				let stripped = c.name().strip_prefix("js_bindgen.import.").unwrap();
-				let (module, name) = stripped.split_once('.').with_context(|| {
-					format!("found incorrectly formatted JS import custom section name: {stripped}")
-				})?;
-
-				js_store.add_js_import(module, name.to_owned(), c)?;
+			Payload::CustomSection(c) if c.name() == "js_bindgen.import" => {
+				js_store.add_js_imports(c)?;
 			}
 			// Extract all JS embeds.
-			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.embed.") => {
-				let stripped = c.name().strip_prefix("js_bindgen.embed.").unwrap();
-				let (module, name) = stripped.split_once('.').with_context(|| {
-					format!("found incorrectly formatted JS import custom section name: {stripped}",)
-				})?;
-
-				js_store.add_js_embed(module, name.to_owned(), c)?;
+			Payload::CustomSection(c) if c.name() == "js_bindgen.embed" => {
+				js_store.add_js_embeds(c)?;
 			}
 			_ => (),
 		}

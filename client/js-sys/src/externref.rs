@@ -73,6 +73,7 @@ js_bindgen::unsafe_embed_asm!(
 );
 
 js_bindgen::embed_js!(
+	module = "js_sys",
 	name = "externref.table",
 	"(() => {{",
 	"	const table = new WebAssembly.Table({{ initial: 2, element: 'externref' }})",
@@ -82,6 +83,7 @@ js_bindgen::embed_js!(
 );
 
 js_bindgen::import_js!(
+	module = "js_sys",
 	name = "externref.table",
 	required_embeds = ["externref.table"],
 	"this.#jsEmbed.js_sys['externref.table']",

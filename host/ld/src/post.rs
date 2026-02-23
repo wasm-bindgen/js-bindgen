@@ -75,8 +75,8 @@ pub fn processing(
 			}
 			// Don't write back our own custom sections.
 			Payload::CustomSection(c) if c.name() == "js_bindgen.assembly" => (),
-			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.import.") => (),
-			Payload::CustomSection(c) if c.name().starts_with("js_bindgen.embed.") => (),
+			Payload::CustomSection(c) if c.name() == "js_bindgen.import" => (),
+			Payload::CustomSection(c) if c.name() == "js_bindgen.embed" => (),
 			// Register ourselves in the producer section.
 			Payload::CustomSection(c) if c.name() == "producers" => {
 				let KnownCustom::Producers(c) = c.as_known() else {

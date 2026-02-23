@@ -529,6 +529,7 @@ impl<'a, 'h> State<'a, 'h> {
 		if input_tys.is_empty() {
 			return Some(parse_quote_spanned! {*span=>
 				#js_bindgen::import_js!(
+					module = #crate_,
 					name = #import_name,
 					#(#required_embeds,)*
 					#js_path
@@ -578,6 +579,7 @@ impl<'a, 'h> State<'a, 'h> {
 
 		Some(parse_quote_spanned! {*span=>
 			#js_bindgen::import_js! {
+				module = #crate_,
 				name = #import_name,
 				#(#required_embeds,)*
 				#placeholder,

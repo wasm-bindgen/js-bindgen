@@ -33,6 +33,7 @@ fn basic() {
 				}
 
 				::js_sys::js_bindgen::import_js! {
+					module = "test_crate",
 					name = "log",
 					required_embeds = [<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
 					"{}{}{}{}{}{}{}",
@@ -104,6 +105,7 @@ fn namespace() {
 				}
 
 				::js_sys::js_bindgen::import_js! {
+					module = "test_crate",
 					name = "console.log",
 					required_embeds = [<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
 					"{}{}{}{}{}{}{}",
@@ -179,6 +181,7 @@ fn js_sys() {
 				}
 
 				js_sys::js_bindgen::import_js! {
+					module = "test_crate",
 					name = "log",
 					required_embeds = [<&JsValue as js_sys::hazard::Input>::JS_CONV_EMBED],
 					"{}{}{}{}{}{}{}",
@@ -258,6 +261,7 @@ fn two_parameters() {
 				}
 
 				::js_sys::js_bindgen::import_js! {
+					module = "test_crate",
 					name = "log",
 					required_embeds = [<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
 					"{}{}{}{}{}{}{}{}{}{}{}{}",
@@ -343,7 +347,7 @@ fn empty() {
 					"\tend_function",
 				}
 
-				::js_sys::js_bindgen::import_js!(name = "log", "globalThis.log");
+				::js_sys::js_bindgen::import_js!(module = "test_crate", name = "log", "globalThis.log");
 
 				unsafe extern "C" {
 					#[link_name = "test_crate.log"]
@@ -401,6 +405,7 @@ fn js_name() {
 				}
 
 				::js_sys::js_bindgen::import_js! {
+					module = "test_crate",
 					name = "logx",
 					required_embeds = [<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
 					"{}{}{}{}{}{}{}",
@@ -532,6 +537,7 @@ fn js_embed() {
 				}
 
 				::js_sys::js_bindgen::import_js! {
+					module = "test_crate",
 					name = "log",
 					required_embeds = ["embed", <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
 					"{}{}{}{}{}{}{}",
@@ -601,7 +607,7 @@ fn r#return() {
 					interpolate <JsValue as ::js_sys::hazard::Output>::CONV,
 				}
 
-				::js_sys::js_bindgen::import_js!(name = "is_nan", "globalThis.is_nan");
+				::js_sys::js_bindgen::import_js!(module = "test_crate", name = "is_nan", "globalThis.is_nan");
 
 				unsafe extern "C" {
 					#[link_name = "test_crate.is_nan"]
@@ -667,6 +673,7 @@ fn pointer() {
 				}
 
 				::js_sys::js_bindgen::import_js! {
+					module = "test_crate",
 					name = "array",
 					required_embeds = [<*const u8 as ::js_sys::hazard::Input>::JS_CONV_EMBED],
 					"{}{}{}{}{}{}{}",
@@ -744,7 +751,7 @@ fn cfg() {
 					"\tend_function",
 				}
 
-				::js_sys::js_bindgen::import_js!(name = "log", "globalThis.log");
+				::js_sys::js_bindgen::import_js!(module = "test_crate", name = "log", "globalThis.log");
 
 				unsafe extern "C" {
 					#[link_name = "test_crate.log"]

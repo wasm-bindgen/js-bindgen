@@ -34,6 +34,7 @@ fn method() {
 					}
 
 					::js_sys::js_bindgen::import_js! {
+						module = "test_crate",
 						name = "test",
 						required_embeds = [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
 						"{}{}{}{}{}{}{}",
@@ -127,6 +128,7 @@ fn method_par() {
 					}
 
 					::js_sys::js_bindgen::import_js! {
+						module = "test_crate",
 						name = "test",
 						required_embeds = [
 							<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED,
@@ -254,6 +256,7 @@ fn getter() {
 					}
 
 					::js_sys::js_bindgen::import_js! {
+						module = "test_crate",
 						name = "test",
 						required_embeds = [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
 						"{}{}{}{}{}{}{}",
@@ -347,6 +350,7 @@ fn setter() {
 					}
 
 					::js_sys::js_bindgen::import_js! {
+						module = "test_crate",
 						name = "test",
 						required_embeds = [<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED],
 						"{}{}{}{}{}{}{}{}{}{}{}{}",

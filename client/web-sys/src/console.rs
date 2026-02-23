@@ -19,7 +19,9 @@ pub fn log0() {
         "\t.functype web_sys.console.log0 () -> ()",
         "\tcall web_sys.import.console.log0", "\tend_function",
     }
-    js_bindgen::import_js!(name = "console.log0", "globalThis.console.log");
+    js_bindgen::import_js!(
+        module = "web_sys", name = "console.log0", "globalThis.console.log"
+    );
     unsafe extern "C" {
         #[link_name = "web_sys.console.log0"]
         fn log0();
@@ -39,17 +41,17 @@ pub fn log(data: &JsValue) {
         ::CONV,
     }
     js_bindgen::import_js! {
-        name = "console.log", required_embeds = [< & JsValue as Input > ::JS_CONV_EMBED],
-        "{}{}{}{}{}{}{}", interpolate r#macro::select("globalThis.console.log",
-        "(data) => {\n", & [< & JsValue as Input > ::JS_CONV]), interpolate
-        r#macro::select("", "\tdata", & [< & JsValue as Input > ::JS_CONV]), interpolate
-        r#macro::select("", < & JsValue as Input > ::JS_CONV, & [< & JsValue as Input >
-        ::JS_CONV]), interpolate r#macro::select("", "data", & [< & JsValue as Input >
-        ::JS_CONV_POST]), interpolate r#macro::select("", < & JsValue as Input >
-        ::JS_CONV_POST, & [< & JsValue as Input > ::JS_CONV_POST]), interpolate
-        r#macro::select("", "\n", & [< & JsValue as Input > ::JS_CONV]), interpolate
-        r#macro::select("", "\tglobalThis.console.log(data)\n}", & [< & JsValue as Input
-        > ::JS_CONV]),
+        module = "web_sys", name = "console.log", required_embeds = [< & JsValue as Input
+        > ::JS_CONV_EMBED], "{}{}{}{}{}{}{}", interpolate
+        r#macro::select("globalThis.console.log", "(data) => {\n", & [< & JsValue as
+        Input > ::JS_CONV]), interpolate r#macro::select("", "\tdata", & [< & JsValue as
+        Input > ::JS_CONV]), interpolate r#macro::select("", < & JsValue as Input >
+        ::JS_CONV, & [< & JsValue as Input > ::JS_CONV]), interpolate r#macro::select("",
+        "data", & [< & JsValue as Input > ::JS_CONV_POST]), interpolate
+        r#macro::select("", < & JsValue as Input > ::JS_CONV_POST, & [< & JsValue as
+        Input > ::JS_CONV_POST]), interpolate r#macro::select("", "\n", & [< & JsValue as
+        Input > ::JS_CONV]), interpolate r#macro::select("",
+        "\tglobalThis.console.log(data)\n}", & [< & JsValue as Input > ::JS_CONV]),
     }
     unsafe extern "C" {
         #[link_name = "web_sys.console.log"]
@@ -72,24 +74,25 @@ pub fn log2(data1: &JsValue, data2: &JsValue) {
         JsValue as Input > ::CONV, interpolate < & JsValue as Input > ::CONV,
     }
     js_bindgen::import_js! {
-        name = "console.log2", required_embeds = [< & JsValue as Input > ::JS_CONV_EMBED,
-        < & JsValue as Input > ::JS_CONV_EMBED], "{}{}{}{}{}{}{}{}{}{}{}{}", interpolate
-        r#macro::select("globalThis.console.log", "(data1, data2) => {\n", & [< & JsValue
-        as Input > ::JS_CONV, < & JsValue as Input > ::JS_CONV]), interpolate
-        r#macro::select("", "\tdata1", & [< & JsValue as Input > ::JS_CONV]), interpolate
-        r#macro::select("", < & JsValue as Input > ::JS_CONV, & [< & JsValue as Input >
-        ::JS_CONV]), interpolate r#macro::select("", "data1", & [< & JsValue as Input >
-        ::JS_CONV_POST]), interpolate r#macro::select("", < & JsValue as Input >
-        ::JS_CONV_POST, & [< & JsValue as Input > ::JS_CONV_POST]), interpolate
-        r#macro::select("", "\n", & [< & JsValue as Input > ::JS_CONV]), interpolate
-        r#macro::select("", "\tdata2", & [< & JsValue as Input > ::JS_CONV]), interpolate
-        r#macro::select("", < & JsValue as Input > ::JS_CONV, & [< & JsValue as Input >
-        ::JS_CONV]), interpolate r#macro::select("", "data2", & [< & JsValue as Input >
-        ::JS_CONV_POST]), interpolate r#macro::select("", < & JsValue as Input >
-        ::JS_CONV_POST, & [< & JsValue as Input > ::JS_CONV_POST]), interpolate
-        r#macro::select("", "\n", & [< & JsValue as Input > ::JS_CONV]), interpolate
-        r#macro::select("", "\tglobalThis.console.log(data1, data2)\n}", & [< & JsValue
-        as Input > ::JS_CONV, < & JsValue as Input > ::JS_CONV]),
+        module = "web_sys", name = "console.log2", required_embeds = [< & JsValue as
+        Input > ::JS_CONV_EMBED, < & JsValue as Input > ::JS_CONV_EMBED],
+        "{}{}{}{}{}{}{}{}{}{}{}{}", interpolate r#macro::select("globalThis.console.log",
+        "(data1, data2) => {\n", & [< & JsValue as Input > ::JS_CONV, < & JsValue as
+        Input > ::JS_CONV]), interpolate r#macro::select("", "\tdata1", & [< & JsValue as
+        Input > ::JS_CONV]), interpolate r#macro::select("", < & JsValue as Input >
+        ::JS_CONV, & [< & JsValue as Input > ::JS_CONV]), interpolate r#macro::select("",
+        "data1", & [< & JsValue as Input > ::JS_CONV_POST]), interpolate
+        r#macro::select("", < & JsValue as Input > ::JS_CONV_POST, & [< & JsValue as
+        Input > ::JS_CONV_POST]), interpolate r#macro::select("", "\n", & [< & JsValue as
+        Input > ::JS_CONV]), interpolate r#macro::select("", "\tdata2", & [< & JsValue as
+        Input > ::JS_CONV]), interpolate r#macro::select("", < & JsValue as Input >
+        ::JS_CONV, & [< & JsValue as Input > ::JS_CONV]), interpolate r#macro::select("",
+        "data2", & [< & JsValue as Input > ::JS_CONV_POST]), interpolate
+        r#macro::select("", < & JsValue as Input > ::JS_CONV_POST, & [< & JsValue as
+        Input > ::JS_CONV_POST]), interpolate r#macro::select("", "\n", & [< & JsValue as
+        Input > ::JS_CONV]), interpolate r#macro::select("",
+        "\tglobalThis.console.log(data1, data2)\n}", & [< & JsValue as Input > ::JS_CONV,
+        < & JsValue as Input > ::JS_CONV]),
     }
     unsafe extern "C" {
         #[link_name = "web_sys.console.log2"]
@@ -110,8 +113,8 @@ pub fn error(data: &JsValue) {
         ::CONV,
     }
     js_bindgen::import_js! {
-        name = "console.error", required_embeds = [< & JsValue as Input >
-        ::JS_CONV_EMBED], "{}{}{}{}{}{}{}", interpolate
+        module = "web_sys", name = "console.error", required_embeds = [< & JsValue as
+        Input > ::JS_CONV_EMBED], "{}{}{}{}{}{}{}", interpolate
         r#macro::select("globalThis.console.error", "(data) => {\n", & [< & JsValue as
         Input > ::JS_CONV]), interpolate r#macro::select("", "\tdata", & [< & JsValue as
         Input > ::JS_CONV]), interpolate r#macro::select("", < & JsValue as Input >

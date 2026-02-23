@@ -4,8 +4,6 @@
 mod tests;
 mod util;
 
-#[cfg(not(test))]
-use std::env;
 use std::iter::Peekable;
 
 use proc_macro::{Span, TokenStream, TokenTree, token_stream};
@@ -43,17 +41,7 @@ pub fn embed_js(input: ::proc_macro::TokenStream) -> ::proc_macro::TokenStream {
 }
 
 fn embed_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
-	let mut input = input.into_iter().peekable();
-
-	let package = package();
-	let name = expect_meta_name_string(&mut input, "name")?;
-
-	let mut data = parse_required_embeds(&mut input)?;
-
-	parse_string_arguments(&mut input, Span::mixed_site(), &mut data)?;
-	let output = custom_section(&format!("js_bindgen.embed.{package}.{name}"), &data);
-
-	Ok(output)
+	js_internal(input, "js_bindgen.embed")
 }
 
 #[proc_macro]
@@ -68,21 +56,41 @@ pub fn import_js(input: ::proc_macro::TokenStream) -> ::proc_macro::TokenStream 
 }
 
 fn import_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
+	js_internal(input, "js_bindgen.import")
+}
+
+fn js_internal(input: TokenStream, section: &str) -> Result<TokenStream, TokenStream> {
 	let mut input = input.into_iter().peekable();
 
-	let package = package();
-	let import_name = expect_meta_name_string(&mut input, "name")?;
+	let module = expect_meta_name_string(&mut input, "module")?;
+	let module_len: u16 = module
+		.len()
+		.try_into()
+		.expect("import module length is too large");
+	let name = expect_meta_name_string(&mut input, "name")?;
+	let name_len: u16 = name
+		.len()
+		.try_into()
+		.expect("import name length is too large");
 
-	let mut data = parse_required_embeds(&mut input)?;
-
+	let names = [
+		module_len.to_le_bytes().as_slice(),
+		module.as_bytes(),
+		&name_len.to_le_bytes(),
+		name.as_bytes(),
+	]
+	.concat();
+	let mut data = parse_required_embeds(&mut input, names)?;
 	parse_string_arguments(&mut input, Span::mixed_site(), &mut data)?;
-	let output = custom_section(&format!("js_bindgen.import.{package}.{import_name}"), &data);
+
+	let output = custom_section(section, &data);
 
 	Ok(output)
 }
 
 fn parse_required_embeds(
 	input: &mut Peekable<token_stream::IntoIter>,
+	mut names: Vec<u8>,
 ) -> Result<Vec<Argument>, TokenStream> {
 	let mut data = Vec::new();
 
@@ -91,10 +99,8 @@ fn parse_required_embeds(
 		data.reserve(required_embeds.len() + 1);
 
 		let len = u8::try_from(required_embeds.len()).expect("too many `required_embeds` elements");
-		data.push(Argument {
-			cfg: None,
-			kind: ArgumentKind::Bytes(vec![len]),
-		});
+		names.push(len);
+		data.push(Argument::bytes(names));
 
 		for required_embed in required_embeds {
 			data.extend([Argument {
@@ -103,22 +109,9 @@ fn parse_required_embeds(
 			}]);
 		}
 	} else {
-		data.push(Argument {
-			cfg: None,
-			kind: ArgumentKind::Bytes(vec![0]),
-		});
+		names.push(0);
+		data.push(Argument::bytes(names));
 	}
 
 	Ok(data)
-}
-
-#[cfg(not(test))]
-#[cfg_attr(coverage_nightly, coverage(off))]
-fn package() -> String {
-	env::var("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` not found")
-}
-
-#[cfg(test)]
-fn package() -> String {
-	String::from("test_crate")
 }

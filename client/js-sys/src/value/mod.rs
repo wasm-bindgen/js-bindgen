@@ -63,6 +63,7 @@ unsafe impl Output for JsValue {
 impl PartialEq for JsValue {
 	fn eq(&self, other: &Self) -> bool {
 		js_bindgen::embed_js!(
+			module = "js_sys",
 			name = "js_value.partial_eq",
 			"(value1, value2) => value1 === value2",
 		);

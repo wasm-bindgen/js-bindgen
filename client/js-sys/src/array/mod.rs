@@ -28,6 +28,7 @@ impl JsArray {
 	#[must_use]
 	pub fn as_array<const N: usize>(&self) -> Option<[JsValue; N]> {
 		js_bindgen::embed_js!(
+			module = "js_sys",
 			name = "array.js_value.decode",
 			required_embeds = ["array.isLittleEndian"],
 			"(array, arrPtr, arrLen, refPtr, refLen) => {{",
@@ -107,6 +108,7 @@ impl JsArray {
 impl From<&[JsValue]> for JsArray {
 	fn from(value: &[JsValue]) -> Self {
 		js_bindgen::embed_js!(
+			module = "js_sys",
 			name = "array.js_value.encode",
 			required_embeds = ["array.isLittleEndian"],
 			"(ptr, len) => {{",
@@ -137,6 +139,7 @@ impl JsArray<u32> {
 	#[must_use]
 	pub fn as_array<const N: usize>(&self) -> Option<[u32; N]> {
 		js_bindgen::embed_js!(
+			module = "js_sys",
 			name = "array.u32.decode",
 			required_embeds = ["array.isLittleEndian"],
 			"(array, ptr, len) => {{",
@@ -177,6 +180,7 @@ impl JsArray<u32> {
 impl From<&[u32]> for JsArray<u32> {
 	fn from(value: &[u32]) -> Self {
 		js_bindgen::embed_js!(
+			module = "js_sys",
 			name = "array.u32.encode",
 			required_embeds = ["array.isLittleEndian"],
 			"(ptr, len) => {{",
@@ -199,6 +203,7 @@ impl From<&[u32]> for JsArray<u32> {
 }
 
 js_bindgen::embed_js!(
+	module = "js_sys",
 	name = "array.isLittleEndian",
 	"(() => {{",
 	"	const buffer = new ArrayBuffer(2)",

@@ -8,7 +8,7 @@ use std::path::Path;
 use std::process::Command;
 use std::{env, fs};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use cargo_metadata::{Artifact, CompilerMessage, Message, Target};
 use itertools::Itertools;
 use js_bindgen_ld_shared::{JsBindgenAssemblySectionParser, JsBindgenJsSectionParser};
@@ -173,7 +173,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 			}
 		}
 
-		anyhow::bail!("Cargo failed with status: {}", output.status)
+		bail!("Cargo failed with status: {}", output.status)
 	}
 
 	let reader = Cursor::new(output.stdout);
@@ -199,12 +199,12 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 								let assembly = JsBindgenAssemblySectionParser::new(&c)
 									.exactly_one()
 									.map_err(|asms| {
-										anyhow::anyhow!(
+										anyhow!(
 											"found multiple assembly outputs in a single section: \
 											 {asms:?}"
 										)
 									})?;
-								anyhow::ensure!(
+								ensure!(
 									assembly_output.is_none(),
 									"found multiple assembly outputs"
 								);
@@ -215,24 +215,22 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 									&mut io::sink(),
 								)?;
 							}
-							Payload::CustomSection(c)
-								if c.name().starts_with("js_bindgen.import.test_crate.") =>
-							{
-								let import = JsBindgenJsSectionParser::new(&c)
-									.exactly_one()
-									.map_err(|imports| {
-										anyhow::anyhow!(
-											"found multiple JS import outputs in a single \
-											 section: {imports:?}"
-										)
-									})?
-									.js;
+							Payload::CustomSection(c) if c.name() == "js_bindgen.import" => {
+								let mut parser = JsBindgenJsSectionParser::new(&c);
 
-								anyhow::ensure!(
-									js_import_output.is_none(),
-									"found multiple JS import outputs"
+								let import = parser.next().unwrap();
+
+								if import.module != "test_crate" {
+									continue;
+								}
+
+								ensure!(
+									parser.next().is_none(),
+									"found multiple JS import outputs in a single section: \
+									 {parser:?}"
 								);
-								js_import_output = Some(import.to_owned());
+
+								js_import_output = Some(import.js.to_owned());
 							}
 							_ => (),
 						}
