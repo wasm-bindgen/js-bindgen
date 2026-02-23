@@ -89,7 +89,7 @@ impl JsArray {
 		let result = r#gen::array_js_value_decode(
 			self,
 			array.as_mut_ptr().cast(),
-			PtrLength::from_uninit(&array),
+			PtrLength::from_uninit_array(&array),
 			externref.ptr,
 			externref.len,
 		);
@@ -163,7 +163,7 @@ impl JsArray<u32> {
 		let result = r#gen::array_u32_decode(
 			self,
 			array.as_mut_ptr().cast(),
-			PtrLength::from_uninit(&array),
+			PtrLength::from_uninit_array(&array),
 		);
 
 		if result {

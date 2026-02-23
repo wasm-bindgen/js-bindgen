@@ -82,6 +82,18 @@ unsafe impl Input for f64 {
 }
 
 // SAFETY: Implementation.
+unsafe impl Output for f64 {
+	const IMPORT_TYPE: &str = "f64";
+	const TYPE: &str = "f64";
+
+	type Type = Self;
+
+	fn from_raw(raw: Self::Type) -> Self {
+		raw
+	}
+}
+
+// SAFETY: Implementation.
 unsafe impl<T> Input for *const T {
 	#[cfg(target_arch = "wasm32")]
 	const IMPORT_TYPE: &str = "i32";

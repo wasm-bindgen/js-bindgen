@@ -12,7 +12,7 @@ impl PtrLength {
 		Self::internal(value.as_ptr(), value.len())
 	}
 
-	pub(crate) fn from_uninit<T, const N: usize>(value: &MaybeUninit<[T; N]>) -> Self {
+	pub(crate) fn from_uninit_array<T, const N: usize>(value: &MaybeUninit<[T; N]>) -> Self {
 		Self::internal(value.as_ptr(), N)
 	}
 
@@ -27,7 +27,7 @@ impl PtrLength {
 		#[cfg(target_arch = "wasm64")]
 		let len = {
 			debug_assert!(
-				value.as_ptr() as usize + len * core::mem::size_of::<T>() < 0x20000000000000,
+				ptr as usize + len * core::mem::size_of::<T>() < 0x20000000000000,
 				"found pointer + length bigger than `Number.MAX_SAFE_INTEGER`"
 			);
 			len as f64

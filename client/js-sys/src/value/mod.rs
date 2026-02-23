@@ -14,6 +14,7 @@ pub struct JsValue {
 
 impl JsValue {
 	pub const UNDEFINED: Self = Self::new(0);
+	pub const NULL: Self = Self::new(1);
 
 	const fn new(index: i32) -> Self {
 		Self {
@@ -25,7 +26,7 @@ impl JsValue {
 
 impl Drop for JsValue {
 	fn drop(&mut self) {
-		if self.index > 0 {
+		if self.index > 1 {
 			EXTERNREF_TABLE.with(|table| table.try_borrow_mut().unwrap().remove(self.index));
 		}
 	}
