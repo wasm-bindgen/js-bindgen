@@ -14,6 +14,7 @@ js-sys-macro = { workspace = true, optional = true }
 
 [dev-dependencies]
 js-bindgen-test = { workspace = true }
+web-sys = { workspace = true }
 
 [lints]
 workspace = true

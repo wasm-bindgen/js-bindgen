@@ -70,6 +70,18 @@ unsafe impl Input for usize {
 }
 
 // SAFETY: Implementation.
+unsafe impl Input for i32 {
+	const IMPORT_TYPE: &str = "i32";
+	const TYPE: &str = "i32";
+
+	type Type = Self;
+
+	fn into_raw(self) -> Self::Type {
+		self
+	}
+}
+
+// SAFETY: Implementation.
 unsafe impl Input for f64 {
 	const IMPORT_TYPE: &str = "f64";
 	const TYPE: &str = "f64";
@@ -118,7 +130,7 @@ unsafe impl<T> Input for *const T {
 
 	#[cfg(target_arch = "wasm64")]
 	fn into_raw(self) -> Self::Type {
-		let addr = self as usize;
+		let addr = self.addr();
 		debug_assert!(
 			addr < 0x20000000000000,
 			"found pointer bigger than `Number.MAX_SAFE_INTEGER`"
@@ -152,11 +164,6 @@ unsafe impl<T> Input for *mut T {
 
 	#[cfg(target_arch = "wasm64")]
 	fn into_raw(self) -> Self::Type {
-		let addr = self as usize;
-		debug_assert!(
-			addr < 0x20000000000000,
-			"found pointer bigger than `Number.MAX_SAFE_INTEGER`"
-		);
-		addr as f64
+		<*const T>::into_raw(self)
 	}
 }

@@ -1,5 +1,6 @@
 #[rustfmt::skip]
 mod r#gen;
+mod rust;
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -74,7 +75,7 @@ impl From<&JsString> for String {
 		r#gen::string_encode(
 			value,
 			vec.as_mut_ptr(),
-			PtrLength::new(vec.spare_capacity_mut()),
+			PtrLength::from_uninit_slice(vec.spare_capacity_mut()),
 		);
 
 		// SAFETY:

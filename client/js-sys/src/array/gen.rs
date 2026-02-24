@@ -90,7 +90,7 @@ impl<T> JsArray<T> {
 }
 pub(super) fn array_js_value_encode(
     array: *const JsValue,
-    len: PtrLength,
+    len: PtrLength<JsValue>,
 ) -> JsArray<JsValue> {
     js_bindgen::unsafe_embed_asm! {
         ".import_module js_sys.import.array_js_value_encode, js_sys",
@@ -101,45 +101,48 @@ pub(super) fn array_js_value_encode(
         "\t.functype js_sys.array_js_value_encode ({}, {}) -> ({})", "\tlocal.get 0",
         "\t{}", "\tlocal.get 1", "\t{}", "\tcall js_sys.import.array_js_value_encode",
         "\t{}", "\tend_function", interpolate < * const JsValue as Input > ::IMPORT_TYPE,
-        interpolate < PtrLength as Input > ::IMPORT_TYPE, interpolate < JsArray < JsValue
-        > as Output > ::IMPORT_TYPE, interpolate < * const JsValue as Input >
-        ::IMPORT_FUNC, interpolate < PtrLength as Input > ::IMPORT_FUNC, interpolate <
-        JsArray < JsValue > as Output > ::IMPORT_FUNC, interpolate < * const JsValue as
-        Input > ::TYPE, interpolate < PtrLength as Input > ::TYPE, interpolate < JsArray
-        < JsValue > as Output > ::TYPE, interpolate < * const JsValue as Input > ::CONV,
-        interpolate < PtrLength as Input > ::CONV, interpolate < JsArray < JsValue > as
-        Output > ::CONV,
+        interpolate < PtrLength < JsValue > as Input > ::IMPORT_TYPE, interpolate <
+        JsArray < JsValue > as Output > ::IMPORT_TYPE, interpolate < * const JsValue as
+        Input > ::IMPORT_FUNC, interpolate < PtrLength < JsValue > as Input >
+        ::IMPORT_FUNC, interpolate < JsArray < JsValue > as Output > ::IMPORT_FUNC,
+        interpolate < * const JsValue as Input > ::TYPE, interpolate < PtrLength <
+        JsValue > as Input > ::TYPE, interpolate < JsArray < JsValue > as Output >
+        ::TYPE, interpolate < * const JsValue as Input > ::CONV, interpolate < PtrLength
+        < JsValue > as Input > ::CONV, interpolate < JsArray < JsValue > as Output >
+        ::CONV,
     }
     js_bindgen::import_js! {
         module = "js_sys", name = "array_js_value_encode", required_embeds = [("js_sys",
         "array.js_value.encode"), (< * const JsValue as Input > ::JS_CONV_EMBED.0, < *
-        const JsValue as Input > ::JS_CONV_EMBED.1), (< PtrLength as Input >
-        ::JS_CONV_EMBED.0, < PtrLength as Input > ::JS_CONV_EMBED.1)],
+        const JsValue as Input > ::JS_CONV_EMBED.1), (< PtrLength < JsValue > as Input >
+        ::JS_CONV_EMBED.0, < PtrLength < JsValue > as Input > ::JS_CONV_EMBED.1)],
         "{}{}{}{}{}{}{}{}{}{}{}{}", interpolate
         r#macro::select("this.#jsEmbed.js_sys['array.js_value.encode']",
-        "(array, len) => {\n", & [< * const JsValue as Input > ::JS_CONV, < PtrLength as
-        Input > ::JS_CONV]), interpolate r#macro::select("", "\tarray", & [< * const
-        JsValue as Input > ::JS_CONV]), interpolate r#macro::select("", < * const JsValue
-        as Input > ::JS_CONV, & [< * const JsValue as Input > ::JS_CONV]), interpolate
-        r#macro::select("", "array", & [< * const JsValue as Input > ::JS_CONV_POST]),
-        interpolate r#macro::select("", < * const JsValue as Input > ::JS_CONV_POST, & [<
-        * const JsValue as Input > ::JS_CONV_POST]), interpolate r#macro::select("",
-        "\n", & [< * const JsValue as Input > ::JS_CONV]), interpolate
-        r#macro::select("", "\tlen", & [< PtrLength as Input > ::JS_CONV]), interpolate
-        r#macro::select("", < PtrLength as Input > ::JS_CONV, & [< PtrLength as Input >
-        ::JS_CONV]), interpolate r#macro::select("", "len", & [< PtrLength as Input >
-        ::JS_CONV_POST]), interpolate r#macro::select("", < PtrLength as Input >
-        ::JS_CONV_POST, & [< PtrLength as Input > ::JS_CONV_POST]), interpolate
-        r#macro::select("", "\n", & [< PtrLength as Input > ::JS_CONV]), interpolate
-        r#macro::select("",
+        "(array, len) => {\n", & [< * const JsValue as Input > ::JS_CONV, < PtrLength <
+        JsValue > as Input > ::JS_CONV]), interpolate r#macro::select("", "\tarray", & [<
+        * const JsValue as Input > ::JS_CONV]), interpolate r#macro::select("", < * const
+        JsValue as Input > ::JS_CONV, & [< * const JsValue as Input > ::JS_CONV]),
+        interpolate r#macro::select("", "array", & [< * const JsValue as Input >
+        ::JS_CONV_POST]), interpolate r#macro::select("", < * const JsValue as Input >
+        ::JS_CONV_POST, & [< * const JsValue as Input > ::JS_CONV_POST]), interpolate
+        r#macro::select("", "\n", & [< * const JsValue as Input > ::JS_CONV]),
+        interpolate r#macro::select("", "\tlen", & [< PtrLength < JsValue > as Input >
+        ::JS_CONV]), interpolate r#macro::select("", < PtrLength < JsValue > as Input >
+        ::JS_CONV, & [< PtrLength < JsValue > as Input > ::JS_CONV]), interpolate
+        r#macro::select("", "len", & [< PtrLength < JsValue > as Input >
+        ::JS_CONV_POST]), interpolate r#macro::select("", < PtrLength < JsValue > as
+        Input > ::JS_CONV_POST, & [< PtrLength < JsValue > as Input > ::JS_CONV_POST]),
+        interpolate r#macro::select("", "\n", & [< PtrLength < JsValue > as Input >
+        ::JS_CONV]), interpolate r#macro::select("",
         "\treturn this.#jsEmbed.js_sys['array.js_value.encode'](array, len)\n}", & [< *
-        const JsValue as Input > ::JS_CONV, < PtrLength as Input > ::JS_CONV]),
+        const JsValue as Input > ::JS_CONV, < PtrLength < JsValue > as Input >
+        ::JS_CONV]),
     }
     unsafe extern "C" {
         #[link_name = "js_sys.array_js_value_encode"]
         fn array_js_value_encode(
             array: <*const JsValue as Input>::Type,
-            len: <PtrLength as Input>::Type,
+            len: <PtrLength<JsValue> as Input>::Type,
         ) -> <JsArray<JsValue> as Output>::Type;
     }
     Output::from_raw(unsafe {
@@ -149,9 +152,9 @@ pub(super) fn array_js_value_encode(
 pub(super) fn array_js_value_decode(
     array: &JsArray,
     array_ptr: *mut JsValue,
-    array_len: PtrLength,
+    array_len: PtrLength<JsValue>,
     externref_ptr: *const i32,
-    externref_len: PtrLength,
+    externref_len: i32,
 ) -> bool {
     js_bindgen::unsafe_embed_asm! {
         ".import_module js_sys.import.array_js_value_decode, js_sys",
@@ -164,79 +167,80 @@ pub(super) fn array_js_value_decode(
         "\tlocal.get 3", "\t{}", "\tlocal.get 4", "\t{}",
         "\tcall js_sys.import.array_js_value_decode", "\t{}", "\tend_function",
         interpolate < & JsArray as Input > ::IMPORT_TYPE, interpolate < * mut JsValue as
-        Input > ::IMPORT_TYPE, interpolate < PtrLength as Input > ::IMPORT_TYPE,
-        interpolate < * const i32 as Input > ::IMPORT_TYPE, interpolate < PtrLength as
-        Input > ::IMPORT_TYPE, interpolate < bool as Output > ::IMPORT_TYPE, interpolate
-        < & JsArray as Input > ::IMPORT_FUNC, interpolate < * mut JsValue as Input >
-        ::IMPORT_FUNC, interpolate < PtrLength as Input > ::IMPORT_FUNC, interpolate < *
-        const i32 as Input > ::IMPORT_FUNC, interpolate < PtrLength as Input >
-        ::IMPORT_FUNC, interpolate < bool as Output > ::IMPORT_FUNC, interpolate < &
-        JsArray as Input > ::TYPE, interpolate < * mut JsValue as Input > ::TYPE,
-        interpolate < PtrLength as Input > ::TYPE, interpolate < * const i32 as Input >
-        ::TYPE, interpolate < PtrLength as Input > ::TYPE, interpolate < bool as Output >
-        ::TYPE, interpolate < & JsArray as Input > ::CONV, interpolate < * mut JsValue as
-        Input > ::CONV, interpolate < PtrLength as Input > ::CONV, interpolate < * const
-        i32 as Input > ::CONV, interpolate < PtrLength as Input > ::CONV, interpolate <
-        bool as Output > ::CONV,
+        Input > ::IMPORT_TYPE, interpolate < PtrLength < JsValue > as Input >
+        ::IMPORT_TYPE, interpolate < * const i32 as Input > ::IMPORT_TYPE, interpolate <
+        i32 as Input > ::IMPORT_TYPE, interpolate < bool as Output > ::IMPORT_TYPE,
+        interpolate < & JsArray as Input > ::IMPORT_FUNC, interpolate < * mut JsValue as
+        Input > ::IMPORT_FUNC, interpolate < PtrLength < JsValue > as Input >
+        ::IMPORT_FUNC, interpolate < * const i32 as Input > ::IMPORT_FUNC, interpolate <
+        i32 as Input > ::IMPORT_FUNC, interpolate < bool as Output > ::IMPORT_FUNC,
+        interpolate < & JsArray as Input > ::TYPE, interpolate < * mut JsValue as Input >
+        ::TYPE, interpolate < PtrLength < JsValue > as Input > ::TYPE, interpolate < *
+        const i32 as Input > ::TYPE, interpolate < i32 as Input > ::TYPE, interpolate <
+        bool as Output > ::TYPE, interpolate < & JsArray as Input > ::CONV, interpolate <
+        * mut JsValue as Input > ::CONV, interpolate < PtrLength < JsValue > as Input >
+        ::CONV, interpolate < * const i32 as Input > ::CONV, interpolate < i32 as Input >
+        ::CONV, interpolate < bool as Output > ::CONV,
     }
     js_bindgen::import_js! {
         module = "js_sys", name = "array_js_value_decode", required_embeds = [("js_sys",
         "array.js_value.decode"), (< & JsArray as Input > ::JS_CONV_EMBED.0, < & JsArray
         as Input > ::JS_CONV_EMBED.1), (< * mut JsValue as Input > ::JS_CONV_EMBED.0, < *
-        mut JsValue as Input > ::JS_CONV_EMBED.1), (< PtrLength as Input >
-        ::JS_CONV_EMBED.0, < PtrLength as Input > ::JS_CONV_EMBED.1), (< * const i32 as
-        Input > ::JS_CONV_EMBED.0, < * const i32 as Input > ::JS_CONV_EMBED.1), (<
-        PtrLength as Input > ::JS_CONV_EMBED.0, < PtrLength as Input > ::JS_CONV_EMBED
-        .1)], "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}", interpolate
+        mut JsValue as Input > ::JS_CONV_EMBED.1), (< PtrLength < JsValue > as Input >
+        ::JS_CONV_EMBED.0, < PtrLength < JsValue > as Input > ::JS_CONV_EMBED.1), (< *
+        const i32 as Input > ::JS_CONV_EMBED.0, < * const i32 as Input > ::JS_CONV_EMBED
+        .1), (< i32 as Input > ::JS_CONV_EMBED.0, < i32 as Input > ::JS_CONV_EMBED.1)],
+        "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}", interpolate
         r#macro::select("this.#jsEmbed.js_sys['array.js_value.decode']",
         "(array, array_ptr, array_len, externref_ptr, externref_len) => {\n", & [< &
-        JsArray as Input > ::JS_CONV, < * mut JsValue as Input > ::JS_CONV, < PtrLength
-        as Input > ::JS_CONV, < * const i32 as Input > ::JS_CONV, < PtrLength as Input >
-        ::JS_CONV]), interpolate r#macro::select("", "\tarray", & [< & JsArray as Input >
-        ::JS_CONV]), interpolate r#macro::select("", < & JsArray as Input > ::JS_CONV, &
-        [< & JsArray as Input > ::JS_CONV]), interpolate r#macro::select("", "array", &
-        [< & JsArray as Input > ::JS_CONV_POST]), interpolate r#macro::select("", < &
-        JsArray as Input > ::JS_CONV_POST, & [< & JsArray as Input > ::JS_CONV_POST]),
-        interpolate r#macro::select("", "\n", & [< & JsArray as Input > ::JS_CONV]),
-        interpolate r#macro::select("", "\tarray_ptr", & [< * mut JsValue as Input >
-        ::JS_CONV]), interpolate r#macro::select("", < * mut JsValue as Input >
-        ::JS_CONV, & [< * mut JsValue as Input > ::JS_CONV]), interpolate
+        JsArray as Input > ::JS_CONV, < * mut JsValue as Input > ::JS_CONV, < PtrLength <
+        JsValue > as Input > ::JS_CONV, < * const i32 as Input > ::JS_CONV, < i32 as
+        Input > ::JS_CONV]), interpolate r#macro::select("", "\tarray", & [< & JsArray as
+        Input > ::JS_CONV]), interpolate r#macro::select("", < & JsArray as Input >
+        ::JS_CONV, & [< & JsArray as Input > ::JS_CONV]), interpolate r#macro::select("",
+        "array", & [< & JsArray as Input > ::JS_CONV_POST]), interpolate
+        r#macro::select("", < & JsArray as Input > ::JS_CONV_POST, & [< & JsArray as
+        Input > ::JS_CONV_POST]), interpolate r#macro::select("", "\n", & [< & JsArray as
+        Input > ::JS_CONV]), interpolate r#macro::select("", "\tarray_ptr", & [< * mut
+        JsValue as Input > ::JS_CONV]), interpolate r#macro::select("", < * mut JsValue
+        as Input > ::JS_CONV, & [< * mut JsValue as Input > ::JS_CONV]), interpolate
         r#macro::select("", "array_ptr", & [< * mut JsValue as Input > ::JS_CONV_POST]),
         interpolate r#macro::select("", < * mut JsValue as Input > ::JS_CONV_POST, & [< *
         mut JsValue as Input > ::JS_CONV_POST]), interpolate r#macro::select("", "\n", &
         [< * mut JsValue as Input > ::JS_CONV]), interpolate r#macro::select("",
-        "\tarray_len", & [< PtrLength as Input > ::JS_CONV]), interpolate
-        r#macro::select("", < PtrLength as Input > ::JS_CONV, & [< PtrLength as Input >
-        ::JS_CONV]), interpolate r#macro::select("", "array_len", & [< PtrLength as Input
-        > ::JS_CONV_POST]), interpolate r#macro::select("", < PtrLength as Input >
-        ::JS_CONV_POST, & [< PtrLength as Input > ::JS_CONV_POST]), interpolate
-        r#macro::select("", "\n", & [< PtrLength as Input > ::JS_CONV]), interpolate
-        r#macro::select("", "\texternref_ptr", & [< * const i32 as Input > ::JS_CONV]),
-        interpolate r#macro::select("", < * const i32 as Input > ::JS_CONV, & [< * const
-        i32 as Input > ::JS_CONV]), interpolate r#macro::select("", "externref_ptr", & [<
-        * const i32 as Input > ::JS_CONV_POST]), interpolate r#macro::select("", < *
-        const i32 as Input > ::JS_CONV_POST, & [< * const i32 as Input >
-        ::JS_CONV_POST]), interpolate r#macro::select("", "\n", & [< * const i32 as Input
-        > ::JS_CONV]), interpolate r#macro::select("", "\texternref_len", & [< PtrLength
-        as Input > ::JS_CONV]), interpolate r#macro::select("", < PtrLength as Input >
-        ::JS_CONV, & [< PtrLength as Input > ::JS_CONV]), interpolate r#macro::select("",
-        "externref_len", & [< PtrLength as Input > ::JS_CONV_POST]), interpolate
-        r#macro::select("", < PtrLength as Input > ::JS_CONV_POST, & [< PtrLength as
-        Input > ::JS_CONV_POST]), interpolate r#macro::select("", "\n", & [< PtrLength as
-        Input > ::JS_CONV]), interpolate r#macro::select("",
+        "\tarray_len", & [< PtrLength < JsValue > as Input > ::JS_CONV]), interpolate
+        r#macro::select("", < PtrLength < JsValue > as Input > ::JS_CONV, & [< PtrLength
+        < JsValue > as Input > ::JS_CONV]), interpolate r#macro::select("", "array_len",
+        & [< PtrLength < JsValue > as Input > ::JS_CONV_POST]), interpolate
+        r#macro::select("", < PtrLength < JsValue > as Input > ::JS_CONV_POST, & [<
+        PtrLength < JsValue > as Input > ::JS_CONV_POST]), interpolate
+        r#macro::select("", "\n", & [< PtrLength < JsValue > as Input > ::JS_CONV]),
+        interpolate r#macro::select("", "\texternref_ptr", & [< * const i32 as Input >
+        ::JS_CONV]), interpolate r#macro::select("", < * const i32 as Input > ::JS_CONV,
+        & [< * const i32 as Input > ::JS_CONV]), interpolate r#macro::select("",
+        "externref_ptr", & [< * const i32 as Input > ::JS_CONV_POST]), interpolate
+        r#macro::select("", < * const i32 as Input > ::JS_CONV_POST, & [< * const i32 as
+        Input > ::JS_CONV_POST]), interpolate r#macro::select("", "\n", & [< * const i32
+        as Input > ::JS_CONV]), interpolate r#macro::select("", "\texternref_len", & [<
+        i32 as Input > ::JS_CONV]), interpolate r#macro::select("", < i32 as Input >
+        ::JS_CONV, & [< i32 as Input > ::JS_CONV]), interpolate r#macro::select("",
+        "externref_len", & [< i32 as Input > ::JS_CONV_POST]), interpolate
+        r#macro::select("", < i32 as Input > ::JS_CONV_POST, & [< i32 as Input >
+        ::JS_CONV_POST]), interpolate r#macro::select("", "\n", & [< i32 as Input >
+        ::JS_CONV]), interpolate r#macro::select("",
         "\treturn this.#jsEmbed.js_sys['array.js_value.decode'](array, array_ptr, array_len, externref_ptr, externref_len)\n}",
         & [< & JsArray as Input > ::JS_CONV, < * mut JsValue as Input > ::JS_CONV, <
-        PtrLength as Input > ::JS_CONV, < * const i32 as Input > ::JS_CONV, < PtrLength
-        as Input > ::JS_CONV]),
+        PtrLength < JsValue > as Input > ::JS_CONV, < * const i32 as Input > ::JS_CONV, <
+        i32 as Input > ::JS_CONV]),
     }
     unsafe extern "C" {
         #[link_name = "js_sys.array_js_value_decode"]
         fn array_js_value_decode(
             array: <&JsArray as Input>::Type,
             array_ptr: <*mut JsValue as Input>::Type,
-            array_len: <PtrLength as Input>::Type,
+            array_len: <PtrLength<JsValue> as Input>::Type,
             externref_ptr: <*const i32 as Input>::Type,
-            externref_len: <PtrLength as Input>::Type,
+            externref_len: <i32 as Input>::Type,
         ) -> <bool as Output>::Type;
     }
     Output::from_raw(unsafe {
@@ -249,7 +253,7 @@ pub(super) fn array_js_value_decode(
         )
     })
 }
-pub(super) fn array_u32_encode(array: *const u32, len: PtrLength) -> JsArray<u32> {
+pub(super) fn array_u32_encode(array: *const u32, len: PtrLength<u32>) -> JsArray<u32> {
     js_bindgen::unsafe_embed_asm! {
         ".import_module js_sys.import.array_u32_encode, js_sys",
         ".import_name js_sys.import.array_u32_encode, array_u32_encode",
@@ -258,42 +262,44 @@ pub(super) fn array_u32_encode(array: *const u32, len: PtrLength) -> JsArray<u32
         "\t.functype js_sys.array_u32_encode ({}, {}) -> ({})", "\tlocal.get 0", "\t{}",
         "\tlocal.get 1", "\t{}", "\tcall js_sys.import.array_u32_encode", "\t{}",
         "\tend_function", interpolate < * const u32 as Input > ::IMPORT_TYPE, interpolate
-        < PtrLength as Input > ::IMPORT_TYPE, interpolate < JsArray < u32 > as Output >
-        ::IMPORT_TYPE, interpolate < * const u32 as Input > ::IMPORT_FUNC, interpolate <
-        PtrLength as Input > ::IMPORT_FUNC, interpolate < JsArray < u32 > as Output >
-        ::IMPORT_FUNC, interpolate < * const u32 as Input > ::TYPE, interpolate <
-        PtrLength as Input > ::TYPE, interpolate < JsArray < u32 > as Output > ::TYPE,
-        interpolate < * const u32 as Input > ::CONV, interpolate < PtrLength as Input >
-        ::CONV, interpolate < JsArray < u32 > as Output > ::CONV,
+        < PtrLength < u32 > as Input > ::IMPORT_TYPE, interpolate < JsArray < u32 > as
+        Output > ::IMPORT_TYPE, interpolate < * const u32 as Input > ::IMPORT_FUNC,
+        interpolate < PtrLength < u32 > as Input > ::IMPORT_FUNC, interpolate < JsArray <
+        u32 > as Output > ::IMPORT_FUNC, interpolate < * const u32 as Input > ::TYPE,
+        interpolate < PtrLength < u32 > as Input > ::TYPE, interpolate < JsArray < u32 >
+        as Output > ::TYPE, interpolate < * const u32 as Input > ::CONV, interpolate <
+        PtrLength < u32 > as Input > ::CONV, interpolate < JsArray < u32 > as Output >
+        ::CONV,
     }
     js_bindgen::import_js! {
         module = "js_sys", name = "array_u32_encode", required_embeds = [("js_sys",
         "array.u32.encode"), (< * const u32 as Input > ::JS_CONV_EMBED.0, < * const u32
-        as Input > ::JS_CONV_EMBED.1), (< PtrLength as Input > ::JS_CONV_EMBED.0, <
-        PtrLength as Input > ::JS_CONV_EMBED.1)], "{}{}{}{}{}{}{}{}{}{}{}{}", interpolate
-        r#macro::select("this.#jsEmbed.js_sys['array.u32.encode']",
-        "(array, len) => {\n", & [< * const u32 as Input > ::JS_CONV, < PtrLength as
-        Input > ::JS_CONV]), interpolate r#macro::select("", "\tarray", & [< * const u32
-        as Input > ::JS_CONV]), interpolate r#macro::select("", < * const u32 as Input >
-        ::JS_CONV, & [< * const u32 as Input > ::JS_CONV]), interpolate
+        as Input > ::JS_CONV_EMBED.1), (< PtrLength < u32 > as Input > ::JS_CONV_EMBED.0,
+        < PtrLength < u32 > as Input > ::JS_CONV_EMBED.1)], "{}{}{}{}{}{}{}{}{}{}{}{}",
+        interpolate r#macro::select("this.#jsEmbed.js_sys['array.u32.encode']",
+        "(array, len) => {\n", & [< * const u32 as Input > ::JS_CONV, < PtrLength < u32 >
+        as Input > ::JS_CONV]), interpolate r#macro::select("", "\tarray", & [< * const
+        u32 as Input > ::JS_CONV]), interpolate r#macro::select("", < * const u32 as
+        Input > ::JS_CONV, & [< * const u32 as Input > ::JS_CONV]), interpolate
         r#macro::select("", "array", & [< * const u32 as Input > ::JS_CONV_POST]),
         interpolate r#macro::select("", < * const u32 as Input > ::JS_CONV_POST, & [< *
         const u32 as Input > ::JS_CONV_POST]), interpolate r#macro::select("", "\n", & [<
         * const u32 as Input > ::JS_CONV]), interpolate r#macro::select("", "\tlen", & [<
-        PtrLength as Input > ::JS_CONV]), interpolate r#macro::select("", < PtrLength as
-        Input > ::JS_CONV, & [< PtrLength as Input > ::JS_CONV]), interpolate
-        r#macro::select("", "len", & [< PtrLength as Input > ::JS_CONV_POST]),
-        interpolate r#macro::select("", < PtrLength as Input > ::JS_CONV_POST, & [<
-        PtrLength as Input > ::JS_CONV_POST]), interpolate r#macro::select("", "\n", & [<
-        PtrLength as Input > ::JS_CONV]), interpolate r#macro::select("",
+        PtrLength < u32 > as Input > ::JS_CONV]), interpolate r#macro::select("", <
+        PtrLength < u32 > as Input > ::JS_CONV, & [< PtrLength < u32 > as Input >
+        ::JS_CONV]), interpolate r#macro::select("", "len", & [< PtrLength < u32 > as
+        Input > ::JS_CONV_POST]), interpolate r#macro::select("", < PtrLength < u32 > as
+        Input > ::JS_CONV_POST, & [< PtrLength < u32 > as Input > ::JS_CONV_POST]),
+        interpolate r#macro::select("", "\n", & [< PtrLength < u32 > as Input >
+        ::JS_CONV]), interpolate r#macro::select("",
         "\treturn this.#jsEmbed.js_sys['array.u32.encode'](array, len)\n}", & [< * const
-        u32 as Input > ::JS_CONV, < PtrLength as Input > ::JS_CONV]),
+        u32 as Input > ::JS_CONV, < PtrLength < u32 > as Input > ::JS_CONV]),
     }
     unsafe extern "C" {
         #[link_name = "js_sys.array_u32_encode"]
         fn array_u32_encode(
             array: <*const u32 as Input>::Type,
-            len: <PtrLength as Input>::Type,
+            len: <PtrLength<u32> as Input>::Type,
         ) -> <JsArray<u32> as Output>::Type;
     }
     Output::from_raw(unsafe {
@@ -303,7 +309,7 @@ pub(super) fn array_u32_encode(array: *const u32, len: PtrLength) -> JsArray<u32
 pub(super) fn array_u32_decode(
     array: &JsArray<u32>,
     ptr: *mut u32,
-    len: PtrLength,
+    len: PtrLength<u32>,
 ) -> bool {
     js_bindgen::unsafe_embed_asm! {
         ".import_module js_sys.import.array_u32_decode, js_sys",
@@ -315,26 +321,26 @@ pub(super) fn array_u32_decode(
         "\t{}", "\tlocal.get 1", "\t{}", "\tlocal.get 2", "\t{}",
         "\tcall js_sys.import.array_u32_decode", "\t{}", "\tend_function", interpolate <
         & JsArray < u32 > as Input > ::IMPORT_TYPE, interpolate < * mut u32 as Input >
-        ::IMPORT_TYPE, interpolate < PtrLength as Input > ::IMPORT_TYPE, interpolate <
-        bool as Output > ::IMPORT_TYPE, interpolate < & JsArray < u32 > as Input >
-        ::IMPORT_FUNC, interpolate < * mut u32 as Input > ::IMPORT_FUNC, interpolate <
-        PtrLength as Input > ::IMPORT_FUNC, interpolate < bool as Output > ::IMPORT_FUNC,
-        interpolate < & JsArray < u32 > as Input > ::TYPE, interpolate < * mut u32 as
-        Input > ::TYPE, interpolate < PtrLength as Input > ::TYPE, interpolate < bool as
-        Output > ::TYPE, interpolate < & JsArray < u32 > as Input > ::CONV, interpolate <
-        * mut u32 as Input > ::CONV, interpolate < PtrLength as Input > ::CONV,
-        interpolate < bool as Output > ::CONV,
+        ::IMPORT_TYPE, interpolate < PtrLength < u32 > as Input > ::IMPORT_TYPE,
+        interpolate < bool as Output > ::IMPORT_TYPE, interpolate < & JsArray < u32 > as
+        Input > ::IMPORT_FUNC, interpolate < * mut u32 as Input > ::IMPORT_FUNC,
+        interpolate < PtrLength < u32 > as Input > ::IMPORT_FUNC, interpolate < bool as
+        Output > ::IMPORT_FUNC, interpolate < & JsArray < u32 > as Input > ::TYPE,
+        interpolate < * mut u32 as Input > ::TYPE, interpolate < PtrLength < u32 > as
+        Input > ::TYPE, interpolate < bool as Output > ::TYPE, interpolate < & JsArray <
+        u32 > as Input > ::CONV, interpolate < * mut u32 as Input > ::CONV, interpolate <
+        PtrLength < u32 > as Input > ::CONV, interpolate < bool as Output > ::CONV,
     }
     js_bindgen::import_js! {
         module = "js_sys", name = "array_u32_decode", required_embeds = [("js_sys",
         "array.u32.decode"), (< & JsArray < u32 > as Input > ::JS_CONV_EMBED.0, < &
         JsArray < u32 > as Input > ::JS_CONV_EMBED.1), (< * mut u32 as Input >
-        ::JS_CONV_EMBED.0, < * mut u32 as Input > ::JS_CONV_EMBED.1), (< PtrLength as
-        Input > ::JS_CONV_EMBED.0, < PtrLength as Input > ::JS_CONV_EMBED.1)],
-        "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}", interpolate
+        ::JS_CONV_EMBED.0, < * mut u32 as Input > ::JS_CONV_EMBED.1), (< PtrLength < u32
+        > as Input > ::JS_CONV_EMBED.0, < PtrLength < u32 > as Input > ::JS_CONV_EMBED
+        .1)], "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}", interpolate
         r#macro::select("this.#jsEmbed.js_sys['array.u32.decode']",
         "(array, ptr, len) => {\n", & [< & JsArray < u32 > as Input > ::JS_CONV, < * mut
-        u32 as Input > ::JS_CONV, < PtrLength as Input > ::JS_CONV]), interpolate
+        u32 as Input > ::JS_CONV, < PtrLength < u32 > as Input > ::JS_CONV]), interpolate
         r#macro::select("", "\tarray", & [< & JsArray < u32 > as Input > ::JS_CONV]),
         interpolate r#macro::select("", < & JsArray < u32 > as Input > ::JS_CONV, & [< &
         JsArray < u32 > as Input > ::JS_CONV]), interpolate r#macro::select("", "array",
@@ -348,22 +354,23 @@ pub(super) fn array_u32_decode(
         interpolate r#macro::select("", < * mut u32 as Input > ::JS_CONV_POST, & [< * mut
         u32 as Input > ::JS_CONV_POST]), interpolate r#macro::select("", "\n", & [< * mut
         u32 as Input > ::JS_CONV]), interpolate r#macro::select("", "\tlen", & [<
-        PtrLength as Input > ::JS_CONV]), interpolate r#macro::select("", < PtrLength as
-        Input > ::JS_CONV, & [< PtrLength as Input > ::JS_CONV]), interpolate
-        r#macro::select("", "len", & [< PtrLength as Input > ::JS_CONV_POST]),
-        interpolate r#macro::select("", < PtrLength as Input > ::JS_CONV_POST, & [<
-        PtrLength as Input > ::JS_CONV_POST]), interpolate r#macro::select("", "\n", & [<
-        PtrLength as Input > ::JS_CONV]), interpolate r#macro::select("",
+        PtrLength < u32 > as Input > ::JS_CONV]), interpolate r#macro::select("", <
+        PtrLength < u32 > as Input > ::JS_CONV, & [< PtrLength < u32 > as Input >
+        ::JS_CONV]), interpolate r#macro::select("", "len", & [< PtrLength < u32 > as
+        Input > ::JS_CONV_POST]), interpolate r#macro::select("", < PtrLength < u32 > as
+        Input > ::JS_CONV_POST, & [< PtrLength < u32 > as Input > ::JS_CONV_POST]),
+        interpolate r#macro::select("", "\n", & [< PtrLength < u32 > as Input >
+        ::JS_CONV]), interpolate r#macro::select("",
         "\treturn this.#jsEmbed.js_sys['array.u32.decode'](array, ptr, len)\n}", & [< &
         JsArray < u32 > as Input > ::JS_CONV, < * mut u32 as Input > ::JS_CONV, <
-        PtrLength as Input > ::JS_CONV]),
+        PtrLength < u32 > as Input > ::JS_CONV]),
     }
     unsafe extern "C" {
         #[link_name = "js_sys.array_u32_decode"]
         fn array_u32_decode(
             array: <&JsArray<u32> as Input>::Type,
             ptr: <*mut u32 as Input>::Type,
-            len: <PtrLength as Input>::Type,
+            len: <PtrLength<u32> as Input>::Type,
         ) -> <bool as Output>::Type;
     }
     Output::from_raw(unsafe {

@@ -2,7 +2,6 @@ use alloc::vec::Vec;
 use core::cell::RefCell;
 
 use crate::panic::panic;
-use crate::util::PtrLength;
 
 macro_rules! thread_local {
 	($($vis:vis static $name:ident: $ty:ty = $value:expr;)*) => {
@@ -141,7 +140,7 @@ impl ExternrefTable {
 
 		ExternrefTableInfo {
 			ptr: slab.as_ptr(),
-			len: PtrLength::new(slab),
+			len: slab.len().try_into().unwrap(),
 		}
 	}
 
@@ -152,5 +151,5 @@ impl ExternrefTable {
 
 pub(crate) struct ExternrefTableInfo {
 	pub(crate) ptr: *const i32,
-	pub(crate) len: PtrLength,
+	pub(crate) len: i32,
 }
