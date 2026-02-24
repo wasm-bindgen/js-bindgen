@@ -141,7 +141,7 @@ error: no corresponding opening bracers found
 71 | js_bindgen::unsafe_embed_asm!("}");
    |                               ^^^
 
-error: expected no tokens after string literals and formatting parameters
+error: expected named argument, `const` or `interpolate`
   --> tests/ui/string_arguments.rs:74:35
    |
 74 | js_bindgen::unsafe_embed_asm!("", 42);

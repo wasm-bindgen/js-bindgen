@@ -72,4 +72,4 @@ js_bindgen::unsafe_embed_asm!("}");
 //~^ ERROR: no corresponding opening bracers found
 
 js_bindgen::unsafe_embed_asm!("", 42);
-//~^ ERROR: expected no tokens after string literals and formatting parameters
+//~^ ERROR: expected named argument, `const` or `interpolate`

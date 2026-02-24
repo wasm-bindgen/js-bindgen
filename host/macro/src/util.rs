@@ -1,6 +1,8 @@
+use std::collections::{HashMap, VecDeque};
 use std::fmt::Display;
 use std::iter::{self, Peekable};
 use std::mem;
+use std::str::FromStr;
 
 use proc_macro::{
 	Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree, token_stream,
@@ -13,6 +15,7 @@ pub struct Argument {
 	pub kind: ArgumentKind,
 }
 
+#[derive(Clone)]
 pub enum ArgumentKind {
 	Bytes(Vec<u8>),
 	Const(Vec<TokenTree>),
@@ -616,6 +619,72 @@ pub fn parse_string_arguments(
 		));
 	}
 
+	let mut named_arguments = HashMap::new();
+	let mut unnamed_arguments = VecDeque::new();
+
+	while let Some(tok) = stream.next() {
+		previous_span = tok.span();
+
+		let TokenTree::Ident(mut ident) = tok else {
+			return Err(compile_error(
+				previous_span,
+				"expected named argument, `const` or `interpolate`",
+			));
+		};
+
+		let named = if let Some(TokenTree::Punct(p)) = stream.peek()
+			&& p.as_char() == '='
+		{
+			previous_span = expect_punct(&mut stream, '=', previous_span, "", false)?.span();
+
+			if !unnamed_arguments.is_empty() {
+				return Err(compile_error(
+					previous_span,
+					"named argument must come first",
+				));
+			}
+
+			let next = parse_ident(&mut stream, previous_span, "`const` or `interpolate`")?;
+			previous_span = next.span();
+			let named = mem::replace(&mut ident, next);
+
+			Some(named)
+		} else {
+			None
+		};
+
+		let mut value = Vec::new();
+		parse_ty_or_value(stream, previous_span, "a value", &mut value)?;
+
+		let kind = match ident.to_string().as_str() {
+			"const" => ArgumentKind::Const(value),
+			"interpolate" => ArgumentKind::Interpolate(value),
+			_ => {
+				return Err(compile_error(
+					previous_span,
+					"expected `interpolate` or `const`",
+				));
+			}
+		};
+
+		if let Some(named) = named {
+			named_arguments.insert(named.to_string(), kind);
+		} else {
+			unnamed_arguments.push_back(kind);
+		}
+
+		if stream.peek().is_some() {
+			let punct = expect_punct(
+				&mut stream,
+				',',
+				previous_span,
+				"a `,` between formatting parameters",
+				false,
+			)?;
+			previous_span = punct.span();
+		}
+	}
+
 	let mut current_string = String::new();
 
 	// Apply argument formatting.
@@ -635,13 +704,45 @@ pub fn parse_string_arguments(
 				'{' => match chars.next() {
 					// Escaped `{`.
 					Some('{') => current_string.push('{'),
-					Some('}') => {
+					Some(char) => {
+						let mut ident_str = String::new();
+
+						for char in iter::once(char).chain(chars.by_ref()) {
+							if char == '}' {
+								break;
+							}
+
+							ident_str.push(char);
+						}
+
 						if let Some('}') = chars.peek() {
 							return Err(compile_error(
 								previous_span,
 								"no corresponding closing bracers found",
 							));
 						}
+
+						let ident = if ident_str.is_empty() {
+							None
+						} else {
+							match TokenStream::from_str(&ident_str) {
+								Ok(ident) => {
+									parse_ident(
+										ident.into_iter(),
+										previous_span,
+										"template string named argument",
+									)?;
+									Some(ident_str)
+								}
+								Err(error) => {
+									return Err(compile_error(
+										previous_span,
+										format!("invalid template string named argument: {error}"),
+									));
+								}
+							}
+						};
+
 						if !current_string.is_empty() {
 							arguments.push(Argument {
 								cfg: cfg.clone(),
@@ -651,57 +752,28 @@ pub fn parse_string_arguments(
 							});
 						}
 
-						match stream.peek() {
-							Some(_) => {
-								let ident = parse_ident(
-									&mut stream,
-									previous_span,
-									"`interpolate` or `const`",
-								)?;
-								previous_span = ident.span();
-								let mut placeholder = Vec::new();
-								parse_ty_or_value(
-									stream,
-									previous_span,
-									"a value",
-									&mut placeholder,
-								)?;
-
-								match ident.to_string().as_str() {
-									"const" => arguments.push(Argument {
-										cfg: cfg.clone(),
-										kind: ArgumentKind::Const(placeholder),
-									}),
-									"interpolate" => arguments.push(Argument {
-										cfg: cfg.clone(),
-										kind: ArgumentKind::Interpolate(placeholder),
-									}),
-									_ => {
-										return Err(compile_error(
-											previous_span,
-											"expected `interpolate` or `const`",
-										));
-									}
-								}
-
-								if stream.peek().is_some() {
-									let punct = expect_punct(
-										&mut stream,
-										',',
-										previous_span,
-										"a `,` between formatting parameters",
-										false,
-									)?;
-									previous_span = punct.span();
-								}
-							}
-							None => {
+						let kind = if let Some(ident) = ident {
+							let Some(kind) = named_arguments.get(&ident) else {
 								return Err(compile_error(
 									previous_span,
-									"expected an argument for `{}`",
+									format!("expected an argument for `{{{ident}}}`"),
 								));
-							}
-						}
+							};
+
+							kind.to_owned()
+						} else if let Some(kind) = unnamed_arguments.pop_front() {
+							kind
+						} else {
+							return Err(compile_error(
+								previous_span,
+								"expected an argument for `{}`",
+							));
+						};
+
+						arguments.push(Argument {
+							cfg: cfg.clone(),
+							kind,
+						});
 					}
 					_ => {
 						return Err(compile_error(

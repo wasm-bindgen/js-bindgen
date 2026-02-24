@@ -50,13 +50,12 @@ js_bindgen::embed_js!(
 	name = "extern_slice",
 	"(slicePtr) => {{",
 	"	const view = new DataView(this.#memory.buffer, slicePtr, {})",
-	"	const ptr = view.get{}(0, true)",
-	"	const len = view.get{}({}, true)",
+	"	const ptr = view.get{data_view}(0, true)",
+	"	const len = view.get{data_view}({}, true)",
 	"	return {{ ptr, len }}",
 	"}}",
+	data_view = interpolate ExternSlice::<()>::DATA_VIEW_GET,
 	const mem::size_of::<ExternSlice<()>>(),
-	interpolate ExternSlice::<()>::DATA_VIEW_GET,
-	interpolate ExternSlice::<()>::DATA_VIEW_GET,
 	const mem::offset_of!(ExternSlice::<()>, len),
 );
 
