@@ -1,4 +1,4 @@
-(module $basic-a6379d50f3a60b06.wasm
+(module $basic-f6a23c98359ac5e9.wasm
   (type (;0;) (func (param i32 i32) (result externref)))
   (type (;1;) (func (param externref)))
   (type (;2;) (func))
@@ -40,7 +40,7 @@
     local.tee 0
     call $web_sys.console.log
     local.get 0
-    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h98213a817ce36d13E
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hcc06f1dfe1f1dee5E
     i32.const 1048589
     i32.const 5
     call $js_sys.string_decode
@@ -51,11 +51,11 @@
     local.tee 1
     call $web_sys.console.log2
     local.get 1
-    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h98213a817ce36d13E
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hcc06f1dfe1f1dee5E
     local.get 0
-    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h98213a817ce36d13E
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hcc06f1dfe1f1dee5E
   )
-  (func $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h98213a817ce36d13E (;6;) (type 4) (param i32)
+  (func $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hcc06f1dfe1f1dee5E (;6;) (type 4) (param i32)
     (local i32 i32 i32 i32)
     global.get $__stack_pointer
     i32.const 16
@@ -101,7 +101,7 @@
             i32.gt_u
             select
             local.tee 4
-            call $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17ha048fdf72172f6f3E
+            call $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17h68cc2c96f40b31bcE
             local.get 1
             i32.load offset=4
             br_if 2 (;@2;)
@@ -156,7 +156,7 @@
     call $_ZN4core9panicking9panic_fmt17h806e647715990138E
     unreachable
   )
-  (func $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17ha048fdf72172f6f3E (;9;) (type 5) (param i32 i32 i32 i32)
+  (func $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17h68cc2c96f40b31bcE (;9;) (type 5) (param i32 i32 i32 i32)
     (local i32 i32 i32 i32)
     block ;; label = @1
       block ;; label = @2

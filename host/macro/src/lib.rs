@@ -62,30 +62,34 @@ fn import_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 fn js_internal(input: TokenStream, section: &str) -> Result<TokenStream, TokenStream> {
 	let mut input = input.into_iter().peekable();
 
-	let module = expect_meta_name_string(&mut input, "module")?;
-	let module_len: u16 = module
-		.len()
-		.try_into()
-		.expect("import module length is too large");
-	let name = expect_meta_name_string(&mut input, "name")?;
-	let name_len: u16 = name
-		.len()
-		.try_into()
-		.expect("import name length is too large");
-
-	let names = [
-		module_len.to_le_bytes().as_slice(),
-		module.as_bytes(),
-		&name_len.to_le_bytes(),
-		name.as_bytes(),
-	]
-	.concat();
+	let names = parse_names(&mut input)?;
 	let mut data = parse_required_embeds(&mut input, names)?;
 	parse_string_arguments(&mut input, Span::mixed_site(), &mut data)?;
 
 	let output = custom_section(section, &data);
 
 	Ok(output)
+}
+
+fn parse_names(input: &mut Peekable<token_stream::IntoIter>) -> Result<Vec<u8>, TokenStream> {
+	let module = expect_meta_name_string(input, "module")?;
+	let module_len: u16 = module
+		.len()
+		.try_into()
+		.expect("import module length is too large");
+	let name = expect_meta_name_string(input, "name")?;
+	let name_len: u16 = name
+		.len()
+		.try_into()
+		.expect("import name length is too large");
+
+	Ok([
+		module_len.to_le_bytes().as_slice(),
+		module.as_bytes(),
+		&name_len.to_le_bytes(),
+		name.as_bytes(),
+	]
+	.concat())
 }
 
 fn parse_required_embeds(

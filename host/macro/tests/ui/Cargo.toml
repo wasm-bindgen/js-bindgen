@@ -1,0 +1,12 @@
+[workspace]
+
+[package]
+edition = "2024"
+name = "js-bindgen-macro-test"
+publish = false
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+js-bindgen = { path = "../../../../client/js-bindgen" }

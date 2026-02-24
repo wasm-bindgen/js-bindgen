@@ -1,5 +1,5 @@
 [workspace]
-members = ["js-sys", "test", "web-sys"]
+members = ["js-bindgen", "js-sys", "test", "web-sys"]
 resolver = "2"
 
 [workspace.package]
@@ -16,12 +16,14 @@ license = "MIT OR Apache-2.0"
 rust-version = "1.85"
 
 [workspace.dependencies]
-js-bindgen = { path = "../host/js-bindgen" }
+js-bindgen = { path = "js-bindgen" }
+js-bindgen-macro = { path = "../host/macro" }
 js-bindgen-test = { path = "test" }
 js-bindgen-test-macro = { path = "../host/test-macro" }
 js-sys = { path = "js-sys" }
 js-sys-macro = { path = "../host/js-sys-macro" }
 mini-alloc = "1"
+paste = "1"
 web-sys = { path = "web-sys" }
 
 [package]

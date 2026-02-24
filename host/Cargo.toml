@@ -1,11 +1,11 @@
 [workspace]
 members = [
 	"cargo-js-sys",
-	"js-bindgen",
 	"js-sys-bindgen",
 	"js-sys-macro",
 	"ld",
 	"ld-shared",
+	"macro",
 	"runner",
 	"shared",
 	"test-macro",

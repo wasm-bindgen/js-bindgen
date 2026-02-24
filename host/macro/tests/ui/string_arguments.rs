@@ -39,7 +39,7 @@ js_bindgen::unsafe_embed_asm!("{}}");
 //~^ ERROR: no corresponding closing bracers found
 
 js_bindgen::unsafe_embed_asm!("{}", foo);
-//~^ ERROR: expected `interpolate`
+//~^ ERROR: expected a value
 
 js_bindgen::unsafe_embed_asm!("{}", interpolate);
 //~^ ERROR: expected a value

@@ -170,7 +170,7 @@ fn test_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
 		const _: () = {
 			#[unsafe(export_name = #foreign_test)]
-			extern "C" fn test() {
+			extern "C" fn __jbg_test() {
 				#crate_::set_panic_hook();
 				#ident();
 			}

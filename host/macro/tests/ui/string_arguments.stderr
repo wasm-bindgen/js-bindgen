@@ -75,7 +75,7 @@ error: no corresponding closing bracers found
 38 | js_bindgen::unsafe_embed_asm!("{}}");
    |                               ^^^^^
 
-error: expected `interpolate`
+error: expected a value
   --> tests/ui/string_arguments.rs:41:37
    |
 41 | js_bindgen::unsafe_embed_asm!("{}", foo);

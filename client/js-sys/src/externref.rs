@@ -5,10 +5,10 @@ use crate::panic::panic;
 use crate::util::PtrLength;
 
 macro_rules! thread_local {
-    ($($vis:vis static $name:ident: $ty:ty = $value:expr;)*) => {
-        #[cfg_attr(target_feature = "atomics", thread_local)]
-        $($vis static $name: LocalKey<$ty> = LocalKey($value);)*
-    };
+	($($vis:vis static $name:ident: $ty:ty = $value:expr;)*) => {
+		#[cfg_attr(target_feature = "atomics", thread_local)]
+		$($vis static $name: LocalKey<$ty> = LocalKey($value);)*
+	};
 }
 
 pub(crate) struct LocalKey<T>(T);

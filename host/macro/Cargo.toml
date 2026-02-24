@@ -2,7 +2,7 @@
 edition = { workspace = true }
 include = { workspace = true }
 license = { workspace = true }
-name = "js-bindgen"
+name = "js-bindgen-macro"
 rust-version = { workspace = true }
 
 [lib]

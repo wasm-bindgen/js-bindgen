@@ -15,6 +15,7 @@ pub struct Argument {
 
 pub enum ArgumentKind {
 	Bytes(Vec<u8>),
+	Const(Vec<TokenTree>),
 	Interpolate(Vec<TokenTree>),
 	InterpolateWithLength(Vec<TokenTree>),
 }
@@ -90,7 +91,13 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 	// const ARR_<index>: [u8; <argument>.len()] = *<argument>;
 	// ```
 	//
-	// For every formatting argument we insert:
+	// For every `const` formatting argument we insert:
+	// ```
+	// const LEN_<index>: usize = ::js_bindgen::r#macro::ConstInteger(VAL_<index>).__jbg_len();
+	// const ARR_<index>: [u8; LEN_<index>] = ::js_bindgen::r#macro::ConstInteger(VAL_<index>).__jbg_to_le_bytes::<LEN_<index>>();
+	// ```
+	//
+	// For every `interpolate` formatting argument we insert:
 	// ```
 	// const VAL_<index>: &str = <argument>;
 	// const LEN_<index>: usize = ::core::primitive::str::len(VAL_<index>);
@@ -102,140 +109,197 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 	// ```
 	// const VAL_<index>_LEN: [u8; 2] = ::core::primitive::usize::to_le_bytes(LEN_<index>);
 	// ```
-	let consts = data
-		.iter()
-		.enumerate()
-		.flat_map(|(index, arg)| match &arg.kind {
-			ArgumentKind::Bytes(bytes) => {
-				// `const ARR_<index>: [u8; <argument>.len()] = *<argument>;`
-				arg.cfg
-					.clone()
-					.into_iter()
-					.flatten()
-					.chain(r#const(
-						&format!("ARR_{index}"),
-						iter::once(group(
-							Delimiter::Bracket,
-							[
-								ident("u8"),
-								Punct::new(';', Spacing::Alone).into(),
-								Literal::usize_unsuffixed(bytes.len()).into(),
-							],
-						)),
-						[
-							Punct::new('*', Spacing::Alone).into(),
-							Literal::byte_string(bytes).into(),
-						],
-					))
-					.collect::<Vec<_>>()
-			}
-			ArgumentKind::Interpolate(interpolate)
-			| ArgumentKind::InterpolateWithLength(interpolate) => {
-				let value_name = format!("VAL_{index}");
-				let value = ident(&value_name);
-				let len_name = format!("LEN_{index}");
-				let ptr_name = format!("PTR_{index}");
-
-				// `const VAL_<index>: &str = <argument>;`
-				arg.cfg
-					.clone()
-					.into_iter()
-					.flatten()
-					.chain(r#const(
-						&value_name,
-						[Punct::new('&', Spacing::Alone).into(), ident("str")],
-						interpolate.iter().cloned(),
-					))
-					// `const LEN_<index>: usize = ::core::primitive::str::len(VAL_<index>);`
-					.chain(arg.cfg.clone().into_iter().flatten())
-					.chain(r#const(
-						&len_name,
-						iter::once(ident("usize")),
-						path(["core", "primitive", "str", "len"], span).chain(iter::once(group(
-							Delimiter::Parenthesis,
-							iter::once(value.clone()),
-						))),
-					))
-					// `const PTR_<index>: *const u8 = ::core::primitive::str::as_ptr(VAL_<index>);`
-					.chain(arg.cfg.clone().into_iter().flatten())
-					.chain(r#const(
-						&ptr_name,
-						[
-							Punct::new('*', Spacing::Alone).into(),
-							ident("const"),
-							ident("u8"),
-						],
-						path(["core", "primitive", "str", "as_ptr"], span)
-							.chain(iter::once(group(Delimiter::Parenthesis, iter::once(value)))),
-					))
-					// `const ARR_<index>: [u8; LEN_<index>] = unsafe { *(PTR_<index> as *const _)
-					// };`
-					.chain(arg.cfg.clone().into_iter().flatten())
-					.chain(r#const(
-						&format!("ARR_{index}"),
-						iter::once(group(
-							Delimiter::Bracket,
-							[
-								ident("u8"),
-								Punct::new(';', Spacing::Alone).into(),
-								ident(&len_name),
-							],
-						)),
-						[
-							ident("unsafe"),
-							group(
-								Delimiter::Brace,
+	let consts =
+		data.iter()
+			.enumerate()
+			.flat_map(|(index, arg)| match &arg.kind {
+				ArgumentKind::Bytes(bytes) => {
+					// ```
+					// const ARR_<index>: [u8; <argument>.len()] = *<argument>;
+					// ```
+					arg.cfg
+						.clone()
+						.into_iter()
+						.flatten()
+						.chain(r#const(
+							&format!("ARR_{index}"),
+							iter::once(group(
+								Delimiter::Bracket,
 								[
-									Punct::new('*', Spacing::Alone).into(),
-									group(
-										Delimiter::Parenthesis,
-										[
-											ident(&ptr_name),
-											ident("as"),
-											Punct::new('*', Spacing::Alone).into(),
-											ident("const"),
-											ident("_"),
-										],
-									),
+									ident("u8"),
+									Punct::new(';', Spacing::Alone).into(),
+									Literal::usize_unsuffixed(bytes.len()).into(),
 								],
-							),
-						],
-					))
-					.chain(
-						matches!(arg.kind, ArgumentKind::InterpolateWithLength(_))
-							.then(|| {
-								// const VAL_<index>_LEN: [u8; 2] =
-								// ::core::primitive::u16::to_le_bytes(LEN_<index> as u16);
-								arg.cfg.clone().into_iter().flatten().chain(r#const(
-									&format!("VAL_{index}_LEN"),
-									iter::once(group(
-										Delimiter::Bracket,
-										[
-											ident("u8"),
-											Punct::new(';', Spacing::Alone).into(),
-											Literal::usize_unsuffixed(2).into(),
-										],
-									)),
-									path(["core", "primitive", "u16", "to_le_bytes"], span).chain(
-										iter::once(group(
+							)),
+							[
+								Punct::new('*', Spacing::Alone).into(),
+								Literal::byte_string(bytes).into(),
+							],
+						))
+						.collect::<Vec<_>>()
+				}
+				ArgumentKind::Const(const_) => {
+					let len_name = format!("LEN_{index}");
+
+					// ```
+					// const LEN_<index>: usize = ::js_bindgen::r#macro::ConstInteger(VAL_<index>).__jbg_len();
+					// ```
+					arg.cfg
+						.clone()
+						.into_iter()
+						.flatten()
+						.chain(r#const(
+							&len_name,
+							iter::once(ident("usize")),
+							path(["js_bindgen", "r#macro", "ConstInteger"], span).chain([
+								group(Delimiter::Parenthesis, const_.iter().cloned()),
+								Punct::new('.', Spacing::Alone).into(),
+								ident("__jbg_len"),
+								group(Delimiter::Parenthesis, iter::empty()),
+							]),
+						))
+						// ```
+						// const ARR_<index>: [u8; LEN_<index>] = ::js_bindgen::r#macro::ConstInteger(VAL_<index>).__jbg_to_le_bytes::<LEN_<index>>();
+						// ```
+						.chain(arg.cfg.clone().into_iter().flatten())
+						.chain(r#const(
+							&format!("ARR_{index}"),
+							iter::once(group(
+								Delimiter::Bracket,
+								[
+									ident("u8"),
+									Punct::new(';', Spacing::Alone).into(),
+									ident(&len_name),
+								],
+							)),
+							path(["js_bindgen", "r#macro", "ConstInteger"], span).chain([
+								group(Delimiter::Parenthesis, const_.iter().cloned()),
+								Punct::new('.', Spacing::Alone).into(),
+								ident("__jbg_to_le_bytes"),
+								Punct::new(':', Spacing::Joint).into(),
+								Punct::new(':', Spacing::Alone).into(),
+								Punct::new('<', Spacing::Alone).into(),
+								ident(&len_name),
+								Punct::new('>', Spacing::Alone).into(),
+								group(Delimiter::Parenthesis, iter::empty()),
+							]),
+						))
+						.collect()
+				}
+				ArgumentKind::Interpolate(interpolate)
+				| ArgumentKind::InterpolateWithLength(interpolate) => {
+					let value_name = format!("VAL_{index}");
+					let value = ident(&value_name);
+					let len_name = format!("LEN_{index}");
+					let ptr_name = format!("PTR_{index}");
+
+					// ```
+					// const VAL_<index>: &str = <argument>;
+					// ```
+					arg.cfg
+						.clone()
+						.into_iter()
+						.flatten()
+						.chain(r#const(
+							&value_name,
+							[Punct::new('&', Spacing::Alone).into(), ident("str")],
+							interpolate.iter().cloned(),
+						))
+						// ```
+						// const LEN_<index>: usize = ::core::primitive::str::len(VAL_<index>);
+						// ```
+						.chain(arg.cfg.clone().into_iter().flatten())
+						.chain(r#const(
+							&len_name,
+							iter::once(ident("usize")),
+							path(["core", "primitive", "str", "len"], span).chain(iter::once(
+								group(Delimiter::Parenthesis, iter::once(value.clone())),
+							)),
+						))
+						// ```
+						// const PTR_<index>: *const u8 = ::core::primitive::str::as_ptr(VAL_<index>);
+						// ```
+						.chain(arg.cfg.clone().into_iter().flatten())
+						.chain(r#const(
+							&ptr_name,
+							[
+								Punct::new('*', Spacing::Alone).into(),
+								ident("const"),
+								ident("u8"),
+							],
+							path(["core", "primitive", "str", "as_ptr"], span).chain(iter::once(
+								group(Delimiter::Parenthesis, iter::once(value)),
+							)),
+						))
+						// ```
+						// const ARR_<index>: [u8; LEN_<index>] = unsafe { *(PTR_<index> as *const _) };
+						// ```
+						.chain(arg.cfg.clone().into_iter().flatten())
+						.chain(r#const(
+							&format!("ARR_{index}"),
+							iter::once(group(
+								Delimiter::Bracket,
+								[
+									ident("u8"),
+									Punct::new(';', Spacing::Alone).into(),
+									ident(&len_name),
+								],
+							)),
+							[
+								ident("unsafe"),
+								group(
+									Delimiter::Brace,
+									[
+										Punct::new('*', Spacing::Alone).into(),
+										group(
 											Delimiter::Parenthesis,
-											[ident(&len_name), ident("as"), ident("u16")],
+											[
+												ident(&ptr_name),
+												ident("as"),
+												Punct::new('*', Spacing::Alone).into(),
+												ident("const"),
+												ident("_"),
+											],
+										),
+									],
+								),
+							],
+						))
+						.chain(
+							matches!(arg.kind, ArgumentKind::InterpolateWithLength(_))
+								.then(|| {
+									// ```
+									// const VAL_<index>_LEN: [u8; 2] = ::core::primitive::u16::to_le_bytes(LEN_<index> as u16);
+									// ```
+									arg.cfg.clone().into_iter().flatten().chain(r#const(
+										&format!("VAL_{index}_LEN"),
+										iter::once(group(
+											Delimiter::Bracket,
+											[
+												ident("u8"),
+												Punct::new(';', Spacing::Alone).into(),
+												Literal::usize_unsuffixed(2).into(),
+											],
 										)),
-									),
-								))
-							})
-							.into_iter()
-							.flatten(),
-					)
-					.collect::<Vec<_>>()
-			}
-		});
+										path(["core", "primitive", "u16", "to_le_bytes"], span)
+											.chain(iter::once(group(
+												Delimiter::Parenthesis,
+												[ident(&len_name), ident("as"), ident("u16")],
+											))),
+									))
+								})
+								.into_iter()
+								.flatten(),
+						)
+						.collect::<Vec<_>>()
+				}
+			});
 
 	// ```
 	// const LEN: u32 = {
-	//     let mut len: usize = 0;
-	//     #(len += LEN_<index>;)*
-	//     len as u32
+	// 	let mut len: usize = 0;
+	//  	#(len += LEN_<index>;)*
+	//  	len as u32
 	// };
 	// ```
 	let len = r#const(
@@ -269,7 +333,8 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 								ArgumentKind::Bytes(bytes) => {
 									Literal::usize_unsuffixed(bytes.len()).into()
 								}
-								ArgumentKind::Interpolate(_)
+								ArgumentKind::Const(_)
+								| ArgumentKind::Interpolate(_)
 								| ArgumentKind::InterpolateWithLength(_) => ident(&format!("LEN_{index}")),
 							},
 							Punct::new(';', Spacing::Alone).into(),
@@ -295,7 +360,9 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		)],
 	);
 
-	// `[u8; 4], #([u8; LEN_<index>]),*`
+	// ```
+	// [u8; 4], #([u8; LEN_<index>]),*
+	// ```
 	let tys = [
 		group(
 			Delimiter::Bracket,
@@ -323,7 +390,9 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 							ArgumentKind::Bytes(bytes) => {
 								Literal::usize_unsuffixed(bytes.len()).into()
 							}
-							ArgumentKind::Interpolate(_) => ident(&format!("LEN_{index}")),
+							ArgumentKind::Const(_) | ArgumentKind::Interpolate(_) => {
+								ident(&format!("LEN_{index}"))
+							}
 							ArgumentKind::InterpolateWithLength(_) => {
 								Literal::usize_unsuffixed(2).into()
 							}
@@ -371,7 +440,9 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		Punct::new(';', Spacing::Alone).into(),
 	];
 
-	// `#[link_section = name]`
+	// ```
+	// #[link_section = name]
+	// ```
 	let link_section = [
 		Punct::new('#', Spacing::Alone).into(),
 		group(
@@ -390,7 +461,9 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		),
 	];
 
+	// ```
 	// (::core::primitive::u32::to_le_bytes(LEN), #(ARR_<index>),*)
+	// ```
 	let values = group(
 		Delimiter::Parenthesis,
 		path(["core", "primitive", "u32", "to_le_bytes"], span)
@@ -425,7 +498,9 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 			})),
 	);
 
-	// `static CUSTOM_SECTION: Layout = Layout(...);`
+	// ```
+	// static CUSTOM_SECTION: Layout = Layout(...);
+	// ```
 	let custom_section = [
 		ident("static"),
 		ident("CUSTOM_SECTION"),
@@ -437,7 +512,9 @@ pub fn custom_section(name: &str, data: &[Argument]) -> TokenStream {
 		Punct::new(';', Spacing::Alone).into(),
 	];
 
-	// `const _: () = { ... }`
+	// ```
+	// const _: () = { ... }
+	// ```
 	r#const(
 		"_",
 		iter::once(group(Delimiter::Parenthesis, iter::empty())),
@@ -576,25 +653,36 @@ pub fn parse_string_arguments(
 
 						match stream.peek() {
 							Some(_) => {
-								previous_span = expect_ident(
+								let ident = parse_ident(
 									&mut stream,
-									"interpolate",
 									previous_span,
-									"`interpolate`",
-									false,
-								)?
-								.span();
-								let mut interpolate = Vec::new();
+									"`interpolate` or `const`",
+								)?;
+								previous_span = ident.span();
+								let mut placeholder = Vec::new();
 								parse_ty_or_value(
 									stream,
 									previous_span,
 									"a value",
-									&mut interpolate,
+									&mut placeholder,
 								)?;
-								arguments.push(Argument {
-									cfg: cfg.clone(),
-									kind: ArgumentKind::Interpolate(interpolate),
-								});
+
+								match ident.to_string().as_str() {
+									"const" => arguments.push(Argument {
+										cfg: cfg.clone(),
+										kind: ArgumentKind::Const(placeholder),
+									}),
+									"interpolate" => arguments.push(Argument {
+										cfg: cfg.clone(),
+										kind: ArgumentKind::Interpolate(placeholder),
+									}),
+									_ => {
+										return Err(compile_error(
+											previous_span,
+											"expected `interpolate` or `const`",
+										));
+									}
+								}
 
 								if stream.peek().is_some() {
 									let punct = expect_punct(
