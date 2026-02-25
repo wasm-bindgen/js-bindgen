@@ -1,2 +1,9 @@
 # See https://github.com/oli-obk/ui_test/issues/177.
 * text=auto eol=lf
+
+/client/**/*.js-sys.rs  linguist-generated=true
+/host/**/*.mjs          linguist-generated=true
+
+*.stderr                linguist-documentation
+/client/examples/*.wat  linguist-documentation
+/client/examples/*.mjs  linguist-documentation
