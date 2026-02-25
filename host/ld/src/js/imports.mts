@@ -6,8 +6,6 @@ export class JsBindgen {
 	#finished = false
 	#importObject: WebAssembly.Imports
 	// @ts-expect-error TS6133
-	#instance: WebAssembly.Instance | undefined
-	// @ts-expect-error TS6133
 	#jsEmbed: Record<string, Record<string, any>>
 	// @ts-expect-error TS6133
 	#memory = JBG_PLACEHOLDER_MEMORY
@@ -53,22 +51,15 @@ export class JsBindgen {
 		}
 	}
 
-	setInstance(instance: WebAssembly.Instance) {
-		if (this.#finished) {
-			throw "create a new `JsBindgen` class"
-		}
-
-		this.#instance = instance
-		this.#finished = true
-	}
-
 	instantiate(): Promise<WebAssembly.Instance> {
 		if (this.#finished) {
 			throw "create a new `JsBindgen` class"
 		}
 
-		this.#finished = true
-		return WebAssembly.instantiate(this.#module, this.#importObject)
+		return WebAssembly.instantiate(this.#module, this.#importObject).then(instance => {
+			this.#finished = true
+			return instance
+		})
 	}
 
 	static instantiateStreaming(): Promise<WebAssembly.Instance>

@@ -2,8 +2,6 @@ export class JsBindgen {
     #finished = false;
     #importObject;
     // @ts-expect-error TS6133
-    #instance;
-    // @ts-expect-error TS6133
     #jsEmbed;
     // @ts-expect-error TS6133
     #memory = new WebAssembly.Memory({ initial: 17 });
@@ -74,19 +72,14 @@ export class JsBindgen {
             Object.assign(this.#importObject[namespace], imports[namespace]);
         }
     }
-    setInstance(instance) {
-        if (this.#finished) {
-            throw "create a new `JsBindgen` class";
-        }
-        this.#instance = instance;
-        this.#finished = true;
-    }
     instantiate() {
         if (this.#finished) {
             throw "create a new `JsBindgen` class";
         }
-        this.#finished = true;
-        return WebAssembly.instantiate(this.#module, this.#importObject);
+        return WebAssembly.instantiate(this.#module, this.#importObject).then(instance => {
+            this.#finished = true;
+            return instance;
+        });
     }
     static async instantiateStreaming(...args) {
         let response;
