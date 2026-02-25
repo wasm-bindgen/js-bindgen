@@ -14,7 +14,7 @@ mod tests {
 
 	#[test]
 	fn test_console_log() {
-		let value = JsString::from_str("hello world");
+		let value = JsString::from("hello world");
 		console::log(&value);
 	}
 

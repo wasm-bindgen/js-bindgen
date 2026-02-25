@@ -1,21 +1,93 @@
 use core::marker::PhantomData;
-use core::mem;
 use core::mem::MaybeUninit;
+use core::{mem, ptr};
 
 use crate::hazard::Input;
 
+macro_rules! thread_local {
+	($($vis:vis static $name:ident: $ty:ty = $value:expr;)*) => {
+		#[cfg_attr(target_feature = "atomics", thread_local)]
+		$($vis static $name: $crate::util::LocalKey<$ty> = $crate::util::LocalKey::new($value);)*
+	};
+}
+
+pub(crate) struct LocalKey<T>(T);
+
+// SAFETY: Multi-threading is not possible without `atomics`.
+#[cfg(not(target_feature = "atomics"))]
+unsafe impl<T> Send for LocalKey<T> {}
+
+// SAFETY: Multi-threading is not possible without `atomics`.
+#[cfg(not(target_feature = "atomics"))]
+unsafe impl<T> Sync for LocalKey<T> {}
+
+impl<T> LocalKey<T> {
+	pub(crate) const fn new(value: T) -> Self {
+		Self(value)
+	}
+
+	pub(crate) fn with<F, R>(&self, f: F) -> R
+	where
+		F: FnOnce(&T) -> R,
+	{
+		f(&self.0)
+	}
+}
+
 #[repr(C)]
-pub struct ExternSlice<T> {
-	ptr: <*const T as Input>::Type,
+pub struct ExternValue<T> {
 	len: PtrLength<T>,
+	value: T,
 }
 
 #[expect(dead_code, reason = "custom sections are considered dead-code")]
-impl<T> ExternSlice<T> {
+impl<T> ExternValue<T> {
+	pub(crate) const IMPORT_TYPE: &str = <*const Self>::IMPORT_TYPE;
+	#[cfg(target_arch = "wasm32")]
+	pub(crate) const TYPE: &str = "i32";
+	#[cfg(target_arch = "wasm64")]
+	pub(crate) const TYPE: &str = "i64";
+	#[cfg(target_arch = "wasm32")]
+	pub(crate) const CONV: &str = "";
+	#[cfg(target_arch = "wasm64")]
+	pub(crate) const CONV: &str = "f64.convert_i64_u";
+
 	#[cfg(target_arch = "wasm32")]
 	const DATA_VIEW_GET: &str = "Uint32";
 	#[cfg(target_arch = "wasm64")]
 	const DATA_VIEW_GET: &str = "Float64";
+
+	pub(crate) fn new(value: T) -> Self {
+		Self {
+			len: PtrLength::internal(ptr::null(), mem::size_of::<T>()),
+			value,
+		}
+	}
+}
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "extern_value",
+	"(valuePtr) => {{",
+	"	const view = new DataView(this.#memory.buffer, valuePtr)",
+	"	const ptr = valuePtr + {}",
+	"	const len = view.get{}(0, true)",
+	"	return {{ ptr, len }}",
+	"}}",
+	const mem::offset_of!(ExternValue::<()>, value),
+	interpolate ExternValue::<()>::DATA_VIEW_GET,
+);
+
+#[repr(C)]
+pub struct ExternRef<T> {
+	ptr: <*const T as Input>::Type,
+	len: PtrLength<T>,
+}
+
+impl<T> ExternRef<T> {
+	pub(crate) const IMPORT_TYPE: &str = <*const Self>::IMPORT_TYPE;
+	pub(crate) const TYPE: &str = ExternValue::<()>::TYPE;
+	pub(crate) const CONV: &str = ExternValue::<()>::CONV;
 
 	pub(crate) fn new(value: &[T]) -> Self {
 		Self {
@@ -25,38 +97,18 @@ impl<T> ExternSlice<T> {
 	}
 }
 
-// SAFETY: Implementation.
-unsafe impl<T> Input for ExternSlice<T> {
-	const IMPORT_TYPE: &'static str = <*const T>::IMPORT_TYPE;
-	#[cfg(target_arch = "wasm32")]
-	const TYPE: &'static str = "i32";
-	#[cfg(target_arch = "wasm64")]
-	const TYPE: &'static str = "i64";
-	#[cfg(target_arch = "wasm64")]
-	const CONV: &'static str = "f64.convert_i64_u";
-
-	type Type = Self;
-
-	fn into_raw(self) -> Self::Type {
-		// Only for validation on Wasm64.
-		<*const Self>::into_raw(&raw const self);
-
-		self
-	}
-}
-
 js_bindgen::embed_js!(
 	module = "js_sys",
-	name = "extern_slice",
-	"(slicePtr) => {{",
-	"	const view = new DataView(this.#memory.buffer, slicePtr, {})",
+	name = "extern_ref",
+	"(refPtr) => {{",
+	"	const view = new DataView(this.#memory.buffer, refPtr, {})",
 	"	const ptr = view.get{data_view}(0, true)",
 	"	const len = view.get{data_view}({}, true)",
 	"	return {{ ptr, len }}",
 	"}}",
-	data_view = interpolate ExternSlice::<()>::DATA_VIEW_GET,
-	const mem::size_of::<ExternSlice<()>>(),
-	const mem::offset_of!(ExternSlice::<()>, len),
+	data_view = interpolate ExternValue::<()>::DATA_VIEW_GET,
+	const mem::size_of::<ExternRef<()>>(),
+	const mem::offset_of!(ExternRef::<()>, len),
 );
 
 #[repr(transparent)]
@@ -87,9 +139,10 @@ impl<T> PtrLength<T> {
 		len: usize,
 	) -> Self {
 		#[cfg(target_arch = "wasm64")]
+		#[expect(clippy::cast_precision_loss, reason = "checked")]
 		let len = {
 			debug_assert!(
-				ptr.addr() + len * core::mem::size_of::<T>() < 0x20000000000000,
+				ptr.addr() + len * mem::size_of::<T>() < 0x0020_0000_0000_0000,
 				"found pointer + length bigger than `Number.MAX_SAFE_INTEGER`"
 			);
 			len as f64
@@ -106,7 +159,7 @@ impl<T> PtrLength<T> {
 unsafe impl<T> Input for PtrLength<T> {
 	const IMPORT_TYPE: &str = Self::Type::IMPORT_TYPE;
 	const TYPE: &str = Self::Type::TYPE;
-	const JS_CONV: &str = Self::Type::JS_CONV;
+	const JS_CONV: Option<&str> = Self::Type::JS_CONV;
 
 	#[cfg(target_arch = "wasm32")]
 	type Type = usize;

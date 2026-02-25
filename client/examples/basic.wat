@@ -6,23 +6,27 @@
   (type (;4;) (func (param i32)))
   (type (;5;) (func (param i32 i32 i32 i32)))
   (type (;6;) (func (result i32)))
-  (type (;7;) (func (param i32 i32) (result i32)))
-  (type (;8;) (func (param i32) (result i32)))
-  (type (;9;) (func (param externref) (result i32)))
-  (type (;10;) (func (param i32) (result externref)))
-  (type (;11;) (func (param i32 i32)))
+  (type (;7;) (func (param i64 i64)))
+  (type (;8;) (func (param i32 i32) (result i32)))
+  (type (;9;) (func (param i32) (result i32)))
+  (type (;10;) (func (param externref) (result i32)))
+  (type (;11;) (func (param i32) (result externref)))
+  (type (;12;) (func (param i32 i32)))
   (import "js_bindgen" "memory" (memory (;0;) 17))
   (import "js_sys" "string_decode" (func $js_sys.import.string_decode (;0;) (type 0)))
   (import "js_sys" "externref.table" (table (;0;) 0 externref))
   (import "web_sys" "console.log" (func $web_sys.import.console.log (;1;) (type 1)))
   (import "web_sys" "console.log0" (func $web_sys.import.console.log0 (;2;) (type 2)))
   (import "web_sys" "console.log2" (func $web_sys.import.console.log2 (;3;) (type 3)))
+  (table (;1;) 1 1 funcref)
   (global $__stack_pointer (;0;) (mut i32) i32.const 1048576)
   (global (;1;) i32 i32.const 1048624)
   (global (;2;) i32 i32.const 1048624)
   (export "foo" (func $foo))
   (export "__heap_base" (global 1))
   (export "js_sys.externref.next" (func $js_sys.externref.next))
+  (export "js_sys.numeric.i128" (func $js_sys.numeric.i128))
+  (export "js_sys.numeric.u128" (func $js_sys.numeric.i128))
   (export "__data_end" (global 2))
   (start $__wasm_init_memory)
   (func $__wasm_init_memory (;4;) (type 2)
@@ -451,18 +455,19 @@
     i32.store offset=1048604
     local.get 0
   )
-  (func $js_sys.string_decode (;11;) (type 7) (param i32 i32) (result i32)
+  (func $js_sys.numeric.i128 (;11;) (type 7) (param i64 i64))
+  (func $js_sys.string_decode (;12;) (type 8) (param i32 i32) (result i32)
     local.get 0
     local.get 1
     call $js_sys.import.string_decode
     call $js_sys.externref.insert
   )
-  (func $js_sys.externref.grow (;12;) (type 8) (param i32) (result i32)
+  (func $js_sys.externref.grow (;13;) (type 9) (param i32) (result i32)
     ref.null extern
     local.get 0
     table.grow 0
   )
-  (func $js_sys.externref.insert (;13;) (type 9) (param externref) (result i32)
+  (func $js_sys.externref.insert (;14;) (type 10) (param externref) (result i32)
     (local i32)
     call $js_sys.externref.next
     local.tee 1
@@ -470,24 +475,24 @@
     table.set 0
     local.get 1
   )
-  (func $js_sys.externref.get (;14;) (type 10) (param i32) (result externref)
+  (func $js_sys.externref.get (;15;) (type 11) (param i32) (result externref)
     local.get 0
     table.get 0
   )
-  (func $js_sys.externref.remove (;15;) (type 4) (param i32)
+  (func $js_sys.externref.remove (;16;) (type 4) (param i32)
     local.get 0
     ref.null extern
     table.set 0
   )
-  (func $web_sys.console.log (;16;) (type 4) (param i32)
+  (func $web_sys.console.log (;17;) (type 4) (param i32)
     local.get 0
     call $js_sys.externref.get
     call $web_sys.import.console.log
   )
-  (func $web_sys.console.log0 (;17;) (type 2)
+  (func $web_sys.console.log0 (;18;) (type 2)
     call $web_sys.import.console.log0
   )
-  (func $web_sys.console.log2 (;18;) (type 11) (param i32 i32)
+  (func $web_sys.console.log2 (;19;) (type 12) (param i32 i32)
     local.get 0
     call $js_sys.externref.get
     local.get 1

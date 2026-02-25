@@ -2,25 +2,24 @@
 mod r#gen;
 
 use core::mem::MaybeUninit;
+use core::ptr;
 
 pub use self::r#gen::JsArray;
 use crate::JsValue;
 use crate::externref::ExternrefTable;
-use crate::util::PtrLength;
+use crate::hazard::Input;
+use crate::util::{ExternRef, PtrLength};
 
 impl<T> JsArray<T> {
 	#[must_use]
+	pub fn as_any(&self) -> &JsArray {
+		// SAFETY: Only changing the `PhantomData`.
+		unsafe { ptr::from_ref(self).cast::<JsArray>().as_ref().unwrap() }
+	}
+
+	#[must_use]
 	pub fn into_any(self) -> JsArray {
 		JsArray::unchecked_from(self.into())
-	}
-}
-
-impl<T, const N: usize> From<&[T; N]> for JsArray<T>
-where
-	Self: for<'a> From<&'a [T]>,
-{
-	fn from(value: &[T; N]) -> Self {
-		value.as_slice().into()
 	}
 }
 
@@ -29,7 +28,7 @@ impl JsArray {
 	pub fn as_array<const N: usize>(&self) -> Option<[JsValue; N]> {
 		js_bindgen::embed_js!(
 			module = "js_sys",
-			name = "array.js_value.decode",
+			name = "array.js_value.encode",
 			required_embeds = [("js_sys", "array.isLittleEndian")],
 			"(array, arrPtr, arrLen, refPtr, refLen) => {{",
 			"	if (array.length !== arrLen) return false",
@@ -85,9 +84,9 @@ impl JsArray {
 		);
 
 		let mut array: MaybeUninit<[JsValue; N]> = MaybeUninit::uninit();
-		let externref = ExternrefTable::current_into();
+		let externref = ExternrefTable::current_ptr();
 
-		let result = r#gen::array_js_value_decode(
+		let result = r#gen::array_js_value_encode(
 			self,
 			array.as_mut_ptr().cast(),
 			PtrLength::from_uninit_array(&array),
@@ -96,7 +95,7 @@ impl JsArray {
 		);
 
 		if result {
-			ExternrefTable::report_growth(N);
+			ExternrefTable::report_used_slots(N);
 			// SAFETY: Correctly initialized in JS.
 			Some(unsafe { array.assume_init() })
 		} else {
@@ -105,11 +104,20 @@ impl JsArray {
 	}
 }
 
+impl<T, const N: usize> From<&[T; N]> for JsArray<T>
+where
+	Self: for<'a> From<&'a [T]>,
+{
+	fn from(value: &[T; N]) -> Self {
+		value.as_slice().into()
+	}
+}
+
 impl From<&[JsValue]> for JsArray {
 	fn from(value: &[JsValue]) -> Self {
 		js_bindgen::embed_js!(
 			module = "js_sys",
-			name = "array.js_value.encode",
+			name = "array.js_value.decode",
 			required_embeds = [("js_sys", "array.isLittleEndian")],
 			"(ptr, len) => {{",
 			"	const array = new Array(len)",
@@ -131,7 +139,36 @@ impl From<&[JsValue]> for JsArray {
 			"}}",
 		);
 
-		r#gen::array_js_value_encode(value.as_ptr(), PtrLength::new(value))
+		r#gen::array_js_value_decode(value.as_ptr(), PtrLength::new(value))
+	}
+}
+
+// SAFETY: Implementation.
+unsafe impl Input for &[JsValue] {
+	const IMPORT_TYPE: &'static str = Self::Type::IMPORT_TYPE;
+	const TYPE: &'static str = Self::Type::TYPE;
+	const CONV: &'static str = Self::Type::CONV;
+	const JS_CONV_EMBED: (&'static str, &'static str) = ("js_sys", "array.rust.js_value");
+	const JS_CONV: Option<&'static str> = Some(" = this.#jsEmbed.js_sys['array.rust.js_value'](");
+	const JS_CONV_POST: Option<&'static str> = Some(")");
+
+	type Type = ExternRef<JsValue>;
+
+	fn into_raw(self) -> Self::Type {
+		js_bindgen::embed_js!(
+			module = "js_sys",
+			name = "array.rust.js_value",
+			required_embeds = [
+				("js_sys", "extern_ref"),
+				("js_sys", "array.js_value.decode")
+			],
+			"(dataPtr) => {{",
+			"	const {{ ptr, len }} = this.#jsEmbed.js_sys['extern_ref'](dataPtr)",
+			"	return this.#jsEmbed.js_sys['array.js_value.decode'](ptr, len)",
+			"}}",
+		);
+
+		ExternRef::new(self)
 	}
 }
 
@@ -140,7 +177,7 @@ impl JsArray<u32> {
 	pub fn as_array<const N: usize>(&self) -> Option<[u32; N]> {
 		js_bindgen::embed_js!(
 			module = "js_sys",
-			name = "array.u32.decode",
+			name = "array.u32.encode",
 			required_embeds = [("js_sys", "array.isLittleEndian")],
 			"(array, ptr, len) => {{",
 			"	if (array.length !== len) return false",
@@ -161,14 +198,13 @@ impl JsArray<u32> {
 
 		let mut array: MaybeUninit<[u32; N]> = MaybeUninit::uninit();
 
-		let result = r#gen::array_u32_decode(
+		let result = r#gen::array_u32_encode(
 			self,
 			array.as_mut_ptr().cast(),
 			PtrLength::from_uninit_array(&array),
 		);
 
 		if result {
-			ExternrefTable::report_growth(N);
 			// SAFETY: Correctly initialized in JS.
 			Some(unsafe { array.assume_init() })
 		} else {
@@ -181,7 +217,7 @@ impl From<&[u32]> for JsArray<u32> {
 	fn from(value: &[u32]) -> Self {
 		js_bindgen::embed_js!(
 			module = "js_sys",
-			name = "array.u32.encode",
+			name = "array.u32.decode",
 			required_embeds = [("js_sys", "array.isLittleEndian")],
 			"(ptr, len) => {{",
 			"	if (this.#jsEmbed.js_sys['array.isLittleEndian']) {{",
@@ -198,7 +234,33 @@ impl From<&[u32]> for JsArray<u32> {
 			"}}",
 		);
 
-		r#gen::array_u32_encode(value.as_ptr(), PtrLength::new(value))
+		r#gen::array_u32_decode(value.as_ptr(), PtrLength::new(value))
+	}
+}
+
+// SAFETY: Implementation.
+unsafe impl Input for &[u32] {
+	const IMPORT_TYPE: &'static str = Self::Type::IMPORT_TYPE;
+	const TYPE: &'static str = Self::Type::TYPE;
+	const CONV: &'static str = Self::Type::CONV;
+	const JS_CONV_EMBED: (&'static str, &'static str) = ("js_sys", "array.rust.u32");
+	const JS_CONV: Option<&'static str> = Some(" = this.#jsEmbed.js_sys['array.rust.u32'](");
+	const JS_CONV_POST: Option<&'static str> = Some(")");
+
+	type Type = ExternRef<u32>;
+
+	fn into_raw(self) -> Self::Type {
+		js_bindgen::embed_js!(
+			module = "js_sys",
+			name = "array.rust.u32",
+			required_embeds = [("js_sys", "extern_ref"), ("js_sys", "array.u32.decode")],
+			"(dataPtr) => {{",
+			"	const {{ ptr, len }} = this.#jsEmbed.js_sys['extern_ref'](dataPtr)",
+			"	return this.#jsEmbed.js_sys['array.u32.decode'](ptr, len)",
+			"}}",
+		);
+
+		ExternRef::new(self)
 	}
 }
 

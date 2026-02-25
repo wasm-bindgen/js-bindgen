@@ -26,24 +26,29 @@ pub(super) fn js_value_partial_eq(value1: &JsValue, value2: &JsValue) -> bool {
         module = "js_sys", name = "js_value_partial_eq", required_embeds = [("js_sys",
         "js_value.partial_eq"), (< & JsValue as Input > ::JS_CONV_EMBED.0, < & JsValue as
         Input > ::JS_CONV_EMBED.1), (< & JsValue as Input > ::JS_CONV_EMBED.0, < &
-        JsValue as Input > ::JS_CONV_EMBED.1)], "{}{}{}{}{}{}{}{}{}{}{}{}", interpolate
-        r#macro::select("this.#jsEmbed.js_sys['js_value.partial_eq']",
-        "(value1, value2) => {\n", & [< & JsValue as Input > ::JS_CONV, < & JsValue as
-        Input > ::JS_CONV]), interpolate r#macro::select("", "\tvalue1", & [< & JsValue
-        as Input > ::JS_CONV]), interpolate r#macro::select("", < & JsValue as Input >
-        ::JS_CONV, & [< & JsValue as Input > ::JS_CONV]), interpolate r#macro::select("",
-        "value1", & [< & JsValue as Input > ::JS_CONV_POST]), interpolate
-        r#macro::select("", < & JsValue as Input > ::JS_CONV_POST, & [< & JsValue as
-        Input > ::JS_CONV_POST]), interpolate r#macro::select("", "\n", & [< & JsValue as
-        Input > ::JS_CONV]), interpolate r#macro::select("", "\tvalue2", & [< & JsValue
-        as Input > ::JS_CONV]), interpolate r#macro::select("", < & JsValue as Input >
-        ::JS_CONV, & [< & JsValue as Input > ::JS_CONV]), interpolate r#macro::select("",
-        "value2", & [< & JsValue as Input > ::JS_CONV_POST]), interpolate
-        r#macro::select("", < & JsValue as Input > ::JS_CONV_POST, & [< & JsValue as
-        Input > ::JS_CONV_POST]), interpolate r#macro::select("", "\n", & [< & JsValue as
-        Input > ::JS_CONV]), interpolate r#macro::select("",
-        "\treturn this.#jsEmbed.js_sys['js_value.partial_eq'](value1, value2)\n}", & [< &
-        JsValue as Input > ::JS_CONV, < & JsValue as Input > ::JS_CONV]),
+        JsValue as Input > ::JS_CONV_EMBED.1), (< bool as Output > ::JS_CONV_EMBED.0, <
+        bool as Output > ::JS_CONV_EMBED.1)], "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}",
+        interpolate r#macro::select_any("", "(value1, value2) => {\n", & [< & JsValue as
+        Input > ::JS_CONV, < & JsValue as Input > ::JS_CONV, < bool as Output >
+        ::JS_CONV]), interpolate r#macro::select("", "\tvalue1", < & JsValue as Input >
+        ::JS_CONV), interpolate r#macro::or("", < & JsValue as Input > ::JS_CONV),
+        interpolate r#macro::select("", "value1", < & JsValue as Input > ::JS_CONV_POST),
+        interpolate r#macro::or("", < & JsValue as Input > ::JS_CONV_POST), interpolate
+        r#macro::select("", "\n", < & JsValue as Input > ::JS_CONV), interpolate
+        r#macro::select("", "\tvalue2", < & JsValue as Input > ::JS_CONV), interpolate
+        r#macro::or("", < & JsValue as Input > ::JS_CONV), interpolate
+        r#macro::select("", "value2", < & JsValue as Input > ::JS_CONV_POST), interpolate
+        r#macro::or("", < & JsValue as Input > ::JS_CONV_POST), interpolate
+        r#macro::select("", "\n", < & JsValue as Input > ::JS_CONV), interpolate
+        r#macro::select_any("", "\treturn ", & [< & JsValue as Input > ::JS_CONV, < &
+        JsValue as Input > ::JS_CONV, < bool as Output > ::JS_CONV]), interpolate
+        r#macro::or("", < bool as Output > ::JS_CONV), interpolate
+        r#macro::select_any("this.#jsEmbed.js_sys['js_value.partial_eq']",
+        "this.#jsEmbed.js_sys['js_value.partial_eq'](value1, value2)", & [< & JsValue as
+        Input > ::JS_CONV, < & JsValue as Input > ::JS_CONV, < bool as Output >
+        ::JS_CONV]), interpolate r#macro::or("", < bool as Output > ::JS_CONV_POST),
+        interpolate r#macro::select_any("", "\n}", & [< & JsValue as Input > ::JS_CONV, <
+        & JsValue as Input > ::JS_CONV, < bool as Output > ::JS_CONV]),
     }
     unsafe extern "C" {
         #[link_name = "js_sys.js_value_partial_eq"]

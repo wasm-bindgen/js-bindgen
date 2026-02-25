@@ -111,47 +111,43 @@ mod test {
 	use super::ConstInteger;
 
 	macro_rules! test_unsigned {
-		($($ty:ty),+) => {$(
-			paste! {
-				#[test]
-				fn [<max_ $ty>]() {
-					const MAX: ConstInteger<$ty> = ConstInteger($ty::MAX);
-					let output = MAX.__jbg_to_le_bytes::<{ MAX.__jbg_len() }>();
-					let output = str::from_utf8(&output).unwrap();
-					let expected = $ty::MAX.to_string();
+		($($ty:ty),+) => {$(paste! {
+			#[test]
+			fn [<max_ $ty>]() {
+				const MAX: ConstInteger<$ty> = ConstInteger($ty::MAX);
+				let output = MAX.__jbg_to_le_bytes::<{ MAX.__jbg_len() }>();
+				let output = str::from_utf8(&output).unwrap();
+				let expected = $ty::MAX.to_string();
 
-					assert_eq!(output, expected);
-				}
-
-				#[test]
-				fn [<min_ $ty>]() {
-					const MIN: ConstInteger<$ty> = ConstInteger($ty::MIN);
-					let output = MIN.__jbg_to_le_bytes::<{ MIN.__jbg_len() }>();
-					let output = str::from_utf8(&output).unwrap();
-					let expected = $ty::MIN.to_string();
-
-					assert_eq!(output, expected);
-				}
+				assert_eq!(output, expected);
 			}
-		)+};
+
+			#[test]
+			fn [<min_ $ty>]() {
+				const MIN: ConstInteger<$ty> = ConstInteger($ty::MIN);
+				let output = MIN.__jbg_to_le_bytes::<{ MIN.__jbg_len() }>();
+				let output = str::from_utf8(&output).unwrap();
+				let expected = $ty::MIN.to_string();
+
+				assert_eq!(output, expected);
+			}
+		})+};
 	}
 
 	macro_rules! test_signed {
-		($($ty:ty),+) => {$(
-			paste! {
-				test_unsigned!($ty);
+		($($ty:ty),+) => {$(paste! {
+			test_unsigned!($ty);
 
-				#[test]
-				fn [<null_ $ty>]() {
-					const NULL: ConstInteger<$ty> = ConstInteger(0);
-					let output = NULL.__jbg_to_le_bytes::<{ NULL.__jbg_len() }>();
-					let output = str::from_utf8(&output).unwrap();
-					let expected = 0.to_string();
+			#[test]
+			fn [<null_ $ty>]() {
+				const NULL: ConstInteger<$ty> = ConstInteger(0);
+				let output = NULL.__jbg_to_le_bytes::<{ NULL.__jbg_len() }>();
+				let output = str::from_utf8(&output).unwrap();
+				let expected = 0.to_string();
 
-					assert_eq!(output, expected);
-				}
+				assert_eq!(output, expected);
 			}
-		)+};
+		})+};
 	}
 
 	test_unsigned!(u8, u16, u32, u64, u128, usize);

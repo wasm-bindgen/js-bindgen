@@ -668,7 +668,7 @@ pub fn parse_string_arguments(
 		};
 
 		if let Some(named) = named {
-			named_arguments.insert(named.to_string(), kind);
+			named_arguments.insert(named.to_string(), (false, kind));
 		} else {
 			unnamed_arguments.push_back(kind);
 		}
@@ -753,13 +753,14 @@ pub fn parse_string_arguments(
 						}
 
 						let kind = if let Some(ident) = ident {
-							let Some(kind) = named_arguments.get(&ident) else {
+							let Some((used, kind)) = named_arguments.get_mut(&ident) else {
 								return Err(compile_error(
 									previous_span,
 									format!("expected an argument for `{{{ident}}}`"),
 								));
 							};
 
+							*used = true;
 							kind.to_owned()
 						} else if let Some(kind) = unnamed_arguments.pop_front() {
 							kind
@@ -812,14 +813,14 @@ pub fn parse_string_arguments(
 		});
 	}
 
-	if let Some(tok) = stream.next() {
-		Err(compile_error(
-			tok.span(),
-			"expected no tokens after string literals and formatting parameters",
-		))
-	} else {
-		Ok(())
+	if named_arguments.values().any(|(used, _)| !used) || !unnamed_arguments.is_empty() {
+		return Err(compile_error(
+			previous_span,
+			"expected no leftover arguments",
+		));
 	}
+
+	Ok(())
 }
 
 pub struct RequiredEmbed {

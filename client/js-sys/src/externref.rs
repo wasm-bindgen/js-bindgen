@@ -3,32 +3,6 @@ use core::cell::RefCell;
 
 use crate::panic::panic;
 
-macro_rules! thread_local {
-	($($vis:vis static $name:ident: $ty:ty = $value:expr;)*) => {
-		#[cfg_attr(target_feature = "atomics", thread_local)]
-		$($vis static $name: LocalKey<$ty> = LocalKey($value);)*
-	};
-}
-
-pub(crate) struct LocalKey<T>(T);
-
-// SAFETY: Multi-threading is not possible without `atomics`.
-#[cfg(not(target_feature = "atomics"))]
-unsafe impl<T> Send for LocalKey<T> {}
-
-// SAFETY: Multi-threading is not possible without `atomics`.
-#[cfg(not(target_feature = "atomics"))]
-unsafe impl<T> Sync for LocalKey<T> {}
-
-impl<T> LocalKey<T> {
-	pub(crate) fn with<F, R>(&self, f: F) -> R
-	where
-		F: FnOnce(&T) -> R,
-	{
-		f(&self.0)
-	}
-}
-
 js_bindgen::unsafe_embed_asm!(
 	".import_module js_sys.externref.table, js_sys",
 	".import_name js_sys.externref.table, externref.table",
@@ -96,12 +70,17 @@ unsafe extern "C" {
 }
 
 thread_local! {
-	pub(crate) static EXTERNREF_TABLE: RefCell<Slab> = RefCell::new(Slab::new());
+	pub(crate) static EXTERNREF_TABLE: RefCell<ExternrefTable> = RefCell::new(ExternrefTable::new());
 }
 
-pub(crate) struct Slab(Vec<i32>);
+pub(crate) struct ExternrefTable(Vec<i32>);
 
-impl Slab {
+pub(crate) struct ExternrefTablePtr {
+	pub(crate) ptr: *const i32,
+	pub(crate) len: i32,
+}
+
+impl ExternrefTable {
 	const fn new() -> Self {
 		Self(Vec::new())
 	}
@@ -125,31 +104,36 @@ impl Slab {
 		// SAFETY: Implementation is safe.
 		unsafe { remove(index) }
 	}
+
+	/// Export a pointer and length to the current list.
+	///
+	/// # Safety
+	///
+	/// Reading from that pointer and length is only valid as long as the list
+	/// is not modified.
+	pub(crate) fn current_ptr() -> ExternrefTablePtr {
+		EXTERNREF_TABLE.with(|table| {
+			let table = &table.try_borrow().unwrap().0;
+
+			ExternrefTablePtr {
+				ptr: table.as_ptr(),
+				len: table.len().try_into().unwrap(),
+			}
+		})
+	}
+
+	/// When using empty slots through [`ExternrefTableInfo`], we report back
+	/// how many we used.
+	pub(crate) fn report_used_slots(slots: usize) {
+		EXTERNREF_TABLE.with(|table| {
+			let mut table = table.try_borrow_mut().unwrap();
+			let new_len = table.0.len().saturating_sub(slots);
+			table.0.truncate(new_len);
+		});
+	}
 }
 
 #[unsafe(export_name = "js_sys.externref.next")]
 extern "C" fn next() -> i32 {
-	EXTERNREF_TABLE.with(|slab| slab.try_borrow_mut().unwrap().next())
-}
-
-pub(crate) struct ExternrefTable;
-
-impl ExternrefTable {
-	pub(crate) fn current_into() -> ExternrefTableInfo {
-		let slab = &EXTERNREF_TABLE.0.try_borrow().unwrap().0;
-
-		ExternrefTableInfo {
-			ptr: slab.as_ptr(),
-			len: slab.len().try_into().unwrap(),
-		}
-	}
-
-	pub(crate) fn report_growth(size: usize) {
-		EXTERNREF_TABLE.0.try_borrow_mut().unwrap().0.truncate(size);
-	}
-}
-
-pub(crate) struct ExternrefTableInfo {
-	pub(crate) ptr: *const i32,
-	pub(crate) len: i32,
+	EXTERNREF_TABLE.with(|table| table.try_borrow_mut().unwrap().next())
 }

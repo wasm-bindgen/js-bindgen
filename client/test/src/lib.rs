@@ -31,10 +31,10 @@ pub fn set_panic_hook() {
 	HOOK.call_once(|| {
 		panic::set_hook(Box::new(|info| {
 			let message = info.to_string();
-			set_message(&JsString::from_str(&message));
+			set_message(&JsString::from(message.as_str()));
 
 			if let Some(payload) = payload_as_str(info) {
-				set_payload(&JsString::from_str(payload));
+				set_payload(&JsString::from(payload));
 			}
 		}));
 	});

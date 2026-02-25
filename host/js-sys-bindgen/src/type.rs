@@ -24,18 +24,17 @@ impl Type {
 			..
 		} = item;
 
-		let js_value = hygiene.js_value(&attrs, span);
-		let input = hygiene.input(&attrs, span);
-		let output = hygiene.output(&attrs, span);
-		let deref = hygiene.deref(&attrs, span);
+		let mut item_attrs = attrs;
+		let mut cfgs: Vec<_> = item_attrs
+			.extract_if(.., |attr| attr.path().is_ident("cfg"))
+			.collect();
+
+		let js_value = hygiene.js_value(&cfgs, span);
+		let input = hygiene.input(&cfgs, span);
+		let output = hygiene.output(&cfgs, span);
+		let deref = hygiene.deref(&cfgs, span);
 		let str = hygiene.str(span);
 		let from = hygiene.from(span);
-
-		let mut item_attrs = attrs;
-		let attrs: Vec<_> = item_attrs
-			.iter()
-			.filter(|attr| attr.path().is_ident("cfg"))
-			.collect();
 
 		let (gen_impl, gen_type, gen_where) = generics.split_for_impl();
 
@@ -48,7 +47,7 @@ impl Type {
 				quote_spanned! {span=>Self(value)},
 			)
 		} else {
-			let phantom_data = hygiene.phantom_data(&item_attrs, span);
+			let phantom_data = hygiene.phantom_data(&cfgs, span);
 
 			(
 				Fields::Named(parse_quote_spanned! {span=>
@@ -76,7 +75,7 @@ impl Type {
 
 		let impls = [
 			parse_quote_spanned! {span=>
-				#(#attrs)*
+				#(#cfgs)*
 				impl #gen_impl #deref for #ident #gen_type #gen_where {
 					type Target = #js_value;
 
@@ -86,7 +85,7 @@ impl Type {
 				}
 			},
 			parse_quote_spanned! {span=>
-				#(#attrs)*
+				#(#cfgs)*
 				impl #gen_impl #from<#ident #gen_type> for #js_value #gen_where {
 					fn from(value: #ident #gen_type) -> Self {
 						value.#value
@@ -94,14 +93,12 @@ impl Type {
 				}
 			},
 			parse_quote_spanned! {span=>
-				#(#attrs)*
+				#(#cfgs)*
 				unsafe impl #gen_impl #input for &#ident #gen_type #gen_where {
 					const IMPORT_FUNC: &'static #str = <&#js_value as #input>::IMPORT_FUNC;
 					const IMPORT_TYPE: &'static #str = <&#js_value as #input>::IMPORT_TYPE;
 					const TYPE: &'static #str = <&#js_value as #input>::TYPE;
 					const CONV: &'static #str = <&#js_value as #input>::CONV;
-					const JS_CONV: &'static #str = <&#js_value as #input>::JS_CONV;
-					const JS_CONV_POST: &'static #str = <&#js_value as #input>::JS_CONV_POST;
 
 					type Type = <&'static #js_value as #input>::Type;
 
@@ -111,7 +108,7 @@ impl Type {
 				}
 			},
 			parse_quote_spanned! {span=>
-				#(#attrs)*
+				#(#cfgs)*
 				unsafe impl #gen_impl #output for #ident #gen_type #gen_where {
 					const IMPORT_FUNC: &#str = <#js_value as #output>::IMPORT_FUNC;
 					const IMPORT_TYPE: &#str = <#js_value as #output>::IMPORT_TYPE;
@@ -126,7 +123,7 @@ impl Type {
 				}
 			},
 			parse_quote_spanned! {span=>
-				#(#attrs)*
+				#(#cfgs)*
 				impl #gen_impl #ident #gen_type #gen_where {
 					#[must_use]
 					#vis fn unchecked_from(value: #js_value) -> Self {
@@ -136,6 +133,7 @@ impl Type {
 			},
 		];
 
+		item_attrs.append(&mut cfgs);
 		item_attrs.push(parse_quote_spanned! {span=>#[repr(transparent)]});
 
 		let r#struct = ItemStruct {

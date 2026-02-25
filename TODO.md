@@ -87,6 +87,9 @@
 - Add diagnostics for traits when they are not implemented, e.g. `Input`/`Output`.
 - Inline JS code is getting quite complex, consider moving to external TS file.
 - Introduce `cfg` flag to remove big-endian support.
+- Add `#[cfg(debug_assertions)]` checks to `Input`/`Output`. E.g. confirming that an output type is
+  really what it claims to be.
+- Wrap Rust types that don't map 1:1 to our own types. E.g. pointers, `Option` and so on.
 
 [Emscripten's]:
 	https://github.com/emscripten-core/emscripten/blob/28bcb86466a273859b8adb43cb167b97e05e145d/src/lib/libstrings.js

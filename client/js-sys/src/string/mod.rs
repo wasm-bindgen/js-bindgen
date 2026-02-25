@@ -1,26 +1,52 @@
 #[rustfmt::skip]
 mod r#gen;
-mod rust;
 
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::fmt::{self, Display, Formatter};
 
 pub use self::r#gen::JsString;
 use crate::JsValue;
-use crate::util::PtrLength;
+use crate::hazard::Input;
+use crate::util::{ExternRef, PtrLength};
 
 impl JsString {
 	#[must_use]
 	pub fn new(value: &JsValue) -> Self {
 		r#gen::string_constructor(value)
 	}
+}
 
-	#[expect(
-		clippy::should_implement_trait,
-		reason = "currently no stable way to unwrap `Infallible`"
-	)]
-	#[must_use]
-	pub fn from_str(string: &str) -> Self {
+impl Display for JsString {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", String::from(self))
+	}
+}
+
+impl PartialEq<&str> for JsString {
+	fn eq(&self, other: &&str) -> bool {
+		js_bindgen::embed_js!(
+			module = "js_sys",
+			name = "string.eq",
+			required_embeds = [("js_sys", "string.decode")],
+			"(string, ptr, len) => {{",
+			"	const other = this.#jsEmbed.js_sys['string.decode'](ptr, len)",
+			"	return string === other",
+			"}}",
+		);
+
+		r#gen::string_eq(self, other.as_ptr(), PtrLength::new(other.as_bytes()))
+	}
+}
+
+impl PartialEq<String> for JsString {
+	fn eq(&self, other: &String) -> bool {
+		self.eq(&other.as_str())
+	}
+}
+
+impl From<&str> for JsString {
+	fn from(value: &str) -> Self {
 		js_bindgen::embed_js!(
 			module = "js_sys",
 			name = "string.decode",
@@ -38,7 +64,7 @@ impl JsString {
 			"}}",
 		);
 
-		r#gen::string_decode(string.as_ptr(), PtrLength::new(string.as_bytes()))
+		r#gen::string_decode(value.as_ptr(), PtrLength::new(value.as_bytes()))
 	}
 }
 
@@ -83,5 +109,31 @@ impl From<&JsString> for String {
 			vec.set_len(len);
 			Self::from_utf8_unchecked(vec)
 		}
+	}
+}
+
+// SAFETY: Implementation.
+unsafe impl Input for &str {
+	const IMPORT_TYPE: &'static str = Self::Type::IMPORT_TYPE;
+	const TYPE: &'static str = Self::Type::TYPE;
+	const CONV: &'static str = Self::Type::CONV;
+	const JS_CONV_EMBED: (&'static str, &'static str) = ("js_sys", "string.rust.decode");
+	const JS_CONV: Option<&'static str> = Some(" = this.#jsEmbed.js_sys['string.rust.decode'](");
+	const JS_CONV_POST: Option<&'static str> = Some(")");
+
+	type Type = ExternRef<u8>;
+
+	fn into_raw(self) -> Self::Type {
+		js_bindgen::embed_js!(
+			module = "js_sys",
+			name = "string.rust.decode",
+			required_embeds = [("js_sys", "extern_ref"), ("js_sys", "string.decode")],
+			"(dataPtr) => {{",
+			"	const {{ ptr, len }} = this.#jsEmbed.js_sys['extern_ref'](dataPtr)",
+			"	return this.#jsEmbed.js_sys['string.decode'](ptr, len)",
+			"}}",
+		);
+
+		ExternRef::new(self.as_bytes())
 	}
 }

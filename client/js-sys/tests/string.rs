@@ -13,7 +13,7 @@ js_bindgen::embed_js!(module = "string", name = "test", "(value) => value");
 #[test]
 fn rust_string() {
 	const TEST: &str = "Hello, World!";
-	console::log(&JsString::from_str(&(TEST.as_ptr().addr()).to_string()));
+	console::log(&JsString::from(TEST.as_ptr().addr().to_string().as_str()));
 	let string = test(TEST);
 	assert_eq!(String::from(&string), "Hello, World!");
 }

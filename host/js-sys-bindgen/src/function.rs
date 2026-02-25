@@ -474,6 +474,7 @@ impl<'a, 'h> State<'a, 'h> {
 			hygiene,
 			js_bindgen,
 			input,
+			output,
 			import_name,
 			outer_attrs,
 			input_tys,
@@ -519,6 +520,11 @@ impl<'a, 'h> State<'a, 'h> {
 				(<#ty as #input>::JS_CONV_EMBED.0, <#ty as #input>::JS_CONV_EMBED.1)
 			}
 		}))
+		.chain(output_ty.iter().map(|ty| {
+			quote_spanned! {*span=>
+				(<#ty as #output>::JS_CONV_EMBED.0, <#ty as #output>::JS_CONV_EMBED.1)
+			}
+		}))
 		.collect();
 		let required_embeds = if required_embeds.is_empty() {
 			[].as_slice()
@@ -526,7 +532,7 @@ impl<'a, 'h> State<'a, 'h> {
 			&[quote_spanned!(*span=> required_embeds = [#(#required_embeds),*])]
 		};
 
-		if input_tys.is_empty() {
+		if input_tys.is_empty() && output_ty.is_empty() {
 			return Some(parse_quote_spanned! {*span=>
 				#js_bindgen::import_js!(
 					module = #crate_,
@@ -537,9 +543,24 @@ impl<'a, 'h> State<'a, 'h> {
 			});
 		}
 
+		let js_call_pre = if let Some(member) = r#type.member()
+			&& let MemberType::Setter = member.r#type
+		{
+			format!("{js_path} = ")
+		} else {
+			String::new()
+		};
 		let placeholder: String = iter::once("{}")
 			.chain(iter::repeat_n("{}{}{}{}{}", input_tys.len()))
-			.chain(iter::once("{}"))
+			.chain(iter::once(if output_ty.is_empty() { "" } else { "{}" }))
+			.chain(iter::once(js_call_pre.as_str()))
+			.chain(iter::once(if output_ty.is_empty() {
+				"{}"
+			} else if input_tys.is_empty() {
+				"{}{}{}"
+			} else {
+				"{}{}{}{}"
+			}))
 			.collect();
 
 		let input_names_joined = intern_input_names.iter().join(", ");
@@ -548,34 +569,66 @@ impl<'a, 'h> State<'a, 'h> {
 		} else {
 			Cow::Borrowed(&input_names_joined)
 		};
-		let js_arrow_open = format!("({input_names_joined}) => {{\n",);
 		let input_conv = intern_input_names.iter().map(|arg| format!("\t{arg}"));
 		let input_conv_post = intern_input_names.iter().map(ToString::to_string);
-		let ret_call = if output_ty.is_empty() { "" } else { "return " };
+		let r#macro = hygiene.r#macro(outer_attrs, *span);
+
+		let direct_fn_open = if r#type.member().is_none() {
+			String::new()
+		} else {
+			format!("({input_names_joined}) => ")
+		};
+		let mut indirect_fn_open = format!("({input_names_joined}) => {{\n");
 		let direct_js_call = if let Some(member) = r#type.member() {
 			match member.r#type {
-				MemberType::Method => Cow::Owned(format!(
-					"({input_names_joined}) => {js_path}({call_input_names_joined})"
-				)),
-				MemberType::Getter => Cow::Owned(format!("({input_names_joined}) => {js_path}")),
-				MemberType::Setter => Cow::Owned(format!(
-					"({input_names_joined}) => {js_path} = {call_input_names_joined}"
-				)),
+				MemberType::Method => Cow::Owned(format!("{js_path}({call_input_names_joined})")),
+				MemberType::Getter => Cow::Borrowed(&js_path),
+				MemberType::Setter => Cow::Owned(format!("{call_input_names_joined}")),
 			}
 		} else {
 			Cow::Borrowed(&js_path)
 		};
-		let indirect_js_call = if let Some(member) = r#type.member() {
-			match member.r#type {
-				MemberType::Method => Cow::Owned(format!("{js_path}({call_input_names_joined})")),
-				MemberType::Getter => Cow::Borrowed(&js_path),
-				MemberType::Setter => Cow::Owned(format!("{js_path} = {call_input_names_joined}")),
-			}
+		let indirect_js_call = if r#type.member().is_some() {
+			Cow::Borrowed(direct_js_call.as_str())
 		} else {
 			Cow::Owned(format!("{js_path}({input_names_joined})"))
 		};
-		let js_arrow_close = format!("\t{ret_call}{indirect_js_call}\n}}");
-		let r#macro = hygiene.r#macro(outer_attrs, *span);
+		let mut first_output = if output_ty.is_empty() {
+			Cow::Borrowed(indirect_js_call.deref())
+		} else {
+			Cow::Borrowed("\treturn ")
+		};
+
+		let direct_condition = quote_spanned! {*span=>
+			&[#(<#input_tys as #input>::JS_CONV,)*#(<#output_ty as #output>::JS_CONV)*]
+		};
+
+		let output = if output_ty.is_empty() {
+			first_output.to_mut().push_str("\n}");
+
+			quote_spanned! {*span=>
+				interpolate #r#macro::select_any(#direct_js_call, #first_output, #direct_condition),
+			}
+		} else {
+			let mut start = TokenStream::new();
+
+			if input_tys.is_empty() {
+				indirect_fn_open.push_str(&first_output);
+			} else {
+				quote_spanned! {*span=>
+					interpolate #r#macro::select_any("", #first_output, #direct_condition),
+				}
+				.to_tokens(&mut start);
+			}
+
+			quote_spanned! {*span=>
+				#start
+				interpolate #r#macro::or("", #(<#output_ty as #output>::JS_CONV)*),
+				interpolate #r#macro::select_any(#direct_js_call, #indirect_js_call, #direct_condition),
+				interpolate #r#macro::or("", #(<#output_ty as #output>::JS_CONV_POST)*),
+				interpolate #r#macro::select_any("", "\n}", #direct_condition),
+			}
+		};
 
 		Some(parse_quote_spanned! {*span=>
 			#js_bindgen::import_js! {
@@ -583,15 +636,15 @@ impl<'a, 'h> State<'a, 'h> {
 				name = #import_name,
 				#(#required_embeds,)*
 				#placeholder,
-				interpolate #r#macro::select(#direct_js_call, #js_arrow_open, &[#(<#input_tys as #input>::JS_CONV),*]),
+				interpolate #r#macro::select_any(#direct_fn_open, #indirect_fn_open, #direct_condition),
 				#(
-					interpolate #r#macro::select("", #input_conv, &[<#input_tys as #input>::JS_CONV]),
-					interpolate #r#macro::select("", <#input_tys as #input>::JS_CONV, &[<#input_tys as #input>::JS_CONV]),
-					interpolate #r#macro::select("", #input_conv_post, &[<#input_tys as #input>::JS_CONV_POST]),
-					interpolate #r#macro::select("", <#input_tys as #input>::JS_CONV_POST, &[<#input_tys as #input>::JS_CONV_POST]),
-					interpolate #r#macro::select("", "\n", &[<#input_tys as #input>::JS_CONV]),
+					interpolate #r#macro::select("", #input_conv, <#input_tys as #input>::JS_CONV),
+					interpolate #r#macro::or("", <#input_tys as #input>::JS_CONV),
+					interpolate #r#macro::select("", #input_conv_post, <#input_tys as #input>::JS_CONV_POST),
+					interpolate #r#macro::or("", <#input_tys as #input>::JS_CONV_POST),
+					interpolate #r#macro::select("", "\n", <#input_tys as #input>::JS_CONV),
 				)*
-				interpolate #r#macro::select("", #js_arrow_close, &[#(<#input_tys as #input>::JS_CONV),*]),
+				#output
 			}
 		})
 	}

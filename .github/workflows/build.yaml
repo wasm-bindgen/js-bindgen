@@ -46,6 +46,6 @@ jobs:
         if: runner.os == 'macOS'
         run: npm install -g typescript
       - name: Build Crates
-        run: cargo build --workspace
+        run: cargo build --workspace --all-features
       - name: Build Examples
-        run: cargo build --examples
+        run: cargo build --examples --all-features

@@ -24,13 +24,19 @@ fn basic() {
 				}
 			}
 
-			unsafe impl Input for &Test {
-				const IMPORT_FUNC: &'static str = <JsValue as Input>::IMPORT_FUNC;
-				const IMPORT_TYPE: &'static str = <JsValue as Input>::IMPORT_TYPE;
-				const TYPE: &'static str = <JsValue as Input>::TYPE;
-				const CONV: &'static str = <JsValue as Input>::CONV;
+			impl From<Test> for JsValue {
+				fn from(value: Test) -> Self {
+					value.0
+				}
+			}
 
-				type Type = <JsValue as Input>::Type;
+			unsafe impl Input for &Test {
+				const IMPORT_FUNC: &'static str = <&JsValue as Input>::IMPORT_FUNC;
+				const IMPORT_TYPE: &'static str = <&JsValue as Input>::IMPORT_TYPE;
+				const TYPE: &'static str = <&JsValue as Input>::TYPE;
+				const CONV: &'static str = <&JsValue as Input>::CONV;
+
+				type Type = <&'static JsValue as Input>::Type;
 
 				fn into_raw(self) -> Self::Type {
 					Input::into_raw(&self.0)
@@ -47,6 +53,13 @@ fn basic() {
 
 				fn from_raw(raw: Self::Type) -> Self {
 					Self(Output::from_raw(raw))
+				}
+			}
+
+			impl Test {
+				#[must_use]
+				fn unchecked_from(value: JsValue) -> Self {
+					Self(value)
 				}
 			}
 		},

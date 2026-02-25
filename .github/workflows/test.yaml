@@ -43,7 +43,7 @@ jobs:
           # Rustc v1.93
           llvm-version: 21
       - name: Run Tests
-        run: cargo test --no-fail-fast
+        run: cargo test --all-features --no-fail-fast
 
   client:
     name: Test Client ${{ matrix.os.description }}
@@ -78,4 +78,4 @@ jobs:
         if: runner.os == 'macOS'
         run: npm install -g typescript
       - name: Run Tests
-        run: cargo test --workspace --no-fail-fast
+        run: cargo test --workspace --all-features --no-fail-fast

@@ -4,15 +4,18 @@
 
 extern crate alloc;
 
+#[macro_use]
+mod util;
 mod array;
+mod bigint;
 mod externref;
 pub mod hazard;
 #[doc(hidden)]
 pub mod r#macro;
+mod number;
 mod numeric;
 mod panic;
 mod string;
-mod util;
 mod value;
 
 pub use js_bindgen;
@@ -20,6 +23,8 @@ pub use js_bindgen;
 pub use js_sys_macro::js_sys;
 
 pub use crate::array::JsArray;
+pub use crate::bigint::JsBigInt;
+pub use crate::number::JsNumber;
 pub use crate::panic::{UnwrapThrowExt, panic};
 pub use crate::string::JsString;
 pub use crate::value::JsValue;

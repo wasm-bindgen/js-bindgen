@@ -8,8 +8,8 @@ pub unsafe trait Input {
 	const TYPE: &str;
 	const CONV: &str = "";
 	const JS_CONV_EMBED: (&str, &str) = ("", "");
-	const JS_CONV: &str = "";
-	const JS_CONV_POST: &str = "";
+	const JS_CONV: Option<&str> = None;
+	const JS_CONV_POST: Option<&str> = None;
 
 	type Type;
 
@@ -25,6 +25,9 @@ pub unsafe trait Output {
 	const IMPORT_TYPE: &str;
 	const TYPE: &str;
 	const CONV: &str = "";
+	const JS_CONV_EMBED: (&str, &str) = ("", "");
+	const JS_CONV: Option<&str> = None;
+	const JS_CONV_POST: Option<&str> = None;
 
 	type Type;
 

@@ -6,6 +6,7 @@ use core::marker::PhantomData;
 use crate::externref::EXTERNREF_TABLE;
 use crate::hazard::{Input, Output};
 
+#[derive(Debug)]
 #[repr(transparent)]
 pub struct JsValue {
 	index: i32,

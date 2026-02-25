@@ -47,8 +47,6 @@ fn basic() {
 				const IMPORT_TYPE: &'static str = <&JsValue as Input>::IMPORT_TYPE;
 				const TYPE: &'static str = <&JsValue as Input>::TYPE;
 				const CONV: &'static str = <&JsValue as Input>::CONV;
-				const JS_CONV: &'static str = <&JsValue as Input>::JS_CONV;
-				const JS_CONV_POST: &'static str = <&JsValue as Input>::JS_CONV_POST;
 
 				type Type = <&'static JsValue as Input>::Type;
 
@@ -128,8 +126,6 @@ fn generic() {
 				const IMPORT_TYPE: &'static str = <&JsValue as Input>::IMPORT_TYPE;
 				const TYPE: &'static str = <&JsValue as Input>::TYPE;
 				const CONV: &'static str = <&JsValue as Input>::CONV;
-				const JS_CONV: &'static str = <&JsValue as Input>::JS_CONV;
-				const JS_CONV_POST: &'static str = <&JsValue as Input>::JS_CONV_POST;
 
 				type Type = <&'static JsValue as Input>::Type;
 
