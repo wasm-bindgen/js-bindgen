@@ -122,8 +122,8 @@ impl ExternrefTable {
 		})
 	}
 
-	/// When using empty slots through [`ExternrefTableInfo`], we report back
-	/// how many we used.
+	/// When using empty slots through [`ExternrefTablePtr`], we report back how
+	/// many we used.
 	pub(crate) fn report_used_slots(slots: usize) {
 		EXTERNREF_TABLE.with(|table| {
 			let mut table = table.try_borrow_mut().unwrap();

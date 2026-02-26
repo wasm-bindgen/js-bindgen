@@ -37,13 +37,9 @@ fn method() {
 						module = "test_crate",
 						name = "test",
 						required_embeds = [(<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)],
-						"{}{}{}{}{}{}{}",
+						"{}{}{}",
 						interpolate ::js_sys::r#macro::select_any("(self) => ", "(self) => {\n", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
-						interpolate ::js_sys::r#macro::select("", "\tself", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate ::js_sys::r#macro::or("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate ::js_sys::r#macro::select("", "self", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST),
-						interpolate ::js_sys::r#macro::or("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST),
-						interpolate ::js_sys::r#macro::select("", "\n", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV),
+						interpolate ::js_sys::r#macro::parameter!("self", &::js_sys::JsValue),
 						interpolate ::js_sys::r#macro::select_any("self.test()", "self.test()\n}", &[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
 					}
 
@@ -131,8 +127,8 @@ fn method_par() {
 							(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1),
 							(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)
 						],
-						"{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}",
-						interpolate::js_sys::r#macro::select_any(
+						"{}{}{}{}{}",
+						interpolate ::js_sys::r#macro::select_any(
 							"(self, par1, par2) => ", "(self, par1, par2) => {\n",
 							&[
 								<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV,
@@ -140,22 +136,10 @@ fn method_par() {
 								<&JsValue as ::js_sys::hazard::Input>::JS_CONV,
 							]
 						),
-						interpolate::js_sys::r#macro::select("", "\tself", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::or("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::select("", "self", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST),
-						interpolate::js_sys::r#macro::or("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST),
-						interpolate::js_sys::r#macro::select("", "\n", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::select("", "\tpar1", <&JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::or("", <&JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::select("", "par1", <&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST),
-						interpolate::js_sys::r#macro::or("", <&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST),
-						interpolate::js_sys::r#macro::select("", "\n", <&JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::select("", "\tpar2", <&JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::or("", <&JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::select("", "par2", <&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST),
-						interpolate::js_sys::r#macro::or("", <&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST),
-						interpolate::js_sys::r#macro::select("", "\n", <&JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::select_any(
+						interpolate ::js_sys::r#macro::parameter!("self", &::js_sys::JsValue),
+						interpolate ::js_sys::r#macro::parameter!("par1", &JsValue),
+						interpolate ::js_sys::r#macro::parameter!("par2", &JsValue),
+						interpolate ::js_sys::r#macro::select_any(
 							"self.test(par1, par2)", "self.test(par1, par2)\n}",
 							&[
 								<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV,
@@ -256,29 +240,13 @@ fn getter() {
 							(<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1),
 							(<JsValue as ::js_sys::hazard::Output>::JS_CONV_EMBED.0, <JsValue as ::js_sys::hazard::Output>::JS_CONV_EMBED.1)
 						],
-						"{}{}{}{}{}{}{}{}{}{}{}",
-						interpolate::js_sys::r#macro::select_any(
+						"{}{}{}",
+						interpolate ::js_sys::r#macro::select_any(
 							"(self) => ", "(self) => {\n",
 							&[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV, <JsValue as ::js_sys::hazard::Output>::JS_CONV]
 						),
-						interpolate::js_sys::r#macro::select("", "\tself", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::or("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::select("", "self", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST),
-						interpolate::js_sys::r#macro::or("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST),
-						interpolate::js_sys::r#macro::select("", "\n", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::select_any(
-							"", "\treturn ",
-							&[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV, <JsValue as ::js_sys::hazard::Output>::JS_CONV]
-						),
-						interpolate::js_sys::r#macro::or("", <JsValue as ::js_sys::hazard::Output>::JS_CONV),
-						interpolate::js_sys::r#macro::select_any(
-							"self.test", "self.test",
-							&[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV, <JsValue as ::js_sys::hazard::Output>::JS_CONV]),
-						interpolate::js_sys::r#macro::or("", <JsValue as ::js_sys::hazard::Output>::JS_CONV_POST),
-						interpolate::js_sys::r#macro::select_any(
-							"", "\n}",
-							&[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV, <JsValue as ::js_sys::hazard::Output>::JS_CONV]
-						),
+						interpolate ::js_sys::r#macro::parameter!("self", &::js_sys::JsValue),
+						interpolate ::js_sys::r#macro::output!("\treturn ", "self.test", "self.test", JsValue, &::js_sys::JsValue),
 					}
 
 					unsafe extern "C" {
@@ -364,22 +332,14 @@ fn setter() {
 							(<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1),
 							(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)
 						],
-						"{}{}{}{}{}{}{}{}{}{}{}self.test = {}",
-						interpolate::js_sys::r#macro::select_any(
+						"{}{}{}self.test = {}",
+						interpolate ::js_sys::r#macro::select_any(
 							"(self, value) => ", "(self, value) => {\n",
 							&[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV, <&JsValue as ::js_sys::hazard::Input>::JS_CONV,]
 						),
-						interpolate::js_sys::r#macro::select("", "\tself", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::or("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::select("", "self", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST),
-						interpolate::js_sys::r#macro::or("", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV_POST),
-						interpolate::js_sys::r#macro::select("", "\n", <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::select("", "\tvalue", <&JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::or("", <&JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::select("", "value", <&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST),
-						interpolate::js_sys::r#macro::or("", <&JsValue as ::js_sys::hazard::Input>::JS_CONV_POST),
-						interpolate::js_sys::r#macro::select("", "\n", <&JsValue as ::js_sys::hazard::Input>::JS_CONV),
-						interpolate::js_sys::r#macro::select_any(
+						interpolate ::js_sys::r#macro::parameter!("self", &::js_sys::JsValue),
+						interpolate ::js_sys::r#macro::parameter!("value", &JsValue),
+						interpolate ::js_sys::r#macro::select_any(
 							"value", "value\n}",
 							&[<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV, <&JsValue as ::js_sys::hazard::Input>::JS_CONV,]
 						),

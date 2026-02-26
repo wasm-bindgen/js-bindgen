@@ -546,20 +546,16 @@ impl<'a, 'h> State<'a, 'h> {
 		let js_call_pre = if let Some(member) = r#type.member()
 			&& let MemberType::Setter = member.r#type
 		{
-			format!("{js_path} = ")
+			&format!("{js_path} = {{}}")
 		} else {
-			String::new()
+			"{}"
 		};
 		let placeholder: String = iter::once("{}")
-			.chain(iter::repeat_n("{}{}{}{}{}", input_tys.len()))
-			.chain(iter::once(if output_ty.is_empty() { "" } else { "{}" }))
-			.chain(iter::once(js_call_pre.as_str()))
+			.chain(iter::repeat_n("{}", input_tys.len()))
 			.chain(iter::once(if output_ty.is_empty() {
-				"{}"
-			} else if input_tys.is_empty() {
-				"{}{}{}"
+				js_call_pre
 			} else {
-				"{}{}{}{}"
+				"{}"
 			}))
 			.collect();
 
@@ -569,8 +565,7 @@ impl<'a, 'h> State<'a, 'h> {
 		} else {
 			Cow::Borrowed(&input_names_joined)
 		};
-		let input_conv = intern_input_names.iter().map(|arg| format!("\t{arg}"));
-		let input_conv_post = intern_input_names.iter().map(ToString::to_string);
+		let input_conv = intern_input_names.iter().map(ToString::to_string);
 		let r#macro = hygiene.r#macro(outer_attrs, *span);
 
 		let direct_fn_open = if r#type.member().is_none() {
@@ -610,23 +605,16 @@ impl<'a, 'h> State<'a, 'h> {
 				interpolate #r#macro::select_any(#direct_js_call, #first_output, #direct_condition),
 			}
 		} else {
-			let mut start = TokenStream::new();
+			let mut start = Cow::Borrowed("");
 
 			if input_tys.is_empty() {
 				indirect_fn_open.push_str(&first_output);
 			} else {
-				quote_spanned! {*span=>
-					interpolate #r#macro::select_any("", #first_output, #direct_condition),
-				}
-				.to_tokens(&mut start);
+				start = first_output;
 			}
 
 			quote_spanned! {*span=>
-				#start
-				interpolate #r#macro::or("", #(<#output_ty as #output>::JS_CONV)*),
-				interpolate #r#macro::select_any(#direct_js_call, #indirect_js_call, #direct_condition),
-				interpolate #r#macro::or("", #(<#output_ty as #output>::JS_CONV_POST)*),
-				interpolate #r#macro::select_any("", "\n}", #direct_condition),
+				interpolate #r#macro::output!(#start, #direct_js_call, #indirect_js_call, #(#output_ty,)*#(#input_tys),*),
 			}
 		};
 
@@ -637,13 +625,7 @@ impl<'a, 'h> State<'a, 'h> {
 				#(#required_embeds,)*
 				#placeholder,
 				interpolate #r#macro::select_any(#direct_fn_open, #indirect_fn_open, #direct_condition),
-				#(
-					interpolate #r#macro::select("", #input_conv, <#input_tys as #input>::JS_CONV),
-					interpolate #r#macro::or("", <#input_tys as #input>::JS_CONV),
-					interpolate #r#macro::select("", #input_conv_post, <#input_tys as #input>::JS_CONV_POST),
-					interpolate #r#macro::or("", <#input_tys as #input>::JS_CONV_POST),
-					interpolate #r#macro::select("", "\n", <#input_tys as #input>::JS_CONV),
-				)*
+				#(interpolate #r#macro::parameter!(#input_conv, #input_tys),)*
 				#output
 			}
 		})
