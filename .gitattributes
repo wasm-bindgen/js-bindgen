@@ -1,8 +1,8 @@
 # See https://github.com/oli-obk/ui_test/issues/177.
 * text=auto eol=lf
 
-/client/**/*.gen.rs     linguist-generated=true
-/host/**/*.mjs          linguist-generated=true
+/client/**/*.gen.rs     linguist-generated
+/host/**/*.mjs          linguist-generated
 
 *.stderr                linguist-documentation
 /client/examples/*.wat  linguist-documentation
