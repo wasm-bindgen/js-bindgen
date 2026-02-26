@@ -245,7 +245,7 @@ impl State<'_> {
 	}
 
 	fn output(&mut self, entry: &Path, relative_entry: &Path, output: &str) -> Result<bool> {
-		let output_file = entry.with_extension("").with_extension("rs");
+		let output_file = entry.with_extension("").with_extension("gen.rs");
 		let relative_output_file = output_file.strip_prefix(self.base).unwrap_or(&output_file);
 		let exists = output_file.exists();
 

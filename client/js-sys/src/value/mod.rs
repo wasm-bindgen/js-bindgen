@@ -1,5 +1,6 @@
 #[rustfmt::skip]
-mod r#gen;
+#[path ="value.gen.rs"]
+mod value;
 
 use core::marker::PhantomData;
 
@@ -69,6 +70,6 @@ impl PartialEq for JsValue {
 			"(value1, value2) => value1 === value2",
 		);
 
-		r#gen::js_value_partial_eq(self, other)
+		value::js_value_partial_eq(self, other)
 	}
 }

@@ -1,4 +1,5 @@
 #[rustfmt::skip]
-mod r#gen;
+#[path ="number.gen.rs"]
+mod number;
 
-pub use self::r#gen::JsNumber;
+pub use self::number::JsNumber;

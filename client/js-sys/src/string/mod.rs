@@ -1,11 +1,12 @@
 #[rustfmt::skip]
-mod r#gen;
+#[path ="string.gen.rs"]
+mod string;
 
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::{self, Display, Formatter};
 
-pub use self::r#gen::JsString;
+pub use self::string::JsString;
 use crate::JsValue;
 use crate::hazard::Input;
 use crate::util::{ExternRef, PtrLength};
@@ -13,7 +14,7 @@ use crate::util::{ExternRef, PtrLength};
 impl JsString {
 	#[must_use]
 	pub fn new(value: &JsValue) -> Self {
-		r#gen::string_constructor(value)
+		string::string_constructor(value)
 	}
 }
 
@@ -35,7 +36,7 @@ impl PartialEq<&str> for JsString {
 			"}}",
 		);
 
-		r#gen::string_eq(self, other.as_ptr(), PtrLength::new(other.as_bytes()))
+		string::string_eq(self, other.as_ptr(), PtrLength::new(other.as_bytes()))
 	}
 }
 
@@ -64,7 +65,7 @@ impl From<&str> for JsString {
 			"}}",
 		);
 
-		r#gen::string_decode(value.as_ptr(), PtrLength::new(value.as_bytes()))
+		string::string_decode(value.as_ptr(), PtrLength::new(value.as_bytes()))
 	}
 }
 
@@ -85,7 +86,7 @@ impl From<&JsString> for String {
 			"}}",
 		);
 
-		let len = r#gen::string_utf8_length(value);
+		let len = string::string_utf8_length(value);
 		debug_assert!(
 			len < 9_007_199_254_740_992.,
 			"found pointer + length bigger than `Number.MAX_SAFE_INTEGER`"
@@ -98,7 +99,7 @@ impl From<&JsString> for String {
 		let len = len as usize;
 
 		let mut vec = Vec::with_capacity(len);
-		r#gen::string_encode(
+		string::string_encode(
 			value,
 			vec.as_mut_ptr(),
 			PtrLength::from_uninit_slice(vec.spare_capacity_mut()),

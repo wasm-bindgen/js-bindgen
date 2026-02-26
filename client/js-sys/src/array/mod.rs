@@ -1,10 +1,11 @@
 #[rustfmt::skip]
-mod r#gen;
+#[path ="array.gen.rs"]
+mod array;
 
 use core::mem::MaybeUninit;
 use core::ptr;
 
-pub use self::r#gen::JsArray;
+pub use self::array::JsArray;
 use crate::JsValue;
 use crate::externref::ExternrefTable;
 use crate::hazard::Input;
@@ -86,7 +87,7 @@ impl JsArray {
 		let mut array: MaybeUninit<[JsValue; N]> = MaybeUninit::uninit();
 		let externref = ExternrefTable::current_ptr();
 
-		let result = r#gen::array_js_value_encode(
+		let result = array::array_js_value_encode(
 			self,
 			array.as_mut_ptr().cast(),
 			PtrLength::from_uninit_array(&array),
@@ -139,7 +140,7 @@ impl From<&[JsValue]> for JsArray {
 			"}}",
 		);
 
-		r#gen::array_js_value_decode(value.as_ptr(), PtrLength::new(value))
+		array::array_js_value_decode(value.as_ptr(), PtrLength::new(value))
 	}
 }
 
@@ -198,7 +199,7 @@ impl JsArray<u32> {
 
 		let mut array: MaybeUninit<[u32; N]> = MaybeUninit::uninit();
 
-		let result = r#gen::array_u32_encode(
+		let result = array::array_u32_encode(
 			self,
 			array.as_mut_ptr().cast(),
 			PtrLength::from_uninit_array(&array),
@@ -234,7 +235,7 @@ impl From<&[u32]> for JsArray<u32> {
 			"}}",
 		);
 
-		r#gen::array_u32_decode(value.as_ptr(), PtrLength::new(value))
+		array::array_u32_decode(value.as_ptr(), PtrLength::new(value))
 	}
 }
 

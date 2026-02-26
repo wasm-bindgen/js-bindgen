@@ -1,4 +1,5 @@
 #[rustfmt::skip]
-mod r#gen;
+#[path ="bigint.gen.rs"]
+mod bigint;
 
-pub use self::r#gen::JsBigInt;
+pub use self::bigint::JsBigInt;
