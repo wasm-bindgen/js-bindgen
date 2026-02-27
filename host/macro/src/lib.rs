@@ -6,7 +6,7 @@ mod util;
 
 use std::iter::Peekable;
 
-use proc_macro::{Span, TokenStream, TokenTree, token_stream};
+use proc_macro::{Literal, Punct, Spacing, Span, TokenStream, TokenTree, token_stream};
 #[cfg(test)]
 use proc_macro2 as proc_macro;
 use util::*;
@@ -107,9 +107,22 @@ fn parse_required_embeds(
 		data.push(Argument::bytes(names));
 
 		for embed in embeds {
+			let (module, name) = match embed {
+				RequiredEmbed::Tuple { module, name } => (module, name),
+				RequiredEmbed::Value(mut value) => {
+					value.push(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
+					let mut module = value.clone();
+					module.push(TokenTree::Literal(Literal::usize_unsuffixed(0)));
+					let mut name = value;
+					name.push(TokenTree::Literal(Literal::usize_unsuffixed(1)));
+
+					(module, name)
+				}
+			};
+
 			data.extend([
-				Argument::interpolate_with_length(embed.module),
-				Argument::interpolate_with_length(embed.name),
+				Argument::interpolate_with_length(module),
+				Argument::interpolate_with_length(name),
 			]);
 		}
 	} else {

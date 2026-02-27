@@ -26,20 +26,20 @@ fn basic() {
 					"\t{}",
 					"\tcall test_crate.import.log",
 					"\tend_function",
-					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::CONV,
+					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE,
+					interpolate ::js_sys::r#macro::asm_import!(&JsValue as Input),
+					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
+					interpolate ::js_sys::r#macro::asm_conv!(&JsValue as Input),
 				}
 
 				::js_sys::js_bindgen::import_js! {
 					module = "test_crate",
 					name = "log",
-					required_embeds = [(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)],
+					required_embeds = [::js_sys::r#macro::js_import!(&JsValue as Input)],
 					"{}{}{}",
-					interpolate ::js_sys::r#macro::select_any("", "(data) => {\n", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
-					interpolate ::js_sys::r#macro::parameter!("data", &JsValue),
-					interpolate ::js_sys::r#macro::select_any("globalThis.log", "globalThis.log(data)\n}", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
+					interpolate ::js_sys::r#macro::js_select!("", "(data) => {\n", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_parameter!("data", &JsValue),
+					interpolate ::js_sys::r#macro::js_select!("globalThis.log", "globalThis.log(data)\n}", [&JsValue]),
 				}
 
 				unsafe extern "C" {
@@ -94,20 +94,20 @@ fn namespace() {
 					"\t{}",
 					"\tcall test_crate.import.console.log",
 					"\tend_function",
-					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::CONV,
+					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE,
+					interpolate ::js_sys::r#macro::asm_import!(&JsValue as Input),
+					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
+					interpolate ::js_sys::r#macro::asm_conv!(&JsValue as Input),
 				}
 
 				::js_sys::js_bindgen::import_js! {
 					module = "test_crate",
 					name = "console.log",
-					required_embeds = [(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)],
+					required_embeds = [::js_sys::r#macro::js_import!(&JsValue as Input)],
 					"{}{}{}",
-					interpolate ::js_sys::r#macro::select_any("", "(data) => {\n", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
-					interpolate ::js_sys::r#macro::parameter!("data", &JsValue),
-					interpolate ::js_sys::r#macro::select_any("globalThis.console.log", "globalThis.console.log(data)\n}", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
+					interpolate ::js_sys::r#macro::js_select!("", "(data) => {\n", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_parameter!("data", &JsValue),
+					interpolate ::js_sys::r#macro::js_select!("globalThis.console.log", "globalThis.console.log(data)\n}", [&JsValue]),
 				}
 
 				unsafe extern "C" {
@@ -162,20 +162,20 @@ fn js_sys() {
 					"\t{}",
 					"\tcall test_crate.import.log",
 					"\tend_function",
-					interpolate <&JsValue as js_sys::hazard::Input>::IMPORT_TYPE,
-					interpolate <&JsValue as js_sys::hazard::Input>::IMPORT_FUNC,
-					interpolate <&JsValue as js_sys::hazard::Input>::TYPE,
-					interpolate <&JsValue as js_sys::hazard::Input>::CONV,
+					interpolate <&JsValue as js_sys::hazard::Input>::ASM_IMPORT_TYPE,
+					interpolate js_sys::r#macro::asm_import!(&JsValue as Input),
+					interpolate <&JsValue as js_sys::hazard::Input>::ASM_TYPE,
+					interpolate js_sys::r#macro::asm_conv!(&JsValue as Input),
 				}
 
 				js_sys::js_bindgen::import_js! {
 					module = "test_crate",
 					name = "log",
-					required_embeds = [(<&JsValue as js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as js_sys::hazard::Input>::JS_CONV_EMBED.1)],
+					required_embeds = [js_sys::r#macro::js_import!(&JsValue as Input)],
 					"{}{}{}",
-					interpolate js_sys::r#macro::select_any("", "(data) => {\n", &[<&JsValue as js_sys::hazard::Input>::JS_CONV,]),
-					interpolate js_sys::r#macro::parameter!("data", &JsValue),
-					interpolate js_sys::r#macro::select_any("globalThis.log", "globalThis.log(data)\n}", &[<&JsValue as js_sys::hazard::Input>::JS_CONV,]),
+					interpolate js_sys::r#macro::js_select!("", "(data) => {\n", [&JsValue]),
+					interpolate js_sys::r#macro::js_parameter!("data", &JsValue),
+					interpolate js_sys::r#macro::js_select!("globalThis.log", "globalThis.log(data)\n}", [&JsValue]),
 				}
 
 				unsafe extern "C" {
@@ -223,8 +223,6 @@ fn two_parameters() {
 					"",
 					"{}",
 					"",
-					"{}",
-					"",
 					".globl test_crate.log",
 					"test_crate.log:",
 					"\t.functype test_crate.log ({}, {}) -> ()",
@@ -234,34 +232,24 @@ fn two_parameters() {
 					"\t{}",
 					"\tcall test_crate.import.log",
 					"\tend_function",
-					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::CONV,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::CONV,
+					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE,
+					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE,
+					interpolate ::js_sys::r#macro::asm_import!(&JsValue as Input),
+					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
+					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
+					interpolate ::js_sys::r#macro::asm_conv!(&JsValue as Input),
+					interpolate ::js_sys::r#macro::asm_conv!(&JsValue as Input),
 				}
 
 				::js_sys::js_bindgen::import_js! {
 					module = "test_crate",
 					name = "log",
-					required_embeds = [
-						(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1),
-						(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)
-					],
+					required_embeds = [::js_sys::r#macro::js_import!(&JsValue as Input)],
 					"{}{}{}{}",
-					interpolate ::js_sys::r#macro::select_any(
-						"", "(data1, data2) => {\n",
-						&[<&JsValue as ::js_sys::hazard::Input>::JS_CONV, <&JsValue as ::js_sys::hazard::Input>::JS_CONV,]
-					),
-					interpolate ::js_sys::r#macro::parameter!("data1", &JsValue),
-					interpolate ::js_sys::r#macro::parameter!("data2", &JsValue),
-					interpolate ::js_sys::r#macro::select_any(
-						"globalThis.log", "globalThis.log(data1, data2)\n}",
-						&[<&JsValue as ::js_sys::hazard::Input>::JS_CONV, <&JsValue as ::js_sys::hazard::Input>::JS_CONV,]
-					),
+					interpolate ::js_sys::r#macro::js_select!("", "(data1, data2) => {\n", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_parameter!("data1", &JsValue),
+					interpolate ::js_sys::r#macro::js_parameter!("data2", &JsValue),
+					interpolate ::js_sys::r#macro::js_select!("globalThis.log", "globalThis.log(data1, data2)\n}", [&JsValue]),
 				}
 
 				unsafe extern "C" {
@@ -282,8 +270,6 @@ fn two_parameters() {
 			".import_module test_crate.import.log, test_crate
 			.import_name test_crate.import.log, log
 			.functype test_crate.import.log (externref, externref) -> ()
-
-			.functype js_sys.externref.get (i32) -> (externref)
 
 			.functype js_sys.externref.get (i32) -> (externref)
 
@@ -375,20 +361,20 @@ fn js_name() {
 					"\t{}",
 					"\tcall test_crate.import.logx",
 					"\tend_function",
-					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::CONV,
+					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE,
+					interpolate ::js_sys::r#macro::asm_import!(&JsValue as Input),
+					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
+					interpolate ::js_sys::r#macro::asm_conv!(&JsValue as Input),
 				}
 
 				::js_sys::js_bindgen::import_js! {
 					module = "test_crate",
 					name = "logx",
-					required_embeds = [(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)],
+					required_embeds = [::js_sys::r#macro::js_import!(&JsValue as Input)],
 					"{}{}{}",
-					interpolate ::js_sys::r#macro::select_any("", "(data) => {\n", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
-					interpolate ::js_sys::r#macro::parameter!("data", &JsValue),
-					interpolate ::js_sys::r#macro::select_any("globalThis.log", "globalThis.log(data)\n}", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
+					interpolate ::js_sys::r#macro::js_select!("", "(data) => {\n", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_parameter!("data", &JsValue),
+					interpolate ::js_sys::r#macro::js_select!("globalThis.log", "globalThis.log(data)\n}", [&JsValue]),
 				}
 
 				unsafe extern "C" {
@@ -444,10 +430,10 @@ fn js_import() {
 					"\t{}",
 					"\tcall test_crate.import.log",
 					"\tend_function",
-					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::CONV,
+					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE,
+					interpolate ::js_sys::r#macro::asm_import!(&JsValue as Input),
+					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
+					interpolate ::js_sys::r#macro::asm_conv!(&JsValue as Input),
 				}
 
 				unsafe extern "C" {
@@ -503,10 +489,10 @@ fn js_embed() {
 					"\t{}",
 					"\tcall test_crate.import.log",
 					"\tend_function",
-					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::IMPORT_FUNC,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::CONV,
+					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE,
+					interpolate ::js_sys::r#macro::asm_import!(&JsValue as Input),
+					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
+					interpolate ::js_sys::r#macro::asm_conv!(&JsValue as Input),
 				}
 
 				::js_sys::js_bindgen::import_js! {
@@ -514,12 +500,12 @@ fn js_embed() {
 					name = "log",
 					required_embeds = [
 						("test_crate", "embed"),
-						(<&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <&JsValue as ::js_sys::hazard::Input>::JS_CONV_EMBED.1)
+						::js_sys::r#macro::js_import!(&JsValue as Input)
 					],
 					"{}{}{}",
-					interpolate ::js_sys::r#macro::select_any("", "(data) => {\n", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
-					interpolate ::js_sys::r#macro::parameter!("data", &JsValue),
-					interpolate ::js_sys::r#macro::select_any("this.#jsEmbed.test_crate['embed']", "this.#jsEmbed.test_crate['embed'](data)\n}", &[<&JsValue as ::js_sys::hazard::Input>::JS_CONV,]),
+					interpolate ::js_sys::r#macro::js_select!("", "(data) => {\n", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_parameter!("data", &JsValue),
+					interpolate ::js_sys::r#macro::js_select!("this.#jsEmbed.test_crate['embed']", "this.#jsEmbed.test_crate['embed'](data)\n}", [&JsValue]),
 				}
 
 				unsafe extern "C" {
@@ -573,21 +559,19 @@ fn r#return() {
 					"\tcall test_crate.import.is_nan",
 					"\t{}",
 					"\tend_function",
-					interpolate <JsValue as ::js_sys::hazard::Output>::IMPORT_TYPE,
-					interpolate <JsValue as ::js_sys::hazard::Output>::IMPORT_FUNC,
-					interpolate <JsValue as ::js_sys::hazard::Output>::TYPE,
-					interpolate <JsValue as ::js_sys::hazard::Output>::CONV,
+					interpolate <JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_TYPE,
+					interpolate ::js_sys::r#macro::asm_import!(JsValue as Output),
+					interpolate <JsValue as ::js_sys::hazard::Output>::ASM_TYPE,
+					interpolate ::js_sys::r#macro::asm_conv!(JsValue as Output),
 				}
 
 				::js_sys::js_bindgen::import_js! {
 					module = "test_crate",
 					name = "is_nan",
-					required_embeds = [
-						(<JsValue as ::js_sys::hazard::Output>::JS_CONV_EMBED.0, <JsValue as ::js_sys::hazard::Output>::JS_CONV_EMBED.1)
-					],
+					required_embeds = [::js_sys::r#macro::js_import!(JsValue as Output)],
 					"{}{}",
-					interpolate ::js_sys::r#macro::select_any("", "() => {\n\treturn ", &[<JsValue as::js_sys::hazard::Output>::JS_CONV]),
-					interpolate ::js_sys::r#macro::output!("", "globalThis.is_nan", "globalThis.is_nan()", JsValue,),
+					interpolate ::js_sys::r#macro::js_select!("", "() => {\n\treturn ", [], JsValue),
+					interpolate ::js_sys::r#macro::js_output!("", "globalThis.is_nan", "globalThis.is_nan()", JsValue,),
 				}
 
 				unsafe extern "C" {
@@ -643,30 +627,24 @@ fn pointer() {
 					"\tcall test_crate.import.array",
 					"\t{}",
 					"\tend_function",
-					interpolate <*const u8 as ::js_sys::hazard::Input>::IMPORT_TYPE,
-					interpolate <JsString as ::js_sys::hazard::Output>::IMPORT_TYPE,
-					interpolate <*const u8 as ::js_sys::hazard::Input>::IMPORT_FUNC,
-					interpolate <JsString as ::js_sys::hazard::Output>::IMPORT_FUNC,
-					interpolate <*const u8 as ::js_sys::hazard::Input>::TYPE,
-					interpolate <JsString as ::js_sys::hazard::Output>::TYPE,
-					interpolate <*const u8 as ::js_sys::hazard::Input>::CONV,
-					interpolate <JsString as ::js_sys::hazard::Output>::CONV,
+					interpolate <*const u8 as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE,
+					interpolate <JsString as ::js_sys::hazard::Output>::ASM_IMPORT_TYPE,
+					interpolate ::js_sys::r#macro::asm_import!(*const u8 as Input),
+					interpolate ::js_sys::r#macro::asm_import!(JsString as Output),
+					interpolate <*const u8 as ::js_sys::hazard::Input>::ASM_TYPE,
+					interpolate <JsString as ::js_sys::hazard::Output>::ASM_TYPE,
+					interpolate ::js_sys::r#macro::asm_conv!(*const u8 as Input),
+					interpolate ::js_sys::r#macro::asm_conv!(JsString as Output),
 				}
 
 				::js_sys::js_bindgen::import_js! {
 					module = "test_crate",
 					name = "array",
-					required_embeds = [
-						(<*const u8 as ::js_sys::hazard::Input>::JS_CONV_EMBED.0, <*const u8 as ::js_sys::hazard::Input>::JS_CONV_EMBED.1),
-						(<JsString as ::js_sys::hazard::Output>::JS_CONV_EMBED.0, <JsString as ::js_sys::hazard::Output>::JS_CONV_EMBED.1)
-					],
+					required_embeds = [::js_sys::r#macro::js_import!(*const u8 as Input), ::js_sys::r#macro::js_import!(JsString as Output)],
 					"{}{}{}",
-					interpolate ::js_sys::r#macro::select_any(
-						"", "(ptr) => {\n",
-						&[<*const u8 as ::js_sys::hazard::Input>::JS_CONV, <JsString as ::js_sys::hazard::Output>::JS_CONV]
-					),
-					interpolate ::js_sys::r#macro::parameter!("ptr", * const u8),
-					interpolate ::js_sys::r#macro::output!("\treturn ", "globalThis.array", "globalThis.array(ptr)", JsString, *const u8),
+					interpolate ::js_sys::r#macro::js_select!("", "(ptr) => {\n", [*const u8], JsString),
+					interpolate ::js_sys::r#macro::js_parameter!("ptr", * const u8),
+					interpolate ::js_sys::r#macro::js_output!("\treturn ", "globalThis.array", "globalThis.array(ptr)", JsString, *const u8),
 				}
 
 				unsafe extern "C" {

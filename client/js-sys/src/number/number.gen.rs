@@ -21,20 +21,20 @@ impl<T> From<JsNumber<T>> for JsValue {
     }
 }
 unsafe impl<T> Input for &JsNumber<T> {
-    const IMPORT_FUNC: &'static str = <&JsValue as Input>::IMPORT_FUNC;
-    const IMPORT_TYPE: &'static str = <&JsValue as Input>::IMPORT_TYPE;
-    const TYPE: &'static str = <&JsValue as Input>::TYPE;
-    const CONV: &'static str = <&JsValue as Input>::CONV;
+    const ASM_IMPORT_FUNC: Option<&'static str> = <&JsValue as Input>::ASM_IMPORT_FUNC;
+    const ASM_IMPORT_TYPE: &'static str = <&JsValue as Input>::ASM_IMPORT_TYPE;
+    const ASM_TYPE: &'static str = <&JsValue as Input>::ASM_TYPE;
+    const ASM_CONV: Option<&'static str> = <&JsValue as Input>::ASM_CONV;
     type Type = <&'static JsValue as Input>::Type;
     fn into_raw(self) -> Self::Type {
         Input::into_raw(&self.value)
     }
 }
 unsafe impl<T> Output for JsNumber<T> {
-    const IMPORT_FUNC: &str = <JsValue as Output>::IMPORT_FUNC;
-    const IMPORT_TYPE: &str = <JsValue as Output>::IMPORT_TYPE;
-    const TYPE: &str = <JsValue as Output>::TYPE;
-    const CONV: &str = <JsValue as Output>::CONV;
+    const ASM_IMPORT_FUNC: Option<&str> = <JsValue as Output>::ASM_IMPORT_FUNC;
+    const ASM_IMPORT_TYPE: &str = <JsValue as Output>::ASM_IMPORT_TYPE;
+    const ASM_TYPE: &str = <JsValue as Output>::ASM_TYPE;
+    const ASM_CONV: Option<&str> = <JsValue as Output>::ASM_CONV;
     type Type = <JsValue as Output>::Type;
     fn from_raw(raw: Self::Type) -> Self {
         Self {

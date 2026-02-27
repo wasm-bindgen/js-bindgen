@@ -42,15 +42,15 @@ pub struct ExternValue<T> {
 
 #[expect(dead_code, reason = "custom sections are considered dead-code")]
 impl<T> ExternValue<T> {
-	pub(crate) const IMPORT_TYPE: &str = <*const Self>::IMPORT_TYPE;
+	pub(crate) const ASM_IMPORT_TYPE: &str = <*const Self>::ASM_IMPORT_TYPE;
 	#[cfg(target_arch = "wasm32")]
-	pub(crate) const TYPE: &str = "i32";
+	pub(crate) const ASM_TYPE: &str = "i32";
 	#[cfg(target_arch = "wasm64")]
-	pub(crate) const TYPE: &str = "i64";
+	pub(crate) const ASM_TYPE: &str = "i64";
 	#[cfg(target_arch = "wasm32")]
-	pub(crate) const CONV: &str = "";
+	pub(crate) const ASM_CONV: Option<&str> = None;
 	#[cfg(target_arch = "wasm64")]
-	pub(crate) const CONV: &str = "f64.convert_i64_u";
+	pub(crate) const ASM_CONV: Option<&str> = Some("f64.convert_i64_u");
 
 	#[cfg(target_arch = "wasm32")]
 	const DATA_VIEW_GET: &str = "Uint32";
@@ -79,15 +79,15 @@ js_bindgen::embed_js!(
 );
 
 #[repr(C)]
-pub struct ExternRef<T> {
+pub struct ExternSlice<T> {
 	ptr: <*const T as Input>::Type,
 	len: PtrLength<T>,
 }
 
-impl<T> ExternRef<T> {
-	pub(crate) const IMPORT_TYPE: &str = <*const Self>::IMPORT_TYPE;
-	pub(crate) const TYPE: &str = ExternValue::<()>::TYPE;
-	pub(crate) const CONV: &str = ExternValue::<()>::CONV;
+impl<T> ExternSlice<T> {
+	pub(crate) const ASM_IMPORT_TYPE: &str = <*const Self>::ASM_IMPORT_TYPE;
+	pub(crate) const ASM_TYPE: &str = ExternValue::<()>::ASM_TYPE;
+	pub(crate) const ASM_CONV: Option<&str> = ExternValue::<()>::ASM_CONV;
 
 	pub(crate) fn new(value: &[T]) -> Self {
 		Self {
@@ -107,8 +107,8 @@ js_bindgen::embed_js!(
 	"	return {{ ptr, len }}",
 	"}}",
 	data_view = interpolate ExternValue::<()>::DATA_VIEW_GET,
-	const mem::size_of::<ExternRef<()>>(),
-	const mem::offset_of!(ExternRef::<()>, len),
+	const mem::size_of::<ExternSlice<()>>(),
+	const mem::offset_of!(ExternSlice::<()>, len),
 );
 
 #[repr(transparent)]
@@ -157,9 +157,9 @@ impl<T> PtrLength<T> {
 
 // SAFETY: Delegated to already implemented types.
 unsafe impl<T> Input for PtrLength<T> {
-	const IMPORT_TYPE: &str = Self::Type::IMPORT_TYPE;
-	const TYPE: &str = Self::Type::TYPE;
-	const JS_CONV: Option<&str> = Self::Type::JS_CONV;
+	const ASM_IMPORT_TYPE: &str = Self::Type::ASM_IMPORT_TYPE;
+	const ASM_TYPE: &str = Self::Type::ASM_TYPE;
+	const JS_CONV: Option<(&str, Option<&str>)> = Self::Type::JS_CONV;
 
 	#[cfg(target_arch = "wasm32")]
 	type Type = usize;

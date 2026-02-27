@@ -33,14 +33,13 @@ pub enum FunctionJsOutput {
 	Import,
 }
 
-struct State<'a, 'h> {
+struct State<'a> {
 	crate_: &'a str,
-	hygiene: &'a mut Hygiene<'h>,
 	namespace: Option<&'a str>,
 	js_bindgen: Path,
+	r#macro: Option<Path>,
 	input: Path,
 	output: Path,
-	outer_attrs: &'a [Attribute],
 	import_name: String,
 	foreign_name: String,
 	input_tys: Vec<Cow<'a, Box<Type>>>,
@@ -200,13 +199,13 @@ impl Default for FunctionJsOutput {
 	}
 }
 
-impl<'a, 'h> State<'a, 'h> {
+impl<'a> State<'a> {
 	#[expect(clippy::too_many_arguments, reason = "TODO")]
 	fn parse(
 		crate_: &'a str,
 		js_output: FunctionJsOutput,
 		namespace: Option<&'a str>,
-		hygiene: &'a mut Hygiene<'h>,
+		hygiene: &'a mut Hygiene<'_>,
 		outer_attrs: &'a [Attribute],
 		generics: &mut Generics,
 		ident: &Ident,
@@ -328,17 +327,21 @@ impl<'a, 'h> State<'a, 'h> {
 		let impl_generic_params = Self::impl_generic_params(&r#type, generics);
 
 		let js_bindgen = hygiene.js_bindgen(outer_attrs, span);
+		let r#macro = if !input_tys.is_empty() || !output_ty.is_empty() {
+			Some(hygiene.r#macro(outer_attrs, span))
+		} else {
+			None
+		};
 		let input = hygiene.input(outer_attrs, span);
 		let output = hygiene.output(outer_attrs, span);
 
 		Ok(Self {
 			crate_,
-			hygiene,
 			namespace,
 			js_bindgen,
+			r#macro,
 			input,
 			output,
-			outer_attrs,
 			import_name,
 			foreign_name,
 			input_tys,
@@ -413,6 +416,7 @@ impl<'a, 'h> State<'a, 'h> {
 		let Self {
 			crate_,
 			js_bindgen,
+			r#macro,
 			input,
 			output,
 			import_name,
@@ -423,15 +427,23 @@ impl<'a, 'h> State<'a, 'h> {
 			..
 		} = self;
 
-		let parms_placeholder: String = iter::repeat_n("{}", self.input_tys.len()).join(", ");
-		let ret_placeholder = if self.output_ty.is_empty() { "" } else { "{}" };
+		let mut input_imports = Vec::new();
+
+		for ty in input_tys.iter().map(|ty| ty.deref().deref()) {
+			if !input_imports.contains(&ty) {
+				input_imports.push(ty);
+			}
+		}
+
+		let parms_placeholder: String = iter::repeat_n("{}", input_tys.len()).join(", ");
+		let ret_placeholder = if output_ty.is_empty() { "" } else { "{}" };
 		let import_funcs_placeholder: String =
-			iter::repeat_n(r#""{}","","#, self.input_tys.len() + self.output_ty.len()).collect();
-		let asm_param_gets = (0..self.input_tys.len()).fold(String::new(), |mut output, index| {
+			iter::repeat_n(r#""{}","","#, input_imports.len() + output_ty.len()).collect();
+		let asm_param_gets = (0..input_tys.len()).fold(String::new(), |mut output, index| {
 			write!(output, r#""\tlocal.get {index}","\t{{}}","#).unwrap();
 			output
 		});
-		let asm_ret_conv = if self.output_ty.is_empty() {
+		let asm_ret_conv = if output_ty.is_empty() {
 			""
 		} else {
 			r#""\t{}","#
@@ -456,14 +468,14 @@ impl<'a, 'h> State<'a, 'h> {
 		parse_quote_spanned! {*span=>
 			#js_bindgen::unsafe_embed_asm! {
 				#asm
-				#(interpolate <#input_tys as #input>::IMPORT_TYPE,)*
-				#(interpolate <#output_ty as #output>::IMPORT_TYPE,)*
-				#(interpolate <#input_tys as #input>::IMPORT_FUNC,)*
-				#(interpolate <#output_ty as #output>::IMPORT_FUNC,)*
-				#(interpolate <#input_tys as #input>::TYPE,)*
-				#(interpolate <#output_ty as #output>::TYPE,)*
-				#(interpolate <#input_tys as #input>::CONV,)*
-				#(interpolate <#output_ty as #output>::CONV,)*
+				#(interpolate <#input_tys as #input>::ASM_IMPORT_TYPE,)*
+				#(interpolate <#output_ty as #output>::ASM_IMPORT_TYPE,)*
+				#(interpolate #r#macro::asm_import!(#input_imports as Input),)*
+				#(interpolate #r#macro::asm_import!(#output_ty as Output),)*
+				#(interpolate <#input_tys as #input>::ASM_TYPE,)*
+				#(interpolate <#output_ty as #output>::ASM_TYPE,)*
+				#(interpolate #r#macro::asm_conv!(#input_tys as Input),)*
+				#(interpolate #r#macro::asm_conv!(#output_ty as Output),)*
 			}
 		}
 	}
@@ -471,12 +483,9 @@ impl<'a, 'h> State<'a, 'h> {
 	fn js(&mut self) -> Option<Stmt> {
 		let Self {
 			crate_,
-			hygiene,
 			js_bindgen,
-			input,
-			output,
+			r#macro,
 			import_name,
-			outer_attrs,
 			input_tys,
 			output_ty,
 			intern_input_names,
@@ -509,23 +518,28 @@ impl<'a, 'h> State<'a, 'h> {
 			OutputType::Import => return None,
 		};
 
-		let required_embeds: Vec<_> = if let OutputType::Embed(name) = &r#type {
-			Some(quote_spanned!(*span=> (#crate_, #name)))
-		} else {
-			None
+		let mut unique_inputs = Vec::new();
+
+		for ty in input_tys.iter().map(|ty| ty.deref().deref()) {
+			if !unique_inputs.contains(&ty) {
+				unique_inputs.push(ty);
+			}
 		}
-		.into_iter()
-		.chain(input_tys.iter().map(|ty| {
-			quote_spanned! {*span=>
-				(<#ty as #input>::JS_CONV_EMBED.0, <#ty as #input>::JS_CONV_EMBED.1)
-			}
-		}))
-		.chain(output_ty.iter().map(|ty| {
-			quote_spanned! {*span=>
-				(<#ty as #output>::JS_CONV_EMBED.0, <#ty as #output>::JS_CONV_EMBED.1)
-			}
-		}))
-		.collect();
+
+		let mut required_embeds = Vec::new();
+
+		if let OutputType::Embed(name) = &r#type {
+			required_embeds.push(quote_spanned!(*span=> (#crate_, #name)));
+		}
+
+		for ty in &unique_inputs {
+			required_embeds.push(quote_spanned!(*span=> #r#macro::js_import!(#ty as Input)));
+		}
+
+		for ty in *output_ty {
+			required_embeds.push(quote_spanned!(*span=> #r#macro::js_import!(#ty as Output)));
+		}
+
 		let required_embeds = if required_embeds.is_empty() {
 			[].as_slice()
 		} else {
@@ -566,7 +580,6 @@ impl<'a, 'h> State<'a, 'h> {
 			Cow::Borrowed(&input_names_joined)
 		};
 		let input_conv = intern_input_names.iter().map(ToString::to_string);
-		let r#macro = hygiene.r#macro(outer_attrs, *span);
 
 		let direct_fn_open = if r#type.member().is_none() {
 			String::new()
@@ -595,14 +608,14 @@ impl<'a, 'h> State<'a, 'h> {
 		};
 
 		let direct_condition = quote_spanned! {*span=>
-			&[#(<#input_tys as #input>::JS_CONV,)*#(<#output_ty as #output>::JS_CONV)*]
+			[#(#unique_inputs),*] #(, #output_ty)*
 		};
 
 		let output = if output_ty.is_empty() {
 			first_output.to_mut().push_str("\n}");
 
 			quote_spanned! {*span=>
-				interpolate #r#macro::select_any(#direct_js_call, #first_output, #direct_condition),
+				interpolate #r#macro::js_select!(#direct_js_call, #first_output, #direct_condition),
 			}
 		} else {
 			let mut start = Cow::Borrowed("");
@@ -614,7 +627,7 @@ impl<'a, 'h> State<'a, 'h> {
 			}
 
 			quote_spanned! {*span=>
-				interpolate #r#macro::output!(#start, #direct_js_call, #indirect_js_call, #(#output_ty,)*#(#input_tys),*),
+				interpolate #r#macro::js_output!(#start, #direct_js_call, #indirect_js_call, #(#output_ty,)*#(#unique_inputs),*),
 			}
 		};
 
@@ -624,8 +637,8 @@ impl<'a, 'h> State<'a, 'h> {
 				name = #import_name,
 				#(#required_embeds,)*
 				#placeholder,
-				interpolate #r#macro::select_any(#direct_fn_open, #indirect_fn_open, #direct_condition),
-				#(interpolate #r#macro::parameter!(#input_conv, #input_tys),)*
+				interpolate #r#macro::js_select!(#direct_fn_open, #indirect_fn_open, #direct_condition),
+				#(interpolate #r#macro::js_parameter!(#input_conv, #input_tys),)*
 				#output
 			}
 		})

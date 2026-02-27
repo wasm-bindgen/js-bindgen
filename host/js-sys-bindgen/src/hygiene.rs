@@ -112,6 +112,17 @@ impl Hygiene<'_> {
 		}
 	}
 
+	pub(crate) fn option(&mut self, span: Span) -> Path {
+		match self {
+			Hygiene::Imports(_) => {
+				parse_quote_spanned!(span=> Option)
+			}
+			Hygiene::Hygiene { .. } => {
+				parse_quote_spanned!(span=> ::core::option::Option)
+			}
+		}
+	}
+
 	fn with_js_sys(js_sys: Option<&Path>, path: &TokenStream, span: Span) -> Path {
 		let js_sys = js_sys.map_or_else(
 			|| Cow::Owned(parse_quote_spanned!(span=> ::js_sys)),

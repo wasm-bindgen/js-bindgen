@@ -35,6 +35,7 @@ impl Type {
 		let deref = hygiene.deref(&cfgs, span);
 		let str = hygiene.str(span);
 		let from = hygiene.from(span);
+		let option = hygiene.option(span);
 
 		let (gen_impl, gen_type, gen_where) = generics.split_for_impl();
 
@@ -95,10 +96,10 @@ impl Type {
 			parse_quote_spanned! {span=>
 				#(#cfgs)*
 				unsafe impl #gen_impl #input for &#ident #gen_type #gen_where {
-					const IMPORT_FUNC: &'static #str = <&#js_value as #input>::IMPORT_FUNC;
-					const IMPORT_TYPE: &'static #str = <&#js_value as #input>::IMPORT_TYPE;
-					const TYPE: &'static #str = <&#js_value as #input>::TYPE;
-					const CONV: &'static #str = <&#js_value as #input>::CONV;
+					const ASM_IMPORT_FUNC: #option<&'static #str> = <&#js_value as #input>::ASM_IMPORT_FUNC;
+					const ASM_IMPORT_TYPE: &'static #str = <&#js_value as #input>::ASM_IMPORT_TYPE;
+					const ASM_TYPE: &'static #str = <&#js_value as #input>::ASM_TYPE;
+					const ASM_CONV: #option<&'static #str> = <&#js_value as #input>::ASM_CONV;
 
 					type Type = <&'static #js_value as #input>::Type;
 
@@ -110,10 +111,10 @@ impl Type {
 			parse_quote_spanned! {span=>
 				#(#cfgs)*
 				unsafe impl #gen_impl #output for #ident #gen_type #gen_where {
-					const IMPORT_FUNC: &#str = <#js_value as #output>::IMPORT_FUNC;
-					const IMPORT_TYPE: &#str = <#js_value as #output>::IMPORT_TYPE;
-					const TYPE: &#str = <#js_value as #output>::TYPE;
-					const CONV: &#str = <#js_value as #output>::CONV;
+					const ASM_IMPORT_FUNC: #option<&#str> = <#js_value as #output>::ASM_IMPORT_FUNC;
+					const ASM_IMPORT_TYPE: &#str = <#js_value as #output>::ASM_IMPORT_TYPE;
+					const ASM_TYPE: &#str = <#js_value as #output>::ASM_TYPE;
+					const ASM_CONV: #option<&#str> = <#js_value as #output>::ASM_CONV;
 
 					type Type = <#js_value as #output>::Type;
 

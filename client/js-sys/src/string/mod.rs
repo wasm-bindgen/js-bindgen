@@ -9,7 +9,7 @@ use core::fmt::{self, Display, Formatter};
 pub use self::string::JsString;
 use crate::JsValue;
 use crate::hazard::Input;
-use crate::util::{ExternRef, PtrLength};
+use crate::util::{ExternSlice, PtrLength};
 
 impl JsString {
 	#[must_use]
@@ -115,14 +115,14 @@ impl From<&JsString> for String {
 
 // SAFETY: Implementation.
 unsafe impl Input for &str {
-	const IMPORT_TYPE: &'static str = Self::Type::IMPORT_TYPE;
-	const TYPE: &'static str = Self::Type::TYPE;
-	const CONV: &'static str = Self::Type::CONV;
-	const JS_CONV_EMBED: (&'static str, &'static str) = ("js_sys", "string.rust.decode");
-	const JS_CONV: Option<&'static str> = Some(" = this.#jsEmbed.js_sys['string.rust.decode'](");
-	const JS_CONV_POST: Option<&'static str> = Some(")");
+	const ASM_IMPORT_TYPE: &'static str = Self::Type::ASM_IMPORT_TYPE;
+	const ASM_TYPE: &'static str = Self::Type::ASM_TYPE;
+	const ASM_CONV: Option<&'static str> = Self::Type::ASM_CONV;
+	const JS_EMBED: Option<(&'static str, &'static str)> = Some(("js_sys", "string.rust.decode"));
+	const JS_CONV: Option<(&'static str, Option<&'static str>)> =
+		Some((" = this.#jsEmbed.js_sys['string.rust.decode'](", Some(")")));
 
-	type Type = ExternRef<u8>;
+	type Type = ExternSlice<u8>;
 
 	fn into_raw(self) -> Self::Type {
 		js_bindgen::embed_js!(
@@ -135,6 +135,6 @@ unsafe impl Input for &str {
 			"}}",
 		);
 
-		ExternRef::new(self.as_bytes())
+		ExternSlice::new(self.as_bytes())
 	}
 }
