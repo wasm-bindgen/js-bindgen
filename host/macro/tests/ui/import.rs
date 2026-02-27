@@ -59,7 +59,7 @@ js_bindgen::import_js!(module = "foo", name = "bar", baz = "qux");
 //~^ ERROR: expected array of string pairs
 
 js_bindgen::import_js!(module = "foo", name = "bar", baz = ["qux"]);
-//~^ ERROR: expected tuple string pair
+//~^ ERROR: expected `required_embeds`
 
 js_bindgen::import_js!(module = "foo", name = "bar", baz = [("qux")]);
 //~^ ERROR: expected a `,` after a string value

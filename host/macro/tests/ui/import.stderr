@@ -128,11 +128,11 @@ error: expected array of string pairs
 58 | js_bindgen::import_js!(module = "foo", name = "bar", baz = "qux");
    |                                                            ^^^^^
 
-error: expected tuple string pair
-  --> tests/ui/import.rs:61:61
+error: expected `required_embeds`
+  --> tests/ui/import.rs:61:54
    |
 61 | js_bindgen::import_js!(module = "foo", name = "bar", baz = ["qux"]);
-   |                                                             ^^^^^
+   |                                                      ^^^
 
 error: expected a `,` after a string value
   --> tests/ui/import.rs:64:61

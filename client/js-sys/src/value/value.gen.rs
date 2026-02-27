@@ -9,32 +9,27 @@ pub(super) fn js_value_partial_eq(value1: &JsValue, value2: &JsValue) -> bool {
         ".import_module js_sys.import.js_value_partial_eq, js_sys",
         ".import_name js_sys.import.js_value_partial_eq, js_value_partial_eq",
         ".functype js_sys.import.js_value_partial_eq ({}, {}) -> ({})", "", "{}", "",
-        "{}", "", "{}", "", ".globl js_sys.js_value_partial_eq",
-        "js_sys.js_value_partial_eq:",
+        "{}", "", ".globl js_sys.js_value_partial_eq", "js_sys.js_value_partial_eq:",
         "\t.functype js_sys.js_value_partial_eq ({}, {}) -> ({})", "\tlocal.get 0",
         "\t{}", "\tlocal.get 1", "\t{}", "\tcall js_sys.import.js_value_partial_eq",
-        "\t{}", "\tend_function", interpolate < & JsValue as Input > ::IMPORT_TYPE,
-        interpolate < & JsValue as Input > ::IMPORT_TYPE, interpolate < bool as Output >
-        ::IMPORT_TYPE, interpolate < & JsValue as Input > ::IMPORT_FUNC, interpolate < &
-        JsValue as Input > ::IMPORT_FUNC, interpolate < bool as Output > ::IMPORT_FUNC,
-        interpolate < & JsValue as Input > ::TYPE, interpolate < & JsValue as Input >
-        ::TYPE, interpolate < bool as Output > ::TYPE, interpolate < & JsValue as Input >
-        ::CONV, interpolate < & JsValue as Input > ::CONV, interpolate < bool as Output >
-        ::CONV,
+        "\t{}", "\tend_function", interpolate < & JsValue as Input > ::ASM_IMPORT_TYPE,
+        interpolate < & JsValue as Input > ::ASM_IMPORT_TYPE, interpolate < bool as
+        Output > ::ASM_IMPORT_TYPE, interpolate r#macro::asm_import!(& JsValue as Input),
+        interpolate r#macro::asm_import!(bool as Output), interpolate < & JsValue as
+        Input > ::ASM_TYPE, interpolate < & JsValue as Input > ::ASM_TYPE, interpolate <
+        bool as Output > ::ASM_TYPE, interpolate r#macro::asm_conv!(& JsValue as Input),
+        interpolate r#macro::asm_conv!(& JsValue as Input), interpolate
+        r#macro::asm_conv!(bool as Output),
     }
     js_bindgen::import_js! {
         module = "js_sys", name = "js_value_partial_eq", required_embeds = [("js_sys",
-        "js_value.partial_eq"), (< & JsValue as Input > ::JS_CONV_EMBED.0, < & JsValue as
-        Input > ::JS_CONV_EMBED.1), (< & JsValue as Input > ::JS_CONV_EMBED.0, < &
-        JsValue as Input > ::JS_CONV_EMBED.1), (< bool as Output > ::JS_CONV_EMBED.0, <
-        bool as Output > ::JS_CONV_EMBED.1)], "{}{}{}{}", interpolate
-        r#macro::select_any("", "(value1, value2) => {\n", & [< & JsValue as Input >
-        ::JS_CONV, < & JsValue as Input > ::JS_CONV, < bool as Output > ::JS_CONV]),
-        interpolate r#macro::parameter!("value1", & JsValue), interpolate
-        r#macro::parameter!("value2", & JsValue), interpolate
-        r#macro::output!("\treturn ", "this.#jsEmbed.js_sys['js_value.partial_eq']",
-        "this.#jsEmbed.js_sys['js_value.partial_eq'](value1, value2)", bool, & JsValue, &
-        JsValue),
+        "js_value.partial_eq"), r#macro::js_import!(& JsValue as Input),
+        r#macro::js_import!(bool as Output)], "{}{}{}{}", interpolate
+        r#macro::js_select!("", "(value1, value2) => {\n", [& JsValue], bool),
+        interpolate r#macro::js_parameter!("value1", & JsValue), interpolate
+        r#macro::js_parameter!("value2", & JsValue), interpolate
+        r#macro::js_output!("\treturn ", "this.#jsEmbed.js_sys['js_value.partial_eq']",
+        "this.#jsEmbed.js_sys['js_value.partial_eq'](value1, value2)", bool, & JsValue),
     }
     unsafe extern "C" {
         #[link_name = "js_sys.js_value_partial_eq"]

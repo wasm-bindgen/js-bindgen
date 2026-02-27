@@ -823,9 +823,12 @@ pub fn parse_string_arguments(
 	Ok(())
 }
 
-pub struct RequiredEmbed {
-	pub module: Vec<TokenTree>,
-	pub name: Vec<TokenTree>,
+pub enum RequiredEmbed {
+	Tuple {
+		module: Vec<TokenTree>,
+		name: Vec<TokenTree>,
+	},
+	Value(Vec<TokenTree>),
 }
 
 pub fn expect_meta_name_required_embeds(
@@ -862,52 +865,65 @@ fn parse_meta_name_required_embeds(
 	let mut values = Vec::new();
 	let mut array_stream = array.stream().into_iter().peekable();
 
-	while array_stream.peek().is_some() {
-		let tuple = expect_group(
-			&mut array_stream,
-			Delimiter::Parenthesis,
-			span,
-			"tuple string pair",
-			false,
-		)?;
-		let mut tuple_span = SpanRange::from(tuple.span_open());
-		let mut tuple_stream = tuple.stream().into_iter().peekable();
+	while let Some(tok) = array_stream.peek() {
+		let local_span;
 
-		let mut module = Vec::new();
-		let mut module_span =
-			parse_ty_or_value(&mut tuple_stream, tuple_span, "string value", &mut module)?;
+		if let TokenTree::Group(group) = tok
+			&& let Delimiter::Parenthesis = group.delimiter()
+		{
+			let tuple = expect_group(
+				&mut array_stream,
+				Delimiter::Parenthesis,
+				span,
+				"tuple string pair",
+				false,
+			)?;
+			let mut tuple_span = SpanRange::from(tuple.span_open());
+			let mut tuple_stream = tuple.stream().into_iter().peekable();
 
-		module_span.end = expect_punct(
-			&mut tuple_stream,
-			',',
-			module_span,
-			"a `,` after a string value",
-			false,
-		)?
-		.span();
+			let mut module = Vec::new();
+			let mut module_span =
+				parse_ty_or_value(&mut tuple_stream, tuple_span, "string value", &mut module)?;
 
-		let mut name = Vec::new();
-		tuple_span.end =
-			parse_ty_or_value(&mut tuple_stream, module_span, "string value", &mut name)?.end;
-
-		values.push(RequiredEmbed { module, name });
-
-		if tuple_stream.peek().is_some() {
-			span.end = expect_punct(
+			module_span.end = expect_punct(
 				&mut tuple_stream,
 				',',
-				tuple_span,
-				"a `,` after a tuple",
+				module_span,
+				"a `,` after a string value",
 				false,
 			)?
 			.span();
+
+			let mut name = Vec::new();
+			tuple_span.end =
+				parse_ty_or_value(&mut tuple_stream, module_span, "string value", &mut name)?.end;
+
+			values.push(RequiredEmbed::Tuple { module, name });
+
+			if tuple_stream.peek().is_some() {
+				span.end = expect_punct(
+					&mut tuple_stream,
+					',',
+					tuple_span,
+					"a `,` after a tuple",
+					false,
+				)?
+				.span();
+			}
+
+			local_span = SpanRange::from((tuple.span_open(), tuple.span_close()));
+		} else {
+			let mut value = Vec::new();
+			local_span = parse_ty_or_value(&mut array_stream, span, "string value", &mut value)?;
+
+			values.push(RequiredEmbed::Value(value));
 		}
 
 		if array_stream.peek().is_some() {
 			span.end = expect_punct(
 				&mut array_stream,
 				',',
-				(tuple_span.start, tuple.span_close()),
+				local_span,
 				"a `,` after a tuple",
 				false,
 			)?

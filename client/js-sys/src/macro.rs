@@ -1,68 +1,108 @@
-#[must_use]
-pub const fn select_any(a: &'static str, b: &'static str, import: &[Option<&str>]) -> &'static str {
-	let mut any_import = false;
-	let mut index = 0;
-
-	while index < import.len() {
-		if import[index].is_some() {
-			any_import = true;
-			break;
+#[doc(hidden)]
+#[macro_export]
+macro_rules! asm_import {
+	($import:ty as $trait:ident) => {
+		if let ::core::option::Option::Some(import) =
+			<$import as $crate::hazard::$trait>::ASM_IMPORT_FUNC
+		{
+			import
+		} else {
+			""
 		}
-
-		index += 1;
-	}
-
-	if any_import { b } else { a }
+	};
 }
 
-#[must_use]
-pub const fn select(a: &'static str, b: &'static str, import: Option<&str>) -> &'static str {
-	if import.is_some() { b } else { a }
-}
-
-#[must_use]
-pub const fn or(a: &'static str, import: Option<&'static str>) -> &'static str {
-	if let Some(conversion) = import {
-		conversion
-	} else {
-		a
-	}
-}
+pub use asm_import;
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! parameter {
+macro_rules! asm_conv {
+	($conv:ty as $trait:ident) => {
+		if let ::core::option::Option::Some(conv) = <$conv as $crate::hazard::$trait>::ASM_CONV {
+			conv
+		} else {
+			""
+		}
+	};
+}
+
+pub use asm_conv;
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! js_import {
+	($import:ty as $trait:ident) => {
+		if let ::core::option::Option::Some(import) = <$import as $crate::hazard::$trait>::JS_EMBED
+		{
+			import
+		} else {
+			("", "")
+		}
+	};
+}
+
+pub use js_import;
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! js_select {
+	($a:expr, $b:expr, [$($input:ty),*] $(, $output:ty)?) => {'outer: {
+		$(
+			if ::core::option::Option::is_some(&<$input as $crate::hazard::Input>::JS_CONV) {
+				break 'outer $b;
+			}
+		)*
+
+		$(
+			if ::core::option::Option::is_some(&<$output as $crate::hazard::Output>::JS_CONV) {
+				break 'outer $b;
+			}
+		)?
+
+		$a
+	}};
+}
+
+pub use js_select;
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! js_parameter {
 	($par:literal, $ty:ty) => {{
 		const PAR_LEN: ::core::primitive::usize = ::core::primitive::str::len($par);
-		const CONV_LEN: ::core::primitive::usize =
-			if let ::core::option::Option::Some(conv) = <$ty as $crate::hazard::Input>::JS_CONV {
-				::core::primitive::str::len(conv)
-			} else {
-				0
-			};
-		const CONV_POST_LEN: ::core::primitive::usize =
-			if let ::core::option::Option::Some(conv_post) =
-				<$ty as $crate::hazard::Input>::JS_CONV_POST
+		const CONV_LEN: ::core::primitive::usize = if let ::core::option::Option::Some((conv, _)) =
+			<$ty as $crate::hazard::Input>::JS_CONV
+		{
+			::core::primitive::str::len(conv)
+		} else {
+			0
+		};
+		const POST_CONV_LEN: ::core::primitive::usize =
+			if let ::core::option::Option::Some((_, ::core::option::Option::Some(post_conv))) =
+				<$ty as $crate::hazard::Input>::JS_CONV
 			{
-				::core::primitive::str::len(conv_post)
+				::core::primitive::str::len(post_conv)
 			} else {
 				0
 			};
-		const LEN: ::core::primitive::usize =
-			if ::core::option::Option::is_some(&<$ty as $crate::hazard::Input>::JS_CONV) {
-				if ::core::option::Option::is_some(&<$ty as $crate::hazard::Input>::JS_CONV_POST) {
-					2 + PAR_LEN + CONV_LEN + PAR_LEN + CONV_POST_LEN
-				} else {
-					2 + PAR_LEN + CONV_LEN
-				}
+		const LEN: ::core::primitive::usize = if let ::core::option::Option::Some((_, post_conv)) =
+			&<$ty as $crate::hazard::Input>::JS_CONV
+		{
+			if ::core::option::Option::is_some(post_conv) {
+				2 + PAR_LEN + CONV_LEN + PAR_LEN + POST_CONV_LEN
 			} else {
-				0
-			};
+				2 + PAR_LEN + CONV_LEN
+			}
+		} else {
+			0
+		};
 
 		const VALUE: [::core::primitive::u8; LEN] = {
 			let mut value = [0; LEN];
 
-			if let ::core::option::Option::Some(conv) = <$ty as $crate::hazard::Input>::JS_CONV {
+			if let ::core::option::Option::Some((conv, post_conv)) =
+				<$ty as $crate::hazard::Input>::JS_CONV
+			{
 				let mut index = 0;
 				value[index] = b'\t';
 				index += 1;
@@ -83,22 +123,20 @@ macro_rules! parameter {
 					conv_index += 1;
 				}
 
-				if let ::core::option::Option::Some(conv_post) =
-					<$ty as $crate::hazard::Input>::JS_CONV_POST
-				{
-					let conv_post = ::core::primitive::str::as_bytes(conv_post);
+				if let ::core::option::Option::Some(post_conv) = post_conv {
+					let post_conv = ::core::primitive::str::as_bytes(post_conv);
 
 					let mut par_index = 0;
-					while index < LEN - 1 - CONV_POST_LEN {
+					while index < LEN - 1 - POST_CONV_LEN {
 						value[index] = par[par_index];
 						index += 1;
 						par_index += 1;
 					}
-					let mut conv_post_index = 0;
+					let mut post_conv_index = 0;
 					while index < LEN - 1 {
-						value[index] = conv_post[conv_post_index];
+						value[index] = post_conv[post_conv_index];
 						index += 1;
-						conv_post_index += 1;
+						post_conv_index += 1;
 					}
 				}
 
@@ -116,43 +154,32 @@ macro_rules! parameter {
 	}};
 }
 
-pub use parameter;
+pub use js_parameter;
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! output {
+macro_rules! js_output {
 	($start:literal, $direct_call:literal, $indirect_call:literal, $output:ty, $($input:ty),*) => {{
-		const INDIRECT_CONDITION: ::core::primitive::bool = 'outer: {
-			let conditions = [<$output as $crate::hazard::Output>::JS_CONV, $(<$input as $crate::hazard::Input>::JS_CONV),*];
-			let mut index = 0;
-
-			while index < <[_]>::len(&conditions) {
-				if ::core::option::Option::is_some(&conditions[index]) {
-					break 'outer true;
-				}
-
-				index += 1;
-			}
-
-			false
+		const INDIRECT_CONDITION: ::core::primitive::bool = {
+			::core::option::Option::is_some(&<$output as $crate::hazard::Output>::JS_CONV)
+			$(|| ::core::option::Option::is_some(&<$input as $crate::hazard::Input>::JS_CONV))*
 		};
 		const CONV_CONDITION: ::core::primitive::bool = ::core::option::Option::is_some(&<$output as $crate::hazard::Output>::JS_CONV);
-		const CONV_POST_CONDITION: ::core::primitive::bool = ::core::option::Option::is_some(&<$output as $crate::hazard::Output>::JS_CONV_POST);
 
 		const START_LEN: ::core::primitive::usize = ::core::primitive::str::len($start);
 		const DIRECT_CALL_LEN: ::core::primitive::usize = ::core::primitive::str::len($direct_call);
 		const INDIRECT_CALL_LEN: ::core::primitive::usize = ::core::primitive::str::len($indirect_call);
 		const CONV_LEN: ::core::primitive::usize =
-			if let ::core::option::Option::Some(conv) = <$output as $crate::hazard::Output>::JS_CONV {
+			if let ::core::option::Option::Some((conv, _)) = <$output as $crate::hazard::Output>::JS_CONV {
 				::core::primitive::str::len(conv)
 			} else {
 				0
 			};
-		const CONV_POST_LEN: ::core::primitive::usize =
-			if let ::core::option::Option::Some(conv_post) =
-				<$output as $crate::hazard::Output>::JS_CONV_POST
+		const POST_CONV_LEN: ::core::primitive::usize =
+			if let ::core::option::Option::Some((_, post_conv)) =
+				<$output as $crate::hazard::Output>::JS_CONV
 			{
-				::core::primitive::str::len(conv_post)
+				::core::primitive::str::len(post_conv)
 			} else {
 				0
 			};
@@ -166,11 +193,7 @@ macro_rules! output {
 			}
 
 			if CONV_CONDITION {
-				len += CONV_LEN;
-			}
-
-			if CONV_POST_CONDITION {
-				len += CONV_POST_LEN;
+				len += CONV_LEN + POST_CONV_LEN;
 			}
 
 			len
@@ -189,7 +212,7 @@ macro_rules! output {
 				}
 			}
 
-			if let ::core::option::Option::Some(conv) = <$output as $crate::hazard::Output>::JS_CONV {
+			if let ::core::option::Option::Some((conv, _)) = <$output as $crate::hazard::Output>::JS_CONV {
 				let conv = ::core::primitive::str::as_bytes(conv);
 
 				let mut conv_index = 0;
@@ -220,14 +243,14 @@ macro_rules! output {
 				}
 			}
 
-			if let ::core::option::Option::Some(conv_post) = <$output as $crate::hazard::Output>::JS_CONV_POST {
-				let conv_post = ::core::primitive::str::as_bytes(conv_post);
+			if let ::core::option::Option::Some((_, post_conv)) = <$output as $crate::hazard::Output>::JS_CONV {
+				let post_conv = ::core::primitive::str::as_bytes(post_conv);
 
-				let mut conv_post_index = 0;
-				while index < START_LEN + CONV_LEN + INDIRECT_CALL_LEN + CONV_POST_LEN {
-					value[index] = conv_post[conv_post_index];
+				let mut post_conv_index = 0;
+				while index < START_LEN + CONV_LEN + INDIRECT_CALL_LEN + POST_CONV_LEN {
+					value[index] = post_conv[post_conv_index];
 					index += 1;
-					conv_post_index += 1
+					post_conv_index += 1
 				}
 			}
 
@@ -247,4 +270,4 @@ macro_rules! output {
 	}};
 }
 
-pub use output;
+pub use js_output;

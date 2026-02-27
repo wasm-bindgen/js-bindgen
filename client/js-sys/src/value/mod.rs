@@ -36,10 +36,11 @@ impl Drop for JsValue {
 
 // SAFETY: Implementation for all `JsValue`s.
 unsafe impl Input for &JsValue {
-	const IMPORT_FUNC: &'static str = ".functype js_sys.externref.get (i32) -> (externref)";
-	const IMPORT_TYPE: &'static str = "externref";
-	const TYPE: &'static str = "i32";
-	const CONV: &'static str = "call js_sys.externref.get";
+	const ASM_IMPORT_FUNC: Option<&'static str> =
+		Some(".functype js_sys.externref.get (i32) -> (externref)");
+	const ASM_IMPORT_TYPE: &'static str = "externref";
+	const ASM_TYPE: &'static str = "i32";
+	const ASM_CONV: Option<&'static str> = Some("call js_sys.externref.get");
 
 	type Type = i32;
 
@@ -50,10 +51,11 @@ unsafe impl Input for &JsValue {
 
 // SAFETY: Implementation for all `JsValue`s.
 unsafe impl Output for JsValue {
-	const IMPORT_FUNC: &str = ".functype js_sys.externref.insert (externref) -> (i32)";
-	const IMPORT_TYPE: &str = "externref";
-	const TYPE: &str = "i32";
-	const CONV: &str = "call js_sys.externref.insert";
+	const ASM_IMPORT_FUNC: Option<&str> =
+		Some(".functype js_sys.externref.insert (externref) -> (i32)");
+	const ASM_IMPORT_TYPE: &str = "externref";
+	const ASM_TYPE: &str = "i32";
+	const ASM_CONV: Option<&str> = Some("call js_sys.externref.insert");
 
 	type Type = i32;
 
