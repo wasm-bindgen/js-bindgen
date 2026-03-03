@@ -14,14 +14,15 @@ pub fn log0() {
     js_bindgen::unsafe_embed_asm! {
         ".import_module web_sys.import.console.log0, web_sys",
         ".import_name web_sys.import.console.log0, console.log0",
-        ".functype web_sys.import.console.log0 () -> ()", "",
-        ".globl web_sys.console.log0", "web_sys.console.log0:",
+        ".functype web_sys.import.console.log0 () -> ()",
+        "",
+        ".globl web_sys.console.log0",
+        "web_sys.console.log0:",
         "\t.functype web_sys.console.log0 () -> ()",
-        "\tcall web_sys.import.console.log0", "\tend_function",
+        "\tcall web_sys.import.console.log0",
+        "\tend_function",
     }
-    js_bindgen::import_js!(
-        module = "web_sys", name = "console.log0", "globalThis.console.log"
-    );
+    js_bindgen::import_js!(module = "web_sys", name = "console.log0", "globalThis.console.log");
     unsafe extern "C" {
         #[link_name = "web_sys.console.log0"]
         fn log0();
@@ -32,21 +33,34 @@ pub fn log(data: &JsValue) {
     js_bindgen::unsafe_embed_asm! {
         ".import_module web_sys.import.console.log, web_sys",
         ".import_name web_sys.import.console.log, console.log",
-        ".functype web_sys.import.console.log ({}) -> ()", "", "{}", "",
-        ".globl web_sys.console.log", "web_sys.console.log:",
-        "\t.functype web_sys.console.log ({}) -> ()", "\tlocal.get 0", "\t{}",
-        "\tcall web_sys.import.console.log", "\tend_function", interpolate < & JsValue as
-        Input > ::ASM_IMPORT_TYPE, interpolate r#macro::asm_import!(& JsValue as Input),
-        interpolate < & JsValue as Input > ::ASM_TYPE, interpolate r#macro::asm_conv!(&
-        JsValue as Input),
+        ".functype web_sys.import.console.log ({}) -> ()",
+        "",
+        "{}",
+        "",
+        ".globl web_sys.console.log",
+        "web_sys.console.log:",
+        "\t.functype web_sys.console.log ({}) -> ()",
+        "\tlocal.get 0",
+        "\t{}",
+        "\tcall web_sys.import.console.log",
+        "\tend_function",
+        interpolate <&JsValue as Input>::ASM_IMPORT_TYPE,
+        interpolate r#macro::asm_import!(&JsValue as Input),
+        interpolate <&JsValue as Input>::ASM_TYPE,
+        interpolate r#macro::asm_conv!(&JsValue as Input),
     }
     js_bindgen::import_js! {
-        module = "web_sys", name = "console.log", required_embeds =
-        [r#macro::js_import!(& JsValue as Input)], "{}{}{}", interpolate
-        r#macro::js_select!("", "(data) => {\n", [& JsValue]), interpolate
-        r#macro::js_parameter!("data", & JsValue), interpolate
-        r#macro::js_select!("globalThis.console.log", "globalThis.console.log(data)\n}",
-        [& JsValue]),
+        module = "web_sys",
+        name = "console.log",
+        required_embeds = [r#macro::js_import!(&JsValue as Input)],
+        "{}{}{}",
+        interpolate r#macro::js_select!("", "(data) => {\n", (&JsValue)),
+        interpolate r#macro::js_parameter!("data", &JsValue),
+        interpolate r#macro::js_select!(
+            "globalThis.console.log",
+            "globalThis.console.log(data)\n}",
+            (&JsValue),
+        ),
     }
     unsafe extern "C" {
         #[link_name = "web_sys.console.log"]
@@ -58,24 +72,40 @@ pub fn log2(data1: &JsValue, data2: &JsValue) {
     js_bindgen::unsafe_embed_asm! {
         ".import_module web_sys.import.console.log2, web_sys",
         ".import_name web_sys.import.console.log2, console.log2",
-        ".functype web_sys.import.console.log2 ({}, {}) -> ()", "", "{}", "",
-        ".globl web_sys.console.log2", "web_sys.console.log2:",
-        "\t.functype web_sys.console.log2 ({}, {}) -> ()", "\tlocal.get 0", "\t{}",
-        "\tlocal.get 1", "\t{}", "\tcall web_sys.import.console.log2", "\tend_function",
-        interpolate < & JsValue as Input > ::ASM_IMPORT_TYPE, interpolate < & JsValue as
-        Input > ::ASM_IMPORT_TYPE, interpolate r#macro::asm_import!(& JsValue as Input),
-        interpolate < & JsValue as Input > ::ASM_TYPE, interpolate < & JsValue as Input >
-        ::ASM_TYPE, interpolate r#macro::asm_conv!(& JsValue as Input), interpolate
-        r#macro::asm_conv!(& JsValue as Input),
+        ".functype web_sys.import.console.log2 ({}, {}) -> ()",
+        "",
+        "{}",
+        "",
+        ".globl web_sys.console.log2",
+        "web_sys.console.log2:",
+        "\t.functype web_sys.console.log2 ({}, {}) -> ()",
+        "\tlocal.get 0",
+        "\t{}",
+        "\tlocal.get 1",
+        "\t{}",
+        "\tcall web_sys.import.console.log2",
+        "\tend_function",
+        interpolate <&JsValue as Input>::ASM_IMPORT_TYPE,
+        interpolate <&JsValue as Input>::ASM_IMPORT_TYPE,
+        interpolate r#macro::asm_import!(&JsValue as Input),
+        interpolate <&JsValue as Input>::ASM_TYPE,
+        interpolate <&JsValue as Input>::ASM_TYPE,
+        interpolate r#macro::asm_conv!(&JsValue as Input),
+        interpolate r#macro::asm_conv!(&JsValue as Input),
     }
     js_bindgen::import_js! {
-        module = "web_sys", name = "console.log2", required_embeds =
-        [r#macro::js_import!(& JsValue as Input)], "{}{}{}{}", interpolate
-        r#macro::js_select!("", "(data1, data2) => {\n", [& JsValue]), interpolate
-        r#macro::js_parameter!("data1", & JsValue), interpolate
-        r#macro::js_parameter!("data2", & JsValue), interpolate
-        r#macro::js_select!("globalThis.console.log",
-        "globalThis.console.log(data1, data2)\n}", [& JsValue]),
+        module = "web_sys",
+        name = "console.log2",
+        required_embeds = [r#macro::js_import!(&JsValue as Input)],
+        "{}{}{}{}",
+        interpolate r#macro::js_select!("", "(data1, data2) => {\n", (&JsValue)),
+        interpolate r#macro::js_parameter!("data1", &JsValue),
+        interpolate r#macro::js_parameter!("data2", &JsValue),
+        interpolate r#macro::js_select!(
+            "globalThis.console.log",
+            "globalThis.console.log(data1, data2)\n}",
+            (&JsValue),
+        ),
     }
     unsafe extern "C" {
         #[link_name = "web_sys.console.log2"]
@@ -87,21 +117,34 @@ pub fn error(data: &JsValue) {
     js_bindgen::unsafe_embed_asm! {
         ".import_module web_sys.import.console.error, web_sys",
         ".import_name web_sys.import.console.error, console.error",
-        ".functype web_sys.import.console.error ({}) -> ()", "", "{}", "",
-        ".globl web_sys.console.error", "web_sys.console.error:",
-        "\t.functype web_sys.console.error ({}) -> ()", "\tlocal.get 0", "\t{}",
-        "\tcall web_sys.import.console.error", "\tend_function", interpolate < & JsValue
-        as Input > ::ASM_IMPORT_TYPE, interpolate r#macro::asm_import!(& JsValue as
-        Input), interpolate < & JsValue as Input > ::ASM_TYPE, interpolate
-        r#macro::asm_conv!(& JsValue as Input),
+        ".functype web_sys.import.console.error ({}) -> ()",
+        "",
+        "{}",
+        "",
+        ".globl web_sys.console.error",
+        "web_sys.console.error:",
+        "\t.functype web_sys.console.error ({}) -> ()",
+        "\tlocal.get 0",
+        "\t{}",
+        "\tcall web_sys.import.console.error",
+        "\tend_function",
+        interpolate <&JsValue as Input>::ASM_IMPORT_TYPE,
+        interpolate r#macro::asm_import!(&JsValue as Input),
+        interpolate <&JsValue as Input>::ASM_TYPE,
+        interpolate r#macro::asm_conv!(&JsValue as Input),
     }
     js_bindgen::import_js! {
-        module = "web_sys", name = "console.error", required_embeds =
-        [r#macro::js_import!(& JsValue as Input)], "{}{}{}", interpolate
-        r#macro::js_select!("", "(data) => {\n", [& JsValue]), interpolate
-        r#macro::js_parameter!("data", & JsValue), interpolate
-        r#macro::js_select!("globalThis.console.error",
-        "globalThis.console.error(data)\n}", [& JsValue]),
+        module = "web_sys",
+        name = "console.error",
+        required_embeds = [r#macro::js_import!(&JsValue as Input)],
+        "{}{}{}",
+        interpolate r#macro::js_select!("", "(data) => {\n", (&JsValue)),
+        interpolate r#macro::js_parameter!("data", &JsValue),
+        interpolate r#macro::js_select!(
+            "globalThis.console.error",
+            "globalThis.console.error(data)\n}",
+            (&JsValue),
+        ),
     }
     unsafe extern "C" {
         #[link_name = "web_sys.console.error"]

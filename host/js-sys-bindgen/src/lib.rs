@@ -10,7 +10,9 @@ mod r#type;
 #[cfg(feature = "web-idl")]
 mod web_idl;
 
-pub use {proc_macro2, quote, syn};
+pub use proc_macro2;
+pub use quote;
+pub use syn;
 
 #[cfg(feature = "file")]
 pub use crate::file::file;

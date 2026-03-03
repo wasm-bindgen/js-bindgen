@@ -38,9 +38,9 @@ fn method() {
 						name = "test",
 						required_embeds = [::js_sys::r#macro::js_import!(&::js_sys::JsValue as Input)],
 						"{}{}{}",
-						interpolate ::js_sys::r#macro::js_select!("(self) => ", "(self) => {\n", [&::js_sys::JsValue]),
+						interpolate ::js_sys::r#macro::js_select!("(self) => ", "(self) => {\n", (&::js_sys::JsValue)),
 						interpolate ::js_sys::r#macro::js_parameter!("self", &::js_sys::JsValue),
-						interpolate ::js_sys::r#macro::js_select!("self.test()", "self.test()\n}", [&::js_sys::JsValue]),
+						interpolate ::js_sys::r#macro::js_select!("self.test()", "self.test()\n}", (&::js_sys::JsValue)),
 					}
 
 					unsafe extern "C" {
@@ -121,11 +121,11 @@ fn method_par() {
 						name = "test",
 						required_embeds = [::js_sys::r#macro::js_import!(&::js_sys::JsValue as Input), ::js_sys::r#macro::js_import!(&JsValue as Input)],
 						"{}{}{}{}{}",
-						interpolate ::js_sys::r#macro::js_select!("(self, par1, par2) => ", "(self, par1, par2) => {\n", [&::js_sys::JsValue, &JsValue]),
+						interpolate ::js_sys::r#macro::js_select!("(self, par1, par2) => ", "(self, par1, par2) => {\n", (&::js_sys::JsValue, &JsValue)),
 						interpolate ::js_sys::r#macro::js_parameter!("self", &::js_sys::JsValue),
 						interpolate ::js_sys::r#macro::js_parameter!("par1", &JsValue),
 						interpolate ::js_sys::r#macro::js_parameter!("par2", &JsValue),
-						interpolate ::js_sys::r#macro::js_select!("self.test(par1, par2)", "self.test(par1, par2)\n}", [&::js_sys::JsValue, &JsValue]),
+						interpolate ::js_sys::r#macro::js_select!("self.test(par1, par2)", "self.test(par1, par2)\n}", (&::js_sys::JsValue, &JsValue)),
 					}
 
 					unsafe extern "C" {
@@ -215,7 +215,7 @@ fn getter() {
 						name = "test",
 						required_embeds = [::js_sys::r#macro::js_import!(&::js_sys::JsValue as Input), ::js_sys::r#macro::js_import!(JsValue as Output)],
 						"{}{}{}",
-						interpolate ::js_sys::r#macro::js_select!("(self) => ", "(self) => {\n", [&::js_sys::JsValue], JsValue),
+						interpolate ::js_sys::r#macro::js_select!("(self) => ", "(self) => {\n", (&::js_sys::JsValue), JsValue),
 						interpolate ::js_sys::r#macro::js_parameter!("self", &::js_sys::JsValue),
 						interpolate ::js_sys::r#macro::js_output!("\treturn ", "self.test", "self.test", JsValue, &::js_sys::JsValue),
 					}
@@ -301,10 +301,10 @@ fn setter() {
 						name = "test",
 						required_embeds = [::js_sys::r#macro::js_import!(&::js_sys::JsValue as Input), ::js_sys::r#macro::js_import!(&JsValue as Input)],
 						"{}{}{}self.test = {}",
-						interpolate ::js_sys::r#macro::js_select!("(self, value) => ", "(self, value) => {\n", [&::js_sys::JsValue, &JsValue]),
+						interpolate ::js_sys::r#macro::js_select!("(self, value) => ", "(self, value) => {\n", (&::js_sys::JsValue, &JsValue)),
 						interpolate ::js_sys::r#macro::js_parameter!("self", &::js_sys::JsValue),
 						interpolate ::js_sys::r#macro::js_parameter!("value", &JsValue),
-						interpolate ::js_sys::r#macro::js_select!("value", "value\n}", [&::js_sys::JsValue, &JsValue]),
+						interpolate ::js_sys::r#macro::js_select!("value", "value\n}", (&::js_sys::JsValue, &JsValue)),
 					}
 
 					unsafe extern "C" {

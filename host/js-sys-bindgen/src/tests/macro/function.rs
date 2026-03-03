@@ -37,9 +37,9 @@ fn basic() {
 					name = "log",
 					required_embeds = [::js_sys::r#macro::js_import!(&JsValue as Input)],
 					"{}{}{}",
-					interpolate ::js_sys::r#macro::js_select!("", "(data) => {\n", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_select!("", "(data) => {\n", (&JsValue)),
 					interpolate ::js_sys::r#macro::js_parameter!("data", &JsValue),
-					interpolate ::js_sys::r#macro::js_select!("globalThis.log", "globalThis.log(data)\n}", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_select!("globalThis.log", "globalThis.log(data)\n}", (&JsValue)),
 				}
 
 				unsafe extern "C" {
@@ -105,9 +105,9 @@ fn namespace() {
 					name = "console.log",
 					required_embeds = [::js_sys::r#macro::js_import!(&JsValue as Input)],
 					"{}{}{}",
-					interpolate ::js_sys::r#macro::js_select!("", "(data) => {\n", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_select!("", "(data) => {\n", (&JsValue)),
 					interpolate ::js_sys::r#macro::js_parameter!("data", &JsValue),
-					interpolate ::js_sys::r#macro::js_select!("globalThis.console.log", "globalThis.console.log(data)\n}", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_select!("globalThis.console.log", "globalThis.console.log(data)\n}", (&JsValue)),
 				}
 
 				unsafe extern "C" {
@@ -173,9 +173,9 @@ fn js_sys() {
 					name = "log",
 					required_embeds = [js_sys::r#macro::js_import!(&JsValue as Input)],
 					"{}{}{}",
-					interpolate js_sys::r#macro::js_select!("", "(data) => {\n", [&JsValue]),
+					interpolate js_sys::r#macro::js_select!("", "(data) => {\n", (&JsValue)),
 					interpolate js_sys::r#macro::js_parameter!("data", &JsValue),
-					interpolate js_sys::r#macro::js_select!("globalThis.log", "globalThis.log(data)\n}", [&JsValue]),
+					interpolate js_sys::r#macro::js_select!("globalThis.log", "globalThis.log(data)\n}", (&JsValue)),
 				}
 
 				unsafe extern "C" {
@@ -246,10 +246,10 @@ fn two_parameters() {
 					name = "log",
 					required_embeds = [::js_sys::r#macro::js_import!(&JsValue as Input)],
 					"{}{}{}{}",
-					interpolate ::js_sys::r#macro::js_select!("", "(data1, data2) => {\n", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_select!("", "(data1, data2) => {\n", (&JsValue)),
 					interpolate ::js_sys::r#macro::js_parameter!("data1", &JsValue),
 					interpolate ::js_sys::r#macro::js_parameter!("data2", &JsValue),
-					interpolate ::js_sys::r#macro::js_select!("globalThis.log", "globalThis.log(data1, data2)\n}", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_select!("globalThis.log", "globalThis.log(data1, data2)\n}", (&JsValue)),
 				}
 
 				unsafe extern "C" {
@@ -372,9 +372,9 @@ fn js_name() {
 					name = "logx",
 					required_embeds = [::js_sys::r#macro::js_import!(&JsValue as Input)],
 					"{}{}{}",
-					interpolate ::js_sys::r#macro::js_select!("", "(data) => {\n", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_select!("", "(data) => {\n", (&JsValue)),
 					interpolate ::js_sys::r#macro::js_parameter!("data", &JsValue),
-					interpolate ::js_sys::r#macro::js_select!("globalThis.log", "globalThis.log(data)\n}", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_select!("globalThis.log", "globalThis.log(data)\n}", (&JsValue)),
 				}
 
 				unsafe extern "C" {
@@ -503,9 +503,9 @@ fn js_embed() {
 						::js_sys::r#macro::js_import!(&JsValue as Input)
 					],
 					"{}{}{}",
-					interpolate ::js_sys::r#macro::js_select!("", "(data) => {\n", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_select!("", "(data) => {\n", (&JsValue)),
 					interpolate ::js_sys::r#macro::js_parameter!("data", &JsValue),
-					interpolate ::js_sys::r#macro::js_select!("this.#jsEmbed.test_crate['embed']", "this.#jsEmbed.test_crate['embed'](data)\n}", [&JsValue]),
+					interpolate ::js_sys::r#macro::js_select!("this.#jsEmbed.test_crate['embed']", "this.#jsEmbed.test_crate['embed'](data)\n}", (&JsValue)),
 				}
 
 				unsafe extern "C" {
@@ -570,7 +570,7 @@ fn r#return() {
 					name = "is_nan",
 					required_embeds = [::js_sys::r#macro::js_import!(JsValue as Output)],
 					"{}{}",
-					interpolate ::js_sys::r#macro::js_select!("", "() => {\n\treturn ", [], JsValue),
+					interpolate ::js_sys::r#macro::js_select!("", "() => {\n\treturn ", (), JsValue),
 					interpolate ::js_sys::r#macro::js_output!("", "globalThis.is_nan", "globalThis.is_nan()", JsValue,),
 				}
 
@@ -642,7 +642,7 @@ fn pointer() {
 					name = "array",
 					required_embeds = [::js_sys::r#macro::js_import!(*const u8 as Input), ::js_sys::r#macro::js_import!(JsString as Output)],
 					"{}{}{}",
-					interpolate ::js_sys::r#macro::js_select!("", "(ptr) => {\n", [*const u8], JsString),
+					interpolate ::js_sys::r#macro::js_select!("", "(ptr) => {\n", (*const u8), JsString),
 					interpolate ::js_sys::r#macro::js_parameter!("ptr", * const u8),
 					interpolate ::js_sys::r#macro::js_output!("\treturn ", "globalThis.array", "globalThis.array(ptr)", JsString, *const u8),
 				}

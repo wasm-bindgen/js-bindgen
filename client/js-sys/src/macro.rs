@@ -46,7 +46,7 @@ pub use js_import;
 #[doc(hidden)]
 #[macro_export]
 macro_rules! js_select {
-	($a:expr, $b:expr, [$($input:ty),*] $(, $output:ty)?) => {'outer: {
+	($a:expr, $b:expr, ($($input:ty),*) $(, $output:ty)? $(,)?) => {'outer: {
 		$(
 			if ::core::option::Option::is_some(&<$input as $crate::hazard::Input>::JS_CONV) {
 				break 'outer $b;
@@ -68,7 +68,7 @@ pub use js_select;
 #[doc(hidden)]
 #[macro_export]
 macro_rules! js_parameter {
-	($par:literal, $ty:ty) => {{
+	($par:literal, $ty:ty $(,)?) => {{
 		const PAR_LEN: ::core::primitive::usize = ::core::primitive::str::len($par);
 		const CONV_LEN: ::core::primitive::usize = if let ::core::option::Option::Some((conv, _)) =
 			<$ty as $crate::hazard::Input>::JS_CONV
@@ -159,7 +159,7 @@ pub use js_parameter;
 #[doc(hidden)]
 #[macro_export]
 macro_rules! js_output {
-	($start:literal, $direct_call:literal, $indirect_call:literal, $output:ty, $($input:ty),*) => {{
+	($start:literal, $direct_call:literal, $indirect_call:literal, $output:ty, $($input:ty),* $(,)?) => {{
 		const INDIRECT_CONDITION: ::core::primitive::bool = {
 			::core::option::Option::is_some(&<$output as $crate::hazard::Output>::JS_CONV)
 			$(|| ::core::option::Option::is_some(&<$input as $crate::hazard::Input>::JS_CONV))*

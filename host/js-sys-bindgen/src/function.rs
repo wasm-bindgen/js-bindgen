@@ -608,7 +608,7 @@ impl<'a> State<'a> {
 		};
 
 		let direct_condition = quote_spanned! {*span=>
-			[#(#unique_inputs),*] #(, #output_ty)*
+			(#(#unique_inputs),*) #(, #output_ty)*
 		};
 
 		let output = if output_ty.is_empty() {

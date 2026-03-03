@@ -47,7 +47,7 @@ js-bindgen-shared = { path = "shared" }
 js-sys-bindgen = { path = "js-sys-bindgen" }
 memmap2 = "0.9"
 object = { version = "0.38", default-features = false, features = ["archive", "read_core", "std"] }
-prettyplease = "0.2"
+prettyplease = { version = "0.2", features = ["verbatim"] }
 proc-macro2 = { version = "1", default-features = false }
 quote = { version = "1", default-features = false }
 serde = { version = "1", default-features = false }
@@ -65,6 +65,7 @@ wasmparser = { version = "0.245", default-features = false }
 weedle2 = "5"
 
 [patch.crates-io]
+prettyplease = { git = "https://github.com/daxpedda/prettyplease", branch = "js-bindgen" }
 # Proc-macro bug: https://github.com/oli-obk/ui_test/issues/361.
 ui_test = { git = "https://github.com/daxpedda/ui_test", branch = "js-bindgen" }
 
