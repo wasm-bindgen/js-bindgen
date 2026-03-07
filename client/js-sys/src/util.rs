@@ -90,7 +90,7 @@ js_bindgen::embed_js!(
 	name = "extern_ref",
 	required_embeds = [("js_sys", "isLittleEndian")],
 	"(refPtr) => {{",
-	"	if (this.#jsEmbed.js_sys['isLittleEndian']) {{",
+	"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
 	"		const view = new {view_type}Array(this.#memory.buffer, refPtr, 2)",
 	"		return {{ ptr: view[0], len: view[1] }}",
 	"	}} else {{",
