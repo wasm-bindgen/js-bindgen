@@ -6,12 +6,11 @@
   (type (;4;) (func (param i32)))
   (type (;5;) (func (param i32 i32 i32 i32)))
   (type (;6;) (func (result i32)))
-  (type (;7;) (func (param i64 i64)))
-  (type (;8;) (func (param i32 i32) (result i32)))
-  (type (;9;) (func (param i32) (result i32)))
-  (type (;10;) (func (param externref) (result i32)))
-  (type (;11;) (func (param i32) (result externref)))
-  (type (;12;) (func (param i32 i32)))
+  (type (;7;) (func (param i32 i32) (result i32)))
+  (type (;8;) (func (param i32) (result i32)))
+  (type (;9;) (func (param externref) (result i32)))
+  (type (;10;) (func (param i32) (result externref)))
+  (type (;11;) (func (param i32 i32)))
   (import "js_bindgen" "memory" (memory (;0;) 17))
   (import "js_sys" "string_decode" (func $js_sys.import.string_decode (;0;) (type 0)))
   (import "js_sys" "externref.table" (table (;0;) 0 externref))
@@ -455,19 +454,19 @@
     i32.store offset=1048604
     local.get 0
   )
-  (func $js_sys.numeric.i128 (;11;) (type 7) (param i64 i64))
-  (func $js_sys.string_decode (;12;) (type 8) (param i32 i32) (result i32)
+  (func $js_sys.numeric.i128 (;11;) (type 5) (param i32 i32 i32 i32))
+  (func $js_sys.string_decode (;12;) (type 7) (param i32 i32) (result i32)
     local.get 0
     local.get 1
     call $js_sys.import.string_decode
     call $js_sys.externref.insert
   )
-  (func $js_sys.externref.grow (;13;) (type 9) (param i32) (result i32)
+  (func $js_sys.externref.grow (;13;) (type 8) (param i32) (result i32)
     ref.null extern
     local.get 0
     table.grow 0
   )
-  (func $js_sys.externref.insert (;14;) (type 10) (param externref) (result i32)
+  (func $js_sys.externref.insert (;14;) (type 9) (param externref) (result i32)
     (local i32)
     call $js_sys.externref.next
     local.tee 1
@@ -475,7 +474,7 @@
     table.set 0
     local.get 1
   )
-  (func $js_sys.externref.get (;15;) (type 11) (param i32) (result externref)
+  (func $js_sys.externref.get (;15;) (type 10) (param i32) (result externref)
     local.get 0
     table.get 0
   )
@@ -492,7 +491,7 @@
   (func $web_sys.console.log0 (;18;) (type 2)
     call $web_sys.import.console.log0
   )
-  (func $web_sys.console.log2 (;19;) (type 12) (param i32 i32)
+  (func $web_sys.console.log2 (;19;) (type 11) (param i32 i32)
     local.get 0
     call $js_sys.externref.get
     local.get 1

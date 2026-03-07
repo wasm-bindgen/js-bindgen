@@ -30,12 +30,12 @@ impl JsArray {
 		js_bindgen::embed_js!(
 			module = "js_sys",
 			name = "array.js_value.encode",
-			required_embeds = [("js_sys", "array.isLittleEndian")],
+			required_embeds = [("js_sys", "isLittleEndian")],
 			"(array, arrPtr, arrLen, refPtr, refLen) => {{",
 			"	if (array.length !== arrLen) return false",
 			"",
 			"	const table = this.#jsEmbed.js_sys['externref.table']",
-			"	const isLe = this.#jsEmbed.js_sys['array.isLittleEndian']",
+			"	const isLe = this.#jsEmbed.js_sys['isLittleEndian']",
 			"",
 			// Default value helps browsers to optimize.
 			"	let tableIndex = 0",
@@ -119,11 +119,11 @@ impl From<&[JsValue]> for JsArray {
 		js_bindgen::embed_js!(
 			module = "js_sys",
 			name = "array.js_value.decode",
-			required_embeds = [("js_sys", "array.isLittleEndian")],
+			required_embeds = [("js_sys", "isLittleEndian")],
 			"(ptr, len) => {{",
 			"	const array = new Array(len)",
 			"",
-			"	if (this.#jsEmbed.js_sys['array.isLittleEndian']) {{",
+			"	if (this.#jsEmbed.js_sys['isLittleEndian']) {{",
 			"		const view = new Int32Array(this.#memory.buffer, ptr, len)",
 			"		for (let i = 0; i < len; i++) {{",
 			"			array[i] = this.#jsEmbed.js_sys['externref.table'].get(view[i])",
@@ -179,11 +179,11 @@ impl JsArray<u32> {
 		js_bindgen::embed_js!(
 			module = "js_sys",
 			name = "array.u32.encode",
-			required_embeds = [("js_sys", "array.isLittleEndian")],
+			required_embeds = [("js_sys", "isLittleEndian")],
 			"(array, ptr, len) => {{",
 			"	if (array.length !== len) return false",
 			"",
-			"	if (this.#jsEmbed.js_sys['array.isLittleEndian']) {{",
+			"	if (this.#jsEmbed.js_sys['isLittleEndian']) {{",
 			"		const view = new Uint32Array(this.#memory.buffer, ptr, len)",
 			"		view.set(array)",
 			"	}} else {{",
@@ -219,9 +219,9 @@ impl From<&[u32]> for JsArray<u32> {
 		js_bindgen::embed_js!(
 			module = "js_sys",
 			name = "array.u32.decode",
-			required_embeds = [("js_sys", "array.isLittleEndian")],
+			required_embeds = [("js_sys", "isLittleEndian")],
 			"(ptr, len) => {{",
-			"	if (this.#jsEmbed.js_sys['array.isLittleEndian']) {{",
+			"	if (this.#jsEmbed.js_sys['isLittleEndian']) {{",
 			"		const view = new Uint32Array(this.#memory.buffer, ptr, len)",
 			"		return Array.from(view)",
 			"	}} else {{",
@@ -264,13 +264,3 @@ unsafe impl Input for &[u32] {
 		ExternSlice::new(self)
 	}
 }
-
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "array.isLittleEndian",
-	"(() => {{",
-	"	const buffer = new ArrayBuffer(2)",
-	"	new DataView(buffer).setInt16(0, 256, true)",
-	"	return new Int16Array(buffer)[0] === 256;",
-	"}})()",
-);

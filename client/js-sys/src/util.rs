@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
+use core::mem;
 use core::mem::MaybeUninit;
-use core::{mem, ptr};
 
 use crate::hazard::Input;
 
@@ -35,12 +35,8 @@ impl<T> LocalKey<T> {
 }
 
 #[repr(C)]
-pub struct ExternValue<T> {
-	len: PtrLength<T>,
-	value: T,
-}
+pub struct ExternValue<T>(T);
 
-#[expect(dead_code, reason = "custom sections are considered dead-code")]
 impl<T> ExternValue<T> {
 	pub(crate) const ASM_IMPORT_TYPE: &str = <*const Self>::ASM_IMPORT_TYPE;
 	#[cfg(target_arch = "wasm32")]
@@ -52,31 +48,10 @@ impl<T> ExternValue<T> {
 	#[cfg(target_arch = "wasm64")]
 	pub(crate) const ASM_CONV: Option<&str> = Some("f64.convert_i64_u");
 
-	#[cfg(target_arch = "wasm32")]
-	const DATA_VIEW_GET: &str = "Uint32";
-	#[cfg(target_arch = "wasm64")]
-	const DATA_VIEW_GET: &str = "Float64";
-
 	pub(crate) fn new(value: T) -> Self {
-		Self {
-			len: PtrLength::internal(ptr::null(), mem::size_of::<T>()),
-			value,
-		}
+		Self(value)
 	}
 }
-
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "extern_value",
-	"(valuePtr) => {{",
-	"	const view = new DataView(this.#memory.buffer, valuePtr)",
-	"	const ptr = valuePtr + {}",
-	"	const len = view.get{}(0, true)",
-	"	return {{ ptr, len }}",
-	"}}",
-	const mem::offset_of!(ExternValue::<()>, value),
-	interpolate ExternValue::<()>::DATA_VIEW_GET,
-);
 
 #[repr(C)]
 pub struct ExternSlice<T> {
@@ -84,10 +59,16 @@ pub struct ExternSlice<T> {
 	len: PtrLength<T>,
 }
 
+#[expect(dead_code, reason = "custom sections are considered dead-code")]
 impl<T> ExternSlice<T> {
-	pub(crate) const ASM_IMPORT_TYPE: &str = <*const Self>::ASM_IMPORT_TYPE;
+	pub(crate) const ASM_IMPORT_TYPE: &str = ExternValue::<()>::ASM_IMPORT_TYPE;
 	pub(crate) const ASM_TYPE: &str = ExternValue::<()>::ASM_TYPE;
 	pub(crate) const ASM_CONV: Option<&str> = ExternValue::<()>::ASM_CONV;
+
+	#[cfg(target_arch = "wasm32")]
+	const VIEW_TYPE: &str = "Uint32";
+	#[cfg(target_arch = "wasm64")]
+	const VIEW_TYPE: &str = "Float64";
 
 	pub(crate) fn new(value: &[T]) -> Self {
 		Self {
@@ -97,16 +78,29 @@ impl<T> ExternSlice<T> {
 	}
 }
 
+// Verify that we can access `ExternSlice` via a `TypedArray` with two elements.
+const _: () = {
+	debug_assert!(
+		mem::size_of::<ExternSlice<()>>() == 2 * mem::size_of::<<*const () as Input>::Type>()
+	);
+};
+
 js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "extern_ref",
+	required_embeds = [("js_sys", "isLittleEndian")],
 	"(refPtr) => {{",
-	"	const view = new DataView(this.#memory.buffer, refPtr, {})",
-	"	const ptr = view.get{data_view}(0, true)",
-	"	const len = view.get{data_view}({}, true)",
-	"	return {{ ptr, len }}",
+	"	if (this.#jsEmbed.js_sys['isLittleEndian']) {{",
+	"		const view = new {view_type}Array(this.#memory.buffer, refPtr, 2)",
+	"		return {{ ptr: view[0], len: view[1] }}",
+	"	}} else {{",
+	"		const view = new DataView(this.#memory.buffer, refPtr, {})",
+	"		const ptr = view.get{view_type}(0, true)",
+	"		const len = view.get{view_type}({}, true)",
+	"		return {{ ptr, len }}",
+	"	}}",
 	"}}",
-	data_view = interpolate ExternValue::<()>::DATA_VIEW_GET,
+	view_type = interpolate ExternSlice::<()>::VIEW_TYPE,
 	const mem::size_of::<ExternSlice<()>>(),
 	const mem::offset_of!(ExternSlice::<()>, len),
 );
@@ -170,3 +164,13 @@ unsafe impl<T> Input for PtrLength<T> {
 		self.len
 	}
 }
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "isLittleEndian",
+	"(() => {{",
+	"	const buffer = new ArrayBuffer(2)",
+	"	new DataView(buffer).setInt16(0, 256, true)",
+	"	return new Int16Array(buffer)[0] === 256;",
+	"}})()",
+);

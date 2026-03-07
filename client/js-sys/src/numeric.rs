@@ -1,4 +1,5 @@
 use core::cell::Cell;
+use core::mem;
 #[cfg(target_arch = "wasm64")]
 use core::ptr;
 use core::ptr::NonNull;
@@ -159,14 +160,19 @@ unsafe impl Input for u128 {
 		js_bindgen::embed_js!(
 			module = "js_sys",
 			name = "numeric.u128.decode",
-			required_embeds = [("js_sys", "extern_value")],
-			"(dataPtr) => {{",
-			"	const {{ ptr, len }} = this.#jsEmbed.js_sys['extern_value'](dataPtr)",
-			"	const view = new DataView(this.#memory.buffer, ptr, len)",
-			"	const lo = view.getBigUint64(0, true)",
-			"	const hi = view.getBigUint64(8, true)",
-			"	return lo | (hi << 64n)",
+			required_embeds = [("js_sys", "isLittleEndian")],
+			"(ptr) => {{",
+			"	if (this.#jsEmbed.js_sys['isLittleEndian']) {{",
+			"		const view = new BigUint64Array(this.#memory.buffer, ptr, 2)",
+			"		return view[0] | (view[1] << 64n)",
+			"	}} else {{",
+			"		const view = new DataView(this.#memory.buffer, ptr, {})",
+			"		const lo = view.getBigUint64(0, true)",
+			"		const hi = view.getBigUint64(8, true)",
+			"		return lo | (hi << 64n)",
+			"	}}",
 			"}}",
+			const mem::size_of::<[u8; 16]>(),
 		);
 
 		ExternValue::new(self.to_le_bytes())
@@ -175,8 +181,9 @@ unsafe impl Input for u128 {
 
 // SAFETY: Implementation.
 unsafe impl Output for u128 {
-	const ASM_IMPORT_FUNC: Option<&str> = Some(".functype js_sys.numeric.u128 (i64, i64) -> ()");
-	const ASM_IMPORT_TYPE: &str = "i64, i64";
+	const ASM_IMPORT_FUNC: Option<&str> =
+		Some(".functype js_sys.numeric.u128 (i32, i32, i32, i32) -> ()");
+	const ASM_IMPORT_TYPE: &str = "i32, i32, i32, i32";
 	const ASM_TYPE: &str = "";
 	const ASM_CONV: Option<&str> = Some("call js_sys.numeric.u128");
 	const JS_EMBED: Option<(&str, &str)> = Some(("js_sys", "numeric.128.encode"));
@@ -187,15 +194,21 @@ unsafe impl Output for u128 {
 
 	fn from_raw((): Self::Type) -> Self {
 		thread_local! {
-			static CACHE: Cell<u128> = Cell::new(0);
+			static CACHE: Cell<[u32; 4]> = Cell::new([0; 4]);
 		}
 
 		#[unsafe(export_name = "js_sys.numeric.u128")]
-		fn convert(lo: u64, hi: u64) {
-			CACHE.with(|cache| cache.set(u128::from(hi) << 64 | u128::from(lo)));
+		fn convert(lo_lo: u32, lo_hi: u32, hi_lo: u32, hi_hi: u32) {
+			CACHE.with(|cache| cache.set([lo_lo, lo_hi, hi_lo, hi_hi]));
 		}
 
-		CACHE.with(Cell::get)
+		CACHE.with(|cache| {
+			let [lo_lo, lo_hi, hi_lo, hi_hi] = cache.get();
+			Self::from(lo_lo)
+				| Self::from(lo_hi) << 32
+				| Self::from(hi_lo) << 64
+				| Self::from(hi_hi) << 96
+		})
 	}
 }
 
@@ -214,14 +227,20 @@ unsafe impl Input for i128 {
 		js_bindgen::embed_js!(
 			module = "js_sys",
 			name = "numeric.i128.decode",
-			required_embeds = [("js_sys", "extern_value")],
-			"(dataPtr) => {{",
-			"	const {{ ptr, len }} = this.#jsEmbed.js_sys['extern_value'](dataPtr)",
-			"	const view = new DataView(this.#memory.buffer, ptr, len)",
-			"	const lo = view.getBigUint64(0, true)",
-			"	const hi = view.getBigInt64(8, true)",
-			"	return lo | (hi << 64n)",
+			required_embeds = [("js_sys", "isLittleEndian")],
+			"(ptr) => {{",
+			"	if (this.#jsEmbed.js_sys['isLittleEndian']) {{",
+			"		const viewU64 = new BigUint64Array(this.#memory.buffer, ptr, 1)",
+			"		const viewI64 = new BigInt64Array(this.#memory.buffer, ptr + 8, 1)",
+			"		return viewU64[0] | (viewI64[0] << 64n)",
+			"	}} else {{",
+			"		const view = new DataView(this.#memory.buffer, ptr, {})",
+			"		const lo = view.getBigUint64(0, true)",
+			"		const hi = view.getBigInt64(8, true)",
+			"		return lo | (hi << 64n)",
+			"	}}",
 			"}}",
+			const mem::size_of::<[u8; 16]>(),
 		);
 
 		ExternValue::new(self.to_le_bytes())
@@ -230,8 +249,9 @@ unsafe impl Input for i128 {
 
 // SAFETY: Implementation.
 unsafe impl Output for i128 {
-	const ASM_IMPORT_FUNC: Option<&str> = Some(".functype js_sys.numeric.i128 (i64, i64) -> ()");
-	const ASM_IMPORT_TYPE: &str = "i64, i64";
+	const ASM_IMPORT_FUNC: Option<&str> =
+		Some(".functype js_sys.numeric.i128 (i32, i32, i32, i32) -> ()");
+	const ASM_IMPORT_TYPE: &str = "i32, i32, i32, i32";
 	const ASM_TYPE: &str = "";
 	const ASM_CONV: Option<&str> = Some("call js_sys.numeric.i128");
 	const JS_EMBED: Option<(&str, &str)> = Some(("js_sys", "numeric.128.encode"));
@@ -242,27 +262,33 @@ unsafe impl Output for i128 {
 
 	fn from_raw((): Self::Type) -> Self {
 		thread_local! {
-			static CACHE: Cell<i128> = Cell::new(0);
+			static CACHE: Cell<(u32, u32, u32, i32)> = Cell::new((0, 0, 0, 0));
 		}
 
 		#[unsafe(export_name = "js_sys.numeric.i128")]
-		fn convert(lo: i64, hi: i64) {
-			#[expect(clippy::cast_sign_loss, reason = "avoid sign extending")]
-			CACHE.with(|cache| cache.set(i128::from(hi) << 64 | i128::from(lo as u64)));
+		fn convert(lo_lo: u32, lo_hi: u32, hi_lo: u32, hi_hi: i32) {
+			CACHE.with(|cache| cache.set((lo_lo, lo_hi, hi_lo, hi_hi)));
 		}
 
-		CACHE.with(Cell::get)
+		CACHE.with(|cache| {
+			let (lo_lo, lo_hi, hi_lo, hi_hi) = cache.get();
+			Self::from(lo_lo)
+				| Self::from(lo_hi) << 32
+				| Self::from(hi_lo) << 64
+				| Self::from(hi_hi) << 96
+		})
 	}
 }
 
 js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "numeric.128.encode",
-	required_embeds = [("js_sys", "extern_value")],
 	"(value) => {{",
-	"	const lo = BigInt.asIntN(64, value & 0xFFFFFFFFFFFFFFFFn)",
-	"	const hi = BigInt.asIntN(64, value >> 64n)",
-	"	return [lo, hi]",
+	"	const lo_lo = Number(value & 0xFFFFFFFFn)",
+	"	const lo_hi = Number((value >> 32n) & 0xFFFFFFFFn)",
+	"	const hi_lo = Number((value >> 64n) & 0xFFFFFFFFn)",
+	"	const hi_hi = Number((value >> 96n) & 0xFFFFFFFFn)",
+	"	return [lo_lo, lo_hi, hi_lo, hi_hi]",
 	"}}",
 );
 
