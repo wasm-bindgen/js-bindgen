@@ -11,7 +11,7 @@
   (type (;9;) (func (param externref) (result i32)))
   (type (;10;) (func (param i32) (result externref)))
   (type (;11;) (func (param i32 i32)))
-  (import "js_bindgen" "memory" (memory (;0;) 17))
+  (import "js_bindgen" "memory" (memory (;0;) 17 65536))
   (import "js_sys" "string_decode" (func $js_sys.import.string_decode (;0;) (type 0)))
   (import "js_sys" "externref.table" (table (;0;) 0 externref))
   (import "web_sys" "console.log" (func $web_sys.import.console.log (;1;) (type 1)))

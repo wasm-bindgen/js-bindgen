@@ -4,7 +4,11 @@ export class JsBindgen {
     // @ts-expect-error TS6133
     #jsEmbed;
     // @ts-expect-error TS6133
-    #memory = new WebAssembly.Memory({ initial: 17 });
+    #memory = (() => {
+        const memory = new WebAssembly.Memory({ initial: 17, maximum: 65536 });
+        memory.toResizableBuffer();
+        return memory;
+    })();
     #module;
     constructor(module) {
         this.#module = module;

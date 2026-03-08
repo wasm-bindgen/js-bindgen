@@ -66,9 +66,9 @@ impl<T> ExternSlice<T> {
 	pub(crate) const ASM_CONV: Option<&str> = ExternValue::<()>::ASM_CONV;
 
 	#[cfg(target_arch = "wasm32")]
-	const VIEW_TYPE: &str = "Uint32";
+	const VIEW_FN: &str = "view.getUint32";
 	#[cfg(target_arch = "wasm64")]
-	const VIEW_TYPE: &str = "Float64";
+	const VIEW_FN: &str = "view.getFloat64";
 
 	pub(crate) fn new(value: &[T]) -> Self {
 		Self {
@@ -81,28 +81,19 @@ impl<T> ExternSlice<T> {
 // Verify that we can access `ExternSlice` via a `TypedArray` with two elements.
 const _: () = {
 	debug_assert!(
-		mem::size_of::<ExternSlice<()>>() == 2 * mem::size_of::<<*const () as Input>::Type>()
+		mem::align_of::<ExternSlice<()>>() == mem::size_of::<<*const () as Input>::Type>()
 	);
 };
 
 js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "extern_ref",
-	required_embeds = [("js_sys", "isLittleEndian")],
+	required_embeds = [("js_sys", ExternSlice::<()>::VIEW_FN)],
 	"(refPtr) => {{",
-	"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
-	"		const view = new {view_type}Array(this.#memory.buffer, refPtr, 2)",
-	"		return {{ ptr: view[0], len: view[1] }}",
-	"	}} else {{",
-	"		const view = new DataView(this.#memory.buffer, refPtr, {})",
-	"		const ptr = view.get{view_type}(0, true)",
-	"		const len = view.get{view_type}({}, true)",
-	"		return {{ ptr, len }}",
-	"	}}",
+	"	const [ptr, len] = this.#jsEmbed.js_sys['{}'](refPtr, 2)",
+	"	return {{ ptr, len }}",
 	"}}",
-	view_type = interpolate ExternSlice::<()>::VIEW_TYPE,
-	const mem::size_of::<ExternSlice<()>>(),
-	const mem::offset_of!(ExternSlice::<()>, len),
+	interpolate ExternSlice::<()>::VIEW_FN,
 );
 
 #[repr(transparent)]
@@ -173,4 +164,186 @@ js_bindgen::embed_js!(
 	"	new DataView(buffer).setInt16(0, 256, true)",
 	"	return new Int16Array(buffer)[0] === 256;",
 	"}})()",
+);
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "view.DataView",
+	"new DataView(this.#memory.buffer)",
+);
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "view.Uint32",
+	"new Uint32Array(this.#memory.buffer)",
+);
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "view.getUint32",
+	required_embeds = [
+		("js_sys", "isLittleEndian"),
+		("js_sys", "view.Uint32"),
+		("js_sys", "view.DataView")
+	],
+	"(ptr, count) => {{",
+	#[cfg(debug_assertions)]
+	"	if (ptr & 3) throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+	"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
+	"		const base = ptr / 4",
+	"		const view = this.#jsEmbed.js_sys['view.Uint32'].subarray(base, base + count)",
+	"		return Array.from(view)",
+	"	}} else {{",
+	"		const out = new Array(count)",
+	"		for (let index = 0; index < count; index++) {{",
+	"			out[index] = this.#jsEmbed.js_sys['view.DataView'].getUint32(ptr + index * 4, true)",
+	"		}}",
+	"		return out",
+	"	}}",
+	"}}",
+);
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "view.Int32",
+	"new Int32Array(this.#memory.buffer)",
+);
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "view.getInt32",
+	required_embeds = [
+		("js_sys", "isLittleEndian"),
+		("js_sys", "view.Int32"),
+		("js_sys", "view.DataView")
+	],
+	"(ptr, count) => {{",
+	#[cfg(debug_assertions)]
+	"	if (ptr & 3) throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+	"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
+	"		const base = ptr / 4",
+	"		const view = this.#jsEmbed.js_sys['view.Int32'].subarray(base, base + count)",
+	"		return Array.from(view)",
+	"	}} else {{",
+	"		const out = new Array(count)",
+	"		for (let index = 0; index < count; index++) {{",
+	"			out[index] = this.#jsEmbed.js_sys['view.DataView'].getInt32(ptr + index * 4, true)",
+	"		}}",
+	"		return out",
+	"	}}",
+	"}}",
+);
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "view.setInt32",
+	required_embeds = [
+		("js_sys", "isLittleEndian"),
+		("js_sys", "view.Int32"),
+		("js_sys", "view.DataView")
+	],
+	"(ptr, array) => {{",
+	#[cfg(debug_assertions)]
+	"	if (ptr & 3) throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+	"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
+	"		this.#jsEmbed.js_sys['view.Int32'].set(array, ptr / 4)",
+	"	}} else {{",
+	"		for (let index = 0; index < array.length; index++) {{",
+	"			this.#jsEmbed.js_sys['view.DataView'].setInt32(ptr + index * 4, array[index], true)",
+	"		}}",
+	"	}}",
+	"}}",
+);
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "view.Float64",
+	"new Float64Array(this.#memory.buffer)",
+);
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "view.getFloat64",
+	required_embeds = [
+		("js_sys", "isLittleEndian"),
+		("js_sys", "view.Float64"),
+		("js_sys", "view.DataView")
+	],
+	"(ptr, count) => {{",
+	#[cfg(debug_assertions)]
+	"	if (ptr & 7) throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+	"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
+	"		const base = ptr / 8",
+	"		const view = this.#jsEmbed.js_sys['view.Float64'].subarray(base, base + count)",
+	"		return Array.from(view)",
+	"	}} else {{",
+	"		const out = new Array(count)",
+	"		for (let index = 0; index < count; index++) {{",
+	"			out[index] = this.#jsEmbed.js_sys['view.DataView'].getFloat64(ptr + index * 8, true)",
+	"		}}",
+	"		return out",
+	"	}}",
+	"}}",
+);
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "view.BigUint64",
+	"new BigUint64Array(this.#memory.buffer)",
+);
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "view.getBigUint64",
+	required_embeds = [
+		("js_sys", "isLittleEndian"),
+		("js_sys", "view.BigUint64"),
+		("js_sys", "view.DataView")
+	],
+	"(ptr, count) => {{",
+	#[cfg(debug_assertions)]
+	"	if (ptr & 7) throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+	"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
+	"		const base = ptr / 8",
+	"		const view = this.#jsEmbed.js_sys['view.BigUint64'].subarray(base, base + count)",
+	"		return Array.from(view)",
+	"	}} else {{",
+	"		const out = new Array(count)",
+	"		for (let index = 0; index < count; index++) {{",
+	"			out[index] = this.#jsEmbed.js_sys['view.DataView'].getBigUint64(ptr + index * 8, true)",
+	"		}}",
+	"		return out",
+	"	}}",
+	"}}",
+);
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "view.BigInt64",
+	"new BigInt64Array(this.#memory.buffer)",
+);
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "view.getBigInt64",
+	required_embeds = [
+		("js_sys", "isLittleEndian"),
+		("js_sys", "view.BigInt64"),
+		("js_sys", "view.DataView")
+	],
+	"(ptr, count) => {{",
+	#[cfg(debug_assertions)]
+	"	if (ptr & 7) throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+	"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
+	"		const base = ptr / 8",
+	"		const view = this.#jsEmbed.js_sys['view.BigInt64'].subarray(base, base + count)",
+	"		return Array.from(view)",
+	"	}} else {{",
+	"		const out = new Array(count)",
+	"		for (let index = 0; index < count; index++) {{",
+	"			out[index] = this.#jsEmbed.js_sys['view.DataView'].getBigInt64(ptr + index * 8, true)",
+	"		}}",
+	"		return out",
+	"	}}",
+	"}}",
 );

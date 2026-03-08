@@ -337,7 +337,7 @@ pub(super) fn array_u32_decode(array: *const u32, len: PtrLength<u32>) -> JsArra
         module = "js_sys",
         name = "array_u32_decode",
         required_embeds = [
-            ("js_sys", "array.u32.decode"),
+            ("js_sys", "view.getUint32"),
             r#macro::js_import!(*const u32 as Input),
             r#macro::js_import!(PtrLength<u32> as Input),
             r#macro::js_import!(JsArray<u32> as Output),
@@ -353,8 +353,8 @@ pub(super) fn array_u32_decode(array: *const u32, len: PtrLength<u32>) -> JsArra
         interpolate r#macro::js_parameter!("len", PtrLength<u32>),
         interpolate r#macro::js_output!(
             "\treturn ",
-            "this.#jsEmbed.js_sys['array.u32.decode']",
-            "this.#jsEmbed.js_sys['array.u32.decode'](array, len)",
+            "this.#jsEmbed.js_sys['view.getUint32']",
+            "this.#jsEmbed.js_sys['view.getUint32'](array, len)",
             JsArray<u32>,
             *const u32,
             PtrLength<u32>,

@@ -407,7 +407,10 @@ impl Runner {
 		fs::write(dir.path().join("shared.mjs"), SHARED_JS)?;
 		fs::write(dir.path().join("shared-terminal.mjs"), SHARED_TERMINAL_JS)?;
 
-		let status = Command::new("node").arg(runner_path).status()?;
+		let status = Command::new("node")
+			.arg("--experimental-wasm-rab-integration")
+			.arg(&runner_path)
+			.status()?;
 
 		if !status.success() {
 			process::exit(status.code().unwrap_or(1));

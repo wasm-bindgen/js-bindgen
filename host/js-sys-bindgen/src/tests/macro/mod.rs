@@ -2,7 +2,6 @@ mod function;
 mod member;
 mod r#type;
 
-use std::ffi::OsStr;
 use std::io::{self, Cursor};
 use std::path::Path;
 use std::process::Command;
@@ -210,7 +209,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 								);
 								assembly_output = Some(assembly.to_owned());
 								js_bindgen_ld_shared::assembly_to_object(
-									OsStr::new("wasm32"),
+									"wasm32",
 									assembly,
 									&mut io::sink(),
 								)?;

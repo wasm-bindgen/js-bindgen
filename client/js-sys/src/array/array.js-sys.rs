@@ -19,7 +19,7 @@ extern "js-sys" {
 		externref_len: i32,
 	) -> bool;
 
-	#[js_sys(js_embed = "array.u32.decode")]
+	#[js_sys(js_embed = "view.getUint32")]
 	pub(super) fn array_u32_decode(array: *const u32, len: PtrLength<u32>) -> JsArray<u32>;
 
 	#[js_sys(js_embed = "array.u32.encode")]

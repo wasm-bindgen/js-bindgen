@@ -11,12 +11,12 @@ use wasmparser::CustomSectionReader;
 /// Currently this simply passes the LLVM s-format assembly to `llvm-mc` to
 /// convert to an object file the linker can consume.
 pub fn assembly_to_object(
-	arch_str: &OsStr,
+	arch_str: &str,
 	assembly: &str,
 	output: &mut dyn Write,
 ) -> Result<(), Error> {
 	let mut child = Command::new("llvm-mc")
-		.arg(format!("-arch={}", arch_str.display()))
+		.arg(format!("-arch={arch_str}"))
 		// In the future we will switch to something supporting auto-detection.
 		.arg("-mattr=+reference-types,+call-indirect-overlong")
 		.arg("-filetype=obj")

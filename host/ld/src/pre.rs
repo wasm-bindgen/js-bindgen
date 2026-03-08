@@ -1,4 +1,4 @@
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
@@ -23,6 +23,12 @@ pub struct MainMemory<'a> {
 	pub name: &'a str,
 }
 
+#[derive(Clone, Copy)]
+enum Arch {
+	Wasm32,
+	Wasm64,
+}
+
 pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 	let wasm_ld_args = WasmLdArguments::new(&args[1..]);
 
@@ -41,14 +47,16 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 	);
 
 	// With Wasm32 no argument is passed, but Wasm64 requires `-mwasm64`.
-	let arch_str = if let Some(m) = wasm_ld_args.arg_single("m") {
-		if m == "wasm32" || m == "wasm64" {
-			m
+	let arch = if let Some(m) = wasm_ld_args.arg_single("m") {
+		if m == "wasm32" {
+			Arch::Wasm32
+		} else if m == "wasm64" {
+			Arch::Wasm64
 		} else {
 			panic!("expected `-m` to either be `wasm32` or `wasm64");
 		}
 	} else {
-		OsStr::new("wasm32")
+		Arch::Wasm32
 	};
 
 	// Here we store additional arguments we want to pass to `wasm-ld`.
@@ -56,14 +64,14 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 
 	// Extract path to the main memory if user-specified, otherwise force export
 	// with our own path.
-	let main_memory = main_memory(&wasm_ld_args, &mut add_args);
+	let main_memory = main_memory(arch, &wasm_ld_args, &mut add_args);
 
 	let mut js_store = JsStore::default();
 
 	// Extract embedded assembly from object files.
 	for input in wasm_ld_args.inputs() {
 		js_bindgen_ld_shared::ld_input_parser(input, |path, data| {
-			process_object(&mut js_store, arch_str, &mut add_args, path, data)
+			process_object(&mut js_store, arch.as_str(), &mut add_args, path, data)
 		})
 		.unwrap();
 	}
@@ -80,7 +88,7 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 /// from them and passes them to the linker.
 fn process_object(
 	js_store: &mut JsStore,
-	arch_str: &OsStr,
+	arch_str: &str,
 	add_args: &mut Vec<OsString>,
 	archive_path: &Path,
 	object: &[u8],
@@ -138,10 +146,28 @@ fn process_object(
 	Ok(())
 }
 
+impl Arch {
+	fn as_str(self) -> &'static str {
+		match self {
+			Self::Wasm32 => "wasm32",
+			Self::Wasm64 => "wasm64",
+		}
+	}
+}
+
 fn main_memory<'args>(
+	arch: Arch,
 	wasm_ld_args: &WasmLdArguments<'args>,
 	add_args: &mut Vec<OsString>,
 ) -> MainMemory<'args> {
+	// Always force max memory.
+	if wasm_ld_args.arg_single("max-memory=").is_none() {
+		match arch {
+			Arch::Wasm32 => add_args.push(OsString::from("--max-memory=4294967296")),
+			Arch::Wasm64 => add_args.push(OsString::from("--max-memory=17179869184")),
+		}
+	}
+
 	match wasm_ld_args.arg_single("import-memory=") {
 		Some(arg) => {
 			let arg = arg

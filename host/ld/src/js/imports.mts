@@ -8,7 +8,11 @@ export class JsBindgen {
 	// @ts-expect-error TS6133
 	#jsEmbed: Record<string, Record<string, any>>
 	// @ts-expect-error TS6133
-	#memory = JBG_PLACEHOLDER_MEMORY
+	#memory: WebAssembly.Memory = (() => {
+		const memory = JBG_PLACEHOLDER_MEMORY
+		memory.toResizableBuffer()
+		return memory
+	})()
 	#module: WebAssembly.Module
 
 	constructor(module: WebAssembly.Module) {

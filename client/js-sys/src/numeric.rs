@@ -154,28 +154,20 @@ unsafe impl Input for u128 {
 	const JS_CONV: Option<(&str, Option<&str>)> =
 		Some((" = this.#jsEmbed.js_sys['numeric.u128.decode'](", Some(")")));
 
-	type Type = ExternValue<[u8; 16]>;
+	type Type = ExternValue<AlignedValue>;
 
 	fn into_raw(self) -> Self::Type {
 		js_bindgen::embed_js!(
 			module = "js_sys",
 			name = "numeric.u128.decode",
-			required_embeds = [("js_sys", "isLittleEndian")],
+			required_embeds = [("js_sys", "view.getBigUint64")],
 			"(ptr) => {{",
-			"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
-			"		const view = new BigUint64Array(this.#memory.buffer, ptr, 2)",
-			"		return view[0] | (view[1] << 64n)",
-			"	}} else {{",
-			"		const view = new DataView(this.#memory.buffer, ptr, {})",
-			"		const lo = view.getBigUint64(0, true)",
-			"		const hi = view.getBigUint64(8, true)",
-			"		return lo | (hi << 64n)",
-			"	}}",
+			"	const [lo, hi] = this.#jsEmbed.js_sys['view.getBigUint64'](ptr, 2)",
+			"	return lo | (hi << 64n)",
 			"}}",
-			const mem::size_of::<[u8; 16]>(),
 		);
 
-		ExternValue::new(self.to_le_bytes())
+		ExternValue::new(AlignedValue(self.to_le_bytes()))
 	}
 }
 
@@ -221,29 +213,24 @@ unsafe impl Input for i128 {
 	const JS_CONV: Option<(&str, Option<&str>)> =
 		Some((" = this.#jsEmbed.js_sys['numeric.i128.decode'](", Some(")")));
 
-	type Type = ExternValue<[u8; 16]>;
+	type Type = ExternValue<AlignedValue>;
 
 	fn into_raw(self) -> Self::Type {
 		js_bindgen::embed_js!(
 			module = "js_sys",
 			name = "numeric.i128.decode",
-			required_embeds = [("js_sys", "isLittleEndian")],
+			required_embeds = [
+				("js_sys", "view.getBigUint64"),
+				("js_sys", "view.getBigInt64")
+			],
 			"(ptr) => {{",
-			"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
-			"		const viewU64 = new BigUint64Array(this.#memory.buffer, ptr, 1)",
-			"		const viewI64 = new BigInt64Array(this.#memory.buffer, ptr + 8, 1)",
-			"		return viewU64[0] | (viewI64[0] << 64n)",
-			"	}} else {{",
-			"		const view = new DataView(this.#memory.buffer, ptr, {})",
-			"		const lo = view.getBigUint64(0, true)",
-			"		const hi = view.getBigInt64(8, true)",
-			"		return lo | (hi << 64n)",
-			"	}}",
+			"	const [lo] = this.#jsEmbed.js_sys['view.getBigUint64'](ptr, 1)",
+			"	const [hi] = this.#jsEmbed.js_sys['view.getBigInt64'](ptr + 8, 1)",
+			"	return lo | (hi << 64n)",
 			"}}",
-			const mem::size_of::<[u8; 16]>(),
 		);
 
-		ExternValue::new(self.to_le_bytes())
+		ExternValue::new(AlignedValue(self.to_le_bytes()))
 	}
 }
 
@@ -279,6 +266,13 @@ unsafe impl Output for i128 {
 		})
 	}
 }
+
+#[repr(C, align(8))]
+pub struct AlignedValue([u8; 16]);
+
+const _: () = {
+	debug_assert!(mem::align_of::<ExternValue<AlignedValue>>() == 8);
+};
 
 js_bindgen::embed_js!(
 	module = "js_sys",
