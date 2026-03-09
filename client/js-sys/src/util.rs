@@ -104,34 +104,21 @@ pub(crate) struct PtrLength<T> {
 
 impl<T> PtrLength<T> {
 	pub(crate) fn new(value: &[T]) -> Self {
-		Self::internal(value.as_ptr(), value.len())
+		Self::internal(value.len())
 	}
 
-	pub(crate) fn from_uninit_array<const N: usize>(value: &MaybeUninit<[T; N]>) -> Self {
-		Self::internal(value.as_ptr().cast(), N)
+	pub(crate) fn from_uninit_array<const N: usize>(_: &MaybeUninit<[T; N]>) -> Self {
+		Self::internal(N)
 	}
 
 	pub(crate) fn from_uninit_slice(value: &[MaybeUninit<T>]) -> Self {
-		Self::internal(value.as_ptr().cast(), value.len())
+		Self::internal(value.len())
 	}
 
-	fn internal(
-		#[cfg_attr(
-			not(target_arch = "wasm64"),
-			expect(unused_variables, reason = "only needed for Wasm64")
-		)]
-		ptr: *const T,
-		len: usize,
-	) -> Self {
+	fn internal(len: usize) -> Self {
 		#[cfg(target_arch = "wasm64")]
 		#[expect(clippy::cast_precision_loss, reason = "checked")]
-		let len = {
-			debug_assert!(
-				ptr.addr() + len * mem::size_of::<T>() < 0x0020_0000_0000_0000,
-				"found pointer + length bigger than `Number.MAX_SAFE_INTEGER`"
-			);
-			len as f64
-		};
+		let len = len as f64;
 
 		Self {
 			len,

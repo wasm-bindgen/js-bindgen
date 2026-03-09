@@ -336,12 +336,7 @@ delegate!(
 #[cfg(target_arch = "wasm64")]
 #[expect(clippy::cast_precision_loss, reason = "checked")]
 fn wasm64_into_raw<T>(ptr: *const T) -> f64 {
-	let addr = ptr.addr();
-	debug_assert!(
-		addr < 0x0020_0000_0000_0000,
-		"found pointer bigger than `Number.MAX_SAFE_INTEGER`"
-	);
-	addr as f64
+	ptr.addr() as f64
 }
 
 #[cfg(target_arch = "wasm64")]
