@@ -9,7 +9,7 @@ fn js_value() {
 	let js_array = JsArray::from(&rust_array);
 	assert_eq!(rust_array.len(), js_array.length().try_into().unwrap());
 
-	let returned_array: [JsValue; 42] = js_array.as_array().unwrap();
+	let returned_array: [JsValue; 42] = js_array.to_array().unwrap();
 	assert!(rust_array == returned_array);
 }
 
@@ -19,6 +19,6 @@ fn u32() {
 	let js_array = JsArray::from(&rust_array);
 	assert_eq!(rust_array.len(), js_array.length().try_into().unwrap());
 
-	let returned_array: [u32; 42] = js_array.as_array().unwrap();
+	let returned_array: [u32; 42] = js_array.to_array().unwrap();
 	assert_eq!(rust_array, returned_array);
 }

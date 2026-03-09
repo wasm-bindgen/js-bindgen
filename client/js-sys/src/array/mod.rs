@@ -2,6 +2,8 @@
 #[path ="array.gen.rs"]
 mod array;
 
+use core::error::Error;
+use core::fmt::{self, Display, Formatter};
 use core::mem::MaybeUninit;
 use core::ptr;
 
@@ -24,66 +26,6 @@ impl<T> JsArray<T> {
 	}
 }
 
-impl JsArray {
-	#[must_use]
-	pub fn as_array<const N: usize>(&self) -> Option<[JsValue; N]> {
-		js_bindgen::embed_js!(
-			module = "js_sys",
-			name = "array.js_value.encode",
-			required_embeds = [("js_sys", "view.getInt32"), ("js_sys", "view.setInt32")],
-			"(array, arrPtr, arrLen, refPtr, refLen) => {{",
-			"	if (array.length !== arrLen) return false",
-			"",
-			"	const table = this.#jsEmbed.js_sys['externref.table']",
-			"",
-			// Default value helps browsers to optimize.
-			"	let tableIndex = 0",
-			"	if (arrLen > refLen) {{",
-			"		tableIndex = table.grow(arrLen - refLen)",
-			"	}}",
-			"",
-			"	let refIndex = refLen - 1",
-			"",
-			"	for (let arrayIndex = 0; arrayIndex < arrLen; arrayIndex++) {{",
-			"		let elemIndex",
-			"",
-			"		if (refIndex >= 0) {{",
-			"			elemIndex = this.#jsEmbed.js_sys['view.getInt32'](refPtr + refIndex * 4, 1)[0]",
-			"			refIndex--",
-			"		}} else {{",
-			"			elemIndex = tableIndex",
-			"			tableIndex++",
-			"		}}",
-			"",
-			"		table.set(elemIndex, array[arrayIndex])",
-			"		this.#jsEmbed.js_sys['view.setInt32'](arrPtr + arrayIndex * 4, [elemIndex])",
-			"	}}",
-			"",
-			"	return true",
-			"}}",
-		);
-
-		let mut array: MaybeUninit<[JsValue; N]> = MaybeUninit::uninit();
-		let externref = ExternrefTable::current_ptr();
-
-		let result = array::array_js_value_encode(
-			self,
-			array.as_mut_ptr().cast(),
-			PtrLength::from_uninit_array(&array),
-			externref.ptr,
-			externref.len,
-		);
-
-		if result {
-			ExternrefTable::report_used_slots(N);
-			// SAFETY: Correctly initialized in JS.
-			Some(unsafe { array.assume_init() })
-		} else {
-			None
-		}
-	}
-}
-
 impl<T, const N: usize> From<&[T; N]> for JsArray<T>
 where
 	Self: for<'a> From<&'a [T]>,
@@ -92,6 +34,146 @@ where
 		value.as_slice().into()
 	}
 }
+
+// SAFETY: Implementation.
+unsafe impl<'a, T, const N: usize> Input for &'a [T; N]
+where
+	&'a [T]: Input,
+{
+	const ASM_IMPORT_TYPE: &'static str = <&[T] as Input>::ASM_IMPORT_TYPE;
+	const ASM_TYPE: &'static str = <&[T] as Input>::ASM_TYPE;
+	const ASM_CONV: Option<&'static str> = <&[T] as Input>::ASM_CONV;
+	const JS_EMBED: Option<(&'static str, &'static str)> = <&[T] as Input>::JS_EMBED;
+	const JS_CONV: Option<(&'static str, Option<&'static str>)> = <&[T] as Input>::JS_CONV;
+
+	type Type = <&'a [T] as Input>::Type;
+
+	fn into_raw(self) -> Self::Type {
+		self.as_slice().into_raw()
+	}
+}
+
+#[derive(Debug)]
+#[non_exhaustive]
+pub struct TryFromJsArrayError;
+
+impl Display for TryFromJsArrayError {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.write_str("length did not match")
+	}
+}
+
+impl Error for TryFromJsArrayError {}
+
+impl JsArray {
+	pub fn to_slice(&self, slice: &mut [JsValue]) -> Result<(), TryFromJsArrayError> {
+		let externref = ExternrefTable::current_ptr();
+
+		// SAFETY: Parameters are correct.
+		let result = unsafe {
+			array::array_js_value_encode(
+				self,
+				slice.as_mut_ptr(),
+				PtrLength::new(slice),
+				externref.ptr,
+				externref.len,
+			)
+		};
+
+		if result {
+			ExternrefTable::report_used_slots(slice.len());
+			Ok(())
+		} else {
+			Err(TryFromJsArrayError)
+		}
+	}
+
+	pub fn to_uninit_slice<'slice>(
+		&self,
+		slice: &'slice mut [MaybeUninit<JsValue>],
+	) -> Result<&'slice mut [JsValue], TryFromJsArrayError> {
+		let externref = ExternrefTable::current_ptr();
+
+		// SAFETY: Parameters are correct.
+		let result = unsafe {
+			array::array_js_value_encode(
+				self,
+				slice.as_mut_ptr().cast(),
+				PtrLength::from_uninit_slice(slice),
+				externref.ptr,
+				externref.len,
+			)
+		};
+
+		if result {
+			ExternrefTable::report_used_slots(slice.len());
+			// SAFETY: Correctly initialized in JS.
+			Ok(unsafe { assume_init_mut(slice) })
+		} else {
+			Err(TryFromJsArrayError)
+		}
+	}
+
+	pub fn to_array<const N: usize>(&self) -> Result<[JsValue; N], TryFromJsArrayError> {
+		let mut array: MaybeUninit<[JsValue; N]> = MaybeUninit::uninit();
+		let externref = ExternrefTable::current_ptr();
+
+		// SAFETY: Parameters are correct.
+		let result = unsafe {
+			array::array_js_value_encode(
+				self,
+				array.as_mut_ptr().cast(),
+				PtrLength::from_uninit_array(&array),
+				externref.ptr,
+				externref.len,
+			)
+		};
+
+		if result {
+			ExternrefTable::report_used_slots(N);
+			// SAFETY: Correctly initialized in JS.
+			Ok(unsafe { array.assume_init() })
+		} else {
+			Err(TryFromJsArrayError)
+		}
+	}
+}
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "array.js_value.encode",
+	required_embeds = [("js_sys", "view.getInt32"), ("js_sys", "view.setInt32")],
+	"(array, arrPtr, arrLen, refPtr, refLen) => {{",
+	"	if (array.length !== arrLen) return false",
+	"",
+	"	const table = this.#jsEmbed.js_sys['externref.table']",
+	"",
+	// Default value helps browsers to optimize.
+	"	let tableIndex = 0",
+	"	if (arrLen > refLen) {{",
+	"		tableIndex = table.grow(arrLen - refLen)",
+	"	}}",
+	"",
+	"	let refIndex = refLen - 1",
+	"",
+	"	for (let arrayIndex = 0; arrayIndex < arrLen; arrayIndex++) {{",
+	"		let elemIndex",
+	"",
+	"		if (refIndex >= 0) {{",
+	"			elemIndex = this.#jsEmbed.js_sys['view.getInt32'](refPtr + refIndex * 4, 1)[0]",
+	"			refIndex--",
+	"		}} else {{",
+	"			elemIndex = tableIndex",
+	"			tableIndex++",
+	"		}}",
+	"",
+	"		table.set(elemIndex, array[arrayIndex])",
+	"		this.#jsEmbed.js_sys['view.setInt32'](arrPtr + arrayIndex * 4, [elemIndex])",
+	"	}}",
+	"",
+	"	return true",
+	"}}",
+);
 
 impl From<&[JsValue]> for JsArray {
 	fn from(value: &[JsValue]) -> Self {
@@ -109,7 +191,8 @@ impl From<&[JsValue]> for JsArray {
 			"}}",
 		);
 
-		array::array_js_value_decode(value.as_ptr(), PtrLength::new(value))
+		// SAFETY: Parameters are correct.
+		unsafe { array::array_js_value_decode(value.as_ptr(), PtrLength::new(value)) }
 	}
 }
 
@@ -143,27 +226,51 @@ unsafe impl Input for &[JsValue] {
 }
 
 impl JsArray<u32> {
-	#[must_use]
-	pub fn as_array<const N: usize>(&self) -> Option<[u32; N]> {
-		js_bindgen::embed_js!(
-			module = "js_sys",
-			name = "array.u32.encode",
-			required_embeds = [("js_sys", "view.setInt32")],
-			"(array, ptr, len) => {{",
-			"	if (array.length !== len) return false",
-			"",
-			"	this.#jsEmbed.js_sys['view.setInt32'](ptr, array)",
-			"	return true",
-			"}}",
-		);
+	pub fn to_slice(&self, slice: &mut [u32]) -> Result<(), TryFromJsArrayError> {
+		// SAFETY: Parameters are correct.
+		let result =
+			unsafe { array::array_u32_encode(self, slice.as_mut_ptr(), PtrLength::new(slice)) };
 
+		if result {
+			Ok(())
+		} else {
+			Err(TryFromJsArrayError)
+		}
+	}
+
+	pub fn to_uninit_slice<'slice>(
+		&self,
+		slice: &'slice mut [MaybeUninit<u32>],
+	) -> Result<&'slice mut [u32], TryFromJsArrayError> {
+		// SAFETY: Parameters are correct.
+		let result = unsafe {
+			array::array_u32_encode(
+				self,
+				slice.as_mut_ptr().cast(),
+				PtrLength::from_uninit_slice(slice),
+			)
+		};
+
+		if result {
+			// SAFETY: Correctly initialized in JS.
+			Ok(unsafe { assume_init_mut(slice) })
+		} else {
+			Err(TryFromJsArrayError)
+		}
+	}
+
+	#[must_use]
+	pub fn to_array<const N: usize>(&self) -> Option<[u32; N]> {
 		let mut array: MaybeUninit<[u32; N]> = MaybeUninit::uninit();
 
-		let result = array::array_u32_encode(
-			self,
-			array.as_mut_ptr().cast(),
-			PtrLength::from_uninit_array(&array),
-		);
+		// SAFETY: Parameters are correct.
+		let result = unsafe {
+			array::array_u32_encode(
+				self,
+				array.as_mut_ptr().cast(),
+				PtrLength::from_uninit_array(&array),
+			)
+		};
 
 		if result {
 			// SAFETY: Correctly initialized in JS.
@@ -174,9 +281,22 @@ impl JsArray<u32> {
 	}
 }
 
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "array.u32.encode",
+	required_embeds = [("js_sys", "view.setInt32")],
+	"(array, ptr, len) => {{",
+	"	if (array.length !== len) return false",
+	"",
+	"	this.#jsEmbed.js_sys['view.setInt32'](ptr, array)",
+	"	return true",
+	"}}",
+);
+
 impl From<&[u32]> for JsArray<u32> {
 	fn from(value: &[u32]) -> Self {
-		array::array_u32_decode(value.as_ptr(), PtrLength::new(value))
+		// SAFETY: Parameters are correct.
+		unsafe { array::array_u32_decode(value.as_ptr(), PtrLength::new(value)) }
 	}
 }
 
@@ -204,4 +324,10 @@ unsafe impl Input for &[u32] {
 
 		ExternSlice::new(self)
 	}
+}
+
+// MSRV: Stable on v1.93.
+const unsafe fn assume_init_mut<T>(slice: &mut [MaybeUninit<T>]) -> &mut [T] {
+	// SAFETY: copied from Std.
+	unsafe { &mut *(core::ptr::from_mut::<[MaybeUninit<T>]>(slice) as *mut [T]) }
 }

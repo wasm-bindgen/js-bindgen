@@ -8,10 +8,10 @@ extern "js-sys" {
 	pub fn length<T>(self: &JsArray<T>) -> u32;
 
 	#[js_sys(js_embed = "array.js_value.decode")]
-	pub(super) fn array_js_value_decode(array: *const JsValue, len: PtrLength<JsValue>) -> JsArray<JsValue>;
+	pub(super) unsafe fn array_js_value_decode(array: *const JsValue, len: PtrLength<JsValue>) -> JsArray<JsValue>;
 
 	#[js_sys(js_embed = "array.js_value.encode")]
-	pub(super) fn array_js_value_encode(
+	pub(super) unsafe fn array_js_value_encode(
 		array: &JsArray,
 		array_ptr: *mut JsValue,
 		array_len: PtrLength<JsValue>,
@@ -20,10 +20,10 @@ extern "js-sys" {
 	) -> bool;
 
 	#[js_sys(js_embed = "view.getUint32")]
-	pub(super) fn array_u32_decode(array: *const u32, len: PtrLength<u32>) -> JsArray<u32>;
+	pub(super) unsafe fn array_u32_decode(array: *const u32, len: PtrLength<u32>) -> JsArray<u32>;
 
 	#[js_sys(js_embed = "array.u32.encode")]
-	pub(super) fn array_u32_encode(
+	pub(super) unsafe fn array_u32_encode(
 		array: &JsArray<u32>,
 		ptr: *mut u32,
 		len: PtrLength<u32>,

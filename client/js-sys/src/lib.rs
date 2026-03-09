@@ -22,7 +22,7 @@ pub use js_bindgen;
 #[cfg(feature = "macro")]
 pub use js_sys_macro::js_sys;
 
-pub use crate::array::JsArray;
+pub use crate::array::{JsArray, TryFromJsArrayError};
 pub use crate::bigint::JsBigInt;
 pub use crate::number::JsNumber;
 pub use crate::panic::{UnwrapThrowExt, panic};

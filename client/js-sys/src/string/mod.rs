@@ -36,7 +36,8 @@ impl PartialEq<&str> for JsString {
 			"}}",
 		);
 
-		string::string_eq(self, other.as_ptr(), PtrLength::new(other.as_bytes()))
+		// SAFETY: Parameters are correct.
+		unsafe { string::string_eq(self, other.as_ptr(), PtrLength::new(other.as_bytes())) }
 	}
 }
 
@@ -65,7 +66,8 @@ impl From<&str> for JsString {
 			"}}",
 		);
 
-		string::string_decode(value.as_ptr(), PtrLength::new(value.as_bytes()))
+		// SAFETY: Parameters are correct.
+		unsafe { string::string_decode(value.as_ptr(), PtrLength::new(value.as_bytes())) }
 	}
 }
 
@@ -99,11 +101,14 @@ impl From<&JsString> for String {
 		let len = len as usize;
 
 		let mut vec = Vec::with_capacity(len);
-		string::string_encode(
-			value,
-			vec.as_mut_ptr(),
-			PtrLength::from_uninit_slice(vec.spare_capacity_mut()),
-		);
+		// SAFETY: Parameters are correct.
+		unsafe {
+			string::string_encode(
+				value,
+				vec.as_mut_ptr(),
+				PtrLength::from_uninit_slice(vec.spare_capacity_mut()),
+			);
+		}
 
 		// SAFETY:
 		unsafe {

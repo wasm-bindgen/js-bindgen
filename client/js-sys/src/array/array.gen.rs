@@ -103,7 +103,7 @@ impl<T> JsArray<T> {
         Output::from_raw(unsafe { length(Input::into_raw(self)) })
     }
 }
-pub(super) fn array_js_value_decode(
+pub(super) unsafe fn array_js_value_decode(
     array: *const JsValue,
     len: PtrLength<JsValue>,
 ) -> JsArray<JsValue> {
@@ -177,7 +177,7 @@ pub(super) fn array_js_value_decode(
     }
     Output::from_raw(unsafe { array_js_value_decode(Input::into_raw(array), Input::into_raw(len)) })
 }
-pub(super) fn array_js_value_encode(
+pub(super) unsafe fn array_js_value_encode(
     array: &JsArray,
     array_ptr: *mut JsValue,
     array_len: PtrLength<JsValue>,
@@ -298,7 +298,7 @@ pub(super) fn array_js_value_encode(
         )
     })
 }
-pub(super) fn array_u32_decode(array: *const u32, len: PtrLength<u32>) -> JsArray<u32> {
+pub(super) unsafe fn array_u32_decode(array: *const u32, len: PtrLength<u32>) -> JsArray<u32> {
     js_bindgen::unsafe_embed_asm! {
         ".import_module js_sys.import.array_u32_decode, js_sys",
         ".import_name js_sys.import.array_u32_decode, array_u32_decode",
@@ -369,7 +369,11 @@ pub(super) fn array_u32_decode(array: *const u32, len: PtrLength<u32>) -> JsArra
     }
     Output::from_raw(unsafe { array_u32_decode(Input::into_raw(array), Input::into_raw(len)) })
 }
-pub(super) fn array_u32_encode(array: &JsArray<u32>, ptr: *mut u32, len: PtrLength<u32>) -> bool {
+pub(super) unsafe fn array_u32_encode(
+    array: &JsArray<u32>,
+    ptr: *mut u32,
+    len: PtrLength<u32>,
+) -> bool {
     js_bindgen::unsafe_embed_asm! {
         ".import_module js_sys.import.array_u32_encode, js_sys",
         ".import_name js_sys.import.array_u32_encode, array_u32_encode",

@@ -95,7 +95,7 @@ pub(super) fn string_constructor(value: &JsValue) -> JsString {
     }
     Output::from_raw(unsafe { string_constructor(Input::into_raw(value)) })
 }
-pub(super) fn string_eq(string: &JsString, array: *const u8, len: PtrLength<u8>) -> bool {
+pub(super) unsafe fn string_eq(string: &JsString, array: *const u8, len: PtrLength<u8>) -> bool {
     js_bindgen::unsafe_embed_asm! {
         ".import_module js_sys.import.string_eq, js_sys",
         ".import_name js_sys.import.string_eq, string_eq",
@@ -180,7 +180,7 @@ pub(super) fn string_eq(string: &JsString, array: *const u8, len: PtrLength<u8>)
         string_eq(Input::into_raw(string), Input::into_raw(array), Input::into_raw(len))
     })
 }
-pub(super) fn string_decode(array: *const u8, len: PtrLength<u8>) -> JsString {
+pub(super) unsafe fn string_decode(array: *const u8, len: PtrLength<u8>) -> JsString {
     js_bindgen::unsafe_embed_asm! {
         ".import_module js_sys.import.string_decode, js_sys",
         ".import_name js_sys.import.string_decode, string_decode",
@@ -303,7 +303,7 @@ pub(super) fn string_utf8_length(string: &JsString) -> f64 {
     }
     Output::from_raw(unsafe { string_utf8_length(Input::into_raw(string)) })
 }
-pub(super) fn string_encode(string: &JsString, array: *mut u8, len: PtrLength<u8>) {
+pub(super) unsafe fn string_encode(string: &JsString, array: *mut u8, len: PtrLength<u8>) {
     js_bindgen::unsafe_embed_asm! {
         ".import_module js_sys.import.string_encode, js_sys",
         ".import_name js_sys.import.string_encode, string_encode",
