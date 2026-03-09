@@ -1,6 +1,8 @@
 [workspace]
 members = [
 	"cargo-js-sys",
+	"inline-snap",
+	"inline-snap-macro",
 	"js-sys-bindgen",
 	"js-sys-macro",
 	"ld",
@@ -36,11 +38,14 @@ axum = { version = "0.8", default-features = false, features = ["tokio", "json",
 cargo_metadata = "0.23"
 clap = { version = "4", features = ["derive"] }
 clap-cargo = { version = "0.18", features = ["cargo_metadata"] }
+dtor = "0.1"
 fantoccini = { version = "0.22.0", default-features = false, features = ["rustls-tls"] }
 foldhash = { version = "0.2", default-features = false }
 futures-util = { version = "0.3", default-features = false }
 hashbrown = { version = "0.16", default-features = false, features = ["inline-more"] }
 indoc = "2"
+inline-snap = { path = "inline-snap" }
+inline-snap-macro = { path = "inline-snap-macro" }
 itertools = { version = "0.14", default-features = false }
 js-bindgen-ld-shared = { path = "ld-shared" }
 js-bindgen-shared = { path = "shared" }

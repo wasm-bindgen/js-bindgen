@@ -1,15 +1,13 @@
-use quote::{ToTokens, quote};
 use syn::Visibility;
 
 #[test]
 fn basic() {
 	let file = crate::web_idl("interface Test { };", None, &Visibility::Inherited).unwrap();
 
-	super::test(
-		file.into_token_stream(),
-		quote! {
+	test!(
+		{ #file },
+		{
 			use core::ops::Deref;
-
 			use js_sys::JsValue;
 			use js_sys::hazard::{Input, Output};
 

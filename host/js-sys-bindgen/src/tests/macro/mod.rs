@@ -1,7 +1,3 @@
-mod function;
-mod member;
-mod r#type;
-
 use std::io::{self, Cursor};
 use std::path::Path;
 use std::process::Command;
@@ -13,58 +9,64 @@ use itertools::Itertools;
 use js_bindgen_ld_shared::{JsBindgenAssemblySectionParser, JsBindgenJsSectionParser};
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::{File, parse_quote};
+use syn::parse_quote;
 use wasmparser::{Parser, Payload};
 
 use crate::r#macro;
 
-#[track_caller]
-#[expect(clippy::needless_pass_by_value, reason = "test")]
-fn test(
-	attr: TokenStream,
-	input: TokenStream,
-	expected: TokenStream,
-	assembly: impl Into<Option<&'static str>>,
-	js_import: impl Into<Option<&'static str>>,
-) {
-	let foreign_mod = syn::parse2(input.clone()).unwrap();
-	let output = r#macro::internal(attr.clone(), foreign_mod, Some("test_crate"), None).unwrap();
-	let output = prettyplease::unparse(&File {
-		shebang: None,
-		attrs: Vec::new(),
-		items: output,
-	});
+macro_rules! test {
+	($attr:tt, $input:tt, $expected:tt, $assembly:expr, $js_import:expr $(,)?) => {{
+		use inline_snap::inline_snap;
+		use quote::quote;
+		use syn::File;
 
-	let expected = syn::parse2(expected).unwrap();
-	let expected = prettyplease::unparse(&expected);
+		use crate::r#macro;
 
-	similar_asserts::assert_eq!(expected, output);
+		let attr = quote! $attr;
+		let input = quote! $input;
 
-	let dir = tempfile::tempdir().unwrap();
-	let (assembly_output, js_import_output) = inner(dir.path(), &output).unwrap();
+		let foreign_mod = syn::parse2(input.clone()).unwrap();
+		let output =
+			r#macro::internal(attr.clone(), foreign_mod, Some("test_crate"), None).unwrap();
+		let output = prettyplease::unparse(&File {
+			shebang: None,
+			attrs: Vec::new(),
+			items: output,
+		});
 
-	let assembly = assembly.into();
-	match (assembly, assembly_output) {
-		(Some(assembly), Some(assembly_output)) => {
-			similar_asserts::assert_eq!(assembly, assembly_output);
+		inline_snap!(output.clone(), $expected);
+
+		let dir = tempfile::tempdir().unwrap();
+		let (assembly_output, js_import_output) =
+			crate::tests::r#macro::inner(dir.path(), &output).unwrap();
+
+		let assembly = Option::from($assembly);
+		match (assembly, assembly_output) {
+			(Some(assembly), Some(assembly_output)) => {
+				similar_asserts::assert_eq!(assembly, assembly_output);
+			}
+			(None, None) => (),
+			(assembly, assembly_output) => {
+				similar_asserts::assert_eq!(assembly, assembly_output.as_deref());
+			}
 		}
-		(None, None) => (),
-		(assembly, assembly_output) => {
-			similar_asserts::assert_eq!(assembly, assembly_output.as_deref());
-		}
-	}
 
-	let js_import = js_import.into();
-	match (js_import, js_import_output) {
-		(Some(js_import), Some(js_import_output)) => {
-			similar_asserts::assert_eq!(js_import, js_import_output);
+		let js_import = Option::from($js_import);
+		match (js_import, js_import_output) {
+			(Some(js_import), Some(js_import_output)) => {
+				similar_asserts::assert_eq!(js_import, js_import_output);
+			}
+			(None, None) => (),
+			(js_import, js_import_output) => {
+				similar_asserts::assert_eq!(js_import, js_import_output.as_deref());
+			}
 		}
-		(None, None) => (),
-		(js_import, js_import_output) => {
-			similar_asserts::assert_eq!(js_import, js_import_output.as_deref());
-		}
-	}
+	}};
 }
+
+mod function;
+mod member;
+mod r#type;
 
 fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 	let js_sys = env::current_dir()?

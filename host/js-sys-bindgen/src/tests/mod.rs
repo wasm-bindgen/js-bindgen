@@ -1,17 +1,14 @@
+macro_rules! test {
+	($output:tt, $expected:tt $(,)?) => {
+		let output = syn::parse_quote! $output;
+		let output = prettyplease::unparse(&output);
+
+		inline_snap::inline_snap!(output, $expected);
+	};
+}
+
 #[cfg(feature = "macro")]
 mod r#macro;
 mod r#type;
 #[cfg(feature = "web-idl")]
 mod web_idl;
-
-use proc_macro2::TokenStream;
-
-#[track_caller]
-fn test(output: TokenStream, expected: TokenStream) {
-	let output = syn::parse2(output).unwrap();
-	let output = prettyplease::unparse(&output);
-	let expected = syn::parse2(expected).unwrap();
-	let expected = prettyplease::unparse(&expected);
-
-	similar_asserts::assert_eq!(expected, output);
-}

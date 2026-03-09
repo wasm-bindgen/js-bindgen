@@ -1,16 +1,13 @@
-use proc_macro2::TokenStream;
-use quote::quote;
-
 #[test]
 fn method() {
-	super::test(
-		TokenStream::new(),
-		quote! {
+	test!(
+		{},
+		{
 			extern "js-sys" {
 				pub fn test(self: &JsTest);
 			}
 		},
-		quote! {
+		{
 			impl JsTest {
 				pub fn test(self: &JsTest) {
 					::js_sys::js_bindgen::unsafe_embed_asm! {
@@ -38,9 +35,17 @@ fn method() {
 						name = "test",
 						required_embeds = [::js_sys::r#macro::js_import!(&::js_sys::JsValue as Input)],
 						"{}{}{}",
-						interpolate ::js_sys::r#macro::js_select!("(self) => ", "(self) => {\n", (&::js_sys::JsValue)),
+						interpolate ::js_sys::r#macro::js_select!(
+							"(self) => ",
+							"(self) => {\n",
+							(&::js_sys::JsValue),
+						),
 						interpolate ::js_sys::r#macro::js_parameter!("self", &::js_sys::JsValue),
-						interpolate ::js_sys::r#macro::js_select!("self.test()", "self.test()\n}", (&::js_sys::JsValue)),
+						interpolate ::js_sys::r#macro::js_select!(
+							"self.test()",
+							"self.test()\n}",
+							(&::js_sys::JsValue),
+						),
 					}
 
 					unsafe extern "C" {
@@ -73,14 +78,14 @@ fn method() {
 
 #[test]
 fn method_par() {
-	super::test(
-		TokenStream::new(),
-		quote! {
+	test!(
+		{},
+		{
 			extern "js-sys" {
 				pub fn test(self: &JsTest, par1: &JsValue, par2: &JsValue);
 			}
 		},
-		quote! {
+		{
 			impl JsTest {
 				pub fn test(self: &JsTest, par1: &JsValue, par2: &JsValue) {
 					::js_sys::js_bindgen::unsafe_embed_asm! {
@@ -119,13 +124,24 @@ fn method_par() {
 					::js_sys::js_bindgen::import_js! {
 						module = "test_crate",
 						name = "test",
-						required_embeds = [::js_sys::r#macro::js_import!(&::js_sys::JsValue as Input), ::js_sys::r#macro::js_import!(&JsValue as Input)],
+						required_embeds = [
+							::js_sys::r#macro::js_import!(&::js_sys::JsValue as Input),
+							::js_sys::r#macro::js_import!(&JsValue as Input),
+						],
 						"{}{}{}{}{}",
-						interpolate ::js_sys::r#macro::js_select!("(self, par1, par2) => ", "(self, par1, par2) => {\n", (&::js_sys::JsValue, &JsValue)),
+						interpolate ::js_sys::r#macro::js_select!(
+							"(self, par1, par2) => ",
+							"(self, par1, par2) => {\n",
+							(&::js_sys::JsValue, &JsValue),
+						),
 						interpolate ::js_sys::r#macro::js_parameter!("self", &::js_sys::JsValue),
 						interpolate ::js_sys::r#macro::js_parameter!("par1", &JsValue),
 						interpolate ::js_sys::r#macro::js_parameter!("par2", &JsValue),
-						interpolate ::js_sys::r#macro::js_select!("self.test(par1, par2)", "self.test(par1, par2)\n}", (&::js_sys::JsValue, &JsValue)),
+						interpolate ::js_sys::r#macro::js_select!(
+							"self.test(par1, par2)",
+							"self.test(par1, par2)\n}",
+							(&::js_sys::JsValue, &JsValue),
+						),
 					}
 
 					unsafe extern "C" {
@@ -137,11 +153,13 @@ fn method_par() {
 						);
 					}
 
-					unsafe { test(
-						::js_sys::hazard::Input::into_raw(self),
-						::js_sys::hazard::Input::into_raw(par1),
-						::js_sys::hazard::Input::into_raw(par2),
-					) };
+					unsafe {
+						test(
+							::js_sys::hazard::Input::into_raw(self),
+							::js_sys::hazard::Input::into_raw(par1),
+							::js_sys::hazard::Input::into_raw(par2),
+						)
+					};
 				}
 			}
 		},
@@ -172,15 +190,15 @@ fn method_par() {
 
 #[test]
 fn getter() {
-	super::test(
-		TokenStream::new(),
-		quote! {
+	test!(
+		{},
+		{
 			extern "js-sys" {
 				#[js_sys(property)]
 				pub fn test(self: &JsTest) -> JsValue;
 			}
 		},
-		quote! {
+		{
 			impl JsTest {
 				pub fn test(self: &JsTest) -> JsValue {
 					::js_sys::js_bindgen::unsafe_embed_asm! {
@@ -213,17 +231,31 @@ fn getter() {
 					::js_sys::js_bindgen::import_js! {
 						module = "test_crate",
 						name = "test",
-						required_embeds = [::js_sys::r#macro::js_import!(&::js_sys::JsValue as Input), ::js_sys::r#macro::js_import!(JsValue as Output)],
+						required_embeds = [
+							::js_sys::r#macro::js_import!(&::js_sys::JsValue as Input),
+							::js_sys::r#macro::js_import!(JsValue as Output),
+						],
 						"{}{}{}",
-						interpolate ::js_sys::r#macro::js_select!("(self) => ", "(self) => {\n", (&::js_sys::JsValue), JsValue),
+						interpolate ::js_sys::r#macro::js_select!(
+							"(self) => ",
+							"(self) => {\n",
+							(&::js_sys::JsValue),
+							JsValue,
+						),
 						interpolate ::js_sys::r#macro::js_parameter!("self", &::js_sys::JsValue),
-						interpolate ::js_sys::r#macro::js_output!("\treturn ", "self.test", "self.test", JsValue, &::js_sys::JsValue),
+						interpolate ::js_sys::r#macro::js_output!(
+							"\treturn ",
+							"self.test",
+							"self.test",
+							JsValue,
+							&::js_sys::JsValue,
+						),
 					}
 
 					unsafe extern "C" {
 						#[link_name = "test_crate.test"]
 						fn test(
-							this: <&::js_sys::JsValue as ::js_sys::hazard::Input>::Type
+							this: <&::js_sys::JsValue as ::js_sys::hazard::Input>::Type,
 						) -> <JsValue as ::js_sys::hazard::Output>::Type;
 					}
 
@@ -257,15 +289,15 @@ fn getter() {
 
 #[test]
 fn setter() {
-	super::test(
-		TokenStream::new(),
-		quote! {
+	test!(
+		{},
+		{
 			extern "js-sys" {
 				#[js_sys(property)]
 				pub fn test(self: &JsTest, value: &JsValue);
 			}
 		},
-		quote! {
+		{
 			impl JsTest {
 				pub fn test(self: &JsTest, value: &JsValue) {
 					::js_sys::js_bindgen::unsafe_embed_asm! {
@@ -299,12 +331,23 @@ fn setter() {
 					::js_sys::js_bindgen::import_js! {
 						module = "test_crate",
 						name = "test",
-						required_embeds = [::js_sys::r#macro::js_import!(&::js_sys::JsValue as Input), ::js_sys::r#macro::js_import!(&JsValue as Input)],
+						required_embeds = [
+							::js_sys::r#macro::js_import!(&::js_sys::JsValue as Input),
+							::js_sys::r#macro::js_import!(&JsValue as Input),
+						],
 						"{}{}{}self.test = {}",
-						interpolate ::js_sys::r#macro::js_select!("(self, value) => ", "(self, value) => {\n", (&::js_sys::JsValue, &JsValue)),
+						interpolate ::js_sys::r#macro::js_select!(
+							"(self, value) => ",
+							"(self, value) => {\n",
+							(&::js_sys::JsValue, &JsValue),
+						),
 						interpolate ::js_sys::r#macro::js_parameter!("self", &::js_sys::JsValue),
 						interpolate ::js_sys::r#macro::js_parameter!("value", &JsValue),
-						interpolate ::js_sys::r#macro::js_select!("value", "value\n}", (&::js_sys::JsValue, &JsValue)),
+						interpolate ::js_sys::r#macro::js_select!(
+							"value",
+							"value\n}",
+							(&::js_sys::JsValue, &JsValue),
+						),
 					}
 
 					unsafe extern "C" {
@@ -315,10 +358,12 @@ fn setter() {
 						);
 					}
 
-					unsafe { test(
-						::js_sys::hazard::Input::into_raw(self),
-						::js_sys::hazard::Input::into_raw(value),
-					) };
+					unsafe {
+						test(
+							::js_sys::hazard::Input::into_raw(self),
+							::js_sys::hazard::Input::into_raw(value),
+						)
+					};
 				}
 			}
 		},

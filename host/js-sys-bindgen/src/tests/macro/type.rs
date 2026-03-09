@@ -1,16 +1,13 @@
-use proc_macro2::TokenStream;
-use quote::quote;
-
 #[test]
 fn basic() {
-	super::test(
-		TokenStream::new(),
-		quote! {
+	test!(
+		{},
+		{
 			extern "js-sys" {
 				pub type JsString;
 			}
 		},
-		quote! {
+		{
 			#[repr(transparent)]
 			pub struct JsString(::js_sys::JsValue);
 
@@ -29,10 +26,14 @@ fn basic() {
 			}
 
 			unsafe impl ::js_sys::hazard::Input for &JsString {
-				const ASM_IMPORT_FUNC: ::core::option::Option<&'static ::core::primitive::str> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_FUNC;
-				const ASM_IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE;
-				const ASM_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<&'static ::core::primitive::str> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
+				const ASM_IMPORT_FUNC: ::core::option::Option<&'static ::core::primitive::str> =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_FUNC;
+				const ASM_IMPORT_TYPE: &'static ::core::primitive::str =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE;
+				const ASM_TYPE: &'static ::core::primitive::str =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
+				const ASM_CONV: ::core::option::Option<&'static ::core::primitive::str> =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
 
 				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
@@ -42,10 +43,14 @@ fn basic() {
 			}
 
 			unsafe impl ::js_sys::hazard::Output for JsString {
-				const ASM_IMPORT_FUNC: ::core::option::Option<&::core::primitive::str> = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_FUNC;
-				const ASM_IMPORT_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_TYPE;
-				const ASM_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<&::core::primitive::str> = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
+				const ASM_IMPORT_FUNC: ::core::option::Option<&::core::primitive::str> =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_FUNC;
+				const ASM_IMPORT_TYPE: &::core::primitive::str =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_TYPE;
+				const ASM_TYPE: &::core::primitive::str =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
+				const ASM_CONV: ::core::option::Option<&::core::primitive::str> =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
 
 				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
 
@@ -68,18 +73,18 @@ fn basic() {
 
 #[test]
 fn generic() {
-	super::test(
-		TokenStream::new(),
-		quote! {
+	test!(
+		{},
+		{
 			extern "js-sys" {
 				pub type JsString<T>;
 			}
 		},
-		quote! {
+		{
 			#[repr(transparent)]
 			pub struct JsString<T> {
 				value: ::js_sys::JsValue,
-				_type: ::core::marker::PhantomData<T>
+				_type: ::core::marker::PhantomData<T>,
 			}
 
 			impl<T> ::core::ops::Deref for JsString<T> {
@@ -97,10 +102,14 @@ fn generic() {
 			}
 
 			unsafe impl<T> ::js_sys::hazard::Input for &JsString<T> {
-				const ASM_IMPORT_FUNC: ::core::option::Option<&'static ::core::primitive::str> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_FUNC;
-				const ASM_IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE;
-				const ASM_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<&'static ::core::primitive::str> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
+				const ASM_IMPORT_FUNC: ::core::option::Option<&'static ::core::primitive::str> =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_FUNC;
+				const ASM_IMPORT_TYPE: &'static ::core::primitive::str =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE;
+				const ASM_TYPE: &'static ::core::primitive::str =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
+				const ASM_CONV: ::core::option::Option<&'static ::core::primitive::str> =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
 
 				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
@@ -110,10 +119,14 @@ fn generic() {
 			}
 
 			unsafe impl<T> ::js_sys::hazard::Output for JsString<T> {
-				const ASM_IMPORT_FUNC: ::core::option::Option<&::core::primitive::str> = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_FUNC;
-				const ASM_IMPORT_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_TYPE;
-				const ASM_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<&::core::primitive::str> = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
+				const ASM_IMPORT_FUNC: ::core::option::Option<&::core::primitive::str> =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_FUNC;
+				const ASM_IMPORT_TYPE: &::core::primitive::str =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_TYPE;
+				const ASM_TYPE: &::core::primitive::str =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
+				const ASM_CONV: ::core::option::Option<&::core::primitive::str> =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
 
 				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
 
@@ -142,18 +155,18 @@ fn generic() {
 
 #[test]
 fn default() {
-	super::test(
-		TokenStream::new(),
-		quote! {
+	test!(
+		{},
+		{
 			extern "js-sys" {
 				pub type JsString<T = JsValue>;
 			}
 		},
-		quote! {
+		{
 			#[repr(transparent)]
 			pub struct JsString<T = JsValue> {
 				value: ::js_sys::JsValue,
-				_type: ::core::marker::PhantomData<T>
+				_type: ::core::marker::PhantomData<T>,
 			}
 
 			impl<T> ::core::ops::Deref for JsString<T> {
@@ -171,10 +184,14 @@ fn default() {
 			}
 
 			unsafe impl<T> ::js_sys::hazard::Input for &JsString<T> {
-				const ASM_IMPORT_FUNC: ::core::option::Option<&'static ::core::primitive::str> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_FUNC;
-				const ASM_IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE;
-				const ASM_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<&'static ::core::primitive::str> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
+				const ASM_IMPORT_FUNC: ::core::option::Option<&'static ::core::primitive::str> =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_FUNC;
+				const ASM_IMPORT_TYPE: &'static ::core::primitive::str =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE;
+				const ASM_TYPE: &'static ::core::primitive::str =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
+				const ASM_CONV: ::core::option::Option<&'static ::core::primitive::str> =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
 
 				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
@@ -184,10 +201,14 @@ fn default() {
 			}
 
 			unsafe impl<T> ::js_sys::hazard::Output for JsString<T> {
-				const ASM_IMPORT_FUNC: ::core::option::Option<&::core::primitive::str> = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_FUNC;
-				const ASM_IMPORT_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_TYPE;
-				const ASM_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<&::core::primitive::str> = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
+				const ASM_IMPORT_FUNC: ::core::option::Option<&::core::primitive::str> =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_FUNC;
+				const ASM_IMPORT_TYPE: &::core::primitive::str =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_TYPE;
+				const ASM_TYPE: &::core::primitive::str =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
+				const ASM_CONV: ::core::option::Option<&::core::primitive::str> =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
 
 				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
 
@@ -216,18 +237,18 @@ fn default() {
 
 #[test]
 fn r#trait() {
-	super::test(
-		TokenStream::new(),
-		quote! {
+	test!(
+		{},
+		{
 			extern "js-sys" {
 				pub type JsString<T: Sized = JsValue>;
 			}
 		},
-		quote! {
+		{
 			#[repr(transparent)]
 			pub struct JsString<T: Sized = JsValue> {
 				value: ::js_sys::JsValue,
-				_type: ::core::marker::PhantomData<T>
+				_type: ::core::marker::PhantomData<T>,
 			}
 
 			impl<T: Sized> ::core::ops::Deref for JsString<T> {
@@ -245,10 +266,14 @@ fn r#trait() {
 			}
 
 			unsafe impl<T: Sized> ::js_sys::hazard::Input for &JsString<T> {
-				const ASM_IMPORT_FUNC: ::core::option::Option<&'static ::core::primitive::str> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_FUNC;
-				const ASM_IMPORT_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE;
-				const ASM_TYPE: &'static ::core::primitive::str = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<&'static ::core::primitive::str> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
+				const ASM_IMPORT_FUNC: ::core::option::Option<&'static ::core::primitive::str> =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_FUNC;
+				const ASM_IMPORT_TYPE: &'static ::core::primitive::str =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_IMPORT_TYPE;
+				const ASM_TYPE: &'static ::core::primitive::str =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
+				const ASM_CONV: ::core::option::Option<&'static ::core::primitive::str> =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
 
 				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
@@ -258,10 +283,14 @@ fn r#trait() {
 			}
 
 			unsafe impl<T: Sized> ::js_sys::hazard::Output for JsString<T> {
-				const ASM_IMPORT_FUNC: ::core::option::Option<&::core::primitive::str> = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_FUNC;
-				const ASM_IMPORT_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_TYPE;
-				const ASM_TYPE: &::core::primitive::str = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<&::core::primitive::str> = <::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
+				const ASM_IMPORT_FUNC: ::core::option::Option<&::core::primitive::str> =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_FUNC;
+				const ASM_IMPORT_TYPE: &::core::primitive::str =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_TYPE;
+				const ASM_TYPE: &::core::primitive::str =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
+				const ASM_CONV: ::core::option::Option<&::core::primitive::str> =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
 
 				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
 

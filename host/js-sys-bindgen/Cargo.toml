@@ -29,6 +29,7 @@ weedle2 = { workspace = true, optional = true }
 anyhow = { workspace = true }
 cargo_metadata = { workspace = true }
 indoc = { workspace = true }
+inline-snap = { workspace = true }
 js-bindgen-ld-shared = { workspace = true }
 prettyplease = { workspace = true }
 similar-asserts = { workspace = true }

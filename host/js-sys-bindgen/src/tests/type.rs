@@ -1,4 +1,3 @@
-use quote::quote;
 use syn::parse_quote;
 
 use crate::{Hygiene, ImportManager, Type};
@@ -13,15 +12,14 @@ fn basic() {
 		),
 	);
 
-	super::test(
-		quote! {
+	test!(
+		{
 			#imports
 
 			#items
 		},
-		quote! {
+		{
 			use core::ops::Deref;
-
 			use js_sys::JsValue;
 			use js_sys::hazard::{Input, Output};
 
@@ -88,16 +86,15 @@ fn generic() {
 		),
 	);
 
-	super::test(
-		quote! {
+	test!(
+		{
 			#imports
 
 			#items
 		},
-		quote! {
+		{
 			use core::marker::PhantomData;
 			use core::ops::Deref;
-
 			use js_sys::JsValue;
 			use js_sys::hazard::{Input, Output};
 
@@ -153,10 +150,7 @@ fn generic() {
 			impl<T> Test<T> {
 				#[must_use]
 				fn unchecked_from(value: JsValue) -> Self {
-					Self {
-						value,
-						_type: PhantomData,
-					}
+					Self { value, _type: PhantomData }
 				}
 			}
 		},
