@@ -34,3 +34,6 @@ pub use crate::value::JsValue;
 
 #[cfg(not(target_feature = "reference-types"))]
 compile_error!("`js-sys` requires the `reference-types` target feature");
+
+#[cfg(not(target_feature = "multivalue"))]
+compile_error!("`js-sys` requires the `multivalue` target feature");
