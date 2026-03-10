@@ -100,6 +100,8 @@ impl Type {
 					const ASM_IMPORT_TYPE: &'static #str = <&#js_value as #input>::ASM_IMPORT_TYPE;
 					const ASM_TYPE: &'static #str = <&#js_value as #input>::ASM_TYPE;
 					const ASM_CONV: #option<&'static #str> = <&#js_value as #input>::ASM_CONV;
+					const JS_EMBED: #option<(&'static #str, &'static #str)> = <&#js_value as #input>::JS_EMBED;
+					const JS_CONV: #option<(&'static #str, #option<&'static #str>)> = <&#js_value as #input>::JS_CONV;
 
 					type Type = <&'static #js_value as #input>::Type;
 
@@ -115,6 +117,8 @@ impl Type {
 					const ASM_IMPORT_TYPE: &#str = <#js_value as #output>::ASM_IMPORT_TYPE;
 					const ASM_TYPE: &#str = <#js_value as #output>::ASM_TYPE;
 					const ASM_CONV: #option<&#str> = <#js_value as #output>::ASM_CONV;
+					const JS_EMBED: #option<(&'static #str, &'static #str)> = <#js_value as #output>::JS_EMBED;
+					const JS_CONV: #option<(&'static #str, &'static #str)> = <#js_value as #output>::JS_CONV;
 
 					type Type = <#js_value as #output>::Type;
 

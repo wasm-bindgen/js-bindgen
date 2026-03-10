@@ -34,6 +34,14 @@ fn basic() {
 					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
 				const ASM_CONV: ::core::option::Option<&'static ::core::primitive::str> =
 					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
+				const JS_EMBED: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					&'static ::core::primitive::str,
+				)> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_EMBED;
+				const JS_CONV: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					::core::option::Option<&'static ::core::primitive::str>,
+				)> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
 
 				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
@@ -51,6 +59,14 @@ fn basic() {
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
 				const ASM_CONV: ::core::option::Option<&::core::primitive::str> =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
+				const JS_EMBED: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					&'static ::core::primitive::str,
+				)> = <::js_sys::JsValue as ::js_sys::hazard::Output>::JS_EMBED;
+				const JS_CONV: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					&'static ::core::primitive::str,
+				)> = <::js_sys::JsValue as ::js_sys::hazard::Output>::JS_CONV;
 
 				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
 
@@ -110,6 +126,14 @@ fn generic() {
 					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
 				const ASM_CONV: ::core::option::Option<&'static ::core::primitive::str> =
 					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
+				const JS_EMBED: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					&'static ::core::primitive::str,
+				)> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_EMBED;
+				const JS_CONV: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					::core::option::Option<&'static ::core::primitive::str>,
+				)> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
 
 				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
@@ -127,6 +151,14 @@ fn generic() {
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
 				const ASM_CONV: ::core::option::Option<&::core::primitive::str> =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
+				const JS_EMBED: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					&'static ::core::primitive::str,
+				)> = <::js_sys::JsValue as ::js_sys::hazard::Output>::JS_EMBED;
+				const JS_CONV: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					&'static ::core::primitive::str,
+				)> = <::js_sys::JsValue as ::js_sys::hazard::Output>::JS_CONV;
 
 				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
 
@@ -192,6 +224,14 @@ fn default() {
 					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
 				const ASM_CONV: ::core::option::Option<&'static ::core::primitive::str> =
 					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
+				const JS_EMBED: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					&'static ::core::primitive::str,
+				)> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_EMBED;
+				const JS_CONV: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					::core::option::Option<&'static ::core::primitive::str>,
+				)> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
 
 				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
@@ -209,6 +249,14 @@ fn default() {
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
 				const ASM_CONV: ::core::option::Option<&::core::primitive::str> =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
+				const JS_EMBED: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					&'static ::core::primitive::str,
+				)> = <::js_sys::JsValue as ::js_sys::hazard::Output>::JS_EMBED;
+				const JS_CONV: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					&'static ::core::primitive::str,
+				)> = <::js_sys::JsValue as ::js_sys::hazard::Output>::JS_CONV;
 
 				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
 
@@ -274,6 +322,14 @@ fn r#trait() {
 					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
 				const ASM_CONV: ::core::option::Option<&'static ::core::primitive::str> =
 					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
+				const JS_EMBED: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					&'static ::core::primitive::str,
+				)> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_EMBED;
+				const JS_CONV: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					::core::option::Option<&'static ::core::primitive::str>,
+				)> = <&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
 
 				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
 
@@ -291,6 +347,14 @@ fn r#trait() {
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
 				const ASM_CONV: ::core::option::Option<&::core::primitive::str> =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
+				const JS_EMBED: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					&'static ::core::primitive::str,
+				)> = <::js_sys::JsValue as ::js_sys::hazard::Output>::JS_EMBED;
+				const JS_CONV: ::core::option::Option<(
+					&'static ::core::primitive::str,
+					&'static ::core::primitive::str,
+				)> = <::js_sys::JsValue as ::js_sys::hazard::Output>::JS_CONV;
 
 				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
 

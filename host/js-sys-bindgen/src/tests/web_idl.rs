@@ -33,6 +33,8 @@ fn basic() {
 				const ASM_IMPORT_TYPE: &'static str = <&JsValue as Input>::ASM_IMPORT_TYPE;
 				const ASM_TYPE: &'static str = <&JsValue as Input>::ASM_TYPE;
 				const ASM_CONV: Option<&'static str> = <&JsValue as Input>::ASM_CONV;
+				const JS_EMBED: Option<(&'static str, &'static str)> = <&JsValue as Input>::JS_EMBED;
+				const JS_CONV: Option<(&'static str, Option<&'static str>)> = <&JsValue as Input>::JS_CONV;
 
 				type Type = <&'static JsValue as Input>::Type;
 
@@ -46,6 +48,8 @@ fn basic() {
 				const ASM_IMPORT_TYPE: &str = <JsValue as Output>::ASM_IMPORT_TYPE;
 				const ASM_TYPE: &str = <JsValue as Output>::ASM_TYPE;
 				const ASM_CONV: Option<&str> = <JsValue as Output>::ASM_CONV;
+				const JS_EMBED: Option<(&'static str, &'static str)> = <JsValue as Output>::JS_EMBED;
+				const JS_CONV: Option<(&'static str, &'static str)> = <JsValue as Output>::JS_CONV;
 
 				type Type = <JsValue as Output>::Type;
 
