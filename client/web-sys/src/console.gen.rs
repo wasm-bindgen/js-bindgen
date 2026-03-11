@@ -48,14 +48,13 @@ pub fn log(data: &JsValue) {
 		".globl web_sys.console.log",
 		"web_sys.console.log:",
 		"\t.functype web_sys.console.log ({}) -> ()",
-		"\tlocal.get 0",
-		"\t{}",
+		"\tlocal.get {}",
 		"\tcall web_sys.import.console.log",
 		"\tend_function",
 		interpolate <&JsValue as Input>::ASM_IMPORT_TYPE,
 		interpolate r#macro::asm_import!(&JsValue as Input),
 		interpolate <&JsValue as Input>::ASM_TYPE,
-		interpolate r#macro::asm_conv!(& JsValue as Input),
+		interpolate r#macro::asm_input!("0", &JsValue),
 	}
 
 	js_bindgen::import_js! {
@@ -91,10 +90,8 @@ pub fn log2(data1: &JsValue, data2: &JsValue) {
 		".globl web_sys.console.log2",
 		"web_sys.console.log2:",
 		"\t.functype web_sys.console.log2 ({}, {}) -> ()",
-		"\tlocal.get 0",
-		"\t{}",
-		"\tlocal.get 1",
-		"\t{}",
+		"\tlocal.get {}",
+		"\tlocal.get {}",
 		"\tcall web_sys.import.console.log2",
 		"\tend_function",
 		interpolate <&JsValue as Input>::ASM_IMPORT_TYPE,
@@ -102,8 +99,8 @@ pub fn log2(data1: &JsValue, data2: &JsValue) {
 		interpolate r#macro::asm_import!(&JsValue as Input),
 		interpolate <&JsValue as Input>::ASM_TYPE,
 		interpolate <&JsValue as Input>::ASM_TYPE,
-		interpolate r#macro::asm_conv!(& JsValue as Input),
-		interpolate r#macro::asm_conv!(& JsValue as Input),
+		interpolate r#macro::asm_input!("0", &JsValue),
+		interpolate r#macro::asm_input!("1", &JsValue),
 	}
 
 	js_bindgen::import_js! {
@@ -140,14 +137,13 @@ pub fn error(data: &JsValue) {
 		".globl web_sys.console.error",
 		"web_sys.console.error:",
 		"\t.functype web_sys.console.error ({}) -> ()",
-		"\tlocal.get 0",
-		"\t{}",
+		"\tlocal.get {}",
 		"\tcall web_sys.import.console.error",
 		"\tend_function",
 		interpolate <&JsValue as Input>::ASM_IMPORT_TYPE,
 		interpolate r#macro::asm_import!(&JsValue as Input),
 		interpolate <&JsValue as Input>::ASM_TYPE,
-		interpolate r#macro::asm_conv!(& JsValue as Input),
+		interpolate r#macro::asm_input!("0", &JsValue),
 	}
 
 	js_bindgen::import_js! {

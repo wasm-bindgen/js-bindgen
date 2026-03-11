@@ -55,6 +55,8 @@ fn basic() {
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_FUNC;
 				const ASM_IMPORT_TYPE: &::core::primitive::str =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_TYPE;
+				const ASM_DIRECT: ::core::primitive::bool =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_DIRECT;
 				const ASM_TYPE: &::core::primitive::str =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
 				const ASM_CONV: ::core::option::Option<&::core::primitive::str> =
@@ -147,6 +149,8 @@ fn generic() {
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_FUNC;
 				const ASM_IMPORT_TYPE: &::core::primitive::str =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_TYPE;
+				const ASM_DIRECT: ::core::primitive::bool =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_DIRECT;
 				const ASM_TYPE: &::core::primitive::str =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
 				const ASM_CONV: ::core::option::Option<&::core::primitive::str> =
@@ -245,6 +249,8 @@ fn default() {
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_FUNC;
 				const ASM_IMPORT_TYPE: &::core::primitive::str =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_TYPE;
+				const ASM_DIRECT: ::core::primitive::bool =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_DIRECT;
 				const ASM_TYPE: &::core::primitive::str =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
 				const ASM_CONV: ::core::option::Option<&::core::primitive::str> =
@@ -343,6 +349,8 @@ fn r#trait() {
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_FUNC;
 				const ASM_IMPORT_TYPE: &::core::primitive::str =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_IMPORT_TYPE;
+				const ASM_DIRECT: ::core::primitive::bool =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_DIRECT;
 				const ASM_TYPE: &::core::primitive::str =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
 				const ASM_CONV: ::core::option::Option<&::core::primitive::str> =

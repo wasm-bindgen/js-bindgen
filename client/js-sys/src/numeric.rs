@@ -1,11 +1,11 @@
-use core::cell::Cell;
 use core::mem;
 #[cfg(target_arch = "wasm64")]
 use core::ptr;
 use core::ptr::NonNull;
 
 use crate::hazard::{Input, Output};
-use crate::util::ExternValue;
+use crate::r#macro::const_concat;
+use crate::util::{ASM_PTR_TYPE, ExternValue};
 
 macro_rules! input_output {
 	($wasm:literal, $($ty:ty),*) => {$(
@@ -173,34 +173,23 @@ unsafe impl Input for u128 {
 
 // SAFETY: Implementation.
 unsafe impl Output for u128 {
-	const ASM_IMPORT_FUNC: Option<&str> =
-		Some(".functype js_sys.numeric.u128 (i32, i32, i32, i32) -> ()");
+	const ASM_IMPORT_FUNC: Option<&str> = Some(const_concat!(
+		".functype js_sys.numeric.128 (i32, i32, i32, i32, ",
+		ASM_PTR_TYPE,
+		") -> ()"
+	));
 	const ASM_IMPORT_TYPE: &str = "i32, i32, i32, i32";
-	const ASM_TYPE: &str = "";
-	const ASM_CONV: Option<&str> = Some("call js_sys.numeric.u128");
+	const ASM_DIRECT: bool = false;
+	const ASM_TYPE: &str = ASM_PTR_TYPE;
+	const ASM_CONV: Option<&str> = Some("call js_sys.numeric.128");
 	const JS_EMBED: Option<(&str, &str)> = Some(("js_sys", "numeric.128.encode"));
 	const JS_CONV: Option<(&str, &str)> =
 		Some(("this.#jsEmbed.js_sys['numeric.128.encode'](", ")"));
 
-	type Type = ();
+	type Type = Self;
 
-	fn from_raw((): Self::Type) -> Self {
-		thread_local! {
-			static CACHE: Cell<[u32; 4]> = Cell::new([0; 4]);
-		}
-
-		#[unsafe(export_name = "js_sys.numeric.u128")]
-		fn convert(lo_lo: u32, lo_hi: u32, hi_lo: u32, hi_hi: u32) {
-			CACHE.with(|cache| cache.set([lo_lo, lo_hi, hi_lo, hi_hi]));
-		}
-
-		CACHE.with(|cache| {
-			let [lo_lo, lo_hi, hi_lo, hi_hi] = cache.get();
-			Self::from(lo_lo)
-				| Self::from(lo_hi) << 32
-				| Self::from(hi_lo) << 64
-				| Self::from(hi_hi) << 96
-		})
+	fn from_raw(raw: Self::Type) -> Self {
+		raw
 	}
 }
 
@@ -236,34 +225,23 @@ unsafe impl Input for i128 {
 
 // SAFETY: Implementation.
 unsafe impl Output for i128 {
-	const ASM_IMPORT_FUNC: Option<&str> =
-		Some(".functype js_sys.numeric.i128 (i32, i32, i32, i32) -> ()");
+	const ASM_IMPORT_FUNC: Option<&str> = Some(const_concat!(
+		".functype js_sys.numeric.128 (i32, i32, i32, i32, ",
+		ASM_PTR_TYPE,
+		") -> ()"
+	));
 	const ASM_IMPORT_TYPE: &str = "i32, i32, i32, i32";
-	const ASM_TYPE: &str = "";
-	const ASM_CONV: Option<&str> = Some("call js_sys.numeric.i128");
+	const ASM_DIRECT: bool = false;
+	const ASM_TYPE: &str = ASM_PTR_TYPE;
+	const ASM_CONV: Option<&str> = Some("call js_sys.numeric.128");
 	const JS_EMBED: Option<(&str, &str)> = Some(("js_sys", "numeric.128.encode"));
 	const JS_CONV: Option<(&str, &str)> =
 		Some(("this.#jsEmbed.js_sys['numeric.128.encode'](", ")"));
 
-	type Type = ();
+	type Type = Self;
 
-	fn from_raw((): Self::Type) -> Self {
-		thread_local! {
-			static CACHE: Cell<(u32, u32, u32, i32)> = Cell::new((0, 0, 0, 0));
-		}
-
-		#[unsafe(export_name = "js_sys.numeric.i128")]
-		fn convert(lo_lo: u32, lo_hi: u32, hi_lo: u32, hi_hi: i32) {
-			CACHE.with(|cache| cache.set((lo_lo, lo_hi, hi_lo, hi_hi)));
-		}
-
-		CACHE.with(|cache| {
-			let (lo_lo, lo_hi, hi_lo, hi_hi) = cache.get();
-			Self::from(lo_lo)
-				| Self::from(lo_hi) << 32
-				| Self::from(hi_lo) << 64
-				| Self::from(hi_hi) << 96
-		})
+	fn from_raw(raw: Self::Type) -> Self {
+		raw
 	}
 }
 
@@ -284,6 +262,26 @@ js_bindgen::embed_js!(
 	"	const hi_hi = Number((value >> 96n) & 0xFFFFFFFFn)",
 	"	return [lo_lo, lo_hi, hi_lo, hi_hi]",
 	"}}",
+);
+
+js_bindgen::unsafe_embed_asm!(
+	".globl js_sys.numeric.128",
+	"js_sys.numeric.128:",
+	"	.functype js_sys.numeric.128 (i32, i32, i32, i32, {}) -> ()",
+	"	local.get 4",
+	"	local.get 0",
+	"	i32.store 0",
+	"	local.get 4",
+	"	local.get 1",
+	"	i32.store 4",
+	"	local.get 4",
+	"	local.get 2",
+	"	i32.store 8",
+	"	local.get 4",
+	"	local.get 3",
+	"	i32.store 12",
+	"	end_function",
+	interpolate ASM_PTR_TYPE,
 );
 
 #[cfg(target_arch = "wasm32")]

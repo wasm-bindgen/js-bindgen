@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::fmt::Write;
 use std::ops::Deref;
 use std::str::FromStr;
 use std::string::ToString;
@@ -435,19 +434,13 @@ impl<'a> State<'a> {
 			}
 		}
 
-		let parms_placeholder: String = iter::repeat_n("{}", input_tys.len()).join(", ");
+		let parms_placeholder = iter::repeat_n("{}", input_tys.len()).join(", ");
 		let ret_placeholder = if output_ty.is_empty() { "" } else { "{}" };
 		let import_funcs_placeholder: String =
 			iter::repeat_n(r#""{}","","#, input_imports.len() + output_ty.len()).collect();
-		let asm_param_gets = (0..input_tys.len()).fold(String::new(), |mut output, index| {
-			write!(output, r#""\tlocal.get {index}","\t{{}}","#).unwrap();
-			output
-		});
-		let asm_ret_conv = if output_ty.is_empty() {
-			""
-		} else {
-			r#""\t{}","#
-		};
+		let asm_param_gets: String =
+			iter::repeat_n(r#""\tlocal.get {}","#, input_tys.len()).collect();
+		let asm_ret_conv = if output_ty.is_empty() { "" } else { "{}" };
 
 		let asm = TokenStream::from_str(&format!(
 			r#"".import_module {crate_}.import.{import_name}, {crate_}",
@@ -457,13 +450,27 @@ impl<'a> State<'a> {
 			{import_funcs_placeholder}
 			".globl {foreign_name}",
 			"{foreign_name}:",
-			"\t.functype {foreign_name} ({parms_placeholder}) -> ({ret_placeholder})",
+			"\t.functype {foreign_name} ({ret_placeholder}{parms_placeholder}) -> ({ret_placeholder})",
 			{asm_param_gets}
-			"\tcall {crate_}.import.{import_name}",
-			{asm_ret_conv}
+			"\tcall {crate_}.import.{import_name}{asm_ret_conv}",
 			"\tend_function","#
 		))
 		.unwrap();
+
+		let inputs = input_tys.iter().enumerate().map(|(index, ty)| {
+			let direct = index.to_string();
+
+			if let [output_ty] = output_ty {
+				let indirect = (index + 1).to_string();
+				quote_spanned! {*span=>
+					interpolate #r#macro::asm_input!(#direct, #indirect, #ty, #output_ty),
+				}
+			} else {
+				quote_spanned! {*span=>
+					interpolate #r#macro::asm_input!(#direct, #ty),
+				}
+			}
+		});
 
 		parse_quote_spanned! {*span=>
 			#js_bindgen::unsafe_embed_asm! {
@@ -472,10 +479,11 @@ impl<'a> State<'a> {
 				#(interpolate <#output_ty as #output>::ASM_IMPORT_TYPE,)*
 				#(interpolate #r#macro::asm_import!(#input_imports as Input),)*
 				#(interpolate #r#macro::asm_import!(#output_ty as Output),)*
+				#(interpolate #r#macro::asm_indirect!(#output_ty),)*
 				#(interpolate <#input_tys as #input>::ASM_TYPE,)*
-				#(interpolate <#output_ty as #output>::ASM_TYPE,)*
-				#(interpolate #r#macro::asm_conv!(#input_tys as Input),)*
-				#(interpolate #r#macro::asm_conv!(#output_ty as Output),)*
+				#(interpolate #r#macro::asm_direct!(#output_ty),)*
+				#(#inputs)*
+				#(interpolate #r#macro::asm_output!(#output_ty),)*
 			}
 		}
 	}

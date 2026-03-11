@@ -1,4 +1,4 @@
-(module $basic-f6a23c98359ac5e9.wasm
+(module $basic-2ffef8752c24428d.wasm
   (type (;0;) (func (param i32 i32) (result externref)))
   (type (;1;) (func (param externref)))
   (type (;2;) (func))
@@ -17,15 +17,12 @@
   (import "web_sys" "console.log" (func $web_sys.import.console.log (;1;) (type 1)))
   (import "web_sys" "console.log0" (func $web_sys.import.console.log0 (;2;) (type 2)))
   (import "web_sys" "console.log2" (func $web_sys.import.console.log2 (;3;) (type 3)))
-  (table (;1;) 1 1 funcref)
   (global $__stack_pointer (;0;) (mut i32) i32.const 1048576)
   (global (;1;) i32 i32.const 1048624)
   (global (;2;) i32 i32.const 1048624)
   (export "foo" (func $foo))
   (export "__heap_base" (global 1))
   (export "js_sys.externref.next" (func $js_sys.externref.next))
-  (export "js_sys.numeric.i128" (func $js_sys.numeric.i128))
-  (export "js_sys.numeric.u128" (func $js_sys.numeric.i128))
   (export "__data_end" (global 2))
   (start $__wasm_init_memory)
   (func $__wasm_init_memory (;4;) (type 2)
@@ -43,7 +40,7 @@
     local.tee 0
     call $web_sys.console.log
     local.get 0
-    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hcc06f1dfe1f1dee5E
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h1016b5cd2730afdeE
     i32.const 1048589
     i32.const 5
     call $js_sys.string_decode
@@ -54,11 +51,11 @@
     local.tee 1
     call $web_sys.console.log2
     local.get 1
-    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hcc06f1dfe1f1dee5E
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h1016b5cd2730afdeE
     local.get 0
-    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hcc06f1dfe1f1dee5E
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h1016b5cd2730afdeE
   )
-  (func $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hcc06f1dfe1f1dee5E (;6;) (type 4) (param i32)
+  (func $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h1016b5cd2730afdeE (;6;) (type 4) (param i32)
     (local i32 i32 i32 i32)
     global.get $__stack_pointer
     i32.const 16
@@ -104,7 +101,7 @@
             i32.gt_u
             select
             local.tee 4
-            call $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17h68cc2c96f40b31bcE
+            call $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17ha5415cbafc609189E
             local.get 1
             i32.load offset=4
             br_if 2 (;@2;)
@@ -145,21 +142,21 @@
         return
       end
       i32.const 22
-      call $_ZN4core6result13unwrap_failed17h28bb9ae37aca2287E
+      call $_ZN4core6result13unwrap_failed17h0f3535ea1a218143E
       unreachable
     end
     i32.const 43
-    call $_ZN4core6result13unwrap_failed17h28bb9ae37aca2287E
+    call $_ZN4core6result13unwrap_failed17h0f3535ea1a218143E
     unreachable
   )
-  (func $_ZN4core9panicking9panic_fmt17h806e647715990138E (;7;) (type 2)
+  (func $_ZN4core9panicking9panic_fmt17hb8badb9a939ccf7aE (;7;) (type 2)
     unreachable
   )
-  (func $_ZN4core6result13unwrap_failed17h28bb9ae37aca2287E (;8;) (type 4) (param i32)
-    call $_ZN4core9panicking9panic_fmt17h806e647715990138E
+  (func $_ZN4core6result13unwrap_failed17h0f3535ea1a218143E (;8;) (type 4) (param i32)
+    call $_ZN4core9panicking9panic_fmt17hb8badb9a939ccf7aE
     unreachable
   )
-  (func $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17h68cc2c96f40b31bcE (;9;) (type 5) (param i32 i32 i32 i32)
+  (func $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17ha5415cbafc609189E (;9;) (type 5) (param i32 i32 i32 i32)
     (local i32 i32 i32 i32)
     block ;; label = @1
       block ;; label = @2
@@ -399,74 +396,71 @@
     (local i32 i32)
     block ;; label = @1
       block ;; label = @2
-        i32.const 0
-        i32.load offset=1048604
-        br_if 0 (;@2;)
-        i32.const 0
-        i32.const -1
-        i32.store offset=1048604
         block ;; label = @3
+          i32.const 0
+          i32.load offset=1048604
+          br_if 0 (;@3;)
+          i32.const 0
+          i32.const -1
+          i32.store offset=1048604
           i32.const 0
           i32.load offset=1048612
           local.tee 0
-          i32.eqz
-          br_if 0 (;@3;)
-          i32.const 0
-          local.set 1
-          i32.const 0
-          local.get 0
-          i32.const -1
-          i32.add
-          local.tee 0
-          i32.store offset=1048612
-          i32.const 0
-          i32.load offset=1048600
-          local.get 0
-          i32.const 2
-          i32.shl
-          i32.add
-          i32.load
-          local.set 0
-          br 2 (;@1;)
+          br_if 1 (;@2;)
+          block ;; label = @4
+            i32.const 1
+            call $js_sys.externref.grow
+            local.tee 0
+            i32.const -1
+            i32.eq
+            br_if 0 (;@4;)
+            i32.const 0
+            i32.load offset=1048604
+            i32.const 1
+            i32.add
+            local.set 1
+            br 3 (;@1;)
+          end
+          unreachable
         end
-        block ;; label = @3
-          i32.const 1
-          call $js_sys.externref.grow
-          local.tee 0
-          i32.const -1
-          i32.eq
-          br_if 0 (;@3;)
-          i32.const 0
-          i32.load offset=1048604
-          i32.const 1
-          i32.add
-          local.set 1
-          br 2 (;@1;)
-        end
+        i32.const 43
+        call $_ZN4core6result13unwrap_failed17h0f3535ea1a218143E
         unreachable
       end
-      i32.const 43
-      call $_ZN4core6result13unwrap_failed17h28bb9ae37aca2287E
-      unreachable
+      i32.const 0
+      local.set 1
+      i32.const 0
+      local.get 0
+      i32.const -1
+      i32.add
+      local.tee 0
+      i32.store offset=1048612
+      i32.const 0
+      i32.load offset=1048600
+      local.get 0
+      i32.const 2
+      i32.shl
+      i32.add
+      i32.load
+      local.set 0
     end
     i32.const 0
     local.get 1
     i32.store offset=1048604
     local.get 0
   )
-  (func $js_sys.numeric.i128 (;11;) (type 5) (param i32 i32 i32 i32))
-  (func $js_sys.string_decode (;12;) (type 7) (param i32 i32) (result i32)
+  (func $js_sys.string_decode (;11;) (type 7) (param i32 i32) (result i32)
     local.get 0
     local.get 1
     call $js_sys.import.string_decode
     call $js_sys.externref.insert
   )
-  (func $js_sys.externref.grow (;13;) (type 8) (param i32) (result i32)
+  (func $js_sys.externref.grow (;12;) (type 8) (param i32) (result i32)
     ref.null extern
     local.get 0
     table.grow 0
   )
-  (func $js_sys.externref.insert (;14;) (type 9) (param externref) (result i32)
+  (func $js_sys.externref.insert (;13;) (type 9) (param externref) (result i32)
     (local i32)
     call $js_sys.externref.next
     local.tee 1
@@ -474,24 +468,24 @@
     table.set 0
     local.get 1
   )
-  (func $js_sys.externref.get (;15;) (type 10) (param i32) (result externref)
+  (func $js_sys.externref.get (;14;) (type 10) (param i32) (result externref)
     local.get 0
     table.get 0
   )
-  (func $js_sys.externref.remove (;16;) (type 4) (param i32)
+  (func $js_sys.externref.remove (;15;) (type 4) (param i32)
     local.get 0
     ref.null extern
     table.set 0
   )
-  (func $web_sys.console.log (;17;) (type 4) (param i32)
+  (func $web_sys.console.log (;16;) (type 4) (param i32)
     local.get 0
     call $js_sys.externref.get
     call $web_sys.import.console.log
   )
-  (func $web_sys.console.log0 (;18;) (type 2)
+  (func $web_sys.console.log0 (;17;) (type 2)
     call $web_sys.import.console.log0
   )
-  (func $web_sys.console.log2 (;19;) (type 11) (param i32 i32)
+  (func $web_sys.console.log2 (;18;) (type 11) (param i32 i32)
     local.get 0
     call $js_sys.externref.get
     local.get 1
@@ -502,7 +496,7 @@
   (data $.data (;1;) (i32.const 1048600) "\04\00\00\00")
   (@producers
     (language "Rust" "")
-    (processed-by "rustc" "1.93.1 (01f6ddf75 2026-02-11)")
+    (processed-by "rustc" "1.94.0 (4a4ef493e 2026-03-02)")
     (processed-by "js-bindgen" "0.0.0")
   )
   (@custom "target_features" (after data) "\08+\0bbulk-memory+\0fbulk-memory-opt+\16call-indirect-overlong+\0amultivalue+\0fmutable-globals+\13nontrapping-fptoint+\0freference-types+\08sign-ext")

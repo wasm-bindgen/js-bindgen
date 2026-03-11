@@ -34,6 +34,7 @@ impl Type {
 		let output = hygiene.output(&cfgs, span);
 		let deref = hygiene.deref(&cfgs, span);
 		let str = hygiene.str(span);
+		let bool = hygiene.bool(span);
 		let from = hygiene.from(span);
 		let option = hygiene.option(span);
 
@@ -115,6 +116,7 @@ impl Type {
 				unsafe impl #gen_impl #output for #ident #gen_type #gen_where {
 					const ASM_IMPORT_FUNC: #option<&#str> = <#js_value as #output>::ASM_IMPORT_FUNC;
 					const ASM_IMPORT_TYPE: &#str = <#js_value as #output>::ASM_IMPORT_TYPE;
+					const ASM_DIRECT: #bool = <#js_value as #output>::ASM_DIRECT;
 					const ASM_TYPE: &#str = <#js_value as #output>::ASM_TYPE;
 					const ASM_CONV: #option<&#str> = <#js_value as #output>::ASM_CONV;
 					const JS_EMBED: #option<(&'static #str, &'static #str)> = <#js_value as #output>::JS_EMBED;

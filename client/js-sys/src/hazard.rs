@@ -22,6 +22,7 @@ pub unsafe trait Input {
 pub unsafe trait Output {
 	const ASM_IMPORT_FUNC: Option<&str> = None;
 	const ASM_IMPORT_TYPE: &str;
+	const ASM_DIRECT: bool = true;
 	const ASM_TYPE: &str;
 	const ASM_CONV: Option<&str> = None;
 	const JS_EMBED: Option<(&str, &str)> = None;

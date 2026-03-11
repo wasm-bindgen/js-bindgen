@@ -58,6 +58,7 @@ fn basic() {
 			unsafe impl Output for Test {
 				const ASM_IMPORT_FUNC: Option<&str> = <JsValue as Output>::ASM_IMPORT_FUNC;
 				const ASM_IMPORT_TYPE: &str = <JsValue as Output>::ASM_IMPORT_TYPE;
+				const ASM_DIRECT: bool = <JsValue as Output>::ASM_DIRECT;
 				const ASM_TYPE: &str = <JsValue as Output>::ASM_TYPE;
 				const ASM_CONV: Option<&str> = <JsValue as Output>::ASM_CONV;
 				const JS_EMBED: Option<(&'static str, &'static str)> = <JsValue as Output>::JS_EMBED;
@@ -140,6 +141,7 @@ fn generic() {
 			unsafe impl<T> Output for Test<T> {
 				const ASM_IMPORT_FUNC: Option<&str> = <JsValue as Output>::ASM_IMPORT_FUNC;
 				const ASM_IMPORT_TYPE: &str = <JsValue as Output>::ASM_IMPORT_TYPE;
+				const ASM_DIRECT: bool = <JsValue as Output>::ASM_DIRECT;
 				const ASM_TYPE: &str = <JsValue as Output>::ASM_TYPE;
 				const ASM_CONV: Option<&str> = <JsValue as Output>::ASM_CONV;
 				const JS_EMBED: Option<(&'static str, &'static str)> = <JsValue as Output>::JS_EMBED;

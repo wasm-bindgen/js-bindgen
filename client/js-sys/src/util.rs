@@ -39,10 +39,7 @@ pub struct ExternValue<T>(T);
 
 impl<T> ExternValue<T> {
 	pub(crate) const ASM_IMPORT_TYPE: &str = <*const Self>::ASM_IMPORT_TYPE;
-	#[cfg(target_arch = "wasm32")]
-	pub(crate) const ASM_TYPE: &str = "i32";
-	#[cfg(target_arch = "wasm64")]
-	pub(crate) const ASM_TYPE: &str = "i64";
+	pub(crate) const ASM_TYPE: &str = ASM_PTR_TYPE;
 	#[cfg(target_arch = "wasm32")]
 	pub(crate) const ASM_CONV: Option<&str> = None;
 	#[cfg(target_arch = "wasm64")]
@@ -95,6 +92,11 @@ js_bindgen::embed_js!(
 	"}}",
 	interpolate ExternSlice::<()>::VIEW_FN,
 );
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) const ASM_PTR_TYPE: &str = "i32";
+#[cfg(target_arch = "wasm64")]
+pub(crate) const ASM_PTR_TYPE: &str = "i64";
 
 #[repr(transparent)]
 pub(crate) struct PtrLength<T> {
