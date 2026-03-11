@@ -1,15 +1,18 @@
-#![cfg_attr(all(coverage_nightly, not(test)), feature(coverage_attribute))]
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
+mod custom_section;
 #[cfg(test)]
 mod tests;
 mod util;
 
 use std::iter::Peekable;
 
-use proc_macro::{Literal, Punct, Spacing, Span, TokenStream, TokenTree, token_stream};
+use proc_macro::{Span, TokenStream, TokenTree, token_stream};
 #[cfg(test)]
 use proc_macro2 as proc_macro;
 use util::*;
+
+use crate::custom_section::CustomSection;
 
 #[proc_macro]
 pub fn unsafe_embed_asm(input: ::proc_macro::TokenStream) -> ::proc_macro::TokenStream {
@@ -24,11 +27,10 @@ pub fn unsafe_embed_asm(input: ::proc_macro::TokenStream) -> ::proc_macro::Token
 
 fn embed_asm_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let mut input = input.into_iter().peekable();
-	let mut data = Vec::new();
-	parse_string_arguments(&mut input, Span::mixed_site(), &mut data)?;
-	let output = custom_section("js_bindgen.assembly", &data);
+	let mut custom_section = CustomSection::new();
+	parse_string_arguments(&mut input, Span::mixed_site(), &mut custom_section)?;
 
-	Ok(output)
+	Ok(custom_section.output("js_bindgen.assembly"))
 }
 
 #[proc_macro]
@@ -62,13 +64,12 @@ fn import_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 fn js_internal(input: TokenStream, section: &str) -> Result<TokenStream, TokenStream> {
 	let mut input = input.into_iter().peekable();
 
-	let names = parse_names(&mut input)?;
-	let mut data = parse_required_embeds(&mut input, names)?;
-	parse_string_arguments(&mut input, Span::mixed_site(), &mut data)?;
+	let init_bytes = parse_names(&mut input)?;
+	let mut custom_section = CustomSection::new();
+	parse_required_embeds(&mut input, init_bytes, &mut custom_section)?;
+	parse_string_arguments(&mut input, Span::mixed_site(), &mut custom_section)?;
 
-	let output = custom_section(section, &data);
-
-	Ok(output)
+	Ok(custom_section.output(section))
 }
 
 fn parse_names(input: &mut Peekable<token_stream::IntoIter>) -> Result<Vec<u8>, TokenStream> {
@@ -94,41 +95,35 @@ fn parse_names(input: &mut Peekable<token_stream::IntoIter>) -> Result<Vec<u8>, 
 
 fn parse_required_embeds(
 	input: &mut Peekable<token_stream::IntoIter>,
-	mut names: Vec<u8>,
-) -> Result<Vec<Argument>, TokenStream> {
-	let mut data = Vec::new();
+	mut init_bytes: Vec<u8>,
+	custom_section: &mut CustomSection,
+) -> Result<(), TokenStream> {
+	if let Some(TokenTree::Ident(_)) = input.peek()
+		&& let embeds = expect_meta_name_required_embeds(input)?
+		&& !embeds.is_empty()
+	{
+		let Ok(count) = u8::try_from(embeds.len()) else {
+			return Err(crate::compile_error(
+				Span::mixed_site(),
+				"expected at most 255 `required_embeds`",
+			));
+		};
 
-	if let Some(TokenTree::Ident(_)) = input.peek() {
-		let embeds = expect_meta_name_required_embeds(input, "required_embeds")?;
-		data.reserve(embeds.len() + 1);
-
-		let len = u8::try_from(embeds.len()).expect("too many `required_embeds` elements");
-		names.push(len);
-		data.push(Argument::bytes(names));
+		if embeds.iter().all(|value| value.cfg.is_none()) {
+			init_bytes.push(count);
+			custom_section.bytes_value(None, init_bytes);
+		} else {
+			custom_section.bytes_value(None, init_bytes);
+			custom_section.tuple_count();
+		}
 
 		for embed in embeds {
-			let (module, name) = match embed {
-				RequiredEmbed::Tuple { module, name } => (module, name),
-				RequiredEmbed::Value(mut value) => {
-					value.push(TokenTree::Punct(Punct::new('.', Spacing::Alone)));
-					let mut module = value.clone();
-					module.push(TokenTree::Literal(Literal::usize_unsuffixed(0)));
-					let mut name = value;
-					name.push(TokenTree::Literal(Literal::usize_unsuffixed(1)));
-
-					(module, name)
-				}
-			};
-
-			data.extend([
-				Argument::interpolate_with_length(module),
-				Argument::interpolate_with_length(name),
-			]);
+			custom_section.tuple_value(embed.cfg, embed.expr);
 		}
 	} else {
-		names.push(0);
-		data.push(Argument::bytes(names));
+		init_bytes.push(0);
+		custom_section.bytes_value(None, init_bytes);
 	}
 
-	Ok(data)
+	Ok(())
 }

@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use std::ops::DerefMut;
 use std::sync::{LazyLock, Mutex};
 use std::{fs, mem};
@@ -12,12 +13,19 @@ pub use prettyplease;
 pub use similar_asserts;
 #[doc(hidden)]
 pub use syn;
+use xxhash_rust::xxh3;
 
 #[doc(hidden)]
 pub static TEST_UPDATES: LazyLock<TestUpdates> = LazyLock::new(TestUpdates::new);
 
 #[doc(hidden)]
-pub struct TestUpdates(Mutex<HashMap<&'static str, Vec<TestUpdate>>>);
+pub struct TestUpdates(Mutex<HashMap<TestFile, Vec<TestUpdate>>>);
+
+struct TestFile {
+	path: &'static str,
+	size: usize,
+	hash: u64,
+}
 
 struct TestUpdate {
 	output: String,
@@ -35,12 +43,13 @@ impl TestUpdates {
 	pub fn add(
 		&self,
 		path: &'static str,
+		size: usize,
+		hash: u64,
 		output: String,
-		start_line: usize,
-		start_col: usize,
-		end_line: usize,
-		end_col: usize,
+		(start_line, start_col): (usize, usize),
+		(end_line, end_col): (usize, usize),
 	) {
+		let file = TestFile { path, size, hash };
 		let update = TestUpdate {
 			output,
 			start_line,
@@ -49,7 +58,7 @@ impl TestUpdates {
 			end_col,
 		};
 
-		self.0.lock().unwrap().entry(path).or_default().push(update);
+		self.0.lock().unwrap().entry(file).or_default().push(update);
 	}
 }
 
@@ -57,18 +66,24 @@ impl TestUpdates {
 fn run_test_updates() {
 	let updates = mem::take(TEST_UPDATES.0.lock().unwrap().deref_mut());
 
-	for (path, mut updates) in updates {
+	for (file, mut updates) in updates {
 		updates.sort_by(|a, b| {
 			b.start_line
 				.cmp(&a.start_line)
 				.then(b.start_col.cmp(&a.start_col))
 		});
 
-		if path.is_empty() {
+		if file.path.is_empty() {
 			unreachable!("`rust-analyzer` should not execute with `BLESS=1`")
 		}
 
-		let mut src = fs::read_to_string(path).unwrap();
+		let mut src = fs::read_to_string(file.path).unwrap();
+
+		assert!(
+			src.len() == file.size && xxh3::xxh3_64(src.as_bytes()) == file.hash,
+			"File modified before being able to update. This can happen when running tests from \
+			 the same file in multiple processes, e.g. Nextest."
+		);
 
 		for TestUpdate {
 			output,
@@ -85,7 +100,21 @@ fn run_test_updates() {
 			src.replace_range(start..end, &output);
 		}
 
-		fs::write(path, src).unwrap();
+		fs::write(file.path, src).unwrap();
+	}
+}
+
+impl Eq for TestFile {}
+
+impl Hash for TestFile {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.path.hash(state);
+	}
+}
+
+impl PartialEq for TestFile {
+	fn eq(&self, other: &Self) -> bool {
+		self.path == other.path
 	}
 }
 

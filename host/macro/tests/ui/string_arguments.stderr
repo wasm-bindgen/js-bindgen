@@ -1,4 +1,4 @@
-error: requires at least a string argument
+error: requires at least a string template
  --> tests/ui/string_arguments.rs:1:1
   |
 1 | js_bindgen::unsafe_embed_asm!();
@@ -6,7 +6,7 @@ error: requires at least a string argument
   |
   = note: this error originates in the macro `js_bindgen::unsafe_embed_asm` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: requires at least a string argument
+error: requires at least a string template
  --> tests/ui/string_arguments.rs:4:31
   |
 4 | js_bindgen::unsafe_embed_asm!(42);
@@ -24,7 +24,7 @@ error: expected a `,` after string literal
 10 | js_bindgen::unsafe_embed_asm!("" 42);
    |                                  ^^
 
-error: requires at least a string argument
+error: requires at least a string template
   --> tests/ui/string_arguments.rs:13:31
    |
 13 | js_bindgen::unsafe_embed_asm!(.);
@@ -61,91 +61,237 @@ error: multiple `cfg`s in a row not supported
 30 | |     #[cfg()]
    | |____________^
 
-error: requires at least a string argument
-  --> tests/ui/string_arguments.rs:35:1
+error: expected `cfg`
+  --> tests/ui/string_arguments.rs:34:33
    |
-35 | js_bindgen::unsafe_embed_asm!(#[cfg()]);
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+34 | js_bindgen::unsafe_embed_asm!(#[test]);
+   |                                 ^^^^
+
+error: leftover `cfg` attribute
+  --> tests/ui/string_arguments.rs:37:31
    |
-   = note: this error originates in the macro `js_bindgen::unsafe_embed_asm` (in Nightly builds, run with -Z macro-backtrace for more info)
+37 | js_bindgen::unsafe_embed_asm!(#[cfg()]);
+   |                               ^^^^^^^^
 
 error: no corresponding closing bracers found
-  --> tests/ui/string_arguments.rs:38:31
+  --> tests/ui/string_arguments.rs:40:31
    |
-38 | js_bindgen::unsafe_embed_asm!("{}}");
+40 | js_bindgen::unsafe_embed_asm!("{}}");
    |                               ^^^^^
 
 error: expected a value
-  --> tests/ui/string_arguments.rs:41:37
+  --> tests/ui/string_arguments.rs:43:37
    |
-41 | js_bindgen::unsafe_embed_asm!("{}", foo);
+43 | js_bindgen::unsafe_embed_asm!("{}", foo);
    |                                     ^^^
 
 error: expected a value
-  --> tests/ui/string_arguments.rs:44:37
+  --> tests/ui/string_arguments.rs:46:37
    |
-44 | js_bindgen::unsafe_embed_asm!("{}", interpolate);
+46 | js_bindgen::unsafe_embed_asm!("{}", interpolate);
    |                                     ^^^^^^^^^^^
 
-error: expected `*const`
-  --> tests/ui/string_arguments.rs:47:49
+error: expected `const` or `interpolate`
+  --> tests/ui/string_arguments.rs:49:37
    |
-47 | js_bindgen::unsafe_embed_asm!("{}", interpolate *mut);
-   |                                                 ^^^^
+49 | js_bindgen::unsafe_embed_asm!("{}", foo "test");
+   |                                     ^^^
 
 error: expected a value
-  --> tests/ui/string_arguments.rs:50:37
+  --> tests/ui/string_arguments.rs:52:49
    |
-50 | js_bindgen::unsafe_embed_asm!("{}", interpolate #);
-   |                                     ^^^^^^^^^^^^^
+52 | js_bindgen::unsafe_embed_asm!("{}", interpolate #);
+   |                                                 ^
 
 error: type not completed, missing `>`
-  --> tests/ui/string_arguments.rs:53:49
+  --> tests/ui/string_arguments.rs:55:49
    |
-53 | js_bindgen::unsafe_embed_asm!("{}", interpolate < Foo);
+55 | js_bindgen::unsafe_embed_asm!("{}", interpolate < Foo);
    |                                                 ^^^^^
 
 error: expected a value
-  --> tests/ui/string_arguments.rs:56:37
+  --> tests/ui/string_arguments.rs:58:48
    |
-56 | js_bindgen::unsafe_embed_asm!("{}", interpolate,);
-   |                                     ^^^^^^^^^^^^
+58 | js_bindgen::unsafe_embed_asm!("{}", interpolate,);
+   |                                                ^
 
 error: expected a `,` between formatting parameters
-  --> tests/ui/string_arguments.rs:59:53
+  --> tests/ui/string_arguments.rs:61:53
    |
-59 | js_bindgen::unsafe_embed_asm!("{}", interpolate Foo &);
+61 | js_bindgen::unsafe_embed_asm!("{}", interpolate Foo $);
    |                                                     ^
 
 error: expected an argument for `{}`
-  --> tests/ui/string_arguments.rs:62:31
+  --> tests/ui/string_arguments.rs:64:31
    |
-62 | js_bindgen::unsafe_embed_asm!("{}");
+64 | js_bindgen::unsafe_embed_asm!("{}");
    |                               ^^^^
 
 error: expected an argument for `{}`
-  --> tests/ui/string_arguments.rs:65:61
+  --> tests/ui/string_arguments.rs:67:37
    |
-65 | js_bindgen::unsafe_embed_asm!("{}", "{}", interpolate "test",);
-   |                                                             ^
+67 | js_bindgen::unsafe_embed_asm!("{}", "{}", interpolate "test",);
+   |                                     ^^^^
 
 error: no corresponding closing bracers found
-  --> tests/ui/string_arguments.rs:68:31
+  --> tests/ui/string_arguments.rs:70:31
    |
-68 | js_bindgen::unsafe_embed_asm!("{");
+70 | js_bindgen::unsafe_embed_asm!("{");
    |                               ^^^
 
 error: no corresponding opening bracers found
-  --> tests/ui/string_arguments.rs:71:31
+  --> tests/ui/string_arguments.rs:73:31
    |
-71 | js_bindgen::unsafe_embed_asm!("}");
+73 | js_bindgen::unsafe_embed_asm!("}");
    |                               ^^^
 
 error: expected named argument, `const` or `interpolate`
-  --> tests/ui/string_arguments.rs:74:35
+  --> tests/ui/string_arguments.rs:76:35
    |
-74 | js_bindgen::unsafe_embed_asm!("", 42);
+76 | js_bindgen::unsafe_embed_asm!("", 42);
    |                                   ^^
 
-error: aborting due to 24 previous errors
+error: expected `cfg`
+  --> tests/ui/string_arguments.rs:79:36
+   |
+79 | js_bindgen::unsafe_embed_asm!("", #[] );
+   |                                    ^^
+
+error: leftover `cfg` attribute
+  --> tests/ui/string_arguments.rs:82:35
+   |
+82 | js_bindgen::unsafe_embed_asm!("", #[cfg()] );
+   |                                   ^^^^^^^^
+
+error: expected named argument, `const` or `interpolate`
+  --> tests/ui/string_arguments.rs:85:44
+   |
+85 | js_bindgen::unsafe_embed_asm!("", #[cfg()] $ );
+   |                                            ^
+
+error: expected `cfg`
+  --> tests/ui/string_arguments.rs:91:4
+   |
+91 |     #[test]
+   |       ^^^^
+
+error: multiple `cfg`s in a row not supported
+  --> tests/ui/string_arguments.rs:97:2
+   |
+97 | /     #[cfg()]
+98 | |     #[cfg()]
+   | |____________^
+
+error: expected `cfg`
+   --> tests/ui/string_arguments.rs:102:59
+    |
+102 | js_bindgen::unsafe_embed_asm!("{}", interpolate "test", #[test] );
+    |                                                           ^^^^
+
+error: leftover `cfg` attribute
+   --> tests/ui/string_arguments.rs:105:57
+    |
+105 | js_bindgen::unsafe_embed_asm!("{}", interpolate "test", #[cfg()] );
+    |                                                         ^^^^^^^^
+
+error: expected named argument, `const` or `interpolate`
+   --> tests/ui/string_arguments.rs:108:66
+    |
+108 | js_bindgen::unsafe_embed_asm!("{}", interpolate "test", #[cfg()] $ );
+    |                                                                  ^
+
+error: expected `cfg`
+   --> tests/ui/string_arguments.rs:115:4
+    |
+115 |     #[test]
+    |       ^^^^
+
+error: multiple `cfg`s in a row not supported
+   --> tests/ui/string_arguments.rs:122:2
+    |
+122 | /     #[cfg()]
+123 | |     #[cfg()]
+    | |____________^
+
+error: expected `const` or `interpolate`
+   --> tests/ui/string_arguments.rs:127:43
+    |
+127 | js_bindgen::unsafe_embed_asm!("{}", par = "test");
+    |                                           ^^^^^^
+
+error: expected `const` or `interpolate`
+   --> tests/ui/string_arguments.rs:130:43
+    |
+130 | js_bindgen::unsafe_embed_asm!("{}", par = operator "test");
+    |                                           ^^^^^^^^
+
+error: named argument must come first
+   --> tests/ui/string_arguments.rs:133:57
+    |
+133 | js_bindgen::unsafe_embed_asm!("{}", interpolate "test", par = interpolate "test");
+    |                                                         ^^^
+
+error: found duplicate named argument
+   --> tests/ui/string_arguments.rs:136:68
+    |
+136 | js_bindgen::unsafe_embed_asm!("{par}", par = interpolate "test 1", par = interpolate "test 2");
+    |                                                                    ^^^
+
+error: found duplicate named argument
+   --> tests/ui/string_arguments.rs:139:86
+    |
+139 | js_bindgen::unsafe_embed_asm!("{par}", #[cfg()] par = interpolate "test 1", #[cfg()] par = interpolate "test 2");
+    |                                                                                      ^^^
+
+error: `cfg` attributes are only supported on named arguments
+   --> tests/ui/string_arguments.rs:142:37
+    |
+142 | js_bindgen::unsafe_embed_asm!("{}", #[cfg()] interpolate "test 1");
+    |                                     ^^^^^^^^
+
+error: invalid template string named argument identifier
+   --> tests/ui/string_arguments.rs:145:31
+    |
+145 | js_bindgen::unsafe_embed_asm!("{()}");
+    |                               ^^^^^^
+
+error: invalid template string named argument identifier
+   --> tests/ui/string_arguments.rs:148:31
+    |
+148 | js_bindgen::unsafe_embed_asm!("{par()}");
+    |                               ^^^^^^^^^
+
+error: this file contains an unclosed delimiter
+   --> tests/ui/string_arguments.rs:151:1
+    |
+151 | js_bindgen::unsafe_embed_asm!("{[}");
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unclosed delimiter
+    |
+    = note: this error originates in the macro `js_bindgen::unsafe_embed_asm` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: invalid template string named argument identifier
+   --> tests/ui/string_arguments.rs:151:31
+    |
+151 | js_bindgen::unsafe_embed_asm!("{[}");
+    |                               ^^^^^
+
+error: expected a named argument for `par`
+   --> tests/ui/string_arguments.rs:155:31
+    |
+155 | js_bindgen::unsafe_embed_asm!("{par}");
+    |                               ^^^^^^^
+
+error: expected no leftover arguments
+   --> tests/ui/string_arguments.rs:158:35
+    |
+158 | js_bindgen::unsafe_embed_asm!("", interpolate "test");
+    |                                   ^^^^^^^^^^^^^^^^^^
+
+error: expected no leftover arguments
+   --> tests/ui/string_arguments.rs:161:35
+    |
+161 | js_bindgen::unsafe_embed_asm!("", par = interpolate "test");
+    |                                   ^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 48 previous errors
 

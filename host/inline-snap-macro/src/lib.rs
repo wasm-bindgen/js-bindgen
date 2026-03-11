@@ -1,11 +1,14 @@
+use std::ops::Deref;
 use std::path::Path;
 
+use js_bindgen_shared::ReadFile;
 use proc_macro2::{LineColumn, TokenStream};
 use quote::quote_spanned;
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
 use syn::token::Brace;
 use syn::{Expr, Token};
+use xxhash_rust::xxh3;
 
 #[proc_macro]
 pub fn inline_snap(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -30,11 +33,19 @@ pub fn inline_snap(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 	let file = span.file();
 	let path = Path::new(&file).canonicalize();
-	let path = path
+	let (path, size, hash) = path
 		.as_ref()
 		.ok()
-		.and_then(|path| path.to_str())
-		.unwrap_or("");
+		.and_then(|path| {
+			path.to_str().map(|path_str| {
+				let file = ReadFile::new(path).unwrap();
+				let size = file.len();
+				let hash = xxh3::xxh3_64(file.deref());
+
+				(path_str, size, hash)
+			})
+		})
+		.unwrap_or(("", 0, 0));
 
 	quote_spanned! {span=>
 		#[allow(warnings)]
@@ -43,7 +54,7 @@ pub fn inline_snap(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 			let expected = ::inline_snap::prettyplease::unparse(&expected);
 
 			if expected != #output && ::std::env::var("BLESS").is_ok_and(|value| value == "1") {
-				::inline_snap::TEST_UPDATES.add(#path, #output, #start_line, #start_col, #end_line, #end_col);
+				::inline_snap::TEST_UPDATES.add(#path, #size, #hash, #output, (#start_line, #start_col), (#end_line, #end_col));
 			} else {
 				::inline_snap::similar_asserts::assert_eq!(expected, #output);
 			}

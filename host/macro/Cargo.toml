@@ -9,6 +9,7 @@ rust-version = { workspace = true }
 proc-macro = true
 
 [dev-dependencies]
+inline-snap = { workspace = true }
 prettyplease = { workspace = true }
 proc-macro2 = { workspace = true, features = ["proc-macro"] }
 quote = { workspace = true }

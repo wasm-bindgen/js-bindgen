@@ -1,0 +1,16 @@
+error: expected at most 255 `required_embeds`
+   --> tests/ui/limit.rs:2:1
+    |
+  2 | / js_bindgen::import_js!(
+  3 | |     module = "foo",
+  4 | |     name = "bar",
+  5 | |     required_embeds = [
+...   |
+263 | |     "",
+264 | | );
+    | |_^
+    |
+    = note: this error originates in the macro `js_bindgen::import_js` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: aborting due to 1 previous error
+

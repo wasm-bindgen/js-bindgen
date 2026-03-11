@@ -56,15 +56,12 @@
   rely on this.
 - E2E testing for the linker. Should also ensure deterministic output.
 - Can we use `TokenStream` from `str` parsing to simplify the code without affecting performance?
-- Add a `disable_hygiene` attribute to `#[js_sys]` to reduce the compile-time of the output to an
-  absolute minimum. This can avoid all `interpolate`s.
 - Escape namespaces and function names if they are not valid JS identifiers.
 - Test raw Rust identifiers in function and parameter names.
 - `#[js_sys]` parameter and function name aren't allowed to collide. Internal
   `extern { fn <name> ... }` definition can shadow parameter values.
 - `js-bindgen` macro custom section generation can produce name collisions with intermediate
   variables.
-- `js-bindgen` custom section output needs more hygiene for types.
 - Allocate slots on the `externref` table in batches.
 - Determine what to do with `js_sys::UnwrapThrowExt`. Avoiding the panic machinery is nice for some
   very niche use-cases but it might be very annoying for most users. Maybe hide it behind a `cfg`

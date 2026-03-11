@@ -8,12 +8,13 @@ rust-version = { workspace = true }
 
 [dependencies]
 dtor = { workspace = true }
-hashbrown = { workspace = true }
+hashbrown = { workspace = true, features = ["default-hasher"] }
 inline-snap-macro = { workspace = true }
 itertools = { workspace = true }
 prettyplease = { workspace = true }
 similar-asserts = { workspace = true }
 syn = { workspace = true, features = ["full"] }
+xxhash-rust = { workspace = true }
 
 [lints]
 workspace = true

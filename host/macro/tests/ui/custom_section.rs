@@ -4,7 +4,32 @@ js_bindgen::unsafe_embed_asm!("{}", interpolate Foo);
 struct Bar;
 
 js_bindgen::unsafe_embed_asm!("{}", interpolate Bar);
-//~^ ERROR: mismatched types
+//~^ E0308
 
 js_bindgen::unsafe_embed_asm!("{}", interpolate 42);
-//~^ ERROR: mismatched types
+//~^ E0308
+
+js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = [42], "");
+//~^ E0308
+
+js_bindgen::embed_js!(module = "foo", name = "bar", required_embeds = [42], "");
+//~^ E0308
+
+js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = ["qux"], "");
+//~^ E0308
+
+js_bindgen::import_js!(
+	module = "foo",
+	name = "bar",
+	required_embeds = [("qux")],
+	""
+);
+//~^^^ E0308
+
+js_bindgen::import_js!(
+	module = "foo",
+	name = "bar",
+	required_embeds = [("qux",)],
+	""
+);
+//~^^^ E0308

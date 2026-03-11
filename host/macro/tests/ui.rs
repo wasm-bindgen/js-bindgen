@@ -1,9 +1,10 @@
 use std::env;
 use std::path::PathBuf;
 
+use ui_test::Config;
 use ui_test::color_eyre::Result;
+use ui_test::custom_flags::rustfix::RustfixMode;
 use ui_test::dependencies::DependencyBuilder;
-use ui_test::{CommandBuilder, Config};
 
 fn main() -> Result<()> {
 	let mut config = Config::rustc("tests/ui");
@@ -14,7 +15,8 @@ fn main() -> Result<()> {
 		.unwrap()
 		.join("target")
 		.join("ui");
-	config.comment_defaults.base().set_custom(
+	let base = config.comment_defaults.base();
+	base.set_custom(
 		"dependencies",
 		DependencyBuilder {
 			// No `dev-dependency` support:
@@ -23,15 +25,18 @@ fn main() -> Result<()> {
 			..DependencyBuilder::default()
 		},
 	);
+	base.set_custom("rustfix", RustfixMode::Disabled);
 	config.skip_files.push(String::from("lib.rs"));
-	config.program = CommandBuilder {
-		envs: vec![("CARGO_CRATE_NAME".into(), Some("test_crate".into()))],
-		..CommandBuilder::rustc()
-	};
 
 	if env::var_os("BLESS").filter(|v| v == "1").is_some() {
 		config.output_conflict_handling = ui_test::bless_output_files;
 	}
 
-	ui_test::run_tests(config)
+	let result = ui_test::run_tests(config);
+
+	if cfg!(coverage_nightly) {
+		Ok(())
+	} else {
+		result
+	}
 }

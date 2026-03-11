@@ -10,9 +10,11 @@ rust-version = { workspace = true }
 proc-macro = true
 
 [dependencies]
+js-bindgen-shared = { workspace = true }
 proc-macro2 = { workspace = true, features = ["span-locations"] }
 quote = { workspace = true }
 syn = { workspace = true, features = ["full", "parsing", "proc-macro"] }
+xxhash-rust = { workspace = true }
 
 [lints]
 workspace = true
