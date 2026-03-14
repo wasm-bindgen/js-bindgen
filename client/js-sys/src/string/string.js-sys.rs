@@ -2,7 +2,7 @@ use crate::util::PtrLength;
 
 #[js_sys]
 extern "js-sys" {
-	#[derive(Debug)]
+	#[derive(Clone, Debug)]
 	pub type JsString;
 
 	#[js_sys(js_name = "String")]

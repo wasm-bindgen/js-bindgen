@@ -26,6 +26,30 @@ impl JsValue {
 	}
 }
 
+impl Clone for JsValue {
+	fn clone(&self) -> Self {
+		js_bindgen::unsafe_embed_asm!(
+			".functype js_sys.externref.get (i32) -> (externref)",
+			".functype js_sys.externref.insert (externref) -> (i32)",
+			"",
+			".globl js_sys.js_value.clone",
+			"js_sys.js_value.clone:",
+			"	.functype js_sys.js_value.clone (i32) -> (i32)",
+			"	local.get 0",
+			"	call js_sys.externref.get",
+			"	call js_sys.externref.insert",
+			"	end_function",
+		);
+
+		unsafe extern "C" {
+			#[link_name = "js_sys.js_value.clone"]
+			safe fn clone(size: i32) -> i32;
+		}
+
+		Self::new(clone(self.index))
+	}
+}
+
 impl Drop for JsValue {
 	fn drop(&mut self) {
 		if self.index > 1 {

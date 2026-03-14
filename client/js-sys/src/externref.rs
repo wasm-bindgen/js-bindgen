@@ -64,9 +64,9 @@ js_bindgen::import_js!(
 
 unsafe extern "C" {
 	#[link_name = "js_sys.externref.grow"]
-	fn grow(size: i32) -> i32;
+	safe fn grow(size: i32) -> i32;
 	#[link_name = "js_sys.externref.remove"]
-	fn remove(index: i32);
+	safe fn remove(index: i32);
 }
 
 thread_local! {
@@ -89,8 +89,7 @@ impl ExternrefTable {
 		if let Some(slot) = self.0.pop() {
 			slot
 		} else {
-			// SAFETY: Implementation is safe.
-			match unsafe { grow(1) } {
+			match grow(1) {
 				-1 => panic("`externref` table allocation failure"),
 				slot => slot,
 			}
@@ -101,8 +100,7 @@ impl ExternrefTable {
 		self.0.try_reserve(1).expect("failure to grow memory");
 
 		self.0.push(index);
-		// SAFETY: Implementation is safe.
-		unsafe { remove(index) }
+		remove(index);
 	}
 
 	/// Export a pointer and length to the current list.

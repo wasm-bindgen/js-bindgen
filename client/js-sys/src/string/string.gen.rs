@@ -7,7 +7,7 @@ use crate::{js_bindgen, r#macro, JsValue};
 use crate::hazard::{Input, Output};
 use crate::util::PtrLength;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[repr(transparent)]
 pub struct JsString(JsValue);
 

@@ -16,3 +16,10 @@ fn null() {
 
 	assert_eq!(string, "null");
 }
+
+#[test]
+fn clone() {
+	let value = JsString::from("Hello, World!");
+	let value = value.clone();
+	assert_eq!(value, "Hello, World!");
+}
