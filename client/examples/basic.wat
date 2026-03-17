@@ -40,7 +40,7 @@
     local.tee 0
     call $web_sys.console.log
     local.get 0
-    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h1016b5cd2730afdeE
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hc3951152f18f4a84E
     i32.const 1048589
     i32.const 5
     call $js_sys.string_decode
@@ -51,11 +51,11 @@
     local.tee 1
     call $web_sys.console.log2
     local.get 1
-    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h1016b5cd2730afdeE
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hc3951152f18f4a84E
     local.get 0
-    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h1016b5cd2730afdeE
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hc3951152f18f4a84E
   )
-  (func $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h1016b5cd2730afdeE (;6;) (type 4) (param i32)
+  (func $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hc3951152f18f4a84E (;6;) (type 4) (param i32)
     (local i32 i32 i32 i32)
     global.get $__stack_pointer
     i32.const 16

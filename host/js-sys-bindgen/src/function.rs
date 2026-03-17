@@ -417,7 +417,6 @@ impl<'a> State<'a> {
 			js_bindgen,
 			r#macro,
 			input,
-			output,
 			import_name,
 			foreign_name,
 			input_tys,
@@ -475,13 +474,13 @@ impl<'a> State<'a> {
 		parse_quote_spanned! {*span=>
 			#js_bindgen::unsafe_embed_asm! {
 				#asm
-				#(interpolate <#input_tys as #input>::ASM_IMPORT_TYPE,)*
-				#(interpolate <#output_ty as #output>::ASM_IMPORT_TYPE,)*
-				#(interpolate #r#macro::asm_import!(#input_imports as Input),)*
-				#(interpolate #r#macro::asm_import!(#output_ty as Output),)*
+				#(interpolate #r#macro::asm_input_import_type::<#input_tys>(),)*
+				#(interpolate #r#macro::asm_output_import_type::<#output_ty>(),)*
+				#(interpolate #r#macro::asm_input_import::<#input_imports>(),)*
+				#(interpolate #r#macro::asm_output_import::<#output_ty>(),)*
 				#(interpolate #r#macro::asm_indirect!(#output_ty),)*
 				#(interpolate <#input_tys as #input>::ASM_TYPE,)*
-				#(interpolate #r#macro::asm_direct!(#output_ty),)*
+				#(interpolate #r#macro::asm_direct::<#output_ty>(),)*
 				#(#inputs)*
 				#(interpolate #r#macro::asm_output!(#output_ty),)*
 			}
@@ -541,11 +540,11 @@ impl<'a> State<'a> {
 		}
 
 		for ty in &unique_inputs {
-			required_embeds.push(quote_spanned!(*span=> #r#macro::js_import!(#ty as Input)));
+			required_embeds.push(quote_spanned!(*span=> #r#macro::js_input_embed::<#ty>()));
 		}
 
 		for ty in *output_ty {
-			required_embeds.push(quote_spanned!(*span=> #r#macro::js_import!(#ty as Output)));
+			required_embeds.push(quote_spanned!(*span=> #r#macro::js_output_embed::<#ty>()));
 		}
 
 		let required_embeds = if required_embeds.is_empty() {

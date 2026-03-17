@@ -2,7 +2,7 @@ use core::marker::PhantomData;
 use core::mem;
 use core::mem::MaybeUninit;
 
-use crate::hazard::Input;
+use crate::hazard::{Input, InputAsmConv, InputJsConv};
 
 macro_rules! thread_local {
 	($($vis:vis static $name:ident: $ty:ty = $value:expr;)*) => {
@@ -38,12 +38,15 @@ impl<T> LocalKey<T> {
 pub struct ExternValue<T>(T);
 
 impl<T> ExternValue<T> {
-	pub(crate) const ASM_IMPORT_TYPE: &str = <*const Self>::ASM_IMPORT_TYPE;
 	pub(crate) const ASM_TYPE: &str = ASM_PTR_TYPE;
 	#[cfg(target_arch = "wasm32")]
-	pub(crate) const ASM_CONV: Option<&str> = None;
+	pub(crate) const ASM_CONV: Option<InputAsmConv> = None;
 	#[cfg(target_arch = "wasm64")]
-	pub(crate) const ASM_CONV: Option<&str> = Some("f64.convert_i64_u");
+	pub(crate) const ASM_CONV: Option<InputAsmConv> = Some(InputAsmConv {
+		import: None,
+		conv: "f64.convert_i64_u",
+		r#type: "f64",
+	});
 
 	pub(crate) fn new(value: T) -> Self {
 		Self(value)
@@ -58,9 +61,8 @@ pub struct ExternSlice<T> {
 
 #[expect(dead_code, reason = "custom sections are considered dead-code")]
 impl<T> ExternSlice<T> {
-	pub(crate) const ASM_IMPORT_TYPE: &str = ExternValue::<()>::ASM_IMPORT_TYPE;
 	pub(crate) const ASM_TYPE: &str = ExternValue::<()>::ASM_TYPE;
-	pub(crate) const ASM_CONV: Option<&str> = ExternValue::<()>::ASM_CONV;
+	pub(crate) const ASM_CONV: Option<InputAsmConv> = ExternValue::<()>::ASM_CONV;
 
 	#[cfg(target_arch = "wasm32")]
 	const VIEW_FN: &str = "view.getUint32";
@@ -131,9 +133,8 @@ impl<T> PtrLength<T> {
 
 // SAFETY: Delegated to already implemented types.
 unsafe impl<T> Input for PtrLength<T> {
-	const ASM_IMPORT_TYPE: &str = Self::Type::ASM_IMPORT_TYPE;
 	const ASM_TYPE: &str = Self::Type::ASM_TYPE;
-	const JS_CONV: Option<(&str, Option<&str>)> = Self::Type::JS_CONV;
+	const JS_CONV: Option<InputJsConv> = Self::Type::JS_CONV;
 
 	#[cfg(target_arch = "wasm32")]
 	type Type = usize;

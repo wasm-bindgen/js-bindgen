@@ -21,7 +21,7 @@ fn basic() {
 		{
 			use core::ops::Deref;
 			use js_sys::JsValue;
-			use js_sys::hazard::{Input, Output};
+			use js_sys::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
 
 			#[repr(transparent)]
 			struct Test(JsValue);
@@ -41,12 +41,9 @@ fn basic() {
 			}
 
 			unsafe impl Input for &Test {
-				const ASM_IMPORT_FUNC: Option<&'static str> = <&JsValue as Input>::ASM_IMPORT_FUNC;
-				const ASM_IMPORT_TYPE: &'static str = <&JsValue as Input>::ASM_IMPORT_TYPE;
 				const ASM_TYPE: &'static str = <&JsValue as Input>::ASM_TYPE;
-				const ASM_CONV: Option<&'static str> = <&JsValue as Input>::ASM_CONV;
-				const JS_EMBED: Option<(&'static str, &'static str)> = <&JsValue as Input>::JS_EMBED;
-				const JS_CONV: Option<(&'static str, Option<&'static str>)> = <&JsValue as Input>::JS_CONV;
+				const ASM_CONV: Option<InputAsmConv> = <&JsValue as Input>::ASM_CONV;
+				const JS_CONV: Option<InputJsConv> = <&JsValue as Input>::JS_CONV;
 
 				type Type = <&'static JsValue as Input>::Type;
 
@@ -56,13 +53,9 @@ fn basic() {
 			}
 
 			unsafe impl Output for Test {
-				const ASM_IMPORT_FUNC: Option<&str> = <JsValue as Output>::ASM_IMPORT_FUNC;
-				const ASM_IMPORT_TYPE: &str = <JsValue as Output>::ASM_IMPORT_TYPE;
-				const ASM_DIRECT: bool = <JsValue as Output>::ASM_DIRECT;
 				const ASM_TYPE: &str = <JsValue as Output>::ASM_TYPE;
-				const ASM_CONV: Option<&str> = <JsValue as Output>::ASM_CONV;
-				const JS_EMBED: Option<(&'static str, &'static str)> = <JsValue as Output>::JS_EMBED;
-				const JS_CONV: Option<(&'static str, &'static str)> = <JsValue as Output>::JS_CONV;
+				const ASM_CONV: Option<OutputAsmConv> = <JsValue as Output>::ASM_CONV;
+				const JS_CONV: Option<OutputJsConv> = <JsValue as Output>::JS_CONV;
 
 				type Type = <JsValue as Output>::Type;
 
@@ -101,7 +94,7 @@ fn generic() {
 			use core::marker::PhantomData;
 			use core::ops::Deref;
 			use js_sys::JsValue;
-			use js_sys::hazard::{Input, Output};
+			use js_sys::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
 
 			#[repr(transparent)]
 			struct Test<T = JsValue> {
@@ -124,12 +117,9 @@ fn generic() {
 			}
 
 			unsafe impl<T> Input for &Test<T> {
-				const ASM_IMPORT_FUNC: Option<&'static str> = <&JsValue as Input>::ASM_IMPORT_FUNC;
-				const ASM_IMPORT_TYPE: &'static str = <&JsValue as Input>::ASM_IMPORT_TYPE;
 				const ASM_TYPE: &'static str = <&JsValue as Input>::ASM_TYPE;
-				const ASM_CONV: Option<&'static str> = <&JsValue as Input>::ASM_CONV;
-				const JS_EMBED: Option<(&'static str, &'static str)> = <&JsValue as Input>::JS_EMBED;
-				const JS_CONV: Option<(&'static str, Option<&'static str>)> = <&JsValue as Input>::JS_CONV;
+				const ASM_CONV: Option<InputAsmConv> = <&JsValue as Input>::ASM_CONV;
+				const JS_CONV: Option<InputJsConv> = <&JsValue as Input>::JS_CONV;
 
 				type Type = <&'static JsValue as Input>::Type;
 
@@ -139,13 +129,9 @@ fn generic() {
 			}
 
 			unsafe impl<T> Output for Test<T> {
-				const ASM_IMPORT_FUNC: Option<&str> = <JsValue as Output>::ASM_IMPORT_FUNC;
-				const ASM_IMPORT_TYPE: &str = <JsValue as Output>::ASM_IMPORT_TYPE;
-				const ASM_DIRECT: bool = <JsValue as Output>::ASM_DIRECT;
 				const ASM_TYPE: &str = <JsValue as Output>::ASM_TYPE;
-				const ASM_CONV: Option<&str> = <JsValue as Output>::ASM_CONV;
-				const JS_EMBED: Option<(&'static str, &'static str)> = <JsValue as Output>::JS_EMBED;
-				const JS_CONV: Option<(&'static str, &'static str)> = <JsValue as Output>::JS_CONV;
+				const ASM_CONV: Option<OutputAsmConv> = <JsValue as Output>::ASM_CONV;
+				const JS_CONV: Option<OutputJsConv> = <JsValue as Output>::JS_CONV;
 
 				type Type = <JsValue as Output>::Type;
 

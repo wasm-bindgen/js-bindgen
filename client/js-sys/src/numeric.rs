@@ -3,7 +3,7 @@ use core::mem;
 use core::ptr;
 use core::ptr::NonNull;
 
-use crate::hazard::{Input, Output};
+use crate::hazard::{Input, InputAsmConv, InputJsConv, Output, OutputAsmConv, OutputJsConv};
 use crate::r#macro::const_concat;
 use crate::util::{ASM_PTR_TYPE, ExternValue};
 
@@ -11,7 +11,6 @@ macro_rules! input_output {
 	($wasm:literal, $($ty:ty),*) => {$(
 		// SAFETY: Implementation.
 		unsafe impl Input for $ty {
-			const ASM_IMPORT_TYPE: &str = $wasm;
 			const ASM_TYPE: &str = $wasm;
 
 			type Type = Self;
@@ -29,7 +28,6 @@ macro_rules! output {
 	($wasm:literal, $($ty:ty),*) => {$(
 		// SAFETY: Implementation.
 		unsafe impl Output for $ty {
-			const ASM_IMPORT_TYPE: &str = $wasm;
 			const ASM_TYPE: &str = $wasm;
 
 			type Type = Self;
@@ -64,9 +62,8 @@ macro_rules! delegate {
 	($origin:ty, $ty:ty $(:<$ge:tt>)?, $ty_impl:ty, $into_raw:item $from_raw:item) => {
 		// SAFETY: Implementation.
 		unsafe impl <$($ge)?> Input for $ty {
-			const ASM_IMPORT_TYPE: &str = <$origin as Input>::ASM_IMPORT_TYPE;
 			const ASM_TYPE: &str = <$origin as Input>::ASM_TYPE;
-			const JS_CONV: Option<(&str, Option<&str>)> = <$origin as Input>::JS_CONV;
+			const JS_CONV: Option<InputJsConv> = <$origin as Input>::JS_CONV;
 
 
 			type Type = $ty_impl;
@@ -76,7 +73,6 @@ macro_rules! delegate {
 
 		// SAFETY: Implementation.
 		unsafe impl <$($ge)?> Output for $ty {
-			const ASM_IMPORT_TYPE: &str = <$origin as Output>::ASM_IMPORT_TYPE;
 			const ASM_TYPE: &str = <$origin as Output>::ASM_TYPE;
 
 			type Type = $ty_impl;
@@ -108,9 +104,12 @@ input_output!("f64", f64);
 
 // SAFETY: Implementation.
 unsafe impl Input for bool {
-	const ASM_IMPORT_TYPE: &str = "i32";
 	const ASM_TYPE: &str = "i32";
-	const JS_CONV: Option<(&str, Option<&str>)> = Some((" = !!", Some("")));
+	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
+		embed: None,
+		pre: " = !!",
+		post: Some(""),
+	});
 
 	type Type = Self;
 
@@ -121,9 +120,12 @@ unsafe impl Input for bool {
 
 // SAFETY: Implementation.
 unsafe impl Input for u32 {
-	const ASM_IMPORT_TYPE: &str = "i32";
 	const ASM_TYPE: &str = "i32";
-	const JS_CONV: Option<(&str, Option<&str>)> = Some((" >>>= 0", None));
+	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
+		embed: None,
+		pre: " >>>= 0",
+		post: None,
+	});
 
 	type Type = Self;
 
@@ -134,9 +136,12 @@ unsafe impl Input for u32 {
 
 // SAFETY: Implementation.
 unsafe impl Input for u64 {
-	const ASM_IMPORT_TYPE: &str = "i64";
 	const ASM_TYPE: &str = "i64";
-	const JS_CONV: Option<(&str, Option<&str>)> = Some((" = BigInt.asUintN(64, ", Some(")")));
+	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
+		embed: None,
+		pre: " = BigInt.asUintN(64, ",
+		post: Some(")"),
+	});
 
 	type Type = Self;
 
@@ -147,12 +152,13 @@ unsafe impl Input for u64 {
 
 // SAFETY: Implementation.
 unsafe impl Input for u128 {
-	const ASM_IMPORT_TYPE: &str = Self::Type::ASM_IMPORT_TYPE;
 	const ASM_TYPE: &str = Self::Type::ASM_TYPE;
-	const ASM_CONV: Option<&str> = Self::Type::ASM_CONV;
-	const JS_EMBED: Option<(&str, &str)> = Some(("js_sys", "numeric.u128.decode"));
-	const JS_CONV: Option<(&str, Option<&str>)> =
-		Some((" = this.#jsEmbed.js_sys['numeric.u128.decode'](", Some(")")));
+	const ASM_CONV: Option<InputAsmConv> = Self::Type::ASM_CONV;
+	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
+		embed: Some(("js_sys", "numeric.u128.decode")),
+		pre: " = this.#jsEmbed.js_sys['numeric.u128.decode'](",
+		post: Some(")"),
+	});
 
 	type Type = ExternValue<AlignedValue>;
 
@@ -173,18 +179,22 @@ unsafe impl Input for u128 {
 
 // SAFETY: Implementation.
 unsafe impl Output for u128 {
-	const ASM_IMPORT_FUNC: Option<&str> = Some(const_concat!(
-		".functype js_sys.numeric.128 (i32, i32, i32, i32, ",
-		ASM_PTR_TYPE,
-		") -> ()"
-	));
-	const ASM_IMPORT_TYPE: &str = "i32, i32, i32, i32";
-	const ASM_DIRECT: bool = false;
 	const ASM_TYPE: &str = ASM_PTR_TYPE;
-	const ASM_CONV: Option<&str> = Some("call js_sys.numeric.128");
-	const JS_EMBED: Option<(&str, &str)> = Some(("js_sys", "numeric.128.encode"));
-	const JS_CONV: Option<(&str, &str)> =
-		Some(("this.#jsEmbed.js_sys['numeric.128.encode'](", ")"));
+	const ASM_CONV: Option<OutputAsmConv> = Some(OutputAsmConv {
+		import: Some(const_concat!(
+			".functype js_sys.numeric.128 (i32, i32, i32, i32, ",
+			ASM_PTR_TYPE,
+			") -> ()"
+		)),
+		direct: false,
+		conv: "call js_sys.numeric.128",
+		r#type: "i32, i32, i32, i32",
+	});
+	const JS_CONV: Option<OutputJsConv> = Some(OutputJsConv {
+		embed: Some(("js_sys", "numeric.128.encode")),
+		pre: "this.#jsEmbed.js_sys['numeric.128.encode'](",
+		post: ")",
+	});
 
 	type Type = Self;
 
@@ -195,12 +205,13 @@ unsafe impl Output for u128 {
 
 // SAFETY: Implementation.
 unsafe impl Input for i128 {
-	const ASM_IMPORT_TYPE: &str = Self::Type::ASM_IMPORT_TYPE;
 	const ASM_TYPE: &str = Self::Type::ASM_TYPE;
-	const ASM_CONV: Option<&str> = Self::Type::ASM_CONV;
-	const JS_EMBED: Option<(&str, &str)> = Some(("js_sys", "numeric.i128.decode"));
-	const JS_CONV: Option<(&str, Option<&str>)> =
-		Some((" = this.#jsEmbed.js_sys['numeric.i128.decode'](", Some(")")));
+	const ASM_CONV: Option<InputAsmConv> = Self::Type::ASM_CONV;
+	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
+		embed: Some(("js_sys", "numeric.i128.decode")),
+		pre: " = this.#jsEmbed.js_sys['numeric.i128.decode'](",
+		post: Some(")"),
+	});
 
 	type Type = ExternValue<AlignedValue>;
 
@@ -225,18 +236,22 @@ unsafe impl Input for i128 {
 
 // SAFETY: Implementation.
 unsafe impl Output for i128 {
-	const ASM_IMPORT_FUNC: Option<&str> = Some(const_concat!(
-		".functype js_sys.numeric.128 (i32, i32, i32, i32, ",
-		ASM_PTR_TYPE,
-		") -> ()"
-	));
-	const ASM_IMPORT_TYPE: &str = "i32, i32, i32, i32";
-	const ASM_DIRECT: bool = false;
 	const ASM_TYPE: &str = ASM_PTR_TYPE;
-	const ASM_CONV: Option<&str> = Some("call js_sys.numeric.128");
-	const JS_EMBED: Option<(&str, &str)> = Some(("js_sys", "numeric.128.encode"));
-	const JS_CONV: Option<(&str, &str)> =
-		Some(("this.#jsEmbed.js_sys['numeric.128.encode'](", ")"));
+	const ASM_CONV: Option<OutputAsmConv> = Some(OutputAsmConv {
+		import: Some(const_concat!(
+			".functype js_sys.numeric.128 (i32, i32, i32, i32, ",
+			ASM_PTR_TYPE,
+			") -> ()"
+		)),
+		direct: false,
+		conv: "call js_sys.numeric.128",
+		r#type: "i32, i32, i32, i32",
+	});
+	const JS_CONV: Option<OutputJsConv> = Some(OutputJsConv {
+		embed: Some(("js_sys", "numeric.128.encode")),
+		pre: "this.#jsEmbed.js_sys['numeric.128.encode'](",
+		post: ")",
+	});
 
 	type Type = Self;
 

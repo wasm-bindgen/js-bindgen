@@ -31,10 +31,13 @@ impl Type {
 
 		let js_value = hygiene.js_value(&cfgs, span);
 		let input = hygiene.input(&cfgs, span);
+		let input_asm_conv = hygiene.input_asm_conv(&cfgs, span);
+		let input_js_conv = hygiene.input_js_conv(&cfgs, span);
 		let output = hygiene.output(&cfgs, span);
+		let output_asm_conv = hygiene.output_asm_conv(&cfgs, span);
+		let output_js_conv = hygiene.output_js_conv(&cfgs, span);
 		let deref = hygiene.deref(&cfgs, span);
 		let str = hygiene.str(span);
-		let bool = hygiene.bool(span);
 		let from = hygiene.from(span);
 		let option = hygiene.option(span);
 
@@ -97,12 +100,9 @@ impl Type {
 			parse_quote_spanned! {span=>
 				#(#cfgs)*
 				unsafe impl #gen_impl #input for &#ident #gen_type #gen_where {
-					const ASM_IMPORT_FUNC: #option<&'static #str> = <&#js_value as #input>::ASM_IMPORT_FUNC;
-					const ASM_IMPORT_TYPE: &'static #str = <&#js_value as #input>::ASM_IMPORT_TYPE;
 					const ASM_TYPE: &'static #str = <&#js_value as #input>::ASM_TYPE;
-					const ASM_CONV: #option<&'static #str> = <&#js_value as #input>::ASM_CONV;
-					const JS_EMBED: #option<(&'static #str, &'static #str)> = <&#js_value as #input>::JS_EMBED;
-					const JS_CONV: #option<(&'static #str, #option<&'static #str>)> = <&#js_value as #input>::JS_CONV;
+					const ASM_CONV: #option<#input_asm_conv> = <&#js_value as #input>::ASM_CONV;
+					const JS_CONV: #option<#input_js_conv> = <&#js_value as #input>::JS_CONV;
 
 					type Type = <&'static #js_value as #input>::Type;
 
@@ -114,13 +114,9 @@ impl Type {
 			parse_quote_spanned! {span=>
 				#(#cfgs)*
 				unsafe impl #gen_impl #output for #ident #gen_type #gen_where {
-					const ASM_IMPORT_FUNC: #option<&#str> = <#js_value as #output>::ASM_IMPORT_FUNC;
-					const ASM_IMPORT_TYPE: &#str = <#js_value as #output>::ASM_IMPORT_TYPE;
-					const ASM_DIRECT: #bool = <#js_value as #output>::ASM_DIRECT;
 					const ASM_TYPE: &#str = <#js_value as #output>::ASM_TYPE;
-					const ASM_CONV: #option<&#str> = <#js_value as #output>::ASM_CONV;
-					const JS_EMBED: #option<(&'static #str, &'static #str)> = <#js_value as #output>::JS_EMBED;
-					const JS_CONV: #option<(&'static #str, &'static #str)> = <#js_value as #output>::JS_CONV;
+					const ASM_CONV: #option<#output_asm_conv> = <#js_value as #output>::ASM_CONV;
+					const JS_CONV: #option<#output_js_conv> = <#js_value as #output>::JS_CONV;
 
 					type Type = <#js_value as #output>::Type;
 

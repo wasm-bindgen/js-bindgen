@@ -10,7 +10,7 @@ use core::ptr;
 pub use self::array::JsArray;
 use crate::JsValue;
 use crate::externref::ExternrefTable;
-use crate::hazard::Input;
+use crate::hazard::{Input, InputAsmConv, InputJsConv};
 use crate::util::{ExternSlice, PtrLength};
 
 impl<T> JsArray<T> {
@@ -40,11 +40,9 @@ unsafe impl<'a, T, const N: usize> Input for &'a [T; N]
 where
 	&'a [T]: Input,
 {
-	const ASM_IMPORT_TYPE: &'static str = <&[T] as Input>::ASM_IMPORT_TYPE;
 	const ASM_TYPE: &'static str = <&[T] as Input>::ASM_TYPE;
-	const ASM_CONV: Option<&'static str> = <&[T] as Input>::ASM_CONV;
-	const JS_EMBED: Option<(&'static str, &'static str)> = <&[T] as Input>::JS_EMBED;
-	const JS_CONV: Option<(&'static str, Option<&'static str>)> = <&[T] as Input>::JS_CONV;
+	const ASM_CONV: Option<InputAsmConv> = <&[T] as Input>::ASM_CONV;
+	const JS_CONV: Option<InputJsConv> = <&[T] as Input>::JS_CONV;
 
 	type Type = <&'a [T] as Input>::Type;
 
@@ -198,12 +196,13 @@ impl From<&[JsValue]> for JsArray {
 
 // SAFETY: Implementation.
 unsafe impl Input for &[JsValue] {
-	const ASM_IMPORT_TYPE: &'static str = Self::Type::ASM_IMPORT_TYPE;
 	const ASM_TYPE: &'static str = Self::Type::ASM_TYPE;
-	const ASM_CONV: Option<&'static str> = Self::Type::ASM_CONV;
-	const JS_EMBED: Option<(&'static str, &'static str)> = Some(("js_sys", "array.rust.js_value"));
-	const JS_CONV: Option<(&'static str, Option<&'static str>)> =
-		Some((" = this.#jsEmbed.js_sys['array.rust.js_value'](", Some(")")));
+	const ASM_CONV: Option<InputAsmConv> = Self::Type::ASM_CONV;
+	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
+		embed: Some(("js_sys", "array.rust.js_value")),
+		pre: " = this.#jsEmbed.js_sys['array.rust.js_value'](",
+		post: Some(")"),
+	});
 
 	type Type = ExternSlice<JsValue>;
 
@@ -302,12 +301,13 @@ impl From<&[u32]> for JsArray<u32> {
 
 // SAFETY: Implementation.
 unsafe impl Input for &[u32] {
-	const ASM_IMPORT_TYPE: &'static str = Self::Type::ASM_IMPORT_TYPE;
 	const ASM_TYPE: &'static str = Self::Type::ASM_TYPE;
-	const ASM_CONV: Option<&'static str> = Self::Type::ASM_CONV;
-	const JS_EMBED: Option<(&'static str, &'static str)> = Some(("js_sys", "array.rust.u32"));
-	const JS_CONV: Option<(&'static str, Option<&'static str>)> =
-		Some((" = this.#jsEmbed.js_sys['array.rust.u32'](", Some(")")));
+	const ASM_CONV: Option<InputAsmConv> = Self::Type::ASM_CONV;
+	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
+		embed: Some(("js_sys", "array.rust.u32")),
+		pre: " = this.#jsEmbed.js_sys['array.rust.u32'](",
+		post: Some(")"),
+	});
 
 	type Type = ExternSlice<u32>;
 

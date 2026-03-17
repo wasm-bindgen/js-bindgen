@@ -1,18 +1,8 @@
 #[doc(hidden)]
 #[macro_export]
-macro_rules! asm_import {
-	($import:ty as $trait:ident) => {
-		$crate::r#macro::unwrap_or_default(<$import as $crate::hazard::$trait>::ASM_IMPORT_FUNC)
-	};
-}
-
-pub use asm_import;
-
-#[doc(hidden)]
-#[macro_export]
 macro_rules! asm_indirect {
 	($ty:ty) => {
-		if <$ty as $crate::hazard::Output>::ASM_DIRECT {
+		if $crate::r#macro::direct::<$ty>() {
 			""
 		} else {
 			$crate::r#macro::const_concat!(<$ty as $crate::hazard::Output>::ASM_TYPE, ", ")
@@ -24,25 +14,10 @@ pub use asm_indirect;
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! asm_direct {
-	($ty:ty) => {
-		if <$ty as $crate::hazard::Output>::ASM_DIRECT {
-			<$ty as $crate::hazard::Output>::ASM_TYPE
-		} else {
-			""
-		}
-	};
-}
-
-pub use asm_direct;
-
-#[doc(hidden)]
-#[macro_export]
 macro_rules! asm_input {
 	($local:literal, $ty:ty) => {
 		if ::core::option::Option::is_some(&<$ty as $crate::hazard::Input>::ASM_CONV) {
-			const CONV: &str =
-				$crate::r#macro::unwrap_or_default(<$ty as $crate::hazard::Input>::ASM_CONV);
+			const CONV: &::core::primitive::str = $crate::r#macro::asm_input_conv::<$ty>();
 
 			$crate::r#macro::const_concat!($local, "\n\t", CONV)
 		} else {
@@ -51,15 +26,14 @@ macro_rules! asm_input {
 	};
 	($direct_local:literal, $indirect_local:literal, $ty:ty, $output:ty) => {
 		if ::core::option::Option::is_some(&<$ty as $crate::hazard::Input>::ASM_CONV) {
-			const CONV: &str =
-				$crate::r#macro::unwrap_or_default(<$ty as $crate::hazard::Input>::ASM_CONV);
+			const CONV: &::core::primitive::str = $crate::r#macro::asm_input_conv::<$ty>();
 
-			if <$output as $crate::hazard::Output>::ASM_DIRECT {
+			if $crate::r#macro::direct::<$output>() {
 				$crate::r#macro::const_concat!($direct_local, "\n\t", CONV)
 			} else {
 				$crate::r#macro::const_concat!($indirect_local, "\n\t", CONV)
 			}
-		} else if <$output as $crate::hazard::Output>::ASM_DIRECT {
+		} else if $crate::r#macro::direct::<$output>() {
 			$direct_local
 		} else {
 			$indirect_local
@@ -74,10 +48,9 @@ pub use asm_input;
 macro_rules! asm_output {
 	($ty:ty) => {
 		if ::core::option::Option::is_some(&<$ty as $crate::hazard::Output>::ASM_CONV) {
-			const CONV: &str =
-				$crate::r#macro::unwrap_or_default(<$ty as $crate::hazard::Output>::ASM_CONV);
+			const CONV: &::core::primitive::str = $crate::r#macro::asm_output_conv::<$ty>();
 
-			if <$ty as $crate::hazard::Output>::ASM_DIRECT {
+			if $crate::r#macro::direct::<$ty>() {
 				$crate::r#macro::const_concat!("\n\t", CONV)
 			} else {
 				$crate::r#macro::const_concat!("\n\tlocal.get 0\n\t", CONV)
@@ -89,21 +62,6 @@ macro_rules! asm_output {
 }
 
 pub use asm_output;
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! js_import {
-	($import:ty as $trait:ident) => {
-		if let ::core::option::Option::Some(import) = <$import as $crate::hazard::$trait>::JS_EMBED
-		{
-			import
-		} else {
-			("", "")
-		}
-	};
-}
-
-pub use js_import;
 
 #[doc(hidden)]
 #[macro_export]
@@ -131,28 +89,14 @@ pub use js_select;
 #[macro_export]
 macro_rules! js_parameter {
 	($par:literal, $ty:ty $(,)?) => {
-		if let ::core::option::Option::Some((_, post_conv)) =
+		if let ::core::option::Option::Some($crate::hazard::InputJsConv { post, .. }) =
 			<$ty as $crate::hazard::Input>::JS_CONV
 		{
-			const CONV: &::core::primitive::str = if let ::core::option::Option::Some((conv, _)) =
-				<$ty as $crate::hazard::Input>::JS_CONV
-			{
-				conv
-			} else {
-				""
-			};
+			const CONV: &::core::primitive::str = $crate::r#macro::js_input_conv_pre::<$ty>();
 
-			if ::core::option::Option::is_some(&post_conv) {
-				const POST_CONV: &::core::primitive::str = if let ::core::option::Option::Some((
-					_,
-					::core::option::Option::Some(post_conv),
-				)) =
-					<$ty as $crate::hazard::Input>::JS_CONV
-				{
-					post_conv
-				} else {
-					""
-				};
+			if ::core::option::Option::is_some(&post) {
+				const POST_CONV: &::core::primitive::str =
+					$crate::r#macro::js_input_conv_post::<$ty>();
 
 				$crate::r#macro::const_concat!("\t", $par, CONV, $par, POST_CONV, "\n")
 			} else {
@@ -174,14 +118,7 @@ macro_rules! js_output {
 			$(|| ::core::option::Option::is_some(&<$input as $crate::hazard::Input>::JS_CONV))*;
 
 		if ::core::option::Option::is_some(&<$output as $crate::hazard::Output>::JS_CONV) {
-			const CONV: [&::core::primitive::str; 2] =
-				if let ::core::option::Option::Some((conv, post_conv)) =
-					<$output as $crate::hazard::Output>::JS_CONV
-				{
-					[conv, post_conv]
-				} else {
-					["", ""]
-				};
+			const CONV: [&::core::primitive::str; 2] = $crate::r#macro::js_output_conv::<$output>();
 
 			if indirect_condition {
 				$crate::r#macro::const_concat!($start, CONV[0], $indirect_call, CONV[1], "\n}")
@@ -234,7 +171,134 @@ macro_rules! const_concat {
 
 pub use const_concat;
 
+use crate::hazard::{Input, InputAsmConv, InputJsConv, Output, OutputAsmConv, OutputJsConv};
+
 #[must_use]
-pub const fn unwrap_or_default(option: Option<&str>) -> &str {
-	if let Some(value) = option { value } else { "" }
+pub const fn asm_direct<T: Output>() -> &'static str {
+	if direct::<T>() { T::ASM_TYPE } else { "" }
+}
+
+#[must_use]
+pub const fn asm_input_import<T: Input>() -> &'static str {
+	if let Some(InputAsmConv {
+		import: Some(import),
+		..
+	}) = T::ASM_CONV
+	{
+		import
+	} else {
+		""
+	}
+}
+
+#[must_use]
+pub const fn asm_input_import_type<T: Input>() -> &'static str {
+	if let Some(InputAsmConv { r#type, .. }) = T::ASM_CONV {
+		r#type
+	} else {
+		T::ASM_TYPE
+	}
+}
+
+#[must_use]
+pub const fn asm_input_conv<T: Input>() -> &'static str {
+	if let Some(InputAsmConv { conv, .. }) = T::ASM_CONV {
+		conv
+	} else {
+		""
+	}
+}
+
+#[must_use]
+pub const fn asm_output_import<T: Output>() -> &'static str {
+	if let Some(OutputAsmConv {
+		import: Some(import),
+		..
+	}) = T::ASM_CONV
+	{
+		import
+	} else {
+		""
+	}
+}
+
+#[must_use]
+pub const fn asm_output_import_type<T: Output>() -> &'static str {
+	if let Some(OutputAsmConv { r#type, .. }) = T::ASM_CONV {
+		r#type
+	} else {
+		T::ASM_TYPE
+	}
+}
+
+#[must_use]
+pub const fn asm_output_conv<T: Output>() -> &'static str {
+	if let Some(OutputAsmConv { conv, .. }) = T::ASM_CONV {
+		conv
+	} else {
+		""
+	}
+}
+
+#[must_use]
+pub const fn direct<T: Output>() -> bool {
+	if let Some(OutputAsmConv { direct, .. }) = T::ASM_CONV {
+		direct
+	} else {
+		true
+	}
+}
+
+#[must_use]
+pub const fn js_input_embed<T: Input>() -> (&'static str, &'static str) {
+	if let Some(InputJsConv {
+		embed: Some(embed), ..
+	}) = T::JS_CONV
+	{
+		embed
+	} else {
+		("", "")
+	}
+}
+
+#[must_use]
+pub const fn js_output_embed<T: Output>() -> (&'static str, &'static str) {
+	if let Some(OutputJsConv {
+		embed: Some(embed), ..
+	}) = T::JS_CONV
+	{
+		embed
+	} else {
+		("", "")
+	}
+}
+
+#[must_use]
+pub const fn js_input_conv_pre<T: Input>() -> &'static str {
+	if let Some(InputJsConv { pre, .. }) = T::JS_CONV {
+		pre
+	} else {
+		""
+	}
+}
+
+#[must_use]
+pub const fn js_input_conv_post<T: Input>() -> &'static str {
+	if let Some(InputJsConv {
+		post: Some(post), ..
+	}) = T::JS_CONV
+	{
+		post
+	} else {
+		""
+	}
+}
+
+#[must_use]
+pub const fn js_output_conv<T: Output>() -> [&'static str; 2] {
+	if let Some(OutputJsConv { pre, post, .. }) = T::JS_CONV {
+		[pre, post]
+	} else {
+		[""; 2]
+	}
 }

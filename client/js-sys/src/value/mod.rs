@@ -5,7 +5,7 @@ mod value;
 use core::marker::PhantomData;
 
 use crate::externref::EXTERNREF_TABLE;
-use crate::hazard::{Input, Output};
+use crate::hazard::{Input, InputAsmConv, Output, OutputAsmConv};
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -60,11 +60,12 @@ impl Drop for JsValue {
 
 // SAFETY: Implementation for all `JsValue`s.
 unsafe impl Input for &JsValue {
-	const ASM_IMPORT_FUNC: Option<&'static str> =
-		Some(".functype js_sys.externref.get (i32) -> (externref)");
-	const ASM_IMPORT_TYPE: &'static str = "externref";
 	const ASM_TYPE: &'static str = "i32";
-	const ASM_CONV: Option<&'static str> = Some("call js_sys.externref.get");
+	const ASM_CONV: Option<InputAsmConv> = Some(InputAsmConv {
+		import: Some(".functype js_sys.externref.get (i32) -> (externref)"),
+		conv: "call js_sys.externref.get",
+		r#type: "externref",
+	});
 
 	type Type = i32;
 
@@ -75,11 +76,13 @@ unsafe impl Input for &JsValue {
 
 // SAFETY: Implementation for all `JsValue`s.
 unsafe impl Output for JsValue {
-	const ASM_IMPORT_FUNC: Option<&str> =
-		Some(".functype js_sys.externref.insert (externref) -> (i32)");
-	const ASM_IMPORT_TYPE: &str = "externref";
 	const ASM_TYPE: &str = "i32";
-	const ASM_CONV: Option<&str> = Some("call js_sys.externref.insert");
+	const ASM_CONV: Option<OutputAsmConv> = Some(OutputAsmConv {
+		import: Some(".functype js_sys.externref.insert (externref) -> (i32)"),
+		direct: true,
+		conv: "call js_sys.externref.insert",
+		r#type: "externref",
+	});
 
 	type Type = i32;
 

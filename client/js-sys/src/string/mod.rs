@@ -8,7 +8,7 @@ use core::fmt::{self, Display, Formatter};
 
 pub use self::string::JsString;
 use crate::JsValue;
-use crate::hazard::Input;
+use crate::hazard::{Input, InputAsmConv, InputJsConv};
 use crate::util::{ExternSlice, PtrLength};
 
 impl JsString {
@@ -120,12 +120,13 @@ impl From<&JsString> for String {
 
 // SAFETY: Implementation.
 unsafe impl Input for &str {
-	const ASM_IMPORT_TYPE: &'static str = Self::Type::ASM_IMPORT_TYPE;
 	const ASM_TYPE: &'static str = Self::Type::ASM_TYPE;
-	const ASM_CONV: Option<&'static str> = Self::Type::ASM_CONV;
-	const JS_EMBED: Option<(&'static str, &'static str)> = Some(("js_sys", "string.rust.decode"));
-	const JS_CONV: Option<(&'static str, Option<&'static str>)> =
-		Some((" = this.#jsEmbed.js_sys['string.rust.decode'](", Some(")")));
+	const ASM_CONV: Option<InputAsmConv> = Self::Type::ASM_CONV;
+	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
+		embed: Some(("js_sys", "string.rust.decode")),
+		pre: " = this.#jsEmbed.js_sys['string.rust.decode'](",
+		post: Some(")"),
+	});
 
 	type Type = ExternSlice<u8>;
 
