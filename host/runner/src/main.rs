@@ -3,6 +3,7 @@ mod util;
 mod web_driver;
 
 use std::env::VarError;
+use std::ffi::OsString;
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::process::{self, Command};
@@ -395,6 +396,24 @@ struct Runner {
 }
 
 impl Runner {
+	fn env_args(name: &str) -> Result<Vec<OsString>> {
+		let key = format!("JBG_TEST_{}_ARGS", name.to_uppercase().replace('-', "_"));
+		let Some(var) = env::var_os(&key) else {
+			return Ok(Vec::new());
+		};
+
+		let Some(args) = shlex::bytes::split(var.as_encoded_bytes()) else {
+			bail!("failed to parse `{key}`");
+		};
+
+		Ok(args
+			.into_iter()
+			.map(|arg|
+					// SAFETY: original source is a `OsString`.
+					unsafe { OsString::from_encoded_bytes_unchecked(arg) })
+			.collect())
+	}
+
 	fn run_node_js(self) -> Result<()> {
 		let dir = tempfile::tempdir()?;
 
@@ -408,7 +427,7 @@ impl Runner {
 		fs::write(dir.path().join("shared-terminal.mjs"), SHARED_TERMINAL_JS)?;
 
 		let status = Command::new("node")
-			.arg("--experimental-wasm-rab-integration")
+			.args(&Self::env_args("node-js")?)
 			.arg(&runner_path)
 			.status()?;
 
@@ -433,6 +452,7 @@ impl Runner {
 
 		let status = Command::new("deno")
 			.arg("run")
+			.args(&Self::env_args("deno")?)
 			.arg("--allow-read")
 			.arg(runner_path)
 			.status()?;

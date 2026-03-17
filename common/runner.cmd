@@ -25,11 +25,14 @@
 :: Never reached on UNIX because we execute `exit`.
 @echo off
 pushd "%~dp0..\host\ld\src\js"
-tsc --build || exit /b %ERRORLEVEL%
+tsc --build
+if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
 popd
 pushd "%~dp0..\host\runner\src\js"
-npm install -s --prefer-offline --no-audit --no-fund || exit /b %ERRORLEVEL%
-tsc --build || exit /b %ERRORLEVEL%
+npm install -s --prefer-offline --no-audit --no-fund
+if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
+tsc --build
+if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
 popd
 pushd "%~dp0..\host"
 cargo +stable run -q -p js-bindgen-runner -- %*

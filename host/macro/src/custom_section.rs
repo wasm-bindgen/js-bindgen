@@ -800,7 +800,7 @@ impl CustomSection {
 						.flatten()
 						.chain(value.cfg_iter().chain([
 							if let FlattenedValueKind::TupleCount = value.kind {
-								ident("TUPLE_COUNT")
+								group(Delimiter::Bracket, iter::once(ident("TUPLE_COUNT")))
 							} else {
 								ident(&format!("ARR_{}", value.name))
 							},

@@ -14,12 +14,6 @@
 # High Priority
 
 - Test Runner:
-  - Add various permutations to the CI.
-    - Run all possible runners on each OS.
-    - Run all worker types.
-    - Wasm64.
-    - Atomic.
-    - Panic strategies.
   - Fold WebDrivers into `JBG_TEST_RUNNER`:
     - `browser` should stay to use the automatic search, `engine` should be introduced to search for
       engines and should be the default.
@@ -133,6 +127,7 @@ This is a list of upstream issues that could make our lives significantly easier
 - `TextDe/Encoder` could support `SharedArrayBuffer`s:
   - [Chrome Bug](https://issues.chromium.org/issues/40102463)
   - [Firefox Bug](https://bugzilla.mozilla.org/show_bug.cgi?id=1561594)
+- `TextDe/Encoder` could support resizable buffers: [whatwg/encoding#344].
 - `wasm-encoder` `io::Write` support: [bytecodealliance/wasm-tools#778]
 - Improved test coverage data merging: [llvm/llvm-project#121194]
 - Cargo support for local development pre-processing: [rust-lang/cargo#12552] or
@@ -152,6 +147,7 @@ This is a list of upstream issues that could make our lives significantly easier
 [rust-lang/rust#29603]: https://github.com/rust-lang/rust/issues/29603
 [rust-lang/rfcs#3834]: https://github.com/rust-lang/rfcs/pull/3834
 [rust-lang/rust#136096]: https://github.com/rust-lang/rust/issues/136096
+[whatwg/encoding#344]: https://github.com/whatwg/encoding/issues/344
 [bytecodealliance/wasm-tools#778]: https://github.com/bytecodealliance/wasm-tools/issues/778
 [llvm/llvm-project#121194]: https://github.com/llvm/llvm-project/pull/121194
 [rust-lang/cargo#12552]: https://github.com/rust-lang/cargo/issues/12552

@@ -10,6 +10,7 @@ fn main() -> io::Result<()> {
 		search_folder(&env::current_dir()?)?;
 
 		let status = Command::new("cargo")
+			.env_remove("CARGO_ENCODED_RUSTFLAGS")
 			.current_dir("../../host")
 			.arg("+stable")
 			.arg("run")

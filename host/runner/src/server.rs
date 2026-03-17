@@ -26,6 +26,7 @@ use crate::{SHARED_JS, SHARED_TERMINAL_JS, WorkerKind};
 const INDEX_HTML: &str = include_str!("js/index.html");
 const BROWSER_JS: &str = include_str!("js/browser.mjs");
 const BROWSER_SPAWNER_JS: &str = include_str!("js/browser-spawner.mjs");
+const BROWSER_WORKER_JS: &str = include_str!("js/browser-worker.mjs");
 const BROWSER_SERVICE_JS: &str = include_str!("js/browser-service.mjs");
 const SERVER_JS: &str = include_str!("js/server.mjs");
 const SERVER_SPAWNER_JS: &str = include_str!("js/server-spawner.mjs");
@@ -35,6 +36,7 @@ const SERVER_SERVICE_JS: &str = include_str!("js/server-service.mjs");
 const SHARED_SPAWNER_JS: &str = include_str!("js/shared-spawner.mjs");
 const SHARED_BROWSER_JS: &str = include_str!("js/shared-browser.mjs");
 const SHARED_SERVER_JS: &str = include_str!("js/shared-server.mjs");
+const SHARED_IMPORT_JS: &str = include_str!("js/shared-import.mjs");
 
 pub struct HttpServer {
 	url: String,
@@ -137,6 +139,10 @@ impl HttpServer {
 				get(async || response("application/javascript", SHARED_JS)),
 			)
 			.route(
+				"/shared-import.mjs",
+				get(async || response("application/javascript", SHARED_IMPORT_JS)),
+			)
+			.route(
 				"/test-data.json",
 				get(async |State(state): State<Arc<ServerState>>| {
 					response("application/json", state.test_data_json.clone())
@@ -167,7 +173,7 @@ impl HttpServer {
 				Some(WorkerKind::Dedicated | WorkerKind::Shared) => {
 					router = router.route(
 						"/worker.mjs",
-						get(async || response("application/javascript", BROWSER_JS)),
+						get(async || response("application/javascript", BROWSER_WORKER_JS)),
 					);
 				}
 				Some(WorkerKind::Service) => {

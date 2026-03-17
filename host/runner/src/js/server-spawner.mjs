@@ -25,31 +25,36 @@ switch (workerKind) {
             });
             channel.port1.start();
         }
-        const registration = await navigator.serviceWorker.register("./worker.mjs", {
+        await navigator.serviceWorker
+            .register("./worker.mjs", {
             scope: crypto.randomUUID(),
             type: "module",
             updateViaCache: "none",
-        });
-        let worker = registration.installing || registration.waiting || registration.active;
-        if (worker) {
-            if (worker.state === "activated") {
-                install(worker);
+        })
+            .then(registration => {
+            let worker = registration.installing || registration.waiting || registration.active;
+            if (worker) {
+                if (worker.state === "activated") {
+                    install(worker);
+                }
+                else {
+                    worker.addEventListener("statechange", () => {
+                        if (worker.state === "activated")
+                            install(worker);
+                    });
+                }
             }
             else {
-                worker.addEventListener("statechange", () => {
-                    if (worker.state === "activated")
-                        install(worker);
+                registration.addEventListener("updatefound", () => {
+                    worker = registration.installing;
+                    worker.addEventListener("statechange", () => {
+                        if (worker.state === "activated")
+                            install(worker);
+                    });
                 });
             }
-        }
-        else {
-            registration.addEventListener("updatefound", () => {
-                worker = registration.installing;
-                worker.addEventListener("statechange", () => {
-                    if (worker.state === "activated")
-                        install(worker);
-                });
-            });
-        }
+        }, error => {
+            toOutput([{ text: error.message + "\n", color: 0 /* Color.Default */ }]);
+        });
     }
 }

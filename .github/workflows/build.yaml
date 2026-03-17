@@ -10,11 +10,14 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
 
 jobs:
   client:
-    name: Build Client ${{ matrix.os.description }}
+    name:
+      Build Client ${{ matrix.os.description }} ${{ matrix.target.description }} ${{
+      matrix.target-feature.description }}
 
     runs-on: ${{ matrix.os.os }}
 
@@ -27,6 +30,25 @@ jobs:
           - { os: ubuntu-latest, description: Linux }
           - { os: macos-latest, description: MacOS }
           - { os: windows-latest, description: Windows }
+        target:
+          - { target: wasm32-unknown-unknown, install: true, rust: stable, description: Wasm32 }
+          - {
+              target: wasm64-unknown-unknown,
+              install: false,
+              rust: nightly,
+              components: -c rust-src,
+              args: '-Zbuild-std="panic_abort,std"',
+              description: Wasm64,
+            }
+        target-feature:
+          - {}
+          - {
+              rust: nightly,
+              components: -c rust-src,
+              rustflags: -Ctarget-feature=+atomics -Clink-arg=--shared-memory,
+              args: '-Zbuild-std="panic_abort,std"',
+              description: Atomics,
+            }
 
     defaults:
       run:
@@ -36,7 +58,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Install Rust
-        run: rustup target add wasm32-unknown-unknown
+        run: |
+          rustup install --profile minimal ${{ matrix.target-feature.components || matrix.target.components }} ${{ matrix.target-feature.rust || matrix.target.rust }}
+          rustup default ${{ matrix.target-feature.rust || matrix.target.rust }}
+      - name: Install Target
+        if: matrix.target.install
+        run: rustup target add ${{ matrix.target.target }}
       - name: Install LLVM
         uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
         with:
@@ -44,7 +71,47 @@ jobs:
           llvm-version: 21
       - name: Install TSC
         run: npm install -g typescript
+      - name: Set Target `RUSTFLAGS`
+        shell: bash
+        run: |
+          TARGET=$(echo "${{ matrix.target.target }}" | tr '[:lower:]-' '[:upper:]_')
+          echo "CARGO_TARGET_${TARGET}_RUSTFLAGS=${{ matrix.target-feature.rustflags }}" >> $GITHUB_ENV
       - name: Build Crates
-        run: cargo build --workspace --all-features
+        run: cargo build --workspace --target ${{ matrix.target.target }} ${{ matrix.target.args }}
       - name: Build Examples
-        run: cargo build --examples --all-features
+        run:
+          cargo build --examples --target ${{ matrix.target.target }} ${{ matrix.target-feature.args
+          || matrix.target.args }}
+      - name: Set Target `RUSTFLAGS` - SAB
+        shell: bash
+        run: |
+          TARGET=$(echo "${{ matrix.target.target }}" | tr '[:lower:]-' '[:upper:]_')
+          echo "CARGO_TARGET_${TARGET}_RUSTFLAGS=${{ matrix.target-feature.rustflags }} --cfg js_sys_target_feature=\"sab\"" >> $GITHUB_ENV
+      - name: Build Crates - SAB
+        run: cargo build --workspace --target ${{ matrix.target.target }} ${{ matrix.target.args }}
+      - name: Build Examples - SAB
+        run:
+          cargo build --examples --target ${{ matrix.target.target }} ${{ matrix.target-feature.args
+          || matrix.target.args }}
+      - name: Set Target `RUSTFLAGS` - SAB
+        shell: bash
+        run: |
+          TARGET=$(echo "${{ matrix.target.target }}" | tr '[:lower:]-' '[:upper:]_')
+          echo "CARGO_TARGET_${TARGET}_RUSTFLAGS=${{ matrix.target-feature.rustflags }} --cfg js_sys_target_feature=\"unstable-rab\"" >> $GITHUB_ENV
+      - name: Build Crates - RAB
+        run: cargo build --workspace --target ${{ matrix.target.target }} ${{ matrix.target.args }}
+      - name: Build Examples - RAB
+        run:
+          cargo build --examples --target ${{ matrix.target.target }} ${{ matrix.target-feature.args
+          || matrix.target.args }}
+      - name: Set Target `RUSTFLAGS` - All
+        shell: bash
+        run: |
+          TARGET=$(echo "${{ matrix.target.target }}" | tr '[:lower:]-' '[:upper:]_')
+          echo "CARGO_TARGET_${TARGET}_RUSTFLAGS=${{ matrix.target-feature.rustflags }} --cfg js_sys_target_feature=\"sab\" --cfg js_sys_target_feature=\"unstable-rab\"" >> $GITHUB_ENV
+      - name: Build Crates - All
+        run: cargo build --workspace --target ${{ matrix.target.target }} ${{ matrix.target.args }}
+      - name: Build Examples - All
+        run:
+          cargo build --examples --target ${{ matrix.target.target }} ${{ matrix.target-feature.args
+          || matrix.target.args }}

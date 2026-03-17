@@ -1,3 +1,3 @@
-/// <reference lib="webworker" />
 import { runBrowser } from "./shared-browser.mjs";
-runBrowser().then(() => self.registration.unregister());
+import { JsBindgen } from "./imports.mjs";
+runBrowser(JsBindgen).then(() => self.registration.unregister());

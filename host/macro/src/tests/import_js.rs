@@ -218,7 +218,7 @@ fn required_embeds_cfg() {
 			static CUSTOM_SECTION: Layout = Layout(
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
-				TUPLE_COUNT,
+				[TUPLE_COUNT],
 				#[cfg(test)]
 				VAL_1_LEN,
 				#[cfg(test)]
@@ -506,7 +506,7 @@ fn required_embeds_mixed() {
 			static CUSTOM_SECTION: Layout = Layout(
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
-				TUPLE_COUNT,
+				[TUPLE_COUNT],
 				VAL_1_LEN,
 				ARR_1,
 				VAL_2_LEN,

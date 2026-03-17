@@ -1,5 +1,5 @@
 import testData from "./test-data.json" with { type: "json" }
-import { JsBindgen } from "./imports.mts"
+import type { JsBindgen } from "./imports.mts"
 
 export const enum Stream {
 	Stdout,
@@ -15,10 +15,17 @@ export const enum Color {
 	Red,
 }
 
+export const enum Status {
+	Ok,
+	Failed,
+	Abnormal,
+}
+
 export async function runTests(
 	module: WebAssembly.Module,
+	jsBindgenCtor: typeof JsBindgen,
 	report: (stream: Stream, text: StyledText[]) => void
-): Promise<boolean> {
+): Promise<Status> {
 	let interceptFlag = false
 	const interceptStore: string[] = []
 
@@ -66,7 +73,13 @@ export async function runTests(
 		panicPayload = undefined
 		panicMessage = undefined
 
-		const jsBindgen = new JsBindgen(module)
+		let jsBindgen
+		try {
+			jsBindgen = new jsBindgenCtor(module)
+		} catch (error) {
+			report(Stream.Stderr, [{ text: (error as Error).message, color: Color.Default }, newLineText])
+			return Status.Abnormal
+		}
 		jsBindgen.extendImportObject({
 			js_bindgen_test: {
 				set_payload: (payload: string) => (panicPayload = payload),
@@ -87,7 +100,7 @@ export async function runTests(
 					newLineText,
 				])
 			} else {
-				report(Stream.Stdout, [testText, { text: `ignored`, color: Color.Yellow }, newLineText])
+				report(Stream.Stdout, [testText, { text: "ignored", color: Color.Yellow }, newLineText])
 			}
 
 			continue
@@ -188,8 +201,8 @@ export async function runTests(
 		output1 += "\n"
 	}
 
-	let success = failures.length === 0
-	const result = success ? okText : failedText
+	let success = failures.length === 0 ? Status.Ok : Status.Failed
+	const result = success === Status.Ok ? okText : failedText
 	const passed = testData.tests.length - failures.length - ignored
 	const durationMs = performance.now() - startTime
 	const durationSecs = (durationMs / 1000).toFixed(2)

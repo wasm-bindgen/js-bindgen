@@ -1,13 +1,8 @@
-import { Stream, runTests } from "./shared.mts"
+import { Stream, Status, runTests } from "./shared.mts"
 import { colorText } from "./shared-terminal.mts"
+import type { JsBindgen } from "./imports.mts"
 
-const enum Status {
-	Ok,
-	Failed,
-	Abnormal,
-}
-
-export async function runBrowser() {
+export async function runBrowser(jsBindgenCtor: typeof JsBindgen | Error) {
 	let fetchOrder = 0
 	let fetchRunning = 0
 	let fetchError = false
@@ -43,10 +38,21 @@ export async function runBrowser() {
 			})
 	}
 
-	const module = await WebAssembly.compileStreaming(fetch("./wasm.wasm"))
-	const success = await runTests(module, (stream, text) => report(stream, colorText(text)))
+	let status
 
-	let status = success ? Status.Ok : Status.Failed
+	if (jsBindgenCtor instanceof Error) {
+		report(Stream.Stderr, jsBindgenCtor.message + "\n")
+		status = Status.Abnormal
+	} else {
+		status = await WebAssembly.compileStreaming(fetch("./wasm.wasm")).then(
+			module => runTests(module, jsBindgenCtor, (stream, text) => report(stream, colorText(text))),
+			error => {
+				report(Stream.Stderr, (error as Error).message + "\n")
+
+				return Status.Abnormal
+			}
+		)
+	}
 
 	if (fetchRunning !== 0) {
 		fetchWaiting = true
