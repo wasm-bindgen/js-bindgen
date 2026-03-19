@@ -3,6 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::io::{self, Error, Read, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::time::SystemTime;
 
 use js_bindgen_shared::ReadFile;
 use object::read::archive::ArchiveFile;
@@ -75,7 +76,7 @@ pub fn assembly_to_object(
 
 pub fn ld_input_parser<E>(
 	input: &OsStr,
-	mut fun: impl FnMut(&Path, &[u8]) -> Result<(), E>,
+	mut fun: impl FnMut(&Path, &[u8], Option<SystemTime>) -> Result<(), E>,
 ) -> Result<(), E> {
 	// We found a UNIX archive.
 	if input.as_encoded_bytes().ends_with(b".rlib") {
@@ -133,7 +134,13 @@ pub fn ld_input_parser<E>(
 				}
 			};
 
-			fun(&archive_path.with_file_name(name), data)?;
+			fun(
+				&archive_path.with_file_name(name),
+				data,
+				std::fs::metadata(archive_path)
+					.and_then(|m| m.modified())
+					.ok(),
+			)?;
 		}
 	} else if input.as_encoded_bytes().ends_with(b".o") {
 		let object_path = Path::new(&input);
@@ -148,7 +155,13 @@ pub fn ld_input_parser<E>(
 			}
 		};
 
-		fun(object_path, &object)?;
+		fun(
+			object_path,
+			&object,
+			std::fs::metadata(object_path)
+				.and_then(|m| m.modified())
+				.ok(),
+		)?;
 	}
 
 	Ok(())

@@ -191,7 +191,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 			&& src_path.canonicalize()? == lib.canonicalize()?
 		{
 			for filename in filenames {
-				js_bindgen_ld_shared::ld_input_parser(filename.as_os_str(), |_, data| {
+				js_bindgen_ld_shared::ld_input_parser(filename.as_os_str(), |_, data, _| {
 					for payload in Parser::new(0).parse_all(data) {
 						let payload = payload?;
 
