@@ -238,7 +238,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 					}
 
 					Ok(())
-				})?;
+				})??;
 			}
 		}
 	}
