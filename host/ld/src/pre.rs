@@ -1,12 +1,11 @@
 use std::ffi::OsString;
 use std::fs::File;
-use std::io::BufWriter;
+use std::io::{BufWriter, ErrorKind};
 use std::path::Path;
 use std::time::SystemTime;
 
 use anyhow::Result;
 use js_bindgen_ld_shared::JsBindgenAssemblySectionParser;
-use js_bindgen_shared::ReadFile;
 use wasmparser::{Parser, Payload};
 
 use crate::js::JsStore;
@@ -130,10 +129,12 @@ fn process_object(
 					// `None`(should not occur on major platforms), or if the `.o` files are
 					// newer than `asm.o`, we regenerate `asm.o`.
 					if !asm_path.exists() || {
-						ReadFile::new(&asm_path)?
-							.mtime()
-							.zip(object_mtime)
-							.is_none_or(|(t1, t2)| t1 < t2)
+						let asm_mtime = match std::fs::metadata(&asm_path)?.modified() {
+							Ok(mtime) => Some(mtime),
+							Err(error) if matches!(error.kind(), ErrorKind::Unsupported) => None,
+							Err(error) => Err(error)?,
+						};
+						asm_mtime.zip(object_mtime).is_none_or(|(t1, t2)| t1 < t2)
 					} {
 						let mut asm_file = BufWriter::new(
 							File::create(&asm_path)

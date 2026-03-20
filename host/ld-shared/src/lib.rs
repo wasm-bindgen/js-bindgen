@@ -134,11 +134,18 @@ pub fn ld_input_parser<E>(
 				}
 			};
 
-			fun(
-				&archive_path.with_file_name(name),
-				data,
-				archive_data.mtime(),
-			)?;
+			let mtime = match archive_data.mtime() {
+				Ok(mtime) => mtime,
+				Err(error) => {
+					eprintln!(
+						"unable to get mtime from {}:\n{error}",
+						archive_path.display()
+					);
+					continue;
+				}
+			};
+
+			fun(&archive_path.with_file_name(name), data, mtime)?;
 		}
 	} else if input.as_encoded_bytes().ends_with(b".o") {
 		let object_path = Path::new(&input);
@@ -153,7 +160,18 @@ pub fn ld_input_parser<E>(
 			}
 		};
 
-		fun(object_path, &object, object.mtime())?;
+		let mtime = match object.mtime() {
+			Ok(mtime) => mtime,
+			Err(error) => {
+				eprintln!(
+					"unable to get mtime from {}:\n{error}",
+					object_path.display()
+				);
+				return Ok(());
+			}
+		};
+
+		fun(object_path, &object, mtime)?;
 	}
 
 	Ok(())

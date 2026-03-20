@@ -7,8 +7,8 @@ use std::time::SystemTime;
 use memmap2::Mmap;
 
 pub struct ReadFile {
+	file: File,
 	reader: Reader,
-	mtime: Option<SystemTime>,
 }
 
 enum Reader {
@@ -20,36 +20,33 @@ impl ReadFile {
 	pub fn new(path: &Path) -> Result<Self, Error> {
 		let mut file = File::open(path)?;
 
-		let metadata = file.metadata()?;
-		let mtime = match metadata.modified() {
-			Ok(mtime) => Some(mtime),
-			Err(error) if matches!(error.kind(), ErrorKind::Unsupported) => None,
-			Err(error) => return Err(error),
-		};
-
 		// SAFETY: the file is not mutated while the mapping is in use.
 		let result = unsafe { Mmap::map(&file) };
 
 		match result {
 			Ok(mmap) => Ok(Self {
 				reader: Reader::Mmap(mmap),
-				mtime,
+				file,
 			}),
 			Err(error) if matches!(error.kind(), ErrorKind::Unsupported) => {
 				let mut output = Vec::new();
 				file.read_to_end(&mut output)?;
 				Ok(Self {
 					reader: Reader::File(output),
-					mtime,
+					file,
 				})
 			}
 			Err(error) => Err(error),
 		}
 	}
 
-	#[must_use]
-	pub fn mtime(&self) -> Option<SystemTime> {
-		self.mtime
+	pub fn mtime(&self) -> Result<Option<SystemTime>, Error> {
+		let metadata = self.file.metadata()?;
+		match metadata.modified() {
+			Ok(mtime) => Ok(Some(mtime)),
+			Err(error) if matches!(error.kind(), ErrorKind::Unsupported) => Ok(None),
+			Err(error) => Err(error),
+		}
 	}
 }
 
