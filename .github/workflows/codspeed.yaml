@@ -4,8 +4,6 @@ on:
   push:
     branches: ["main"]
   pull_request:
-  # `workflow_dispatch` allows CodSpeed to trigger backtest
-  # performance analysis in order to generate initial data.
   workflow_dispatch:
 
 concurrency:
@@ -22,28 +20,26 @@ permissions:
 jobs:
   codspeed:
     name: Run Benchmarks
-
     runs-on: ubuntu-latest
-
     timeout-minutes: 20
-
     defaults:
       run:
         working-directory: host
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Rust
-        uses: moonrepo/setup-rust@v0
-        with:
-          channel: stable
-          cache-target: release
-          bins: cargo-codspeed
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-codspeed
+        run: cargo install cargo-codspeed --locked
+
       - name: Build Benchmarks
         run: cargo codspeed build -p js-sys-bindgen --features macro --bench codegen
         env:
           CARGO_CRATE_NAME: test_crate
+
       - name: Run Benchmarks
         uses: CodSpeedHQ/action@v4
         with:
