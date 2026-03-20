@@ -4,6 +4,12 @@ include = { workspace = true }
 name = "js-bindgen-runner"
 rust-version = "1.93"
 
+[[bin]]
+bench = false
+doctest = false
+name = "js-bindgen-runner"
+test = false
+
 [dependencies]
 anyhow = { workspace = true }
 axum = { workspace = true }

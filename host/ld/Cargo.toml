@@ -5,6 +5,12 @@ license = { workspace = true }
 name = "js-bindgen-ld"
 rust-version = "1.91"
 
+[[bin]]
+bench = false
+doctest = false
+name = "js-bindgen-ld"
+test = false
+
 [dependencies]
 anyhow = { workspace = true }
 argfile = { workspace = true }

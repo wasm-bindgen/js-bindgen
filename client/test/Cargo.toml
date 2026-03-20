@@ -4,6 +4,11 @@ include = { workspace = true }
 name = "js-bindgen-test"
 rust-version = "1.87"
 
+[lib]
+bench = false
+doctest = false
+test = false
+
 [dependencies]
 js-bindgen-test-macro = { workspace = true }
 js-sys = { workspace = true, features = ["macro"] }

@@ -5,6 +5,10 @@ license = { workspace = true }
 name = "js-sys-bindgen"
 rust-version = "1.87"
 
+[lib]
+bench = false
+doctest = false
+
 [features]
 file = ["macro"]
 macro = []

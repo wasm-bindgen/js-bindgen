@@ -5,6 +5,12 @@ license = { workspace = true }
 name = "cargo-js-sys"
 rust-version = "1.91"
 
+[[bin]]
+bench = false
+doctest = false
+name = "cargo-js-sys"
+test = false
+
 [features]
 default = ["js-sys"]
 js-sys = ["dep:annotate-snippets", "js-sys-bindgen/file"]

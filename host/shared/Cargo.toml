@@ -5,6 +5,11 @@ license = { workspace = true }
 name = "js-bindgen-shared"
 rust-version = { workspace = true }
 
+[lib]
+bench = false
+doctest = false
+test = false
+
 [dependencies]
 memmap2 = { workspace = true }
 

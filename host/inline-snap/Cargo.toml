@@ -6,6 +6,11 @@ name = "inline-snap"
 publish = false
 rust-version = { workspace = true }
 
+[lib]
+bench = false
+doctest = false
+test = false
+
 [dependencies]
 dtor = { workspace = true }
 hashbrown = { workspace = true, features = ["default-hasher"] }
