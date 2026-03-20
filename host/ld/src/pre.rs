@@ -1,6 +1,6 @@
 use std::ffi::OsString;
 use std::fs::File;
-use std::io::{BufWriter, ErrorKind};
+use std::io::BufWriter;
 use std::path::Path;
 use std::time::SystemTime;
 

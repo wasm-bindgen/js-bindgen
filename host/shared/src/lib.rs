@@ -41,8 +41,7 @@ impl ReadFile {
 	}
 
 	pub fn mtime(&self) -> Result<Option<SystemTime>, Error> {
-		let metadata = self.file.metadata()?;
-		mtime(&metadata)
+		mtime(&self.file.metadata()?)
 	}
 }
 
