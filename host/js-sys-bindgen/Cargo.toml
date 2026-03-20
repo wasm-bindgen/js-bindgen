@@ -28,6 +28,7 @@ weedle2 = { workspace = true, optional = true }
 [dev-dependencies]
 anyhow = { workspace = true }
 cargo_metadata = { workspace = true }
+codspeed-criterion-compat = "2"
 indoc = { workspace = true }
 inline-snap = { workspace = true }
 js-bindgen-ld-shared = { workspace = true }
@@ -35,6 +36,10 @@ prettyplease = { workspace = true }
 similar-asserts = { workspace = true }
 tempfile = { workspace = true }
 wasmparser = { workspace = true }
+
+[[bench]]
+harness = false
+name = "codegen"
 
 [lints]
 workspace = true

@@ -1,3 +1,5 @@
+[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/wasm-bindgen/js-bindgen?utm_source=badge)
+
 ## Example
 
 There is a very basic working example in `client/examples/basic.rs`. To run it:
