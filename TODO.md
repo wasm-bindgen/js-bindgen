@@ -1,6 +1,6 @@
 # Critical Priority
 
-- Replace `llvm-mc` with `wasm-tools`. See [bytecodealliance/wasm-tools#2405].
+- Replace `clang` with `wasm-tools`. See [bytecodealliance/wasm-tools#2405].
 - Compatibility with `wasm-bindgen`.
 - Do we agree with the new name `js-bindgen`? Maybe `web-bindgen` is the most accurate?
 - `#[js_sys]` is probably also not the ideal name.
