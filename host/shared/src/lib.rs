@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{File, Metadata};
 use std::io::{Error, ErrorKind, Read};
 use std::ops::Deref;
 use std::path::Path;
@@ -42,11 +42,15 @@ impl ReadFile {
 
 	pub fn mtime(&self) -> Result<Option<SystemTime>, Error> {
 		let metadata = self.file.metadata()?;
-		match metadata.modified() {
-			Ok(mtime) => Ok(Some(mtime)),
-			Err(error) if matches!(error.kind(), ErrorKind::Unsupported) => Ok(None),
-			Err(error) => Err(error),
-		}
+		mtime(&metadata)
+	}
+}
+
+pub fn mtime(metadata: &Metadata) -> Result<Option<SystemTime>, Error> {
+	match metadata.modified() {
+		Ok(mtime) => Ok(Some(mtime)),
+		Err(error) if matches!(error.kind(), ErrorKind::Unsupported) => Ok(None),
+		Err(error) => Err(error),
 	}
 }
 

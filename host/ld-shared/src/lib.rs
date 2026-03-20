@@ -1,6 +1,7 @@
 use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
-use std::io::{self, Error, Read, Write};
+use std::fs::Metadata;
+use std::io::{self, Error, ErrorKind, Read, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::SystemTime;
