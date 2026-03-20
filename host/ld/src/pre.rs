@@ -2,6 +2,7 @@ use std::ffi::OsString;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
+use std::time::SystemTime;
 
 use anyhow::Result;
 use js_bindgen_ld_shared::JsBindgenAssemblySectionParser;
@@ -70,9 +71,17 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 
 	// Extract embedded assembly from object files.
 	for input in wasm_ld_args.inputs() {
-		js_bindgen_ld_shared::ld_input_parser(input, |path, data| {
-			process_object(&mut js_store, arch.as_str(), &mut add_args, path, data)
+		js_bindgen_ld_shared::ld_input_parser(input, |path, data, object_mtime| {
+			process_object(
+				&mut js_store,
+				arch.as_str(),
+				&mut add_args,
+				path,
+				data,
+				object_mtime,
+			)
 		})
+		.unwrap()
 		.unwrap();
 	}
 
@@ -92,6 +101,7 @@ fn process_object(
 	add_args: &mut Vec<OsString>,
 	archive_path: &Path,
 	object: &[u8],
+	object_mtime: Option<SystemTime>,
 ) -> Result<()> {
 	// Multiple files from the same object file need different names.
 	let mut file_counter = 0;
@@ -113,10 +123,17 @@ fn process_object(
 					let asm_path =
 						archive_path.with_added_extension(format!("asm.{file_counter}.o"));
 
-					// Only compile if the file doesn't already exist. Existing fingerprinting
-					// ensures freshness:
-					// https://doc.rust-lang.org/1.92.0/nightly-rustc/cargo/core/compiler/fingerprint/index.html#fingerprints-and-unithashs
-					if !asm_path.exists() {
+					// We first use a fingerprint to quickly determine whether `asm.o` needs to be
+					// regenerated: https://doc.rust-lang.org/1.92.0/nightly-rustc/cargo/core/compiler/fingerprint/index.html#fingerprints-and-unithashs
+					//
+					// Then we compare the `mtime` of the `.o` files with that of `asm.o`. If it is
+					// `None`(should not occur on major platforms), or if the `.o` files are
+					// newer than `asm.o`, we regenerate `asm.o`.
+					if !asm_path.exists() || {
+						js_bindgen_shared::mtime(&std::fs::metadata(&asm_path)?)?
+							.zip(object_mtime)
+							.is_none_or(|(t1, t2)| t1 < t2)
+					} {
 						let mut asm_file = BufWriter::new(
 							File::create(&asm_path)
 								.expect("output assembly object should be writable"),
