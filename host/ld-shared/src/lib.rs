@@ -137,9 +137,7 @@ pub fn ld_input_parser<E>(
 			fun(
 				&archive_path.with_file_name(name),
 				data,
-				std::fs::metadata(archive_path)
-					.and_then(|m| m.modified())
-					.ok(),
+				archive_data.mtime(),
 			)?;
 		}
 	} else if input.as_encoded_bytes().ends_with(b".o") {
@@ -155,13 +153,7 @@ pub fn ld_input_parser<E>(
 			}
 		};
 
-		fun(
-			object_path,
-			&object,
-			std::fs::metadata(object_path)
-				.and_then(|m| m.modified())
-				.ok(),
-		)?;
+		fun(object_path, &object, object.mtime())?;
 	}
 
 	Ok(())

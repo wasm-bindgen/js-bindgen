@@ -6,6 +6,7 @@ use std::time::SystemTime;
 
 use anyhow::Result;
 use js_bindgen_ld_shared::JsBindgenAssemblySectionParser;
+use js_bindgen_shared::ReadFile;
 use wasmparser::{Parser, Payload};
 
 use crate::js::JsStore;
@@ -129,14 +130,10 @@ fn process_object(
 					// `None`(should not occur on major platforms), or if the `.o` files are
 					// newer than `asm.o`, we regenerate `asm.o`.
 					if !asm_path.exists() || {
-						let mtime = std::fs::metadata(&asm_path)
-							.and_then(|m| m.modified())
-							.ok()
-							.zip(object_mtime);
-						if mtime.is_none() {
-							eprintln!("failed to read mtime of object file");
-						}
-						mtime.is_none_or(|(t1, t2)| t1 < t2)
+						ReadFile::new(&asm_path)?
+							.mtime()
+							.zip(object_mtime)
+							.is_none_or(|(t1, t2)| t1 < t2)
 					} {
 						let mut asm_file = BufWriter::new(
 							File::create(&asm_path)
