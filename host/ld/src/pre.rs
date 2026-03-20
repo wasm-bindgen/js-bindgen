@@ -6,7 +6,6 @@ use std::time::SystemTime;
 
 use anyhow::Result;
 use js_bindgen_ld_shared::JsBindgenAssemblySectionParser;
-use js_bindgen_shared::mtime;
 use wasmparser::{Parser, Payload};
 
 use crate::js::JsStore;
@@ -82,6 +81,7 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 				object_mtime,
 			)
 		})
+		.unwrap()
 		.unwrap();
 	}
 
@@ -130,7 +130,7 @@ fn process_object(
 					// `None`(should not occur on major platforms), or if the `.o` files are
 					// newer than `asm.o`, we regenerate `asm.o`.
 					if !asm_path.exists() || {
-						mtime(&std::fs::metadata(&asm_path)?)?
+						js_bindgen_shared::mtime(&std::fs::metadata(&asm_path)?)?
 							.zip(object_mtime)
 							.is_none_or(|(t1, t2)| t1 < t2)
 					} {

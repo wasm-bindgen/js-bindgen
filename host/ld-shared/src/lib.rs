@@ -77,7 +77,7 @@ pub fn assembly_to_object(
 pub fn ld_input_parser<E>(
 	input: &OsStr,
 	mut fun: impl FnMut(&Path, &[u8], Option<SystemTime>) -> Result<(), E>,
-) -> Result<(), E> {
+) -> Result<Result<(), E>, Error> {
 	// We found a UNIX archive.
 	if input.as_encoded_bytes().ends_with(b".rlib") {
 		let archive_path = Path::new(&input);
@@ -88,7 +88,7 @@ pub fn ld_input_parser<E>(
 					"failed to read archive file {}:\n{error}",
 					archive_path.display()
 				);
-				return Ok(());
+				return Ok(Ok(()));
 			}
 		};
 		let archive = match ArchiveFile::parse(&*archive_data) {
@@ -98,7 +98,7 @@ pub fn ld_input_parser<E>(
 					"failed to parse archive file {}:\n{error}",
 					archive_path.display()
 				);
-				return Ok(());
+				return Ok(Ok(()));
 			}
 		};
 
@@ -134,18 +134,13 @@ pub fn ld_input_parser<E>(
 				}
 			};
 
-			let mtime = match archive_data.mtime() {
-				Ok(mtime) => mtime,
-				Err(error) => {
-					eprintln!(
-						"unable to get mtime from {}:\n{error}",
-						archive_path.display()
-					);
-					continue;
-				}
-			};
-
-			fun(&archive_path.with_file_name(name), data, mtime)?;
+			if let Err(error) = fun(
+				&archive_path.with_file_name(name),
+				data,
+				archive_data.mtime()?,
+			) {
+				return Ok(Err(error));
+			}
 		}
 	} else if input.as_encoded_bytes().ends_with(b".o") {
 		let object_path = Path::new(&input);
@@ -156,25 +151,16 @@ pub fn ld_input_parser<E>(
 					"failed to read object file {}:\n{error}",
 					object_path.display()
 				);
-				return Ok(());
+				return Ok(Ok(()));
 			}
 		};
 
-		let mtime = match object.mtime() {
-			Ok(mtime) => mtime,
-			Err(error) => {
-				eprintln!(
-					"unable to get mtime from {}:\n{error}",
-					object_path.display()
-				);
-				return Ok(());
-			}
-		};
-
-		fun(object_path, &object, mtime)?;
+		if let Err(error) = fun(object_path, &object, object.mtime()?) {
+			return Ok(Err(error));
+		}
 	}
 
-	Ok(())
+	Ok(Ok(()))
 }
 
 #[derive(Clone)]
