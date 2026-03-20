@@ -23,7 +23,7 @@ impl ReadFile {
 		let metadata = file.metadata()?;
 		let mtime = match metadata.modified() {
 			Ok(mtime) => Some(mtime),
-			Err(error) if matches!(error.kind(), ErrorKind::NotFound) => None,
+			Err(error) if matches!(error.kind(), ErrorKind::Unsupported) => None,
 			Err(error) => return Err(error),
 		};
 
