@@ -9,18 +9,25 @@ use js_bindgen_shared::ReadFile;
 use object::read::archive::ArchiveFile;
 use wasmparser::CustomSectionReader;
 
-/// Currently this simply passes the LLVM s-format assembly to `llvm-mc` to
+/// Currently this simply passes the LLVM s-format assembly to `clang` to
 /// convert to an object file the linker can consume.
 pub fn assembly_to_object(
 	arch_str: &str,
 	assembly: &str,
 	output: &mut dyn Write,
 ) -> Result<(), Error> {
-	let mut child = Command::new("llvm-mc")
-		.arg(format!("-arch={arch_str}"))
+	let mut child = Command::new("clang")
+		.arg("-xassembler")
+		.arg(format!("--target={arch_str}"))
 		// In the future we will switch to something supporting auto-detection.
-		.arg("-mattr=+reference-types,+call-indirect-overlong")
-		.arg("-filetype=obj")
+		.arg("-mreference-types")
+		.arg("-mcall-indirect-overlong")
+		.arg("-c")
+		// from stdin
+		.arg("-")
+		.arg("-o")
+		// to stdout
+		.arg("-")
 		.stdout(Stdio::piped())
 		.stderr(Stdio::piped())
 		.stdin(Stdio::piped())
@@ -29,7 +36,7 @@ pub fn assembly_to_object(
 	let stdin = child
 		.stdin
 		.as_mut()
-		.ok_or_else(|| Error::other("`llvm-mc` process should have `stdin`"))?;
+		.ok_or_else(|| Error::other("`clang` process should have `stdin`"))?;
 	stdin.write_all(assembly.as_bytes())?;
 
 	let status = child.wait()?;
@@ -38,14 +45,14 @@ pub fn assembly_to_object(
 		io::copy(&mut child.stdout.unwrap(), output)?;
 		Ok(())
 	} else {
-		eprintln!("------ llvm-mc input -------\n{assembly}",);
+		eprintln!("------ clang input -------\n{assembly}",);
 
 		let mut stdout = Vec::new();
 		child.stdout.unwrap().read_to_end(&mut stdout)?;
 
 		if !stdout.is_empty() {
 			eprintln!(
-				"------ llvm-mc stdout ------\n{}",
+				"------ clang stdout ------\n{}",
 				String::from_utf8_lossy(&stdout)
 			);
 
@@ -59,7 +66,7 @@ pub fn assembly_to_object(
 
 		if !stderr.is_empty() {
 			eprintln!(
-				"------ llvm-mc stderr ------\n{}",
+				"------ clang stderr ------\n{}",
 				String::from_utf8_lossy(&stderr)
 			);
 
@@ -69,7 +76,7 @@ pub fn assembly_to_object(
 		}
 
 		Err(Error::other(format!(
-			"`llvm-mc` process failed with status: {status}"
+			"`clang` process failed with status: {status}"
 		)))
 	}
 }
