@@ -1,4 +1,5 @@
-import { open } from "node:fs/promises"
+import { open, writeFile } from "node:fs/promises"
+import testData from "./test-data.json" with { type: "json" }
 import { Stream, runTests } from "./shared.mts"
 import { colorText } from "./shared-terminal.mts"
 
@@ -8,7 +9,7 @@ const wasmResponse = new Response(wasmFile.createReadStream() as any, {
 })
 const module = await WebAssembly.compileStreaming(wasmResponse)
 
-const success = await runTests(module, (stream, text) => {
+const result = await runTests(module, (stream, text) => {
 	const output = colorText(text)
 
 	switch (stream) {
@@ -20,4 +21,9 @@ const success = await runTests(module, (stream, text) => {
 	}
 })
 
-process.exit(success ? 0 : 101)
+if (typeof result.benchBaseline === "string" && testData.benchBaseline) {
+    const path = testData.benchBaseline.path;
+	await writeFile(path, result.benchBaseline)
+}
+
+process.exit(result.success ? 0 : 101)

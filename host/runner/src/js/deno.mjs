@@ -1,7 +1,8 @@
+import testData from "./test-data.json" with { type: "json" };
 import { runTests } from "./shared.mjs";
 import { colorText } from "./shared-terminal.mjs";
 const module = await WebAssembly.compileStreaming(fetch(new URL("./wasm.wasm", import.meta.url)));
-const success = await runTests(module, (stream, text) => {
+const result = await runTests(module, (stream, text) => {
     function printSync(input, to) {
         let bytesWritten = 0;
         const bytes = new TextEncoder().encode(input);
@@ -18,4 +19,8 @@ const success = await runTests(module, (stream, text) => {
             printSync(output, Deno.stderr);
     }
 });
-Deno.exit(success ? 0 : 101);
+if (typeof result.benchBaseline === "string" && testData.benchBaseline) {
+    const path = testData.benchBaseline.path;
+    await Deno.writeTextFile(path, result.benchBaseline);
+}
+Deno.exit(result.success ? 0 : 101);

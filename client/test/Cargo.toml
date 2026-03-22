@@ -8,5 +8,15 @@ rust-version = "1.87"
 js-bindgen-test-macro = { workspace = true }
 js-sys = { workspace = true, features = ["macro"] }
 
+async-trait = "0.1.89"
+cast = "0.3"
+libm = "0.2.11"
+nu-ansi-term = { version = "0.50", default-features = false }
+num-traits = { version = "0.2", default-features = false, features = ["libm"] }
+once_cell = "1.21.4"
+oorandom = "11.1.5"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+
 [lints]
 workspace = true

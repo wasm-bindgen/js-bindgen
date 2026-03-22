@@ -44,9 +44,21 @@ export async function runBrowser() {
 	}
 
 	const module = await WebAssembly.compileStreaming(fetch("./wasm.wasm"))
-	const success = await runTests(module, (stream, text) => report(stream, colorText(text)))
+	const result = await runTests(module, (stream, text) => report(stream, colorText(text)))
 
-	let status = success ? Status.Ok : Status.Failed
+	if (typeof result.benchBaseline === "string") {
+		const response = await fetch("./benchmark-baseline", {
+			method: "POST",
+			headers: { "Content-Type": "text/plain" },
+			body: result.benchBaseline,
+		})
+
+		if (!response.ok) {
+			throw response
+		}
+	}
+
+	let status = result.success ? Status.Ok : Status.Failed
 
 	if (fetchRunning !== 0) {
 		fetchWaiting = true

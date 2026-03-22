@@ -16,6 +16,16 @@ enum TestAttribute {
 }
 
 #[proc_macro_attribute]
+pub fn bench(
+	attr: proc_macro::TokenStream,
+	item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+	bench_internal(attr.into(), item.into())
+		.unwrap_or_else(Error::into_compile_error)
+		.into()
+}
+
+#[proc_macro_attribute]
 pub fn test(
 	attr: proc_macro::TokenStream,
 	item: proc_macro::TokenStream,
@@ -25,7 +35,7 @@ pub fn test(
 		.into()
 }
 
-fn test_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
+fn parse_crate(attr: TokenStream) -> Result<Path> {
 	let mut crate_: Option<Path> = None;
 
 	meta::parser(|meta| {
@@ -44,6 +54,68 @@ fn test_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
 	let crate_ = crate_.unwrap_or_else(|| parse_quote!(::js_bindgen_test));
 
+	Ok(crate_)
+}
+
+fn bench_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
+	let crate_ = parse_crate(attr)?;
+	let function: ItemFn = syn::parse2(item)?;
+
+	if let Some(asyncness) = function.sig.asyncness {
+		return Err(Error::new_spanned(
+			asyncness,
+			"`async` benchmark not supported",
+		));
+	}
+
+	if let ReturnType::Type(..) = function.sig.output {
+		return Err(Error::new_spanned(
+			function.sig.output,
+			"benchmark with return value not supported",
+		));
+	}
+
+	let ident = &function.sig.ident;
+	let foreign_bench = quote! {
+		::core::concat!(::core::module_path!(), "::", ::core::stringify!(#ident))
+	};
+
+	Ok(quote! {
+		#function
+
+		const _: () = {
+			const TEST: &::core::primitive::str = #foreign_bench;
+			const TEST_LEN: ::core::primitive::usize = ::core::primitive::str::len(TEST);
+			const TEST_PTR: *const ::core::primitive::u8 = ::core::primitive::str::as_ptr(TEST);
+			const TEST_ARR: [::core::primitive::u8; TEST_LEN] = unsafe { *(TEST_PTR as *const _) };
+
+
+			const LEN_ARR: [::core::primitive::u8; 4] = ::core::primitive::u32::to_le_bytes(TEST_LEN as u32);
+
+			#[repr(C)]
+			struct Layout(
+				[::core::primitive::u8; 4],
+				[::core::primitive::u8; TEST_LEN],
+			);
+
+			#[unsafe(link_section = "js_bindgen.bench")]
+			static CUSTOM_SECTION: Layout = Layout(LEN_ARR, TEST_ARR);
+		};
+
+		const _: () = {
+			#[unsafe(export_name = #foreign_bench)]
+			extern "C" fn __jbg_bench() {
+				#crate_::set_panic_hook();
+				let mut bencher = Criterion::default()
+					.with_location(file!(), module_path!());
+				#ident(&mut bencher);
+			}
+		};
+	})
+}
+
+fn test_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
+	let crate_ = parse_crate(attr)?;
 	let mut function: ItemFn = syn::parse2(item)?;
 	let span = function.span();
 	let mut ignore = TestAttribute::None;
