@@ -1,0 +1,54 @@
+name: CodSpeed Benchmarks
+
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+  # `workflow_dispatch` allows CodSpeed to trigger backtest
+  # performance analysis in order to generate initial data.
+  workflow_dispatch:
+
+env:
+  CODSPEED_PERF_ENABLED: false
+
+permissions:
+  contents: read # required for actions/checkout
+  id-token: write # required for OIDC authentication with CodSpeed
+
+jobs:
+  benchmarks:
+    name: Run benchmarks
+    runs-on: codspeed-macro
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          rustup update stable
+          rustup target add wasm32-unknown-unknown
+      - name: Install LLVM
+        uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
+        with:
+          # Rustc v1.93
+          llvm-version: 21
+      - name: Install TSC
+        run: npm install -g typescript
+      - name: Update Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: latest
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            client
+            host
+            common/wcodspeed
+      - run: |
+          cd client
+          cargo bench --workspace
+      - name: Upload benchmark results
+        uses: CodSpeedHQ/action@v4
+        with:
+          mode: walltime
+          run: cargo run --manifest-path common/wcodspeed/Cargo.toml client/target/jbg_benchmark.json
