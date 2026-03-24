@@ -137,62 +137,54 @@ jobs:
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Chrome
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_CHROMEDRIVER: chromedriver
+          JBG_TEST_RUNNER: chrome-driver
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Chrome - Dedicated Worker
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_CHROMEDRIVER: chromedriver
+          JBG_TEST_RUNNER: chrome-driver
           JBG_TEST_WORKER: dedicated
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Chrome - Shared Worker
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_CHROMEDRIVER: chromedriver
+          JBG_TEST_RUNNER: chrome-driver
           JBG_TEST_WORKER: shared
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Chrome - Service Worker
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_CHROMEDRIVER: chromedriver
+          JBG_TEST_RUNNER: chrome-driver
           JBG_TEST_WORKER: service
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Firefox
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_GECKODRIVER: geckodriver
+          JBG_TEST_RUNNER: gecko-driver
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Firefox - Dedicated Worker
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_GECKODRIVER: geckodriver
+          JBG_TEST_RUNNER: gecko-driver
           JBG_TEST_WORKER: dedicated
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Firefox - Shared Worker
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_GECKODRIVER: geckodriver
+          JBG_TEST_RUNNER: gecko-driver
           JBG_TEST_WORKER: shared
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Firefox - Service Worker
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_GECKODRIVER: geckodriver
+          JBG_TEST_RUNNER: gecko-driver
           JBG_TEST_WORKER: service
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
@@ -200,16 +192,14 @@ jobs:
       - name: Run Tests - Safari
         if: runner.os == 'macOS' && matrix.target.description != 'Wasm64'
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_SAFARIDRIVER: safaridriver
+          JBG_TEST_RUNNER: safari-driver
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Safari - Dedicated Worker
         if: runner.os == 'macOS' && matrix.target.description != 'Wasm64'
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_SAFARIDRIVER: safaridriver
+          JBG_TEST_RUNNER: safari-driver
           JBG_TEST_WORKER: dedicated
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
@@ -217,8 +207,7 @@ jobs:
       - name: Run Tests - Safari - Shared Worker
         if: runner.os == 'macOS' && matrix.target.description != 'Wasm64'
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_SAFARIDRIVER: safaridriver
+          JBG_TEST_RUNNER: safari-driver
           JBG_TEST_WORKER: shared
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
@@ -226,8 +215,7 @@ jobs:
       - name: Run Tests - Safari - Service Worker
         if: runner.os == 'macOS' && matrix.target.description != 'Wasm64'
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_SAFARIDRIVER: safaridriver
+          JBG_TEST_RUNNER: safari-driver
           JBG_TEST_WORKER: service
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
@@ -262,8 +250,7 @@ jobs:
           runner.os == 'macOS' && matrix.target.description != 'Wasm64' &&
           matrix.target-feature.description == 'Atomics'
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_SAFARIDRIVER: safaridriver
+          JBG_TEST_RUNNER: safari-driver
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
@@ -272,8 +259,7 @@ jobs:
           runner.os == 'macOS' && matrix.target.description != 'Wasm64' &&
           matrix.target-feature.description == 'Atomics'
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_SAFARIDRIVER: safaridriver
+          JBG_TEST_RUNNER: safari-driver
           JBG_TEST_WORKER: dedicated
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
@@ -283,8 +269,7 @@ jobs:
           runner.os == 'macOS' && matrix.target.description != 'Wasm64' &&
           matrix.target-feature.description == 'Atomics'
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_SAFARIDRIVER: safaridriver
+          JBG_TEST_RUNNER: safari-driver
           JBG_TEST_WORKER: shared
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
@@ -294,8 +279,7 @@ jobs:
           runner.os == 'macOS' && matrix.target.description != 'Wasm64' &&
           matrix.target-feature.description == 'Atomics'
         env:
-          JBG_TEST_RUNNER: browser
-          JBG_TEST_SAFARIDRIVER: safaridriver
+          JBG_TEST_RUNNER: safari-driver
           JBG_TEST_WORKER: service
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{

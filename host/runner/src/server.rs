@@ -20,8 +20,9 @@ use serde_repr::Deserialize_repr;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
+use crate::config::WorkerKind;
+use crate::runner::{SHARED_JS, SHARED_TERMINAL_JS};
 use crate::util::AtomicFlag;
-use crate::{SHARED_JS, SHARED_TERMINAL_JS, WorkerKind};
 
 const INDEX_HTML: &str = include_str!("js/index.html");
 const BROWSER_JS: &str = include_str!("js/browser.mjs");

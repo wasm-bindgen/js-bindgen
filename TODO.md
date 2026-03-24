@@ -14,11 +14,6 @@
 # High Priority
 
 - Test Runner:
-  - Fold WebDrivers into `JBG_TEST_RUNNER`:
-    - `browser` should stay to use the automatic search, `engine` should be introduced to search for
-      engines and should be the default.
-    - Rename `JBG_TEST_<driver>` to `JBG_TEST_<driver>_PATH`.
-    - Introduce `JBG_TEST_NODE_PATH` and `JBG_TEST_DENO_PATH` as well.
   - Consider moving environment variables to CLI arguments.
   - Lint and format TS files and minimize JS files.
   - Add support for `--test-threads` and multithread tests where possible for `panic = "abort"`.
@@ -45,9 +40,6 @@
   - Optimize HTML output by syncing with rAF.
   - Validate `--no-capture` output against `libtest`.
   - Support return values.
-- Because sometimes custom sections get lost after linking, we should collect them during
-  pre-processing and re-insert them afterwards or pass them along some other way. Some tests also
-  rely on this.
 - E2E testing for the linker. Should also ensure deterministic output.
 - Can we use `TokenStream` from `str` parsing to simplify the code without affecting performance?
 - Escape namespaces and function names if they are not valid JS identifiers.
