@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Error, Result, anyhow, bail};
 use fantoccini::wd::Capabilities;
-use js_bindgen_shared::ReadFile;
+use js_bindgen_shared::{ReadFile, WebDriverKind};
 use serde_json::{Map, Value};
 use url::Url;
 
@@ -49,14 +49,6 @@ pub enum WebDriverLocation {
 	Remote(Url),
 }
 
-#[derive(Clone, Copy)]
-pub enum WebDriverKind {
-	Chrome,
-	Edge,
-	Gecko,
-	Safari,
-}
-
 #[derive(Clone, Copy, Debug)]
 pub enum WorkerKind {
 	/// <https://developer.mozilla.org/en-US/docs/Web/API/Worker>
@@ -78,7 +70,10 @@ impl RunnerConfig {
 				if let Some(first) = config.replace(RunnerConfig::Engine {
 					kind: engine,
 					path: Cow::Owned(path.into()),
-					args: env_args(engine.to_env())?,
+					args: js_bindgen_shared::env_args(&format!(
+						"JBG_TEST_{}_ARGS",
+						engine.to_env()
+					))?,
 				}) {
 					return Err(multiple_error(&first, engine.to_env()));
 				}
@@ -136,7 +131,10 @@ impl RunnerConfig {
 						return Ok(Some(RunnerConfig::Engine {
 							kind: *engine,
 							path: Cow::Borrowed(Path::new(engine.to_binary())),
-							args: env_args(engine.to_env())?,
+							args: js_bindgen_shared::env_args(&format!(
+								"JBG_TEST_{}_ARGS",
+								engine.to_env()
+							))?,
 						}));
 					}
 				}
@@ -151,7 +149,10 @@ impl RunnerConfig {
 							kind: *web_driver,
 							location: WebDriverLocation::Local {
 								path: Cow::Borrowed(Path::new(web_driver.to_binary())),
-								args: env_args(web_driver.to_env())?,
+								args: js_bindgen_shared::env_args(&format!(
+									"JBG_TEST_{}_ARGS",
+									web_driver.to_env()
+								))?,
 							},
 							capabilities: create_capabilities(*web_driver)?,
 							worker: WorkerKind::from_env()?,
@@ -348,7 +349,7 @@ impl WebDriverLocation {
 		if let Some(path) = env::var_os(&local_env) {
 			location = Some(Self::Local {
 				path: Cow::Owned(path.into()),
-				args: env_args(kind.to_env())?,
+				args: js_bindgen_shared::env_args(&format!("JBG_TEST_{}_ARGS", kind.to_env()))?,
 			});
 		}
 
@@ -371,78 +372,6 @@ impl WebDriverLocation {
 	}
 }
 
-impl WebDriverKind {
-	fn to_name(self) -> &'static str {
-		match self {
-			Self::Chrome => "chrome-driver",
-			Self::Edge => "edge-driver",
-			Self::Gecko => "gecko-driver",
-			Self::Safari => "safari-driver",
-		}
-	}
-
-	fn to_env(self) -> &'static str {
-		match self {
-			Self::Chrome => "CHROME_DRIVER",
-			Self::Edge => "EDGE_DRIVER",
-			Self::Gecko => "GECKO_DRIVER",
-			Self::Safari => "SAFARI_DRIVER",
-		}
-	}
-
-	fn to_binary(self) -> &'static str {
-		match self {
-			Self::Chrome => "chromedriver",
-			Self::Edge => "msedgedriver",
-			Self::Gecko => "geckodriver",
-			Self::Safari => "safaridriver",
-		}
-	}
-
-	fn to_download_url(self) -> Option<&'static str> {
-		match self {
-			Self::Chrome => Some("https://googlechromelabs.github.io/chrome-for-testing/"),
-			Self::Edge => Some("https://developer.microsoft.com/microsoft-edge/tools/webdriver/"),
-			Self::Gecko => Some("https://github.com/mozilla/geckodriver/releases/"),
-			Self::Safari => None,
-		}
-	}
-
-	fn search_error() -> String {
-		format!(
-			"to configure the location of a WebDriver binary you can use environment variables \
-			like `WBG_TEST_<WebDriver>_PATH=/path/to/<WebDriver>` or make sure that the binary is in `PATH`; \
-			to configure the address of a remote WebDriver you can use environment variables \
-			like `WBG_TEST_<WebDriver>_REMOTE=http://remote.host/`; \
-			you can download supported drivers at:\n\
-			* {} - {}\n\
-			* {} - {}\n\
-			* {} - {}\n\
-			* {} - pre-installed on MacOS",
-			Self::Chrome, Self::Chrome.to_download_url().unwrap(),
-			Self::Gecko, Self::Gecko.to_download_url().unwrap(),
-			Self::Edge, Self::Edge.to_download_url().unwrap(),
-			Self::Safari,
-		)
-	}
-
-	fn values() -> [Self; 4] {
-		[Self::Chrome, Self::Edge, Self::Gecko, Self::Safari]
-	}
-}
-
-impl Display for WebDriverKind {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		let name = match self {
-			Self::Chrome => "ChromeDriver",
-			Self::Edge => "EdgeDriver",
-			Self::Gecko => "GeckoDriver",
-			Self::Safari => "SafariDriver",
-		};
-		f.write_str(name)
-	}
-}
-
 impl WorkerKind {
 	fn from_env() -> Result<Option<Self>> {
 		Ok(match env::var("JBG_TEST_WORKER") {
@@ -456,24 +385,6 @@ impl WorkerKind {
 			Err(VarError::NotUnicode(_)) => bail!("unable to parse `JBG_TEST_WORKER`"),
 		})
 	}
-}
-
-fn env_args(name: &str) -> Result<Vec<OsString>> {
-	let key = format!("JBG_TEST_{name}_ARGS");
-	let Some(var) = env::var_os(&key) else {
-		return Ok(Vec::new());
-	};
-
-	let Some(args) = shlex::bytes::split(var.as_encoded_bytes()) else {
-		bail!("failed to parse `{key}`");
-	};
-
-	Ok(args
-		.into_iter()
-		.map(|arg|
-					// SAFETY: original source is a `OsString`.
-					unsafe { OsString::from_encoded_bytes_unchecked(arg) })
-		.collect())
 }
 
 fn create_capabilities(kind: WebDriverKind) -> Result<Capabilities> {

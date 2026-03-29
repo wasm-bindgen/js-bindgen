@@ -40,6 +40,10 @@
   - Optimize HTML output by syncing with rAF.
   - Validate `--no-capture` output against `libtest`.
   - Support return values.
+- WebDriver Session Manager:
+  - Add some form of session number limits.
+  - Navigate to `about:blank` after session is returned to the pool.
+  - Clean up cookies, storage, shared and service workers after session is returned to the pool.
 - E2E testing for the linker. Should also ensure deterministic output.
 - Can we use `TokenStream` from `str` parsing to simplify the code without affecting performance?
 - Escape namespaces and function names if they are not valid JS identifiers.

@@ -13,7 +13,7 @@ proc-macro = true
 test = false
 
 [dependencies]
-js-bindgen-shared = { workspace = true }
+js-bindgen-shared = { workspace = true, features = ["memmap"] }
 proc-macro2 = { workspace = true, features = ["span-locations"] }
 quote = { workspace = true }
 syn = { workspace = true, features = ["full", "parsing", "proc-macro"] }

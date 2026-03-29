@@ -18,7 +18,7 @@ foldhash = { workspace = true }
 hashbrown = { workspace = true, features = ["default-hasher"] }
 itertools = { workspace = true }
 js-bindgen-ld-shared = { workspace = true }
-js-bindgen-shared = { workspace = true }
+js-bindgen-shared = { workspace = true, features = ["memmap"] }
 wasm-encoder = { workspace = true }
 wasmparser = { workspace = true }
 

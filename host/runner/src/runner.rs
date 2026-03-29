@@ -3,7 +3,6 @@ use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
-use std::time::Duration;
 use std::{env, fs, process};
 
 use anyhow::{Context, Result};
@@ -11,7 +10,7 @@ use fantoccini::ClientBuilder;
 use fantoccini::wd::Capabilities;
 use js_bindgen_shared::ReadFile;
 use tokio::runtime::Runtime;
-use tokio::{signal, time};
+use tokio::signal;
 
 use crate::config::{EngineKind, RunnerConfig, WebDriverLocation, WorkerKind};
 use crate::server::{HttpServer, Status};
@@ -114,24 +113,42 @@ impl Runner {
 		capabilities: Capabilities,
 		worker: Option<WorkerKind>,
 	) -> Result<()> {
+		async fn run(
+			server: HttpServer,
+			driver: &WebDriver,
+			capabilities: Capabilities,
+		) -> Result<Status> {
+			let client = ClientBuilder::rustls()?
+				.capabilities(capabilities)
+				.connect(driver.url().as_str())
+				.await?;
+
+			client.goto(server.url()).await?;
+
+			let status = server.wait().await;
+			client.close().await?;
+
+			Ok(status)
+		}
+
 		let server = self.http_server(true, worker).await?;
 		let driver = WebDriver::run(location).await?;
-		let client = ClientBuilder::rustls()?
-			.capabilities(capabilities)
-			.connect(driver.url.as_str())
-			.await?;
 
-		client.goto(server.url()).await?;
+		match run(server, &driver, capabilities).await {
+			Ok(status) => {
+				driver.shutdown().await?;
 
-		let status = server.wait().await;
-		client.close().await?;
-		driver.shutdown().await?;
-
-		match status {
-			Status::Ok => Ok(()),
-			// See https://github.com/rust-lang/cargo/blob/fa50b03244beda717b3fd2c7a647ba93c0d39e05/src/cargo/ops/cargo_test.rs#L418.
-			Status::Failed => process::exit(101),
-			Status::Abnormal => process::exit(1),
+				match status {
+					Status::Ok => Ok(()),
+					// See https://github.com/rust-lang/cargo/blob/fa50b03244beda717b3fd2c7a647ba93c0d39e05/src/cargo/ops/cargo_test.rs#L418.
+					Status::Failed => process::exit(101),
+					Status::Abnormal => process::exit(1),
+				}
+			}
+			Err(error) => {
+				driver.output_error().await;
+				Err(error)
+			}
 		}
 	}
 
@@ -143,13 +160,7 @@ impl Runner {
 		println!("shutdown via CTRL-C");
 
 		signal::ctrl_c().await?;
-
-		if time::timeout(Duration::from_millis(100), server.shutdown())
-			.await
-			.is_err()
-		{
-			eprintln!("failed to shutdown server cleanly");
-		}
+		server.shutdown().await;
 
 		Ok(())
 	}

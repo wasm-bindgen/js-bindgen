@@ -2,7 +2,6 @@ mod config;
 mod runner;
 mod server;
 mod test;
-mod util;
 mod web_driver;
 
 use std::path::PathBuf;

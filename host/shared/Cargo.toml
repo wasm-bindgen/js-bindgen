@@ -10,8 +10,19 @@ bench = false
 doctest = false
 test = false
 
+[features]
+clap = ["dep:clap"]
+memmap = ["dep:memmap2"]
+web-driver = ["dep:anyhow", "dep:futures-util", "dep:shlex", "dep:tokio", "dep:url"]
+
 [dependencies]
-memmap2 = { workspace = true }
+anyhow = { workspace = true, optional = true }
+clap = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
+memmap2 = { workspace = true, optional = true }
+shlex = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true, features = ["net", "process", "sync", "time"] }
+url = { workspace = true, optional = true }
 
 [lints]
 workspace = true

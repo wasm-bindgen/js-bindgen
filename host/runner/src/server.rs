@@ -14,7 +14,7 @@ use axum::http::header::CONTENT_TYPE;
 use axum::response::Response;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use js_bindgen_shared::ReadFile;
+use js_bindgen_shared::{AtomicFlag, ReadFile};
 use serde::Deserialize;
 use serde_repr::Deserialize_repr;
 use tokio::net::TcpListener;
@@ -22,7 +22,6 @@ use tokio::sync::Mutex;
 
 use crate::config::WorkerKind;
 use crate::runner::{SHARED_JS, SHARED_TERMINAL_JS};
-use crate::util::AtomicFlag;
 
 const INDEX_HTML: &str = include_str!("js/index.html");
 const BROWSER_JS: &str = include_str!("js/browser.mjs");

@@ -113,7 +113,25 @@ jobs:
         uses: denoland/setup-deno@v2
       - name: Build Host Tools
         working-directory: host
-        run: cargo +stable build -p js-bindgen-ld -p -p js-bindgen-runner
+        run: cargo +stable build -p js-bindgen-ld -p js-bindgen-runner -p js-bindgen-web-driver
+      - name: Run WebDriver Session Manager - Chrome
+        shell: bash
+        working-directory: host
+        run: |
+          cargo +stable run -p js-bindgen-web-driver -- chrome -p 8000 &
+          echo "JBG_TEST_CHROME_DRIVER_REMOTE=http://127.0.0.1:8000" >> $GITHUB_ENV
+      - name: Run WebDriver Session Manager - Firefox
+        shell: bash
+        working-directory: host
+        run: |
+          cargo +stable run -p js-bindgen-web-driver -- gecko -p 8001 &
+          echo "JBG_TEST_GECKO_DRIVER_REMOTE=http://127.0.0.1:8001" >> $GITHUB_ENV
+      - name: Run WebDriver Session Manager - Safari
+        if: runner.os == 'macOS' && matrix.target.description != 'Wasm64'
+        working-directory: host
+        run: |
+          cargo +stable run -p js-bindgen-web-driver -- safari -p 8002 &
+          echo "JBG_TEST_SAFARI_DRIVER_REMOTE=http://127.0.0.1:8002" >> $GITHUB_ENV
       - name: Set Target `RUSTFLAGS`
         shell: bash
         run: |
