@@ -43,7 +43,6 @@ jobs:
           # Rustc v1.93
           llvm-version: 21
       - name: Install TSC
-        if: runner.os == 'macOS'
         run: npm install -g typescript
       - name: Build Crates
         run: cargo build --workspace --all-features

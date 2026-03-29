@@ -75,7 +75,6 @@ jobs:
           # Rustc v1.93
           llvm-version: 21
       - name: Install TSC
-        if: runner.os == 'macOS'
         run: npm install -g typescript
       - name: Update Node.js
         if: runner.os == 'Linux' || runner.os == 'macOS'
