@@ -16,6 +16,8 @@ js-sys-macro = { workspace = true, optional = true }
 js-bindgen-test = { workspace = true }
 paste = { workspace = true }
 web-sys = { workspace = true }
+quickcheck = { workspace = true }
+getrandom = { workspace = true }
 
 [lints]
 workspace = true

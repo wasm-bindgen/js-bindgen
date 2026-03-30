@@ -3,6 +3,7 @@ use std::ptr::{self, NonNull};
 use js_bindgen_test::test;
 use js_sys::{JsBigInt, JsNumber, JsString, js_sys};
 use paste::paste;
+use quickcheck::quickcheck;
 
 js_bindgen::embed_js!(module = "numeric", name = "test", "(value) => value");
 
@@ -152,3 +153,41 @@ fn non_null() {
 	assert_eq!(JsString::new(&max), MAX_SAFE_PTR.to_string());
 	assert_eq!(non_null_output(&max), max_ptr);
 }
+
+macro_rules! test_conv {
+	($($ty:ty),+) => {$(paste! {
+        #[js_sys]
+        extern "js-sys" {
+	        #[js_sys(js_embed = "test")]
+	        fn [<conv_ $ty>](value: $ty) -> $ty;
+        }
+        #[test]
+        fn [<test_conv_ $ty>]() {
+	        fn prop(val: $ty) -> bool {
+		        val == [<conv_ $ty>](val)
+	        }
+	        quickcheck(prop as fn($ty) -> bool);
+        }
+    })+};
+}
+
+macro_rules! test_conv_float {
+	($($ty:ty),+) => {$(paste! {
+        #[js_sys]
+        extern "js-sys" {
+	        #[js_sys(js_embed = "test")]
+	        fn [<conv_ $ty>](value: $ty) -> $ty;
+        }
+        #[test]
+        fn [<test_conv_ $ty>]() {
+	        fn prop(val: $ty) -> bool {
+		        val.total_cmp(&[<conv_ $ty>](val)) == std::cmp::Ordering::Equal
+	        }
+	        quickcheck(prop as fn($ty) -> bool);
+        }
+    })+};
+}
+
+test_conv!(i8, u8, i32, u32, i64, u64, isize, usize, i128, u128);
+
+test_conv_float!(f32, f64);
