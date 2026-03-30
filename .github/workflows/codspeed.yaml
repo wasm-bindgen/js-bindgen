@@ -44,7 +44,8 @@ jobs:
             client
             host
             common/wcodspeed
-      - run: |
+      - name: Run client benchmarks
+        run: |
           cd client
           cargo bench --workspace
       - name: Upload benchmark results
