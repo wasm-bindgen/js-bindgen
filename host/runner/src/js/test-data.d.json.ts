@@ -1,8 +1,14 @@
 type TestData = {
 	worker: WorkerKind
+	benchBaseline?: BenchBaseline
 	noCapture: boolean
 	filteredCount: number
 	tests: TestEntry[]
+}
+
+type BenchBaseline = {
+    path: string,
+    data?: string
 }
 
 declare const enum WorkerKind {

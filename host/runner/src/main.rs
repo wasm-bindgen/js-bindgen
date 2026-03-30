@@ -4,7 +4,7 @@ mod web_driver;
 
 use std::env::VarError;
 use std::net::{IpAddr, SocketAddr};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{self, Command};
 use std::str::FromStr;
 use std::time::Duration;
@@ -26,6 +26,7 @@ const NODE_JS_JS: &str = include_str!("js/node-js.mjs");
 const DENO_JS: &str = include_str!("js/deno.mjs");
 const SHARED_JS: &str = include_str!("js/shared.mjs");
 const SHARED_TERMINAL_JS: &str = include_str!("js/shared-terminal.mjs");
+const BENCH_FILE_NAME: &str = "jbg_benchmark.json";
 
 #[derive(Parser)]
 #[command(name = "js-bindgen-runner", version, about, long_about = None)]
@@ -45,6 +46,9 @@ struct Cli {
 	/// don't capture `console.*()` of each task, allow printing directly.
 	#[arg(long, alias = "nocapture")]
 	no_capture: bool,
+	/// Run benchmarks.
+	#[arg(long)]
+	bench: bool,
 	/// Configure formatting of output.
 	#[arg(long, value_enum)]
 	format: Option<FormatSetting>,
@@ -81,26 +85,42 @@ fn main() -> Result<()> {
 		.with_context(|| format!("failed to read Wasm file: {}", wasm_path.display()))?;
 	let args = TestArgs::new(cli);
 
-	let (tests, filtered_count) = TestEntry::read(
-		&wasm_bytes,
-		args.filter.as_ref(),
-		args.ignored_only,
-		args.exact,
-	)?;
+	let (tests, filtered_count) = if args.bench {
+		TestEntry::read_benches(&wasm_bytes, args.filter.as_ref(), args.exact)?
+	} else {
+		TestEntry::read_tests(
+			&wasm_bytes,
+			args.filter.as_ref(),
+			args.ignored_only,
+			args.exact,
+		)?
+	};
 
 	if args.list_only {
 		match args.list_format {
 			Some(FormatSetting::Terse) => {
 				for test in &tests {
-					println!("{}: test", test.name);
+					println!(
+						"{}: {}",
+						test.name,
+						if args.bench { "benchmark" } else { "test" }
+					);
 				}
 			}
 			None => {
 				for test in &tests {
-					println!("{}: test", test.name);
+					println!(
+						"{}: {}",
+						test.name,
+						if args.bench { "benchmark" } else { "test" }
+					);
 				}
 				println!();
-				println!("{} tests, 0 benchmarks", tests.len());
+				if args.bench {
+					println!("0 tests, {} benchmarks", tests.len());
+				} else {
+					println!("{} tests, 0 benchmarks", tests.len());
+				}
 			}
 		}
 		return Ok(());
@@ -121,12 +141,19 @@ fn main() -> Result<()> {
 		return Ok(());
 	}
 
+	let bench_baseline = args
+		.bench
+		.then(|| BenchBaseline::from_path(&wasm_path))
+		.transpose()?;
+	let baseline_path = bench_baseline.as_ref().map(|b| b.path.clone());
+
 	// The JS file has the same name, just a different file extension.
 	let imports_path = wasm_path.with_extension("mjs");
 	let test_data = TestData {
-		no_capture: args.no_capture,
+		no_capture: args.no_capture || args.bench,
 		filtered_count,
 		tests,
+		bench_baseline,
 	};
 	let test_data_json = serde_json::to_string(&test_data).unwrap();
 
@@ -135,6 +162,7 @@ fn main() -> Result<()> {
 		imports_path,
 		wasm_bytes,
 		test_data_json,
+		baseline_path,
 	};
 
 	match RunnerConfig::from_env()? {
@@ -154,6 +182,7 @@ struct TestArgs {
 	list_format: Option<FormatSetting>,
 	ignored_only: bool,
 	exact: bool,
+	bench: bool,
 }
 
 impl TestArgs {
@@ -165,6 +194,7 @@ impl TestArgs {
 			list_format: cli.format,
 			ignored_only: cli.ignored,
 			exact: cli.exact,
+			bench: cli.bench,
 		}
 	}
 }
@@ -175,6 +205,7 @@ struct TestData {
 	no_capture: bool,
 	filtered_count: usize,
 	tests: Vec<TestEntry>,
+	bench_baseline: Option<BenchBaseline>,
 }
 
 #[derive(Serialize)]
@@ -193,7 +224,67 @@ enum TestAttr {
 }
 
 impl TestEntry {
-	fn read(
+	fn read_benches(
+		wasm_bytes: &[u8],
+		filter: &[String],
+		exact: bool,
+	) -> Result<(Vec<Self>, usize)> {
+		let mut tests = Vec::new();
+		let mut total = 0;
+
+		for payload in WasmParser::new(0).parse_all(wasm_bytes) {
+			if let Payload::CustomSection(section) = payload?
+				&& section.name() == "js_bindgen.bench"
+			{
+				let mut data = section.data();
+
+				while !data.is_empty() {
+					let len = u32::from_le_bytes(
+						data.split_off(..4)
+							.context("invalid test encoding")?
+							.try_into()?,
+					) as usize;
+					let data = data.split_off(..len).context("invalid test encoding")?;
+
+					let import_name = str::from_utf8(data)?;
+					let name = import_name
+						.split_once("::")
+						.unwrap_or_else(|| panic!("unexpected test name: {import_name}"))
+						.1;
+
+					total += 1;
+
+					let matches_filter = filter.is_empty()
+						|| filter.iter().any(|filter| {
+							if exact {
+								filter == name
+							} else {
+								name.contains(filter)
+							}
+						});
+
+					if matches_filter {
+						tests.push(Self {
+							name: name.to_string(),
+							import_name: import_name.to_string(),
+							ignore: TestAttr::None,
+							should_panic: TestAttr::None,
+						});
+					}
+				}
+
+				// Section with the same name can never appear again.
+				break;
+			}
+		}
+
+		tests.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+		let filtered_count = total - tests.len();
+
+		Ok((tests, filtered_count))
+	}
+
+	fn read_tests(
 		wasm_bytes: &[u8],
 		filter: &[String],
 		ignored_only: bool,
@@ -392,6 +483,7 @@ struct Runner {
 	imports_path: PathBuf,
 	wasm_bytes: ReadFile,
 	test_data_json: String,
+	baseline_path: Option<PathBuf>,
 }
 
 impl Runner {
@@ -399,11 +491,11 @@ impl Runner {
 		let dir = tempfile::tempdir()?;
 
 		let runner_path = dir.path().join("runner.mjs");
-		fs::write(&runner_path, NODE_JS_JS)?;
 
-		fs::write(dir.path().join("test-data.json"), self.test_data_json)?;
-		fs::copy(self.wasm_path, dir.path().join("wasm.wasm"))?;
-		fs::copy(self.imports_path, dir.path().join("imports.mjs"))?;
+		fs::write(&runner_path, NODE_JS_JS)?;
+		fs::write(dir.path().join("test-data.json"), &self.test_data_json)?;
+		fs::copy(&self.wasm_path, dir.path().join("wasm.wasm"))?;
+		fs::copy(&self.imports_path, dir.path().join("imports.mjs"))?;
 		fs::write(dir.path().join("shared.mjs"), SHARED_JS)?;
 		fs::write(dir.path().join("shared-terminal.mjs"), SHARED_TERMINAL_JS)?;
 
@@ -423,17 +515,18 @@ impl Runner {
 		let dir = tempfile::tempdir()?;
 
 		let runner_path = dir.path().join("runner.mts");
-		fs::write(&runner_path, DENO_JS)?;
 
-		fs::write(dir.path().join("test-data.json"), self.test_data_json)?;
-		fs::copy(self.wasm_path, dir.path().join("wasm.wasm"))?;
-		fs::copy(self.imports_path, dir.path().join("imports.mjs"))?;
+		fs::write(&runner_path, DENO_JS)?;
+		fs::write(dir.path().join("test-data.json"), &self.test_data_json)?;
+		fs::copy(&self.wasm_path, dir.path().join("wasm.wasm"))?;
+		fs::copy(&self.imports_path, dir.path().join("imports.mjs"))?;
 		fs::write(dir.path().join("shared.mjs"), SHARED_JS)?;
 		fs::write(dir.path().join("shared-terminal.mjs"), SHARED_TERMINAL_JS)?;
 
 		let status = Command::new("deno")
 			.arg("run")
 			.arg("--allow-read")
+			.arg("--allow-write")
 			.arg(runner_path)
 			.status()?;
 
@@ -506,7 +599,41 @@ impl Runner {
 			self.wasm_bytes,
 			&self.imports_path,
 			self.test_data_json,
+			self.baseline_path,
 		)
 		.await
+	}
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BenchBaseline {
+	path: PathBuf,
+	data: Option<String>,
+}
+
+impl BenchBaseline {
+	fn from_path(wasm_path: &Path) -> Result<Self> {
+		let target_dir = wasm_path
+			.ancestors()
+			.find(|path| path.file_name().is_some_and(|name| name == "target"))
+			.map(Path::to_path_buf)
+			.with_context(|| {
+				format!(
+					"failed to locate Cargo target directory from wasm path: {}",
+					wasm_path.display()
+				)
+			})?;
+
+		let path = target_dir.join(BENCH_FILE_NAME);
+		let data = match ReadFile::new(&path) {
+			Ok(data) => Ok(std::str::from_utf8(&data).map(ToString::to_string).ok()),
+			Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+			Err(error) => Err(error).with_context(|| {
+				format!("failed to read benchmark baseline file: {}", path.display())
+			}),
+		}?;
+
+		Ok(Self { path, data })
 	}
 }

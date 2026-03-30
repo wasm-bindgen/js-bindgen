@@ -2,6 +2,7 @@ import testData from "./test-data.json" with { type: "json" };
 import { JsBindgen } from "./imports.mjs";
 export async function runTests(module, report) {
     let interceptFlag = false;
+    let benchBaseline = testData.benchBaseline ? testData.benchBaseline.data : undefined;
     const interceptStore = [];
     const CONSOLE_METHODS = ["debug", "log", "info", "warn", "error"];
     CONSOLE_METHODS.forEach(level => {
@@ -24,12 +25,14 @@ export async function runTests(module, report) {
         return [level, origin];
     });
     const startTime = performance.now();
-    report(0 /* Stream.Stdout */, [
-        {
-            text: `\nrunning ${testData.tests.length} tests\n`,
-            color: 0 /* Color.Default */,
-        },
-    ]);
+    if (!testData.benchBaseline) {
+        report(0 /* Stream.Stdout */, [
+            {
+                text: `\nrunning ${testData.tests.length} tests\n`,
+                color: 0 /* Color.Default */,
+            },
+        ]);
+    }
     let failures = [];
     let ignored = 0;
     let panicPayload;
@@ -44,6 +47,10 @@ export async function runTests(module, report) {
         const jsBindgen = new JsBindgen(module);
         jsBindgen.extendImportObject({
             js_bindgen_test: {
+                import_bench_baseline: () => benchBaseline ?? "{}",
+                dump_bench_baseline: (baseline) => {
+                    benchBaseline = baseline;
+                },
                 set_payload: (payload) => (panicPayload = payload),
                 set_message: (message) => (panicMessage = message),
             },
@@ -66,6 +73,31 @@ export async function runTests(module, report) {
         }
         const testFn = instance.exports[test.importName];
         let result;
+        interceptFlag = true;
+        try {
+            if (testData.benchBaseline) {
+                report(0 /* Stream.Stdout */, [newLineText]);
+            }
+            testFn();
+            result = { success: true };
+        }
+        catch (error) {
+            result = { success: false, stack: error.stack };
+        }
+        interceptFlag = false;
+        if (testData.benchBaseline) {
+            if (!result.success) {
+                let stdout = interceptStore.join("");
+                if (stdout.length !== 0) {
+                    stdout += "\n";
+                }
+                failures.push({
+                    name: test.name,
+                    error: stdout + panicMessage + "\n" + result.stack,
+                });
+            }
+            continue;
+        }
         if (test.shouldPanic) {
             report(0 /* Stream.Stdout */, [
                 { text: `test ${test.name} - should panic ... `, color: 0 /* Color.Default */ },
@@ -74,15 +106,6 @@ export async function runTests(module, report) {
         else {
             report(0 /* Stream.Stdout */, [testText]);
         }
-        interceptFlag = true;
-        try {
-            testFn();
-            result = { success: true };
-        }
-        catch (error) {
-            result = { success: false, stack: error.stack };
-        }
-        interceptFlag = false;
         if (test.shouldPanic) {
             if (result.success) {
                 report(0 /* Stream.Stdout */, [failedText, newLineText]);
@@ -153,5 +176,5 @@ export async function runTests(module, report) {
         result,
         { text: output2, color: 0 /* Color.Default */ },
     ]);
-    return success;
+    return { success, benchBaseline };
 }

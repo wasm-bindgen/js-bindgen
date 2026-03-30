@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::io::{self, ErrorKind, Write};
 use std::net::{Ipv4Addr, SocketAddr};
 use std::ops::DerefMut;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
 
@@ -47,6 +47,7 @@ struct ServerState {
 	wasm_bytes: ReadFile,
 	import_js: ReadFile,
 	test_data_json: String,
+	baseline_path: Option<PathBuf>,
 }
 
 #[derive(Default)]
@@ -70,6 +71,7 @@ impl HttpServer {
 		wasm_bytes: ReadFile,
 		imports_path: &Path,
 		test_data_json: String,
+		baseline_path: Option<PathBuf>,
 	) -> Result<Self> {
 		let listener = Self::bind_address(address).await?;
 		let local_addr = listener.local_addr()?;
@@ -87,6 +89,7 @@ impl HttpServer {
 			test_data_json,
 			signals: Signals::default(),
 			reports: Mutex::new(ReportState::default()),
+			baseline_path,
 		});
 		let serve = axum::serve(listener, Self::router(Arc::clone(&state), headless, worker));
 		let serve = serve.with_graceful_shutdown({
@@ -153,6 +156,21 @@ impl HttpServer {
 				get(async |State(state): State<Arc<ServerState>>| {
 					response("application/javascript", state.import_js.to_owned())
 				}),
+			)
+			.route(
+				"/benchmark-baseline",
+				post(
+					async |State(state): State<Arc<ServerState>>,
+					       baseline: String|
+					       -> Result<(), String> {
+						match state.baseline_path.as_deref() {
+							Some(path) => {
+								std::fs::write(path, baseline).map_err(|error| error.to_string())
+							}
+							None => Ok(()),
+						}
+					},
+				),
 			);
 
 		if worker.is_some() {

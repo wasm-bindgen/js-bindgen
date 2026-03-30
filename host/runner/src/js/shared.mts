@@ -8,6 +8,11 @@ export const enum Stream {
 
 export type StyledText = { text: string; color: Color }
 
+export type RunResult = {
+	success: boolean
+	benchBaseline: string | undefined
+}
+
 export const enum Color {
 	Default,
 	Green,
@@ -18,8 +23,9 @@ export const enum Color {
 export async function runTests(
 	module: WebAssembly.Module,
 	report: (stream: Stream, text: StyledText[]) => void
-): Promise<boolean> {
+): Promise<RunResult> {
 	let interceptFlag = false
+	let benchBaseline = testData.benchBaseline ? testData.benchBaseline.data : undefined
 	const interceptStore: string[] = []
 
 	const CONSOLE_METHODS = ["debug", "log", "info", "warn", "error"] as const
@@ -45,12 +51,14 @@ export async function runTests(
 	})
 
 	const startTime = performance.now()
-	report(Stream.Stdout, [
-		{
-			text: `\nrunning ${testData.tests.length} tests\n`,
-			color: Color.Default,
-		},
-	])
+	if (!testData.benchBaseline) {
+		report(Stream.Stdout, [
+			{
+				text: `\nrunning ${testData.tests.length} tests\n`,
+				color: Color.Default,
+			},
+		])
+	}
 
 	let failures: { name: string; error: string }[] = []
 	let ignored = 0
@@ -69,6 +77,10 @@ export async function runTests(
 		const jsBindgen = new JsBindgen(module)
 		jsBindgen.extendImportObject({
 			js_bindgen_test: {
+				import_bench_baseline: () => benchBaseline ?? "{}",
+				dump_bench_baseline: (baseline: string) => {
+					benchBaseline = baseline
+				},
 				set_payload: (payload: string) => (panicPayload = payload),
 				set_message: (message: string) => (panicMessage = message),
 			},
@@ -96,17 +108,12 @@ export async function runTests(
 		const testFn = instance.exports[test.importName] as () => void
 		let result: { success: true } | { success: false; stack: string }
 
-		if (test.shouldPanic) {
-			report(Stream.Stdout, [
-				{ text: `test ${test.name} - should panic ... `, color: Color.Default },
-			])
-		} else {
-			report(Stream.Stdout, [testText])
-		}
-
 		interceptFlag = true
 
 		try {
+            if (testData.benchBaseline) {
+                report(Stream.Stdout, [newLineText])
+            }
 			testFn()
 			result = { success: true }
 		} catch (error) {
@@ -114,6 +121,30 @@ export async function runTests(
 		}
 
 		interceptFlag = false
+
+		if (testData.benchBaseline) {
+			if (!result.success) {
+				let stdout = interceptStore.join("")
+
+				if (stdout.length !== 0) {
+					stdout += "\n"
+				}
+
+				failures.push({
+					name: test.name,
+					error: stdout + panicMessage + "\n" + result.stack,
+				})
+			}
+			continue
+		}
+
+		if (test.shouldPanic) {
+			report(Stream.Stdout, [
+				{ text: `test ${test.name} - should panic ... `, color: Color.Default },
+			])
+		} else {
+			report(Stream.Stdout, [testText])
+		}
 
 		if (test.shouldPanic) {
 			if (result.success) {
@@ -201,5 +232,5 @@ export async function runTests(
 		{ text: output2, color: Color.Default },
 	])
 
-	return success
+	return { success, benchBaseline }
 }
