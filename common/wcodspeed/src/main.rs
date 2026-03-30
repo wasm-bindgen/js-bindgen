@@ -23,7 +23,8 @@ pub struct CriterionBenchmark {
 }
 
 fn create_uri_and_name(file: &str, module: &str, desc: &str) -> (String, String) {
-    let uri = format!("{}::{}::{}", file, module, desc);
+    // FIXME: remove client hardcode
+    let uri = format!("client/{}::{}::{}", file, module, desc);
     (uri, desc.into())
 }
 
