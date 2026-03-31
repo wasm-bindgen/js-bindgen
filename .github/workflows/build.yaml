@@ -14,12 +14,10 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  client:
-    name:
-      Build Client ${{ matrix.os.description }} ${{ matrix.target.description }} ${{
-      matrix.target-feature.description }}
+  host:
+    name: Build Host ${{ matrix.os.description }}
 
-    runs-on: ${{ matrix.os.os }}
+    runs-on: ubuntu-latest
 
     timeout-minutes: 20
 
@@ -30,6 +28,27 @@ jobs:
           - { os: ubuntu-latest, description: Linux }
           - { os: macos-latest, description: MacOS }
           - { os: windows-latest, description: Windows }
+
+    defaults:
+      run:
+        working-directory: host
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build Crates
+        run: cargo build --all-features
+
+  client:
+    name: Build Client ${{ matrix.target.description }} ${{ matrix.target-feature.description }}
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
         target:
           - { target: wasm32-unknown-unknown, install: true, rust: stable, description: Wasm32 }
           - {

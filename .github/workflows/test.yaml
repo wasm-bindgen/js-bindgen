@@ -36,7 +36,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install Rust
+      - name: Install Rust Wasm Target
         run: rustup target add wasm32-unknown-unknown
       - name: Install LLVM
         uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
@@ -61,7 +61,6 @@ jobs:
         os:
           - { os: ubuntu-latest, description: Linux }
           - { os: macos-latest, description: MacOS }
-          - { os: windows-latest, description: Windows }
         target:
           - { target: wasm32-unknown-unknown, install: true, rust: stable, description: Wasm32 }
           - {
@@ -81,6 +80,9 @@ jobs:
               args: '-Zbuild-std="panic_abort,std"',
               description: Atomics,
             }
+        exclude:
+          - os: { description: MacOS }
+            target: { description: Wasm64 }
 
     defaults:
       run:
@@ -104,36 +106,35 @@ jobs:
       - name: Install TSC
         run: npm install -g typescript
       - name: Update Node.js
-        if: runner.os == 'Linux' || runner.os == 'macOS'
+        if: runner.os == 'Linux'
         uses: actions/setup-node@v6
         with:
           node-version: latest
       - name: Install Deno
-        if: runner.os == 'Linux' || runner.os == 'macOS'
+        if: runner.os == 'Linux'
         uses: denoland/setup-deno@v2
       - name: Build Host Tools
         working-directory: host
         run: cargo +stable build -p js-bindgen-ld -p js-bindgen-runner -p js-bindgen-web-driver
       - name: Run WebDriver Session Manager - Chrome
-        shell: bash
+        if: runner.os == 'Linux'
         working-directory: host
         run: |
           cargo +stable run -p js-bindgen-web-driver -- -p 8000 chrome &
           echo "JBG_TEST_CHROME_DRIVER_REMOTE=http://127.0.0.1:8000" >> $GITHUB_ENV
       - name: Run WebDriver Session Manager - Firefox
-        shell: bash
+        if: runner.os == 'Linux'
         working-directory: host
         run: |
           cargo +stable run -p js-bindgen-web-driver -- -p 8001 gecko &
           echo "JBG_TEST_GECKO_DRIVER_REMOTE=http://127.0.0.1:8001" >> $GITHUB_ENV
       - name: Run WebDriver Session Manager - Safari
-        if: runner.os == 'macOS' && matrix.target.description != 'Wasm64'
+        if: runner.os == 'macOS'
         working-directory: host
         run: |
           cargo +stable run -p js-bindgen-web-driver -- -p 8002 safari &
           echo "JBG_TEST_SAFARI_DRIVER_REMOTE=http://127.0.0.1:8002" >> $GITHUB_ENV
       - name: Set Target `RUSTFLAGS`
-        shell: bash
         run: |
           TARGET=$(echo "${{ matrix.target.target }}" | tr '[:lower:]-' '[:upper:]_')
           echo "CARGO_TARGET_${TARGET}_RUSTFLAGS=${{ matrix.target-feature.rustflags }}" >> $GITHUB_ENV
@@ -142,24 +143,28 @@ jobs:
           cargo test --workspace --target ${{ matrix.target.target }} ${{ matrix.target-feature.args
           || matrix.target.args }} --no-run
       - name: Run Tests - NodeJs
+        if: runner.os == 'Linux'
         env:
           JBG_TEST_RUNNER: node-js
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Deno
+        if: runner.os == 'Linux'
         env:
           JBG_TEST_RUNNER: deno
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Chrome
+        if: runner.os == 'Linux'
         env:
           JBG_TEST_RUNNER: chrome-driver
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Chrome - Dedicated Worker
+        if: runner.os == 'Linux'
         env:
           JBG_TEST_RUNNER: chrome-driver
           JBG_TEST_WORKER: dedicated
@@ -167,6 +172,7 @@ jobs:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Chrome - Shared Worker
+        if: runner.os == 'Linux'
         env:
           JBG_TEST_RUNNER: chrome-driver
           JBG_TEST_WORKER: shared
@@ -174,6 +180,7 @@ jobs:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Chrome - Service Worker
+        if: runner.os == 'Linux'
         env:
           JBG_TEST_RUNNER: chrome-driver
           JBG_TEST_WORKER: service
@@ -181,12 +188,14 @@ jobs:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Firefox
+        if: runner.os == 'Linux'
         env:
           JBG_TEST_RUNNER: gecko-driver
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Firefox - Dedicated Worker
+        if: runner.os == 'Linux'
         env:
           JBG_TEST_RUNNER: gecko-driver
           JBG_TEST_WORKER: dedicated
@@ -194,6 +203,7 @@ jobs:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Firefox - Shared Worker
+        if: runner.os == 'Linux'
         env:
           JBG_TEST_RUNNER: gecko-driver
           JBG_TEST_WORKER: shared
@@ -201,6 +211,7 @@ jobs:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Firefox - Service Worker
+        if: runner.os == 'Linux'
         env:
           JBG_TEST_RUNNER: gecko-driver
           JBG_TEST_WORKER: service
@@ -208,14 +219,14 @@ jobs:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Safari
-        if: runner.os == 'macOS' && matrix.target.description != 'Wasm64'
+        if: runner.os == 'macOS'
         env:
           JBG_TEST_RUNNER: safari-driver
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Safari - Dedicated Worker
-        if: runner.os == 'macOS' && matrix.target.description != 'Wasm64'
+        if: runner.os == 'macOS'
         env:
           JBG_TEST_RUNNER: safari-driver
           JBG_TEST_WORKER: dedicated
@@ -223,7 +234,7 @@ jobs:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Safari - Shared Worker
-        if: runner.os == 'macOS' && matrix.target.description != 'Wasm64'
+        if: runner.os == 'macOS'
         env:
           JBG_TEST_RUNNER: safari-driver
           JBG_TEST_WORKER: shared
@@ -231,7 +242,7 @@ jobs:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Safari - Service Worker
-        if: runner.os == 'macOS' && matrix.target.description != 'Wasm64'
+        if: runner.os == 'macOS'
         env:
           JBG_TEST_RUNNER: safari-driver
           JBG_TEST_WORKER: service
@@ -240,7 +251,6 @@ jobs:
           matrix.target-feature.args || matrix.target.args }}
       - name: Set Target `RUSTFLAGS` - SAB
         if: matrix.target-feature.description == 'Atomics'
-        shell: bash
         run: |
           TARGET=$(echo "${{ matrix.target.target }}" | tr '[:lower:]-' '[:upper:]_')
           echo "CARGO_TARGET_${TARGET}_RUSTFLAGS=${{ matrix.target-feature.rustflags }} --cfg js_sys_target_feature=\"sab\"" >> $GITHUB_ENV
@@ -250,32 +260,28 @@ jobs:
           cargo test --workspace --target ${{ matrix.target.target }} ${{ matrix.target-feature.args
           || matrix.target.args }} --no-run
       - name: Run Tests - NodeJs - SAB
-        if: matrix.target-feature.description == 'Atomics'
+        if: runner.os == 'Linux' && matrix.target-feature.description == 'Atomics'
         env:
           JBG_TEST_RUNNER: node-js
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Deno - SAB
-        if: matrix.target-feature.description == 'Atomics'
+        if: runner.os == 'Linux' && matrix.target-feature.description == 'Atomics'
         env:
           JBG_TEST_RUNNER: deno
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Safari - SAB
-        if:
-          runner.os == 'macOS' && matrix.target.description != 'Wasm64' &&
-          matrix.target-feature.description == 'Atomics'
+        if: runner.os == 'macOS' && matrix.target-feature.description == 'Atomics'
         env:
           JBG_TEST_RUNNER: safari-driver
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Safari - SAB - Dedicated Worker
-        if:
-          runner.os == 'macOS' && matrix.target.description != 'Wasm64' &&
-          matrix.target-feature.description == 'Atomics'
+        if: runner.os == 'macOS' && matrix.target-feature.description == 'Atomics'
         env:
           JBG_TEST_RUNNER: safari-driver
           JBG_TEST_WORKER: dedicated
@@ -283,9 +289,7 @@ jobs:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Safari - SAB - Shared Worker
-        if:
-          runner.os == 'macOS' && matrix.target.description != 'Wasm64' &&
-          matrix.target-feature.description == 'Atomics'
+        if: runner.os == 'macOS' && matrix.target-feature.description == 'Atomics'
         env:
           JBG_TEST_RUNNER: safari-driver
           JBG_TEST_WORKER: shared
@@ -293,9 +297,7 @@ jobs:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Safari - SAB - Service Worker
-        if:
-          runner.os == 'macOS' && matrix.target.description != 'Wasm64' &&
-          matrix.target-feature.description == 'Atomics'
+        if: runner.os == 'macOS' && matrix.target-feature.description == 'Atomics'
         env:
           JBG_TEST_RUNNER: safari-driver
           JBG_TEST_WORKER: service
@@ -303,15 +305,17 @@ jobs:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Set Target `RUSTFLAGS` - RAB
-        shell: bash
+        if: runner.os == 'Linux'
         run: |
           TARGET=$(echo "${{ matrix.target.target }}" | tr '[:lower:]-' '[:upper:]_')
           echo "CARGO_TARGET_${TARGET}_RUSTFLAGS=${{ matrix.target-feature.rustflags }} --cfg js_sys_target_feature=\"unstable-rab\"" >> $GITHUB_ENV
       - name: Build Tests - RAB
+        if: runner.os == 'Linux'
         run:
           cargo test --workspace --target ${{ matrix.target.target }} ${{ matrix.target-feature.args
           || matrix.target.args }} --no-run
       - name: Run Tests - NodeJs - RAB
+        if: runner.os == 'Linux'
         env:
           JBG_TEST_RUNNER: node-js
           JBG_TEST_NODE_JS_ARGS: --experimental-wasm-rab-integration
@@ -319,24 +323,24 @@ jobs:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Deno - RAB
+        if: runner.os == 'Linux'
         env:
           JBG_TEST_RUNNER: deno
         run:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Set Target `RUSTFLAGS` - All
-        if: matrix.target-feature.description == 'Atomics'
-        shell: bash
+        if: runner.os == 'Linux' && matrix.target-feature.description == 'Atomics'
         run: |
           TARGET=$(echo "${{ matrix.target.target }}" | tr '[:lower:]-' '[:upper:]_')
           echo "CARGO_TARGET_${TARGET}_RUSTFLAGS=${{ matrix.target-feature.rustflags }} --cfg js_sys_target_feature=\"sab\" --cfg js_sys_target_feature=\"unstable-rab\"" >> $GITHUB_ENV
       - name: Build Tests - All
-        if: matrix.target-feature.description == 'Atomics'
+        if: runner.os == 'Linux' && matrix.target-feature.description == 'Atomics'
         run:
           cargo test --workspace --target ${{ matrix.target.target }} ${{ matrix.target-feature.args
           || matrix.target.args }} --no-run
       - name: Run Tests - NodeJs - All
-        if: matrix.target-feature.description == 'Atomics'
+        if: runner.os == 'Linux' && matrix.target-feature.description == 'Atomics'
         env:
           JBG_TEST_RUNNER: node-js
           JBG_TEST_NODE_JS_ARGS: --experimental-wasm-rab-integration
@@ -344,7 +348,7 @@ jobs:
           cargo test --workspace --no-fail-fast --target ${{ matrix.target.target }} ${{
           matrix.target-feature.args || matrix.target.args }}
       - name: Run Tests - Deno - All
-        if: matrix.target-feature.description == 'Atomics'
+        if: runner.os == 'Linux' && matrix.target-feature.description == 'Atomics'
         env:
           JBG_TEST_RUNNER: deno
         run:
