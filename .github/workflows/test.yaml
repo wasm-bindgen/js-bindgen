@@ -118,19 +118,19 @@ jobs:
         shell: bash
         working-directory: host
         run: |
-          cargo +stable run -p js-bindgen-web-driver -- chrome -p 8000 &
+          cargo +stable run -p js-bindgen-web-driver -- -p 8000 chrome &
           echo "JBG_TEST_CHROME_DRIVER_REMOTE=http://127.0.0.1:8000" >> $GITHUB_ENV
       - name: Run WebDriver Session Manager - Firefox
         shell: bash
         working-directory: host
         run: |
-          cargo +stable run -p js-bindgen-web-driver -- gecko -p 8001 &
+          cargo +stable run -p js-bindgen-web-driver -- -p 8001 gecko &
           echo "JBG_TEST_GECKO_DRIVER_REMOTE=http://127.0.0.1:8001" >> $GITHUB_ENV
       - name: Run WebDriver Session Manager - Safari
         if: runner.os == 'macOS' && matrix.target.description != 'Wasm64'
         working-directory: host
         run: |
-          cargo +stable run -p js-bindgen-web-driver -- safari -p 8002 &
+          cargo +stable run -p js-bindgen-web-driver -- -p 8002 safari &
           echo "JBG_TEST_SAFARI_DRIVER_REMOTE=http://127.0.0.1:8002" >> $GITHUB_ENV
       - name: Set Target `RUSTFLAGS`
         shell: bash

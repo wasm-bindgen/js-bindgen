@@ -19,6 +19,7 @@ use serde::Deserialize;
 use serde_repr::Deserialize_repr;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 use crate::config::WorkerKind;
 use crate::runner::{SHARED_JS, SHARED_TERMINAL_JS};
@@ -40,6 +41,7 @@ const SHARED_IMPORT_JS: &str = include_str!("js/shared-import.mjs");
 
 pub struct HttpServer {
 	url: String,
+	server: JoinHandle<Result<(), io::Error>>,
 	state: Arc<ServerState>,
 }
 
@@ -55,7 +57,6 @@ struct ServerState {
 struct Signals {
 	shutdown: AtomicFlag,
 	success: AtomicU8,
-	finished: AtomicFlag,
 }
 
 #[derive(Default)]
@@ -95,21 +96,20 @@ impl HttpServer {
 			let state = state.clone();
 			async move {
 				(&state.signals.shutdown).await;
-				state.signals.finished.signal();
 			}
 		});
-		tokio::spawn(serve.into_future());
+		let server = tokio::spawn(serve.into_future());
 
-		Ok(Self { url, state })
+		Ok(Self { url, server, state })
 	}
 
 	pub async fn shutdown(self) {
 		self.state.signals.shutdown.signal();
-		self.wait().await;
+		self.server.await.unwrap().unwrap();
 	}
 
-	pub async fn wait(&self) -> Status {
-		(&self.state.signals.finished).await;
+	pub async fn wait(self) -> Status {
+		self.server.await.unwrap().unwrap();
 		let status = self.state.signals.success.load(Ordering::Relaxed);
 		Status::from_repr(status).unwrap()
 	}

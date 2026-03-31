@@ -2,7 +2,6 @@ mod config;
 mod runner;
 mod server;
 mod test;
-mod web_driver;
 
 use std::path::PathBuf;
 use std::{env, iter, str};

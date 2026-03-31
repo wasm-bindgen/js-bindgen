@@ -3,37 +3,55 @@ use std::borrow::Cow;
 use std::ffi::OsString;
 use std::hash::Hash;
 use std::net::{Ipv4Addr, SocketAddrV4};
-use std::ops::{ControlFlow, Deref};
+use std::ops::Deref;
+use std::panic;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::{env, panic};
 
-use anyhow::{Error, Result};
+use anyhow::Result;
 use axum::body::{Body, Bytes};
 use axum::extract::State;
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{HeaderValue, Method, StatusCode};
-use axum::response::Response;
-use axum::routing::{any, delete, post};
-use axum::{Router, extract};
-use clap::Parser;
+use axum::response::{IntoResponse, Response};
+use axum::routing::{any, delete, get, post};
+use axum::{Json, Router, extract};
+use clap::{Args, Parser, Subcommand};
 use hashbrown::HashMap;
-use js_bindgen_shared::{AtomicFlag, WebDriver, WebDriverKind};
+use js_bindgen_shared::{AtomicFlag, WebDriver, WebDriverKind, WebDriverLocation};
 use mime::APPLICATION_JSON;
-use reqwest::{Client, Request};
-use serde::Deserialize;
+use reqwest::{Client, Error, Request};
+use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
+use tokio::signal;
 use tokio::sync::Mutex;
 use tower_http::catch_panic::CatchPanicLayer;
+use url::Url;
 use xxhash_rust::xxh3::Xxh3Default;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
-struct Args {
-	driver: WebDriverKind,
+struct Cli {
 	#[arg(short, long)]
 	port: Option<u16>,
+	#[command(subcommand)]
+	command: Command,
+}
+
+#[derive(Subcommand)]
+enum Command {
+	Chrome(LocalArgs),
+	Edge(LocalArgs),
+	Gecko(LocalArgs),
+	Safari(LocalArgs),
+	Remote { url: Url },
+}
+
+#[derive(Args)]
+struct LocalArgs {
 	path: Option<PathBuf>,
+	#[arg(last = true)]
+	args: Option<Vec<OsString>>,
 }
 
 #[derive(Clone)]
@@ -64,49 +82,26 @@ struct Driver {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-	let Args { driver, port, path } = Args::parse();
-
-	let path = if let Some(path) = path {
-		Cow::Owned(path)
-	} else if let Some(path) = env::var_os(format!("JBG_TEST_{}_PATH", driver.to_env())) {
-		Cow::Owned(path.into())
-	} else {
-		Cow::Borrowed(Path::new(driver.to_binary()))
-	};
-
-	let args = js_bindgen_shared::env_args(&format!("JBG_TEST_{}_ARGS", driver.to_env()))?;
+	let cli = Cli::parse();
 
 	let listener = TcpListener::bind(SocketAddrV4::new(
 		Ipv4Addr::LOCALHOST,
-		port.unwrap_or_default(),
+		cli.port.unwrap_or_default(),
 	))
 	.await?;
 
 	println!("Server listening on: {}", listener.local_addr()?);
 
 	let shutdown = Arc::new(AtomicFlag::new());
-	let pool = if driver.multi_session_support() {
-		AppState {
-			client: Client::new(),
-			pool: Arc::new(DriverPool::Shared {
-				driver: WebDriver::run(&path, &args).await?,
-				available: Mutex::new(HashMap::new()),
-				active: Mutex::new(HashMap::new()),
-			}),
-		}
-	} else {
-		AppState {
-			client: Client::new(),
-			pool: Arc::new(DriverPool::Single {
-				path,
-				args,
-				available: Mutex::new(HashMap::new()),
-				active: Mutex::new(HashMap::new()),
-			}),
-		}
+	let client = Client::new();
+	let pool = Arc::new(DriverPool::from_command(cli.command).await?);
+	let state = AppState {
+		client: client.clone(),
+		pool: Arc::clone(&pool),
 	};
 
 	let app = Router::new()
+		.route("/status", get(handle_status))
 		.route("/session", post(create_session))
 		.route("/session/{id}", delete(delete_session))
 		.route("/session/{id}/{*path}", any(proxy_request))
@@ -117,56 +112,95 @@ async fn main() -> Result<()> {
 				panic::resume_unwind(error)
 			}
 		}))
-		.with_state(pool);
+		.with_state(state);
 
-	axum::serve(listener, app)
-		.with_graceful_shutdown(async move {
-			shutdown.deref().await;
+	let server = tokio::spawn(
+		axum::serve(listener, app)
+			.with_graceful_shutdown({
+				let shutdown = Arc::clone(&shutdown);
+				async move {
+					shutdown.deref().await;
+				}
+			})
+			.into_future(),
+	);
+
+	println!("Shutdown via CTRL-C\n");
+
+	signal::ctrl_c().await?;
+	shutdown.signal();
+	server.await??;
+
+	Arc::into_inner(pool).unwrap().shutdown(client).await?;
+
+	Ok(())
+}
+
+#[derive(Deserialize, Serialize)]
+struct WebDriverResponse<T> {
+	value: T,
+}
+
+async fn handle_status(State(state): State<AppState>) -> Result<Response, Response> {
+	#[derive(Serialize)]
+	pub struct Status {
+		pub ready: bool,
+		pub message: String,
+	}
+
+	match state.pool.deref() {
+		DriverPool::Shared { driver, .. } => {
+			let response = state
+				.client
+				.get(driver.url().join("status").unwrap())
+				.send()
+				.await
+				.map_err(IntoStatus::into_response)?;
+
+			Ok(Response::from(response).map(Body::new))
+		}
+		DriverPool::Single { .. } => Ok(Json(WebDriverResponse {
+			value: Status {
+				ready: true,
+				message: String::new(),
+			},
 		})
-		.await
-		.map_err(Error::from)
+		.into_response()),
+	}
 }
 
-#[derive(Deserialize)]
-struct WebDriverResponse {
-	value: NewSessionResponse,
-}
+async fn create_session(State(state): State<AppState>, body: Bytes) -> Result<Response, Response> {
+	#[derive(Deserialize)]
+	#[serde(rename_all = "camelCase")]
+	struct NewSessionResponse {
+		session_id: String,
+	}
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct NewSessionResponse {
-	session_id: String,
-}
-
-async fn create_session(
-	State(state): State<AppState>,
-	body: Bytes,
-) -> Result<Response, StatusCode> {
 	async fn post_session(
 		state: &AppState,
 		driver: &WebDriver,
 		body: Bytes,
-	) -> Result<ControlFlow<Response, (String, Bytes)>, StatusCode> {
+	) -> Result<(String, Bytes), Response> {
 		let response = state
 			.client
 			.post(driver.url().join("session").unwrap())
 			.body(body)
 			.send()
 			.await
-			.map_err(IntoStatus::into_status)?;
+			.map_err(IntoStatus::into_response)?;
 
 		if !response.status().is_success() {
-			return Ok(ControlFlow::Break(Response::from(response).map(Body::new)));
+			return Err(Response::from(response).map(Body::new));
 		}
 
-		let response = response.bytes().await.map_err(IntoStatus::into_status)?;
+		let response = response.bytes().await.map_err(IntoStatus::into_response)?;
 		let WebDriverResponse {
 			value: NewSessionResponse { session_id },
 		} = serde_json::from_slice(&response).unwrap();
 
 		println!("Created new WebDriver session at {}", driver.url());
 
-		Ok(ControlFlow::Continue((session_id, response)))
+		Ok((session_id, response))
 	}
 
 	let mut hasher = Xxh3Default::new();
@@ -192,10 +226,7 @@ async fn create_session(
 					.insert(session_id, (caps_hash, response.clone()));
 				response
 			} else {
-				let (session_id, response) = match post_session(&state, driver, body).await? {
-					ControlFlow::Continue(result) => result,
-					ControlFlow::Break(response) => return Ok(response),
-				};
+				let (session_id, response) = post_session(&state, driver, body).await?;
 
 				active
 					.lock()
@@ -223,12 +254,8 @@ async fn create_session(
 
 				response
 			} else {
-				let driver = WebDriver::run(path, args).await.unwrap();
-
-				let (session_id, response) = match post_session(&state, &driver, body).await? {
-					ControlFlow::Continue(result) => result,
-					ControlFlow::Break(response) => return Ok(response),
-				};
+				let driver = WebDriver::run_local(path, args).await.unwrap();
+				let (session_id, response) = post_session(&state, &driver, body).await?;
 
 				active.lock().await.insert(
 					session_id,
@@ -287,7 +314,7 @@ async fn proxy_request(
 	extract::Path((id, path)): extract::Path<(String, String)>,
 	method: Method,
 	body: Bytes,
-) -> Result<Response<Body>, StatusCode> {
+) -> Result<Response, StatusCode> {
 	let mut url = match state.pool.deref() {
 		DriverPool::Shared { driver, .. } => driver.url().clone(),
 		DriverPool::Single { active, .. } => {
@@ -312,11 +339,101 @@ async fn proxy_request(
 	Ok(Response::from(response).map(Body::new))
 }
 
-trait IntoStatus {
-	fn into_status(self) -> StatusCode;
+impl DriverPool {
+	async fn from_command(command: Command) -> Result<Self> {
+		match command {
+			Command::Chrome(args) => Self::local(WebDriverKind::Chrome, args).await,
+			Command::Edge(args) => Self::local(WebDriverKind::Edge, args).await,
+			Command::Gecko(args) => Self::local(WebDriverKind::Gecko, args).await,
+			Command::Safari(args) => Self::local(WebDriverKind::Safari, args).await,
+			Command::Remote { url } => Ok(Self::Shared {
+				driver: WebDriver::run(WebDriverLocation::Remote(url)).await?,
+				available: Mutex::new(HashMap::new()),
+				active: Mutex::new(HashMap::new()),
+			}),
+		}
+	}
+
+	async fn local(kind: WebDriverKind, args: LocalArgs) -> Result<Self> {
+		let path = args
+			.path
+			.map_or(Cow::Borrowed(Path::new(kind.to_binary())), Cow::Owned);
+		let args = args.args.unwrap_or_default();
+
+		if kind.multi_session_support() {
+			Ok(Self::Shared {
+				driver: WebDriver::run(WebDriverLocation::Local { path, args }).await?,
+				available: Mutex::new(HashMap::new()),
+				active: Mutex::new(HashMap::new()),
+			})
+		} else {
+			Ok(Self::Single {
+				path,
+				args,
+				available: Mutex::new(HashMap::new()),
+				active: Mutex::new(HashMap::new()),
+			})
+		}
+	}
+
+	async fn shutdown(self, client: Client) -> Result<()> {
+		match self {
+			Self::Shared {
+				driver,
+				available,
+				active,
+			} => {
+				if driver.is_remote() {
+					let url = driver.url().join("session/").unwrap();
+
+					for id in available
+						.into_inner()
+						.into_values()
+						.flatten()
+						.map(|(id, _)| id)
+						.chain(active.into_inner().into_keys())
+					{
+						let response = client.delete(url.join(&id).unwrap()).send().await.unwrap();
+
+						if !response.status().is_success() {
+							println!("Failed to shutdown session {id} at {}:", driver.url());
+							println!("\t{}", response.text().await.unwrap());
+						}
+					}
+				}
+
+				driver.shutdown().await?;
+			}
+			Self::Single {
+				available, active, ..
+			} => {
+				for driver in available
+					.into_inner()
+					.into_values()
+					.flatten()
+					.map(|(_, driver)| driver)
+					.chain(active.into_inner().into_values().map(|(_, driver)| driver))
+				{
+					driver.driver.shutdown().await?;
+				}
+			}
+		}
+
+		Ok(())
+	}
 }
 
-impl IntoStatus for reqwest::Error {
+trait IntoStatus: Sized {
+	#[track_caller]
+	fn into_status(self) -> StatusCode;
+
+	#[track_caller]
+	fn into_response(self) -> Response {
+		self.into_status().into_response()
+	}
+}
+
+impl IntoStatus for Error {
 	fn into_status(self) -> StatusCode {
 		if let Some(status) = self.status() {
 			return status;

@@ -8,14 +8,13 @@ use std::{env, fs, process};
 use anyhow::{Context, Result};
 use fantoccini::ClientBuilder;
 use fantoccini::wd::Capabilities;
-use js_bindgen_shared::ReadFile;
+use js_bindgen_shared::{ReadFile, WebDriver, WebDriverLocation};
 use tokio::runtime::Runtime;
 use tokio::signal;
 
-use crate::config::{EngineKind, RunnerConfig, WebDriverLocation, WorkerKind};
+use crate::config::{EngineKind, RunnerConfig, WorkerKind};
 use crate::server::{HttpServer, Status};
 use crate::test::TestData;
-use crate::web_driver::WebDriver;
 
 const DENO_JS: &str = include_str!("js/deno.mjs");
 const NODE_JS_JS: &str = include_str!("js/node-js.mjs");
@@ -155,9 +154,9 @@ impl Runner {
 	async fn run_server(self, worker: Option<WorkerKind>) -> Result<()> {
 		let server = self.http_server(false, worker).await?;
 
-		println!("open this URL in your browser to run tests:");
+		println!("Open this URL in your browser to run tests:");
 		println!("{}", server.url());
-		println!("shutdown via CTRL-C");
+		println!("Shutdown via CTRL-C");
 
 		signal::ctrl_c().await?;
 		server.shutdown().await;

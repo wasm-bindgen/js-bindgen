@@ -7,8 +7,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Error, Result, anyhow, bail};
 use fantoccini::wd::Capabilities;
-use js_bindgen_shared::{ReadFile, WebDriverKind};
+use js_bindgen_shared::{ReadFile, WebDriverKind, WebDriverLocation};
 use serde_json::{Map, Value};
+use strum::VariantArray;
 use url::Url;
 
 pub enum RunnerConfig {
@@ -35,18 +36,10 @@ enum RunnerKind {
 	Server,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, VariantArray)]
 pub enum EngineKind {
 	Deno,
 	NodeJs,
-}
-
-pub enum WebDriverLocation {
-	Local {
-		path: Cow<'static, Path>,
-		args: Vec<OsString>,
-	},
-	Remote(Url),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -70,10 +63,7 @@ impl RunnerConfig {
 				if let Some(first) = config.replace(RunnerConfig::Engine {
 					kind: engine,
 					path: Cow::Owned(path.into()),
-					args: js_bindgen_shared::env_args(&format!(
-						"JBG_TEST_{}_ARGS",
-						engine.to_env()
-					))?,
+					args: env_args(engine.to_env())?,
 				}) {
 					return Err(multiple_error(&first, engine.to_env()));
 				}
@@ -87,7 +77,7 @@ impl RunnerConfig {
 			web_drivers: &[WebDriverKind],
 		) -> Result<()> {
 			for web_driver in web_drivers.iter().copied() {
-				let Some(location) = WebDriverLocation::from_env(web_driver)? else {
+				let Some(location) = web_driver_location_from_env(web_driver)? else {
 					continue;
 				};
 
@@ -131,10 +121,7 @@ impl RunnerConfig {
 						return Ok(Some(RunnerConfig::Engine {
 							kind: *engine,
 							path: Cow::Borrowed(Path::new(engine.to_binary())),
-							args: js_bindgen_shared::env_args(&format!(
-								"JBG_TEST_{}_ARGS",
-								engine.to_env()
-							))?,
+							args: env_args(engine.to_env())?,
 						}));
 					}
 				}
@@ -149,10 +136,7 @@ impl RunnerConfig {
 							kind: *web_driver,
 							location: WebDriverLocation::Local {
 								path: Cow::Borrowed(Path::new(web_driver.to_binary())),
-								args: js_bindgen_shared::env_args(&format!(
-									"JBG_TEST_{}_ARGS",
-									web_driver.to_env()
-								))?,
+								args: env_args(web_driver.to_env())?,
 							},
 							capabilities: create_capabilities(*web_driver)?,
 							worker: WorkerKind::from_env()?,
@@ -170,13 +154,13 @@ impl RunnerConfig {
 		if let Some(kind) = kind {
 			match kind {
 				RunnerKind::Engine(None) => {
-					search_engine(&mut config, &EngineKind::values())?;
+					search_engine(&mut config, EngineKind::VARIANTS)?;
 				}
 				RunnerKind::Engine(Some(engine)) => {
 					search_engine(&mut config, &[engine])?;
 				}
 				RunnerKind::WebDriver(None) => {
-					search_web_driver(&mut config, &WebDriverKind::values())?;
+					search_web_driver(&mut config, WebDriverKind::VARIANTS)?;
 				}
 				RunnerKind::WebDriver(Some(web_driver)) => {
 					search_web_driver(&mut config, &[web_driver])?;
@@ -188,8 +172,8 @@ impl RunnerConfig {
 				}
 			}
 		} else {
-			search_engine(&mut config, &EngineKind::values())?;
-			search_web_driver(&mut config, &WebDriverKind::values())?;
+			search_engine(&mut config, EngineKind::VARIANTS)?;
+			search_web_driver(&mut config, WebDriverKind::VARIANTS)?;
 		}
 
 		if let Some(config) = config {
@@ -197,14 +181,14 @@ impl RunnerConfig {
 		} else {
 			let config = if let Some(kind) = kind {
 				match kind {
-					RunnerKind::Engine(None) => search_path(&EngineKind::values(), &[])?,
+					RunnerKind::Engine(None) => search_path(EngineKind::VARIANTS, &[])?,
 					RunnerKind::Engine(Some(engine)) => search_path(&[engine], &[])?,
-					RunnerKind::WebDriver(None) => search_path(&[], &WebDriverKind::values())?,
+					RunnerKind::WebDriver(None) => search_path(&[], WebDriverKind::VARIANTS)?,
 					RunnerKind::WebDriver(Some(web_driver)) => search_path(&[], &[web_driver])?,
 					RunnerKind::Server => unreachable!(),
 				}
 			} else {
-				search_path(&EngineKind::values(), &WebDriverKind::values())?
+				search_path(EngineKind::VARIANTS, WebDriverKind::VARIANTS)?
 			};
 
 			if let Some(config) = config {
@@ -264,15 +248,15 @@ impl RunnerKind {
 				"web-driver" => Self::WebDriver(None),
 				"server" => Self::Server,
 				runner => 'runner: {
-					for engine in EngineKind::values() {
+					for engine in EngineKind::VARIANTS {
 						if runner == engine.to_name() {
-							break 'runner Self::Engine(Some(engine));
+							break 'runner Self::Engine(Some(*engine));
 						}
 					}
 
-					for web_driver in WebDriverKind::values() {
+					for web_driver in WebDriverKind::VARIANTS {
 						if runner == web_driver.to_name() {
-							break 'runner Self::WebDriver(Some(web_driver));
+							break 'runner Self::WebDriver(Some(*web_driver));
 						}
 					}
 
@@ -325,10 +309,6 @@ impl EngineKind {
 			Self::NodeJs.to_download_url(),
 		)
 	}
-
-	fn values() -> [Self; 2] {
-		[Self::Deno, Self::NodeJs]
-	}
 }
 
 impl Display for EngineKind {
@@ -338,37 +318,6 @@ impl Display for EngineKind {
 			Self::NodeJs => "Node.js",
 		};
 		f.write_str(name)
-	}
-}
-
-impl WebDriverLocation {
-	fn from_env(kind: WebDriverKind) -> Result<Option<Self>> {
-		let mut location = None;
-
-		let local_env = format!("JBG_TEST_{}_PATH", kind.to_env());
-		if let Some(path) = env::var_os(&local_env) {
-			location = Some(Self::Local {
-				path: Cow::Owned(path.into()),
-				args: js_bindgen_shared::env_args(&format!("JBG_TEST_{}_ARGS", kind.to_env()))?,
-			});
-		}
-
-		let remote_env = format!("JBG_TEST_{}_REMOTE", kind.to_env());
-		match env::var(&remote_env) {
-			Ok(var) => {
-				let url = Url::parse(&var).context(format!("failed to parse `{remote_env}`"))?;
-
-				if location.replace(Self::Remote(url)).is_some() {
-					bail!(
-						"found incompatible `{local_env}` and `{remote_env}` environment variables"
-					)
-				}
-			}
-			Err(VarError::NotPresent) => (),
-			Err(VarError::NotUnicode(_)) => bail!("unable to parse `{remote_env}`"),
-		}
-
-		Ok(location)
 	}
 }
 
@@ -385,6 +334,52 @@ impl WorkerKind {
 			Err(VarError::NotUnicode(_)) => bail!("unable to parse `JBG_TEST_WORKER`"),
 		})
 	}
+}
+
+fn web_driver_location_from_env(kind: WebDriverKind) -> Result<Option<WebDriverLocation>> {
+	let mut location = None;
+
+	let local_env = format!("JBG_TEST_{}_PATH", kind.to_env());
+	if let Some(path) = env::var_os(&local_env) {
+		location = Some(WebDriverLocation::Local {
+			path: Cow::Owned(path.into()),
+			args: env_args(kind.to_env())?,
+		});
+	}
+
+	let remote_env = format!("JBG_TEST_{}_REMOTE", kind.to_env());
+	match env::var(&remote_env) {
+		Ok(var) => {
+			let url = Url::parse(&var).context(format!("failed to parse `{remote_env}`"))?;
+
+			if location.replace(WebDriverLocation::Remote(url)).is_some() {
+				bail!("found incompatible `{local_env}` and `{remote_env}` environment variables")
+			}
+		}
+		Err(VarError::NotPresent) => (),
+		Err(VarError::NotUnicode(_)) => bail!("unable to parse `{remote_env}`"),
+	}
+
+	Ok(location)
+}
+
+pub fn env_args(name: &str) -> Result<Vec<OsString>> {
+	let key = format!("JBG_TEST_{name}_ARGS");
+
+	let Some(var) = env::var_os(&key) else {
+		return Ok(Vec::new());
+	};
+
+	let Some(args) = shlex::bytes::split(var.as_encoded_bytes()) else {
+		bail!("failed to parse `{key}`");
+	};
+
+	Ok(args
+		.into_iter()
+		.map(|arg|
+					// SAFETY: original source is a `OsString`.
+					unsafe { OsString::from_encoded_bytes_unchecked(arg) })
+		.collect())
 }
 
 fn create_capabilities(kind: WebDriverKind) -> Result<Capabilities> {

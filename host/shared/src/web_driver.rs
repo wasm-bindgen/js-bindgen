@@ -1,7 +1,9 @@
+use std::borrow::Cow;
 use std::ffi::OsString;
 use std::fmt::{Display, Formatter};
 use std::io::ErrorKind;
 use std::net::{Ipv4Addr, SocketAddrV4};
+use std::ops::Deref;
 use std::path::Path;
 use std::pin::Pin;
 use std::process::{ExitStatus, Stdio};
@@ -9,12 +11,11 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
-use std::{env, fmt, io};
+use std::{fmt, io};
 
 use anyhow::{Result, bail};
-#[cfg(feature = "clap")]
-use clap::ValueEnum;
 use futures_util::task::AtomicWaker;
+use strum::VariantArray;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::process::{Child, Command};
 use tokio::sync::oneshot::{self, Receiver};
@@ -23,11 +24,26 @@ use url::Url;
 
 pub struct WebDriver {
 	url: Url,
-	child: ChildWrapper,
+	child: Option<ChildWrapper>,
+}
+
+pub enum WebDriverLocation {
+	Local {
+		path: Cow<'static, Path>,
+		args: Vec<OsString>,
+	},
+	Remote(Url),
 }
 
 impl WebDriver {
-	pub async fn run(path: &Path, args: &[OsString]) -> Result<Self> {
+	pub async fn run(location: WebDriverLocation) -> Result<Self> {
+		match location {
+			WebDriverLocation::Local { path, args } => Self::run_local(&path, &args).await,
+			WebDriverLocation::Remote(url) => Ok(Self { url, child: None }),
+		}
+	}
+
+	pub async fn run_local(path: &Path, args: &[OsString]) -> Result<Self> {
 		// Wait for the WebDriver to come online and bind its port before we try to
 		// connect to it.
 		const MAX: Duration = Duration::from_secs(5);
@@ -41,8 +57,8 @@ impl WebDriver {
 			let child = Command::new(path)
 				.stdout(Stdio::piped())
 				.stderr(Stdio::piped())
-				.args(args)
 				.arg(format!("--port={}", driver_addr.port()))
+				.args(args)
 				.spawn()?;
 			let mut child = ChildWrapper::new(child);
 
@@ -64,16 +80,7 @@ impl WebDriver {
 							eprintln!("trying again ...");
 						}
 					},
-					result = child.wait() => {
-						match result {
-							Ok(status) => if status.success() {
-								eprintln!("WebDriver exited prematurely with success");
-							} else {
-								eprintln!("WebDriver failed with status: {status}");
-							}
-							Err(error) => eprintln!("WebDriver failed with error: {error}"),
-						}
-
+					_ = child.wait() => {
 						child.output_error().await;
 
 						eprintln!("failed to start WebDriver, trying again ...");
@@ -89,7 +96,7 @@ impl WebDriver {
 
 		Ok(Self {
 			url: Url::parse(&format!("http://{driver_addr}"))?,
-			child,
+			child: Some(child),
 		})
 	}
 
@@ -98,12 +105,23 @@ impl WebDriver {
 		&self.url
 	}
 
-	pub async fn output_error(self) {
-		self.child.output_error().await;
+	#[must_use]
+	pub fn is_remote(&self) -> bool {
+		self.child.is_none()
 	}
 
-	pub async fn shutdown(mut self) -> io::Result<()> {
-		self.child.0.take().unwrap().child.kill().await
+	pub async fn output_error(self) {
+		if let Some(child) = self.child {
+			child.output_error().await;
+		}
+	}
+
+	pub async fn shutdown(self) -> io::Result<()> {
+		if let Some(mut child) = self.child {
+			child.0.take().unwrap().child.kill().await
+		} else {
+			Ok(())
+		}
 	}
 }
 
@@ -136,7 +154,7 @@ impl ChildWrapper {
 			async move {
 				let mut output = Vec::new();
 				tokio::select! {
-					() = flag.as_ref() => (),
+					() = flag.deref() => (),
 					_ = tokio::io::copy(&mut stdout, &mut output) => (),
 				}
 				let _ = stdout_tx.send(output);
@@ -150,7 +168,7 @@ impl ChildWrapper {
 			async move {
 				let mut output = Vec::new();
 				tokio::select! {
-					() = flag.as_ref() => (),
+					() = flag.deref() => (),
 					_ = tokio::io::copy(&mut stderr, &mut output) => (),
 				}
 				let _ = stderr_tx.send(output);
@@ -179,15 +197,15 @@ impl ChildWrapper {
 
 		if let Err(error) = child.kill().await {
 			eprintln!("------ WebDriver Process Error ------\n{error}\n");
-		} else {
-			match child.try_wait() {
-				Ok(Some(status)) => {
-					eprintln!("------ WebDriver Process Status ------\n{status}\n");
-				}
-				Ok(None) => (),
-				Err(error) => {
-					eprintln!("------ WebDriver Process Status Error ------\n{error}\n");
-				}
+		}
+
+		match child.try_wait() {
+			Ok(Some(status)) => {
+				eprintln!("------ WebDriver Process Status ------\n{status}\n");
+			}
+			Ok(None) => (),
+			Err(error) => {
+				eprintln!("------ WebDriver Process Status Error ------\n{error}\n");
 			}
 		}
 
@@ -221,8 +239,7 @@ impl ChildWrapper {
 	}
 }
 
-#[derive(Clone, Copy)]
-#[cfg_attr(feature = "clap", derive(ValueEnum))]
+#[derive(Clone, Copy, VariantArray)]
 pub enum WebDriverKind {
 	Chrome,
 	Edge,
@@ -297,11 +314,6 @@ impl WebDriverKind {
 			Self::Safari,
 		)
 	}
-
-	#[must_use]
-	pub fn values() -> [Self; 4] {
-		[Self::Chrome, Self::Edge, Self::Gecko, Self::Safari]
-	}
 }
 
 impl Display for WebDriverKind {
@@ -314,23 +326,6 @@ impl Display for WebDriverKind {
 		};
 		f.write_str(name)
 	}
-}
-
-pub fn env_args(key: &str) -> Result<Vec<OsString>> {
-	let Some(var) = env::var_os(key) else {
-		return Ok(Vec::new());
-	};
-
-	let Some(args) = shlex::bytes::split(var.as_encoded_bytes()) else {
-		bail!("failed to parse `{key}`");
-	};
-
-	Ok(args
-		.into_iter()
-		.map(|arg|
-					// SAFETY: original source is a `OsString`.
-					unsafe { OsString::from_encoded_bytes_unchecked(arg) })
-		.collect())
 }
 
 #[derive(Default)]

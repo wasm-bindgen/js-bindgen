@@ -16,14 +16,15 @@ anyhow = { workspace = true }
 axum = { workspace = true }
 clap = { workspace = true }
 hashbrown = { workspace = true, features = ["default-hasher"] }
-js-bindgen-shared = { workspace = true, features = ["clap", "web-driver"] }
+js-bindgen-shared = { workspace = true, features = ["web-driver"] }
 mime = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 shlex = { workspace = true }
-tokio = { workspace = true, features = ["macros", "net", "process", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "net", "process", "rt-multi-thread", "signal"] }
 tower-http = { workspace = true, features = ["catch-panic"] }
+url = { workspace = true }
 xxhash-rust = { workspace = true }
 
 [lints]
