@@ -146,6 +146,7 @@ unsafe impl<T> Input for PtrLength<T> {
 	}
 }
 
+#[cfg(not(any(js_sys_assume_endianness = "little", js_sys_assume_endianness = "big")))]
 js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "isLittleEndian",
@@ -156,261 +157,210 @@ js_bindgen::embed_js!(
 	"}})()",
 );
 
-#[cfg(js_sys_target_feature = "unstable-rab")]
+#[cfg(all(
+	js_sys_target_feature = "unstable-rab",
+	not(js_sys_assume_endianness = "little")
+))]
 js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "view.DataView",
 	"new DataView(this.#memory.toResizableBuffer())",
 );
 
-#[cfg(js_sys_target_feature = "unstable-rab")]
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "view.Uint32",
-	"new Uint32Array(this.#memory.toResizableBuffer())",
-);
+macro_rules! buffer {
+	($type:literal, $size:literal) => {
+		#[cfg(all(js_sys_target_feature = "unstable-rab", not(js_sys_assume_endianness = "big")))]
+		js_bindgen::embed_js!(
+			module = "js_sys",
+			name = concat!("view.", $type),
+			"new {}Array(this.#memory.toResizableBuffer())",
+			interpolate $type,
+		);
 
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "view.getUint32",
-	required_embeds = [
-		("js_sys", "isLittleEndian"),
-		#[cfg(js_sys_target_feature = "unstable-rab")]
-		("js_sys", "view.Uint32"),
-		#[cfg(js_sys_target_feature = "unstable-rab")]
-		("js_sys", "view.DataView")
-	],
-	"(ptr, count) => {{",
-	#[cfg(debug_assertions)]
-	"	if (ptr % 4 !== 0) throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
-	"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	"		const base = ptr / 4",
-	"		const view = {uint32}",
-	"		return Array.from(view)",
-	"	}} else {{",
-	"		const out = new Array(count)",
-	"		const view = {data}",
-	"		for (let index = 0; index < count; index++) {{",
-	"			out[index] = view.getUint32(ptr + index * 4, true)",
-	"		}}",
-	"		return out",
-	"	}}",
-	"}}",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	uint32 = interpolate "this.#jsEmbed.js_sys['view.Uint32'].subarray(base, base + count)",
-	#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-	uint32 = interpolate "new Uint32Array(this.#memory.buffer, ptr, count)",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	data = interpolate "this.#jsEmbed.js_sys['view.DataView']",
-	#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-	data = interpolate "new DataView(this.#memory.buffer)",
-);
+		#[cfg(not(any(js_sys_assume_endianness = "little", js_sys_assume_endianness = "big")))]
+		js_bindgen::embed_js!(
+			module = "js_sys",
+			name = concat!("view.get", $type),
+			required_embeds = [
+				("js_sys", "isLittleEndian"),
+				#[cfg(js_sys_target_feature = "unstable-rab")]
+				("js_sys", concat!("view.", $type)),
+				#[cfg(js_sys_target_feature = "unstable-rab")]
+				("js_sys", "view.DataView")
+			],
+			"(ptr, count) => {{",
+			#[cfg(debug_assertions)]
+			"	if (ptr % {size} !== 0)",
+			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"",
+			"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
+			#[cfg(js_sys_target_feature = "unstable-rab")]
+			"		const base = ptr / {size}",
+			"		const view = {buffer}",
+			"		return Array.from(view)",
+			"	}} else {{",
+			"		const out = new Array(count)",
+			"		const view = {data}",
+			"		for (let index = 0; index < count; index++) {{",
+			"			out[index] = view.get{type}(ptr + index * {size}, true)",
+			"		}}",
+			"		return out",
+			"	}}",
+			"}}",
+			size = const $size,
+			#[cfg(js_sys_target_feature = "unstable-rab")]
+			buffer = interpolate concat!("this.#jsEmbed.js_sys['view.", $type, "'].subarray(base, base + count)"),
+			#[cfg(not(js_sys_target_feature = "unstable-rab"))]
+			buffer = interpolate concat!("new ", $type, "Array(this.#memory.buffer, ptr, count)"),
+			#[cfg(js_sys_target_feature = "unstable-rab")]
+			data = interpolate "this.#jsEmbed.js_sys['view.DataView']",
+			#[cfg(not(js_sys_target_feature = "unstable-rab"))]
+			data = interpolate "new DataView(this.#memory.buffer)",
+			type = interpolate $type,
+		);
 
-#[cfg(js_sys_target_feature = "unstable-rab")]
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "view.Int32",
-	"new Int32Array(this.#memory.toResizableBuffer())",
-);
+		#[cfg(js_sys_assume_endianness = "little")]
+		js_bindgen::embed_js!(
+			module = "js_sys",
+			name = concat!("view.get", $type),
+			required_embeds = [
+				#[cfg(js_sys_target_feature = "unstable-rab")]
+				("js_sys", concat!("view.", $type)),
+			],
+			"(ptr, count) => {{",
+			#[cfg(debug_assertions)]
+			"	if (ptr % {size} !== 0)",
+			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"",
+			#[cfg(js_sys_target_feature = "unstable-rab")]
+			"	const base = ptr / {size}",
+			"	const view = {buffer}",
+			"	return Array.from(view)",
+			"}}",
+			size = const $size,
+			#[cfg(js_sys_target_feature = "unstable-rab")]
+			buffer = interpolate concat!("this.#jsEmbed.js_sys['view.", $type, "'].subarray(base, base + count)"),
+			#[cfg(not(js_sys_target_feature = "unstable-rab"))]
+			buffer = interpolate concat!("new ", $type, "Array(this.#memory.buffer, ptr, count)"),
+		);
 
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "view.getInt32",
-	required_embeds = [
-		("js_sys", "isLittleEndian"),
-		#[cfg(js_sys_target_feature = "unstable-rab")]
-		("js_sys", "view.Int32"),
-		#[cfg(js_sys_target_feature = "unstable-rab")]
-		("js_sys", "view.DataView")
-	],
-	"(ptr, count) => {{",
-	#[cfg(debug_assertions)]
-	"	if (ptr % 4 !== 0) throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
-	"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	"		const base = ptr / 4",
-	"		const view = {int32}",
-	"		return Array.from(view)",
-	"	}} else {{",
-	"		const out = new Array(count)",
-	"		const view = {data}",
-	"		for (let index = 0; index < count; index++) {{",
-	"			out[index] = view.getInt32(ptr + index * 4, true)",
-	"		}}",
-	"		return out",
-	"	}}",
-	"}}",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	int32 = interpolate "this.#jsEmbed.js_sys['view.Int32'].subarray(base, base + count)",
-	#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-	int32 = interpolate "new Int32Array(this.#memory.buffer, ptr, count)",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	data = interpolate "this.#jsEmbed.js_sys['view.DataView']",
-	#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-	data = interpolate "new DataView(this.#memory.buffer)",
-);
+		#[cfg(js_sys_assume_endianness = "big")]
+		js_bindgen::embed_js!(
+			module = "js_sys",
+			name = concat!("view.get", $type),
+			required_embeds = [
+				#[cfg(js_sys_target_feature = "unstable-rab")]
+				("js_sys", "view.DataView")
+			],
+			"(ptr, count) => {{",
+			#[cfg(debug_assertions)]
+			"	if (ptr % {size} !== 0)",
+			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"",
+			"	const out = new Array(count)",
+			"	const view = {data}",
+			"	for (let index = 0; index < count; index++) {{",
+			"		out[index] = view.get{type}(ptr + index * {size}, true)",
+			"	}}",
+			"	return out",
+			"}}",
+			size = const $size,
+			#[cfg(js_sys_target_feature = "unstable-rab")]
+			data = interpolate "this.#jsEmbed.js_sys['view.DataView']",
+			#[cfg(not(js_sys_target_feature = "unstable-rab"))]
+			data = interpolate "new DataView(this.#memory.buffer)",
+			type = interpolate $type,
+		);
 
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "view.setInt32",
-	required_embeds = [
-		("js_sys", "isLittleEndian"),
-		#[cfg(js_sys_target_feature = "unstable-rab")]
-		("js_sys", "view.Int32"),
-		#[cfg(js_sys_target_feature = "unstable-rab")]
-		("js_sys", "view.DataView")
-	],
-	"(ptr, array) => {{",
-	#[cfg(debug_assertions)]
-	"	if (ptr % 4 !== 0) throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
-	"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
-	"		{int32}.set(array, ptr / 4)",
-	"	}} else {{",
-	"		const view = {data}",
-	"		for (let index = 0; index < array.length; index++) {{",
-	"			view.setInt32(ptr + index * 4, array[index], true)",
-	"		}}",
-	"	}}",
-	"}}",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	int32 = interpolate "this.#jsEmbed.js_sys['view.Int32']",
-	#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-	int32 = interpolate "new Int32Array(this.#memory.buffer)",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	data = interpolate "this.#jsEmbed.js_sys['view.DataView']",
-	#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-	data = interpolate "new DataView(this.#memory.buffer)",
-);
+		#[cfg(not(any(js_sys_assume_endianness = "little", js_sys_assume_endianness = "big")))]
+		js_bindgen::embed_js!(
+			module = "js_sys",
+			name = concat!("view.set", $type),
+			required_embeds = [
+				("js_sys", "isLittleEndian"),
+				#[cfg(js_sys_target_feature = "unstable-rab")]
+				("js_sys", concat!("view.", $type)),
+				#[cfg(js_sys_target_feature = "unstable-rab")]
+				("js_sys", "view.DataView")
+			],
+			"(ptr, array) => {{",
+			#[cfg(debug_assertions)]
+			"	if (ptr % {size} !== 0)",
+			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"",
+			"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
+			"		{buffer}.set(array, ptr / {size})",
+			"	}} else {{",
+			"		const view = {data}",
+			"		for (let index = 0; index < array.length; index++) {{",
+			"			view.set{type}(ptr + index * {size}, array[index], true)",
+			"		}}",
+			"	}}",
+			"}}",
+			size = const $size,
+			#[cfg(js_sys_target_feature = "unstable-rab")]
+			buffer = interpolate concat!("this.#jsEmbed.js_sys['view.", $type, "']"),
+			#[cfg(not(js_sys_target_feature = "unstable-rab"))]
+			buffer = interpolate concat!("new ", $type, "Array(this.#memory.buffer)"),
+			#[cfg(js_sys_target_feature = "unstable-rab")]
+			data = interpolate "this.#jsEmbed.js_sys['view.DataView']",
+			#[cfg(not(js_sys_target_feature = "unstable-rab"))]
+			data = interpolate "new DataView(this.#memory.buffer)",
+			type = interpolate $type,
+		);
 
-#[cfg(js_sys_target_feature = "unstable-rab")]
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "view.Float64",
-	"new Float64Array(this.#memory.toResizableBuffer())",
-);
+		#[cfg(js_sys_assume_endianness = "little")]
+		js_bindgen::embed_js!(
+			module = "js_sys",
+			name = concat!("view.set", $type),
+			required_embeds = [
+				#[cfg(js_sys_target_feature = "unstable-rab")]
+				("js_sys", concat!("view.", $type)),
+			],
+			"(ptr, array) => {{",
+			#[cfg(debug_assertions)]
+			"	if (ptr % {size} !== 0)",
+			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"",
+			"	{buffer}.set(array, ptr / {size})",
+			"}}",
+			size = const $size,
+			#[cfg(js_sys_target_feature = "unstable-rab")]
+			buffer = interpolate concat!("this.#jsEmbed.js_sys['view.", $type, "']"),
+			#[cfg(not(js_sys_target_feature = "unstable-rab"))]
+			buffer = interpolate concat!("new ", $type, "Array(this.#memory.buffer)"),
+		);
 
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "view.getFloat64",
-	required_embeds = [
-		("js_sys", "isLittleEndian"),
-		#[cfg(js_sys_target_feature = "unstable-rab")]
-		("js_sys", "view.Float64"),
-		#[cfg(js_sys_target_feature = "unstable-rab")]
-		("js_sys", "view.DataView")
-	],
-	"(ptr, count) => {{",
-	#[cfg(debug_assertions)]
-	"	if (ptr % 8 !== 0) throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
-	"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	"		const base = ptr / 8",
-	"		const view = {float64}",
-	"		return Array.from(view)",
-	"	}} else {{",
-	"		const out = new Array(count)",
-	"		const view = {data}",
-	"		for (let index = 0; index < count; index++) {{",
-	"			out[index] = view.getFloat64(ptr + index * 8, true)",
-	"		}}",
-	"		return out",
-	"	}}",
-	"}}",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	float64 = interpolate "this.#jsEmbed.js_sys['view.Float64'].subarray(base, base + count)",
-	#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-	float64 = interpolate "new Float64Array(this.#memory.buffer, ptr, count)",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	data = interpolate "this.#jsEmbed.js_sys['view.DataView']",
-	#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-	data = interpolate "new DataView(this.#memory.buffer)",
-);
+		#[cfg(js_sys_assume_endianness = "big")]
+		js_bindgen::embed_js!(
+			module = "js_sys",
+			name = concat!("view.set", $type),
+			required_embeds = [
+				#[cfg(js_sys_target_feature = "unstable-rab")]
+				("js_sys", "view.DataView")
+			],
+			"(ptr, array) => {{",
+			#[cfg(debug_assertions)]
+			"	if (ptr % {size} !== 0)",
+			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"",
+			"	const view = {data}",
+			"	for (let index = 0; index < array.length; index++) {{",
+			"		view.set{type}(ptr + index * {size}, array[index], true)",
+			"	}}",
+			"}}",
+			size = const $size,
+			#[cfg(js_sys_target_feature = "unstable-rab")]
+			data = interpolate "this.#jsEmbed.js_sys['view.DataView']",
+			#[cfg(not(js_sys_target_feature = "unstable-rab"))]
+			data = interpolate "new DataView(this.#memory.buffer)",
+			type = interpolate $type,
+		);
+	};
+}
 
-#[cfg(js_sys_target_feature = "unstable-rab")]
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "view.BigUint64",
-	"new BigUint64Array(this.#memory.toResizableBuffer())",
-);
-
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "view.getBigUint64",
-	required_embeds = [
-		("js_sys", "isLittleEndian"),
-		#[cfg(js_sys_target_feature = "unstable-rab")]
-		("js_sys", "view.BigUint64"),
-		#[cfg(js_sys_target_feature = "unstable-rab")]
-		("js_sys", "view.DataView")
-	],
-	"(ptr, count) => {{",
-	#[cfg(debug_assertions)]
-	"	if (ptr % 8 !== 0) throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
-	"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	"		const base = ptr / 8",
-	"		const view = {biguint64}",
-	"		return Array.from(view)",
-	"	}} else {{",
-	"		const out = new Array(count)",
-	"		const view = {data}",
-	"		for (let index = 0; index < count; index++) {{",
-	"			out[index] = view.getBigUint64(ptr + index * 8, true)",
-	"		}}",
-	"		return out",
-	"	}}",
-	"}}",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	biguint64 = interpolate "this.#jsEmbed.js_sys['view.BigUint64'].subarray(base, base + count)",
-	#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-	biguint64 = interpolate "new BigUint64Array(this.#memory.buffer, ptr, count)",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	data = interpolate "this.#jsEmbed.js_sys['view.DataView']",
-	#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-	data = interpolate "new DataView(this.#memory.buffer)",
-);
-
-#[cfg(js_sys_target_feature = "unstable-rab")]
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "view.BigInt64",
-	"new BigInt64Array(this.#memory.toResizableBuffer())",
-);
-
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "view.getBigInt64",
-	required_embeds = [
-		("js_sys", "isLittleEndian"),
-		#[cfg(js_sys_target_feature = "unstable-rab")]
-		("js_sys", "view.BigInt64"),
-		#[cfg(js_sys_target_feature = "unstable-rab")]
-		("js_sys", "view.DataView")
-	],
-	"(ptr, count) => {{",
-	#[cfg(debug_assertions)]
-	"	if (ptr % 8 !== 0) throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
-	"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	"		const base = ptr / 8",
-	"		const view = {bigint64}",
-	"		return Array.from(view)",
-	"	}} else {{",
-	"		const out = new Array(count)",
-	"		const view = {data}",
-	"		for (let index = 0; index < count; index++) {{",
-	"			out[index] = view.getBigInt64(ptr + index * 8, true)",
-	"		}}",
-	"		return out",
-	"	}}",
-	"}}",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	bigint64 = interpolate "this.#jsEmbed.js_sys['view.BigInt64'].subarray(base, base + count)",
-	#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-	bigint64 = interpolate "new BigInt64Array(this.#memory.buffer, ptr, count)",
-	#[cfg(js_sys_target_feature = "unstable-rab")]
-	data = interpolate "this.#jsEmbed.js_sys['view.DataView']",
-	#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-	data = interpolate "new DataView(this.#memory.buffer)",
-);
+buffer!("Uint32", 4_usize);
+buffer!("Int32", 4_usize);
+buffer!("Float64", 8_usize);
+buffer!("BigUint64", 8_usize);
+buffer!("BigInt64", 8_usize);

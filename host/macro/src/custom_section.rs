@@ -1,5 +1,6 @@
 use std::borrow::Cow;
-use std::iter;
+use std::ops::Deref;
+use std::{iter, mem, slice};
 
 use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
 #[cfg(test)]
@@ -41,13 +42,21 @@ struct Value {
 
 #[derive(Clone)]
 enum ValueKind {
-	Bytes(Vec<u8>),
+	Bytes(Bytes),
 	Const(Vec<TokenTree>),
 	Interpolate(Vec<TokenTree>),
+	InterpolateWithLength(Vec<TokenTree>),
 	Named(String),
 	TupleCount,
 	TupleA(usize),
 	TupleB(usize),
+}
+
+#[derive(Clone)]
+enum Bytes {
+	One(u8),
+	Two([u8; 2]),
+	Buffer(Vec<u8>),
 }
 
 impl CustomSection {
@@ -59,11 +68,53 @@ impl CustomSection {
 		}
 	}
 
-	pub fn bytes_value(&mut self, cfg: Option<[TokenTree; 2]>, bytes: Vec<u8>) {
-		self.values.push(Value {
-			cfg,
-			kind: ValueKind::Bytes(bytes),
-		});
+	pub fn byte_value(&mut self, cfg: Option<[TokenTree; 2]>, byte: u8) {
+		if cfg.is_none()
+			&& let Some(Value {
+				cfg: None,
+				kind: ValueKind::Bytes(buffer),
+			}) = self.values.last_mut()
+		{
+			buffer.extend(&[byte]);
+		} else {
+			self.values.push(Value {
+				cfg,
+				kind: ValueKind::Bytes(Bytes::One(byte)),
+			});
+		}
+	}
+
+	pub fn bytes_value(&mut self, cfg: Option<[TokenTree; 2]>, bytes: [u8; 2]) {
+		if cfg.is_none()
+			&& let Some(Value {
+				cfg: None,
+				kind: ValueKind::Bytes(buffer),
+			}) = self.values.last_mut()
+		{
+			buffer.extend(&bytes);
+		} else {
+			self.values.push(Value {
+				cfg,
+				kind: ValueKind::Bytes(Bytes::Two(bytes)),
+			});
+		}
+	}
+
+	pub fn string_value(&mut self, cfg: Option<[TokenTree; 2]>, string: &mut String) {
+		if cfg.is_none()
+			&& let Some(Value {
+				cfg: None,
+				kind: ValueKind::Bytes(buffer),
+			}) = self.values.last_mut()
+		{
+			buffer.extend(string.as_bytes());
+			string.clear();
+		} else {
+			self.values.push(Value {
+				cfg,
+				kind: ValueKind::Bytes(Bytes::Buffer(mem::take(string).into_bytes())),
+			});
+		}
 	}
 
 	pub fn const_value(&mut self, cfg: Option<[TokenTree; 2]>, expr: Vec<TokenTree>) {
@@ -77,6 +128,13 @@ impl CustomSection {
 		self.values.push(Value {
 			cfg,
 			kind: ValueKind::Interpolate(expr),
+		});
+	}
+
+	pub fn interpolate_with_length_value(&mut self, expr: Vec<TokenTree>) {
+		self.values.push(Value {
+			cfg: None,
+			kind: ValueKind::InterpolateWithLength(expr),
 		});
 	}
 
@@ -203,11 +261,17 @@ impl CustomSection {
 								name,
 								kind: DefValueKind::Interpolate(Cow::Borrowed(expr)),
 							}),
+							ValueKind::InterpolateWithLength(expr) => Some(DefValue {
+								cfg_1: value.cfg.as_ref(),
+								cfg_2: None,
+								name,
+								kind: DefValueKind::InterpolateWithLength(Cow::Borrowed(expr)),
+							}),
 							ValueKind::TupleA(tuple_index) => Some(DefValue {
 								cfg_1: self.tuple_values[*tuple_index].cfg.as_ref(),
 								cfg_2: None,
 								name,
-								kind: DefValueKind::TupleValue(Cow::Owned(
+								kind: DefValueKind::InterpolateWithLength(Cow::Owned(
 									[
 										ident(&format!("TUPLE_{tuple_index}")),
 										Punct::new('.', Spacing::Alone).into(),
@@ -221,7 +285,7 @@ impl CustomSection {
 								cfg_1: self.tuple_values[*tuple_index].cfg.as_ref(),
 								cfg_2: None,
 								name,
-								kind: DefValueKind::TupleValue(Cow::Owned(
+								kind: DefValueKind::InterpolateWithLength(Cow::Owned(
 									[
 										ident(&format!("TUPLE_{tuple_index}")),
 										Punct::new('.', Spacing::Alone).into(),
@@ -254,12 +318,22 @@ impl CustomSection {
 					name: Cow::Owned(index.to_string()),
 					kind: FlattenedValueKind::Const,
 				}],
-				ValueKind::Interpolate(_) => vec![FlattenedValue {
-					cfg_1: value.cfg.as_ref(),
-					cfg_2: None,
-					name: Cow::Owned(index.to_string()),
-					kind: FlattenedValueKind::Interpolate,
-				}],
+				ValueKind::Interpolate(_) => {
+					vec![FlattenedValue {
+						cfg_1: value.cfg.as_ref(),
+						cfg_2: None,
+						name: Cow::Owned(index.to_string()),
+						kind: FlattenedValueKind::Interpolate,
+					}]
+				}
+				ValueKind::InterpolateWithLength(_) => {
+					vec![FlattenedValue {
+						cfg_1: value.cfg.as_ref(),
+						cfg_2: None,
+						name: Cow::Owned(index.to_string()),
+						kind: FlattenedValueKind::InterpolateWithLength,
+					}]
+				}
 				ValueKind::Named(name) => {
 					let named = self
 						.named_values
@@ -297,7 +371,7 @@ impl CustomSection {
 						cfg_1: self.tuple_values[*tuple_index].cfg.as_ref(),
 						cfg_2: None,
 						name: Cow::Owned(index.to_string()),
-						kind: FlattenedValueKind::TupleValue,
+						kind: FlattenedValueKind::InterpolateWithLength,
 					}]
 				}
 			};
@@ -407,7 +481,8 @@ impl CustomSection {
 					))
 					.collect()
 			}
-			DefValueKind::Interpolate(interpolate) | DefValueKind::TupleValue(interpolate) => {
+			DefValueKind::Interpolate(interpolate)
+			| DefValueKind::InterpolateWithLength(interpolate) => {
 				let value_name = format!("VAL_{}", value.name);
 				let value_ident = ident(&value_name);
 				let len_name = format!("LEN_{}", value.name);
@@ -482,7 +557,7 @@ impl CustomSection {
 						],
 					))
 					.chain(
-						matches!(value.kind, DefValueKind::TupleValue(_))
+						matches!(value.kind, DefValueKind::InterpolateWithLength(_))
 							.then(|| {
 								// ```
 								// const VAL_<name>_LEN: [u8; 2] = u16::to_le_bytes(LEN_<name> as u16);
@@ -567,14 +642,14 @@ impl CustomSection {
 							}
 							FlattenedValueKind::Const
 							| FlattenedValueKind::Interpolate
-							| FlattenedValueKind::TupleValue => ident(&format!("LEN_{}", value.name)),
+							| FlattenedValueKind::InterpolateWithLength => ident(&format!("LEN_{}", value.name)),
 							FlattenedValueKind::TupleCount => Literal::usize_unsuffixed(1).into(),
 						},
 						Punct::new(';', Spacing::Alone).into(),
 					]
 					.into_iter()
 					.chain(
-						matches!(value.kind, FlattenedValueKind::TupleValue)
+						matches!(value.kind, FlattenedValueKind::InterpolateWithLength)
 							.then(|| {
 								[
 									ident("len"),
@@ -699,7 +774,7 @@ impl CustomSection {
 								FlattenedValueKind::Const | FlattenedValueKind::Interpolate => {
 									ident(&format!("LEN_{}", value.name))
 								}
-								FlattenedValueKind::TupleValue => {
+								FlattenedValueKind::InterpolateWithLength => {
 									Literal::usize_unsuffixed(2).into()
 								}
 								FlattenedValueKind::TupleCount => {
@@ -711,7 +786,7 @@ impl CustomSection {
 					Punct::new(',', Spacing::Alone).into(),
 				])
 				.chain(
-					matches!(value.kind, FlattenedValueKind::TupleValue)
+					matches!(value.kind, FlattenedValueKind::InterpolateWithLength)
 						.then(|| {
 							value.cfg_iter().chain([
 								group(
@@ -789,7 +864,7 @@ impl CustomSection {
 					Punct::new(',', Spacing::Alone).into(),
 				])
 				.chain(self.flattened_values().flat_map(move |value| {
-					matches!(value.kind, FlattenedValueKind::TupleValue)
+					matches!(value.kind, FlattenedValueKind::InterpolateWithLength)
 						.then(|| {
 							value.cfg_iter().chain([
 								ident(&format!("VAL_{}_LEN", value.name)),
@@ -858,6 +933,34 @@ impl CustomSection {
 	}
 }
 
+impl Bytes {
+	fn extend(&mut self, slice: &[u8]) {
+		let mut buffer = match self {
+			Self::Buffer(buffer) => {
+				buffer.extend_from_slice(slice);
+				return;
+			}
+			Bytes::One(byte) => vec![*byte],
+			Bytes::Two(bytes) => bytes.to_vec(),
+		};
+
+		buffer.extend_from_slice(slice);
+		*self = Self::Buffer(buffer);
+	}
+}
+
+impl Deref for Bytes {
+	type Target = [u8];
+
+	fn deref(&self) -> &Self::Target {
+		match self {
+			Bytes::One(bytes) => slice::from_ref(bytes),
+			Bytes::Two(bytes) => bytes,
+			Bytes::Buffer(bytes) => bytes,
+		}
+	}
+}
+
 struct DefValue<'v> {
 	cfg_1: Option<&'v [TokenTree; 2]>,
 	cfg_2: Option<&'v [TokenTree; 2]>,
@@ -869,8 +972,8 @@ enum DefValueKind<'v> {
 	Bytes(&'v [u8]),
 	Const(&'v [TokenTree]),
 	Interpolate(Cow<'v, [TokenTree]>),
+	InterpolateWithLength(Cow<'v, [TokenTree]>),
 	TupleDef(&'v [TokenTree]),
-	TupleValue(Cow<'v, [TokenTree]>),
 }
 
 struct FlattenedValue<'v> {
@@ -884,8 +987,8 @@ enum FlattenedValueKind<'v> {
 	Bytes(&'v [u8]),
 	Const,
 	Interpolate,
+	InterpolateWithLength,
 	TupleCount,
-	TupleValue,
 }
 
 impl<'v> DefValue<'v> {

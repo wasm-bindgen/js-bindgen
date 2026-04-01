@@ -44,6 +44,7 @@ name = "basic"
 linker_messages = "warn"
 unexpected_cfgs = { level = "allow", check-cfg = [
 	'cfg(js_sys_target_feature, values("sab", "unstable-rab"))',
+	'cfg(js_sys_assume_endianness, values("big", "little"))',
 ] }
 
 [workspace.lints.clippy]

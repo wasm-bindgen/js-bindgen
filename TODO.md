@@ -74,7 +74,6 @@
 - Memory-mapped file reading should lock files to make it safe.
 - Add diagnostics for traits when they are not implemented, e.g. `Input`/`Output`.
 - Inline JS code is getting quite complex, consider moving to external TS file.
-- Introduce `cfg` flag to remove big-endian support.
 - Add `#[cfg(debug_assertions)]` checks to `Input`/`Output`. E.g. confirming that an output type is
   really what it claims to be.
 - Wrap Rust types that don't map 1:1 to our own types. E.g. pointers, `Option` and so on.
