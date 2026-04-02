@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+cd $(dirname $0)/..
+cargo +stable run -q -p js-bindgen-ld -- $@

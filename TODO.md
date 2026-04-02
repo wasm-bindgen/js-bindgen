@@ -5,8 +5,6 @@
 - Do we agree with the new name `js-bindgen`? Maybe `web-bindgen` is the most accurate?
 - `#[js_sys]` is probably also not the ideal name.
 - Stub implementation for non-supported targets.
-- The linker shim throws a warning on Windows because of the shebang. This is a problem because we
-  want to e.g. deny linker warnings. Instead use a pre-compiled binary for Windows.
 - Add ourselves to the tool-conventions tool list.
 
 [bytecodealliance/wasm-tools#2405]: https://github.com/bytecodealliance/wasm-tools/issues/2405

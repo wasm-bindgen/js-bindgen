@@ -26,7 +26,7 @@ jobs:
       matrix:
         os:
           - { os: ubuntu-latest, description: Linux }
-          - { os: macos-latest, description: MacOS }
+          - { os: macos-latest, description: macOS }
           - { os: windows-latest, description: Windows }
 
     defaults:
@@ -77,9 +77,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Install Rust
-        run: |
-          rustup install --profile minimal ${{ matrix.target-feature.components || matrix.target.components }} ${{ matrix.target-feature.rust || matrix.target.rust }}
-          rustup default ${{ matrix.target-feature.rust || matrix.target.rust }}
+        run:
+          rustup install --no-update --profile minimal --override ${{
+          matrix.target-feature.components || matrix.target.components }} ${{
+          matrix.target-feature.rust || matrix.target.rust }}
       - name: Install Target
         if: matrix.target.install
         run: rustup target add ${{ matrix.target.target }}
@@ -88,8 +89,6 @@ jobs:
         with:
           # Rustc v1.93
           llvm-version: 21
-      - name: Install TSC
-        run: npm install -g typescript
       - name: Set Target `RUSTFLAGS`
         shell: bash
         run: |

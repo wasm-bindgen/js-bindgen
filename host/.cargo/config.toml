@@ -1,3 +1,4 @@
 [env]
+JBG_LOCAL_DEV = "1"
 # See https://github.com/rust-lang/rust/issues/136113.
 MACOSX_DEPLOYMENT_TARGET = "10.12"

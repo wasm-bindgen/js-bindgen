@@ -65,5 +65,7 @@ fn main() {
 		.expect("copy JS file should be success");
 	}
 
-	process::exit(status.code().unwrap_or(1));
+	if !status.success() {
+		process::exit(status.code().unwrap_or(1));
+	}
 }

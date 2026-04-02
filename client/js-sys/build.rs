@@ -6,7 +6,9 @@ use std::process::Command;
 use std::{env, fs, io, process};
 
 fn main() -> io::Result<()> {
-	if option_env!("JBG_LOCAL_DEV").is_some_and(|value| value == "1") {
+	if option_env!("JBG_LOCAL_DEV").is_some_and(|value| value == "1")
+		&& option_env!("CI").is_none_or(|value| value != "true")
+	{
 		search_folder(&env::current_dir()?)?;
 
 		let status = Command::new("cargo")

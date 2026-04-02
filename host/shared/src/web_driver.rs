@@ -307,7 +307,7 @@ impl WebDriverKind {
 			* {} - {}\n\
 			* {} - {}\n\
 			* {} - {}\n\
-			* {} - pre-installed on MacOS",
+			* {} - pre-installed on macOS",
 			Self::Chrome, Self::Chrome.to_download_url().unwrap(),
 			Self::Gecko, Self::Gecko.to_download_url().unwrap(),
 			Self::Edge, Self::Edge.to_download_url().unwrap(),

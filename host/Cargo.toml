@@ -1,6 +1,7 @@
 [workspace]
 members = [
 	"cargo-js-sys",
+	"cargo-shim",
 	"inline-snap",
 	"inline-snap-macro",
 	"js-sys-bindgen",

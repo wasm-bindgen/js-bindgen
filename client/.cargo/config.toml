@@ -2,8 +2,8 @@
 target = "wasm32-unknown-unknown"
 
 [target.'cfg(all(target_family = "wasm", any(target_os = "none", target_os = "unknown")))']
-linker = "../common/linker.cmd"
-runner = "../common/runner.cmd"
+linker = "../host/cargo-shim/linker"
+runner = "../host/cargo-shim/runner"
 
 [env]
 JBG_LOCAL_DEV = "1"
