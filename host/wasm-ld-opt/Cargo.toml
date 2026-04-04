@@ -4,6 +4,12 @@ license = { workspace = true }
 name = "wasm-ld-opt"
 publish = false
 
+[[bin]]
+bench = false
+doctest = false
+name = "wasm-ld-opt"
+test = false
+
 [dependencies]
 anyhow = { workspace = true }
 prettyplease = { workspace = true }

@@ -5,6 +5,10 @@ license = { workspace = true }
 name = "js-bindgen"
 rust-version = { workspace = true }
 
+[lib]
+bench = false
+doctest = false
+
 [dependencies]
 js-bindgen-macro = { workspace = true }
 

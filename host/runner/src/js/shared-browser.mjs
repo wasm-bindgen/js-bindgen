@@ -1,6 +1,6 @@
 import { runTests } from "./shared.mjs";
 import { colorText } from "./shared-terminal.mjs";
-export async function runBrowser() {
+export async function runBrowser(jsBindgenCtor) {
     let fetchOrder = 0;
     let fetchRunning = 0;
     let fetchError = false;
@@ -32,9 +32,17 @@ export async function runBrowser() {
             }
         });
     }
-    const module = await WebAssembly.compileStreaming(fetch("./wasm.wasm"));
-    const success = await runTests(module, (stream, text) => report(stream, colorText(text)));
-    let status = success ? 0 /* Status.Ok */ : 1 /* Status.Failed */;
+    let status;
+    if (jsBindgenCtor instanceof Error) {
+        report(1 /* Stream.Stderr */, jsBindgenCtor.message + "\n");
+        status = 2 /* Status.Abnormal */;
+    }
+    else {
+        status = await WebAssembly.compileStreaming(fetch("./wasm.wasm")).then(module => runTests(module, jsBindgenCtor, (stream, text) => report(stream, colorText(text))), error => {
+            report(1 /* Stream.Stderr */, error.message + "\n");
+            return 2 /* Status.Abnormal */;
+        });
+    }
     if (fetchRunning !== 0) {
         fetchWaiting = true;
         await fetchWaiter;

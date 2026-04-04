@@ -4,11 +4,7 @@ export class JsBindgen {
     // @ts-expect-error TS6133
     #jsEmbed;
     // @ts-expect-error TS6133
-    #memory = (() => {
-        const memory = JBG_PLACEHOLDER_MEMORY;
-        memory.toResizableBuffer();
-        return memory;
-    })();
+    #memory = JBG_PLACEHOLDER_MEMORY;
     #module;
     constructor(module) {
         this.#module = module;

@@ -1,0 +1,25 @@
+[package]
+edition = { workspace = true }
+license = { workspace = true }
+name = "cargo-shim"
+publish = false
+
+[lib]
+bench = false
+doctest = false
+test = false
+
+[[bin]]
+bench = false
+doctest = false
+name = "linker"
+test = false
+
+[[bin]]
+bench = false
+doctest = false
+name = "runner"
+test = false
+
+[lints]
+workspace = true

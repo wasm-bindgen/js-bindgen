@@ -5,8 +5,6 @@
 - Do we agree with the new name `js-bindgen`? Maybe `web-bindgen` is the most accurate?
 - `#[js_sys]` is probably also not the ideal name.
 - Stub implementation for non-supported targets.
-- The linker shim throws a warning on Windows because of the shebang. This is a problem because we
-  want to e.g. deny linker warnings. Instead use a pre-compiled binary for Windows.
 - Add ourselves to the tool-conventions tool list.
 
 [bytecodealliance/wasm-tools#2405]: https://github.com/bytecodealliance/wasm-tools/issues/2405
@@ -14,17 +12,6 @@
 # High Priority
 
 - Test Runner:
-  - Add various permutations to the CI.
-    - Run all possible runners on each OS.
-    - Run all worker types.
-    - Wasm64.
-    - Atomic.
-    - Panic strategies.
-  - Fold WebDrivers into `JBG_TEST_RUNNER`:
-    - `browser` should stay to use the automatic search, `engine` should be introduced to search for
-      engines and should be the default.
-    - Rename `JBG_TEST_<driver>` to `JBG_TEST_<driver>_PATH`.
-    - Introduce `JBG_TEST_NODE_PATH` and `JBG_TEST_DENO_PATH` as well.
   - Consider moving environment variables to CLI arguments.
   - Lint and format TS files and minimize JS files.
   - Add support for `--test-threads` and multithread tests where possible for `panic = "abort"`.
@@ -51,9 +38,11 @@
   - Optimize HTML output by syncing with rAF.
   - Validate `--no-capture` output against `libtest`.
   - Support return values.
-- Because sometimes custom sections get lost after linking, we should collect them during
-  pre-processing and re-insert them afterwards or pass them along some other way. Some tests also
-  rely on this.
+- WebDriver Session Manager:
+  - Add some form of session number limits.
+  - Close window after session is returned to the pool and open new one when intercepting new
+    session creation.
+  - Clean up cookies, storage, shared and service workers after session is returned to the pool.
 - E2E testing for the linker. Should also ensure deterministic output.
 - Can we use `TokenStream` from `str` parsing to simplify the code without affecting performance?
 - Escape namespaces and function names if they are not valid JS identifiers.
@@ -83,7 +72,6 @@
 - Memory-mapped file reading should lock files to make it safe.
 - Add diagnostics for traits when they are not implemented, e.g. `Input`/`Output`.
 - Inline JS code is getting quite complex, consider moving to external TS file.
-- Introduce `cfg` flag to remove big-endian support.
 - Add `#[cfg(debug_assertions)]` checks to `Input`/`Output`. E.g. confirming that an output type is
   really what it claims to be.
 - Wrap Rust types that don't map 1:1 to our own types. E.g. pointers, `Option` and so on.
@@ -133,6 +121,7 @@ This is a list of upstream issues that could make our lives significantly easier
 - `TextDe/Encoder` could support `SharedArrayBuffer`s:
   - [Chrome Bug](https://issues.chromium.org/issues/40102463)
   - [Firefox Bug](https://bugzilla.mozilla.org/show_bug.cgi?id=1561594)
+- `TextDe/Encoder` could support resizable buffers: [whatwg/encoding#344].
 - `wasm-encoder` `io::Write` support: [bytecodealliance/wasm-tools#778]
 - Improved test coverage data merging: [llvm/llvm-project#121194]
 - Cargo support for local development pre-processing: [rust-lang/cargo#12552] or
@@ -152,6 +141,7 @@ This is a list of upstream issues that could make our lives significantly easier
 [rust-lang/rust#29603]: https://github.com/rust-lang/rust/issues/29603
 [rust-lang/rfcs#3834]: https://github.com/rust-lang/rfcs/pull/3834
 [rust-lang/rust#136096]: https://github.com/rust-lang/rust/issues/136096
+[whatwg/encoding#344]: https://github.com/whatwg/encoding/issues/344
 [bytecodealliance/wasm-tools#778]: https://github.com/bytecodealliance/wasm-tools/issues/778
 [llvm/llvm-project#121194]: https://github.com/llvm/llvm-project/pull/121194
 [rust-lang/cargo#12552]: https://github.com/rust-lang/cargo/issues/12552

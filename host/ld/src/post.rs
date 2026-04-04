@@ -165,11 +165,15 @@ pub fn processing(
 			write!(js_output, "\t\t\t\t'{name}': ")?;
 
 			for (position, line) in js.lines().with_position() {
-				js_output.write_all(line.as_bytes())?;
-
-				if let Position::First | Position::Middle = position {
-					js_output.write_all(b"\n\t\t\t\t")?;
+				if let Position::Middle | Position::Last = position {
+					if line.is_empty() {
+						js_output.write_all(b"\n")?;
+					} else {
+						js_output.write_all(b"\n\t\t\t\t")?;
+					}
 				}
+
+				js_output.write_all(line.as_bytes())?;
 			}
 
 			js_output.write_all(b",\n")?;
@@ -197,11 +201,15 @@ pub fn processing(
 			write!(js_output, "\t\t\t\t'{name}': ")?;
 
 			for (position, line) in js.lines().with_position() {
-				js_output.write_all(line.as_bytes())?;
-
-				if let Position::First | Position::Middle = position {
-					js_output.write_all(b"\n\t\t\t\t")?;
+				if let Position::Middle | Position::Last = position {
+					if line.is_empty() {
+						js_output.write_all(b"\n")?;
+					} else {
+						js_output.write_all(b"\n\t\t\t\t")?;
+					}
 				}
+
+				js_output.write_all(line.as_bytes())?;
 			}
 
 			js_output.write_all(b",\n")?;

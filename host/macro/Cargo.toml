@@ -6,6 +6,8 @@ name = "js-bindgen-macro"
 rust-version = { workspace = true }
 
 [lib]
+bench = false
+doctest = false
 proc-macro = true
 
 [dev-dependencies]

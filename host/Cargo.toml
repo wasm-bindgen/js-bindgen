@@ -1,6 +1,7 @@
 [workspace]
 members = [
 	"cargo-js-sys",
+	"cargo-shim",
 	"inline-snap",
 	"inline-snap-macro",
 	"js-sys-bindgen",
@@ -12,6 +13,7 @@ members = [
 	"shared",
 	"test-macro",
 	"wasm-ld-opt",
+	"web-driver",
 ]
 resolver = "2"
 
@@ -38,7 +40,7 @@ axum = { version = "0.8", default-features = false, features = ["tokio", "json",
 cargo_metadata = "0.23"
 clap = { version = "4", features = ["derive"] }
 clap-cargo = { version = "0.18", features = ["cargo_metadata"] }
-dtor = "0.1"
+dtor = { version = "0.3", default-features = false, features = ["proc_macro"] }
 fantoccini = { version = "0.22.0", default-features = false, features = ["rustls-tls"] }
 foldhash = { version = "0.2", default-features = false }
 futures-util = { version = "0.3", default-features = false }
@@ -51,22 +53,26 @@ js-bindgen-ld-shared = { path = "ld-shared" }
 js-bindgen-shared = { path = "shared" }
 js-sys-bindgen = { path = "js-sys-bindgen" }
 memmap2 = "0.9"
-object = { version = "0.38", default-features = false, features = ["archive", "read_core", "std"] }
+mime = "0.3"
+object = { version = "0.39", default-features = false, features = ["archive", "read_core", "std"] }
 prettyplease = { version = "0.2", features = ["verbatim"] }
 proc-macro2 = { version = "1", default-features = false }
 quote = { version = "1", default-features = false }
+reqwest = { version = "0.13", default-features = false, features = ["http2"] }
 serde = { version = "1", default-features = false }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 serde_repr = "0.1"
 shlex = { version = "1.3.0", default-features = false }
 similar-asserts = { version = "1", default-features = false }
+strum = { version = "0.28", default-features = false, features = ["derive"] }
 syn = { version = "2", default-features = false }
 tempfile = "3"
 tokio = "1"
+tower-http = "0.6"
 ui_test = { version = "0.30", default-features = false, features = ["rustc"] }
-url = { version = "2.5.8", default-features = false }
-wasm-encoder = { version = "0.245", default-features = false, features = ["wasmparser"] }
-wasmparser = { version = "0.245", default-features = false }
+url = { version = "2", default-features = false }
+wasm-encoder = { version = "0.246", default-features = false, features = ["wasmparser"] }
+wasmparser = { version = "0.246", default-features = false }
 weedle2 = "5"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 

@@ -1,8 +1,15 @@
 [package]
 edition = { workspace = true }
 include = { workspace = true }
+license = { workspace = true }
 name = "js-bindgen-runner"
 rust-version = "1.93"
+
+[[bin]]
+bench = false
+doctest = false
+name = "js-bindgen-runner"
+test = false
 
 [dependencies]
 anyhow = { workspace = true }
@@ -10,21 +17,14 @@ axum = { workspace = true }
 clap = { workspace = true }
 fantoccini = { workspace = true }
 futures-util = { workspace = true }
-js-bindgen-shared = { workspace = true }
+js-bindgen-shared = { workspace = true, features = ["memmap", "web-driver"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_repr = { workspace = true }
 shlex = { workspace = true }
+strum = { workspace = true }
 tempfile = { workspace = true }
-tokio = { workspace = true, features = [
-	"io-util",
-	"net",
-	"process",
-	"rt-multi-thread",
-	"signal",
-	"sync",
-	"time",
-] }
+tokio = { workspace = true, features = ["net", "rt-multi-thread", "signal", "sync"] }
 url = { workspace = true }
 wasmparser = { workspace = true }
 

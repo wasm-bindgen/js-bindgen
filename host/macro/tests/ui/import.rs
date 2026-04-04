@@ -1,44 +1,38 @@
 js_bindgen::import_js!();
-//~^ ERROR: expected `module = "..."`
+//~^ ERROR: expected `module = ...`
 
 js_bindgen::import_js!(42);
-//~^ ERROR: expected `module = "..."`
+//~^ ERROR: expected `module = ...`
 
 js_bindgen::import_js!(foo);
 //~^ ERROR: expected `module`
 
 js_bindgen::import_js!(module);
-//~^ ERROR: expected `module = "..."`
+//~^ ERROR: expected `module = ...`
 
 js_bindgen::import_js!(module$);
-//~^ ERROR: expected `module = "..."`
+//~^ ERROR: expected `module = ...`
 
 js_bindgen::import_js!(module =);
-//~^ ERROR: expected `module = "..."`
-
-js_bindgen::import_js!(module = 42);
-//~^ ERROR: expected `module = "..."`
-
-js_bindgen::import_js!(module = Foo);
-//~^ ERROR: expected `module = "..."`
+//~^ ERROR: expected `module = ...`
 
 js_bindgen::import_js!(foo = "bar");
 //~^ ERROR: expected `module`
 
 js_bindgen::import_js!(module = "foo");
-//~^ ERROR: expected `name = "..."`
+//~^ ERROR: expected `name = ...`
 
-js_bindgen::import_js!(module = "foo" 42);
+js_bindgen::import_js!(module = "foo" $);
 //~^ ERROR: expected a `,` after an attribute
 
 js_bindgen::import_js!(module = "foo",);
-//~^ ERROR: expected `name = "..."`
+//~^ ERROR: expected `name = ...`
 
 js_bindgen::import_js!(module = "foo", 42);
-//~^ ERROR: expected `name = "..."`
+//~^ ERROR: expected `name = ...`
 
 js_bindgen::import_js!(module = "foo", "bar");
-//~^ ERROR: expected `name = "..."`
+//~^ ERROR: expected `name = ...`
 
 js_bindgen::import_js!(module = "foo", bar = Baz);
 //~^ ERROR: expected `name`

@@ -5,6 +5,11 @@ license = { workspace = true }
 name = "js-sys"
 rust-version = { workspace = true }
 
+[lib]
+bench = false
+doctest = false
+test = false
+
 [features]
 macro = ["dep:js-sys-macro"]
 

@@ -1,5 +1,4 @@
 import { runBrowser } from "./shared-browser.mts"
+import { importJsBindgen } from "./shared-import.mts"
 
-await runBrowser()
-
-self.close()
+await runBrowser(await importJsBindgen())

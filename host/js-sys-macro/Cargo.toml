@@ -6,7 +6,10 @@ name = "js-sys-macro"
 rust-version = "1.87"
 
 [lib]
+bench = false
+doctest = false
 proc-macro = true
+test = false
 
 [dependencies]
 js-sys-bindgen = { workspace = true, features = ["macro"] }

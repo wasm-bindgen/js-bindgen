@@ -49,6 +49,7 @@ impl PartialEq<String> for JsString {
 
 impl From<&str> for JsString {
 	fn from(value: &str) -> Self {
+		#[cfg(any(not(target_feature = "atomics"), js_sys_target_feature = "sab"))]
 		js_bindgen::embed_js!(
 			module = "js_sys",
 			name = "string.decode",
@@ -57,10 +58,28 @@ impl From<&str> for JsString {
 			"		fatal: false,",
 			"		ignoreBOM: false,",
 			"	}})",
-			#[cfg(not(target_feature = "atomics"))]
 			"	const view = new Uint8Array(this.#memory.buffer, ptr, len)",
-			#[cfg(target_feature = "atomics")]
-			"	const view = new Uint8Array(this.#memory.buffer).slice(ptr, ptr + len)",
+			"	return decoder.decode(view)",
+			"}}",
+		);
+
+		#[cfg(all(target_feature = "atomics", not(js_sys_target_feature = "sab")))]
+		js_bindgen::embed_js!(
+			module = "js_sys",
+			name = "string.decode",
+			required_embeds = [("js_sys", "string.sab")],
+			"(ptr, len) => {{",
+			"	const decoder = new TextDecoder('utf-8', {{",
+			"		fatal: false,",
+			"		ignoreBOM: false,",
+			"	}})",
+			"	let view",
+			"",
+			"	if (this.#jsEmbed.js_sys['string.sab']) {{",
+			"		view = new Uint8Array(this.#memory.buffer, ptr, len)",
+			"	}} else {{",
+			"		view = new Uint8Array(this.#memory.buffer).slice(ptr, ptr + len)",
+			"	}}",
 			"",
 			"	return decoder.decode(view)",
 			"}}",
@@ -79,12 +98,29 @@ impl From<&JsString> for String {
 			"(string) => new TextEncoder().encode(string).length",
 		);
 
+		#[cfg(any(not(target_feature = "atomics"), js_sys_target_feature = "sab"))]
 		js_bindgen::embed_js!(
 			module = "js_sys",
 			name = "string.encode",
 			"(string, ptr, len) => {{",
 			"	const view = new Uint8Array(this.#memory.buffer, ptr, len)",
 			"	new TextEncoder().encodeInto(string, view)",
+			"}}",
+		);
+
+		#[cfg(all(target_feature = "atomics", not(js_sys_target_feature = "sab")))]
+		js_bindgen::embed_js!(
+			module = "js_sys",
+			name = "string.encode",
+			required_embeds = [("js_sys", "string.sab")],
+			"(string, ptr, len) => {{",
+			"	if (this.#jsEmbed.js_sys['string.sab']) {{",
+			"		const view = new Uint8Array(this.#memory.buffer, ptr, len)",
+			"		new TextEncoder().encodeInto(string, view)",
+			"	}} else {{",
+			"		const bytes = new TextEncoder().encode(string)",
+			"		new Uint8Array(this.#memory.buffer).set(bytes, ptr)",
+			"	}}",
 			"}}",
 		);
 
@@ -117,6 +153,24 @@ impl From<&JsString> for String {
 		}
 	}
 }
+
+#[cfg(all(target_feature = "atomics", not(js_sys_target_feature = "sab")))]
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "string.sab",
+	"(() => {{",
+	"	if (this.#memory.buffer instanceof ArrayBuffer)",
+	"		return true",
+	"",
+	"	const array = new WebAssembly.Memory({{ initial: 0, maximum: 0, shared: true }})",
+	"	try {{",
+	"		new TextDecoder().decode(array)",
+	"		return true",
+	"	}} catch {{",
+	"		return false",
+	"	}}",
+	"}})()",
+);
 
 // SAFETY: Implementation.
 unsafe impl Input for &str {
