@@ -6,4 +6,4 @@ linker = "../host/cargo-shim/linker"
 runner = "../host/cargo-shim/runner"
 
 [env]
-JBG_LOCAL_DEV = "1"
+JBG_DEV = "1"

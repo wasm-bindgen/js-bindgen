@@ -7,7 +7,7 @@ use std::process::Command;
 use std::{env, fs, panic, process};
 
 fn main() {
-	if option_env!("JBG_LOCAL_DEV").is_some_and(|value| value == "1")
+	if option_env!("JBG_DEV").is_some_and(|value| value == "1")
 		&& option_env!("CI").is_none_or(|value| value != "true")
 	{
 		let any = search_folder(&env::current_dir().unwrap().join("src/js"));

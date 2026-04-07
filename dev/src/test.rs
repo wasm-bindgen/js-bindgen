@@ -1,6 +1,6 @@
 use std::process::{Command, Stdio};
-use std::slice;
 use std::time::{Duration, Instant};
+use std::{env, slice};
 
 use anyhow::{Result, bail};
 use clap::Args;
@@ -43,13 +43,14 @@ impl Test {
 				true
 			}
 		};
+		let tools_installed = env::var_os("JBG_DEV_TOOLS").is_some_and(|value| value == "1");
 
 		let start = Instant::now();
 		let mut build_time = Duration::ZERO;
 		let mut test_time = Duration::ZERO;
 
 		let mut web_drivers = Vec::new();
-		let mut session_manager_built = false;
+		let mut session_manager_built = tools_installed;
 
 		for web_driver in
 			WebDriver::iter().filter(|web_driver| filter(&Runner::WebDriver(*web_driver)))
@@ -74,56 +75,65 @@ impl Test {
 				session_manager_built = true;
 			}
 
-			let mut command = Command::new("cargo");
+			let mut command = if tools_installed {
+				Command::new("js-bindgen-web-driver")
+			} else {
+				let mut command = Command::new("cargo");
+				command
+					.current_dir("../host")
+					.arg("+stable")
+					.arg("run")
+					.args(["-p", "js-bindgen-web-driver"])
+					.arg("--");
+				command
+			};
+
 			command
-				.current_dir("../host")
 				.stdout(Stdio::null())
 				.stderr(Stdio::null())
-				.arg("+stable")
-				.arg("run")
-				.args(["-p", "js-bindgen-web-driver"])
-				.arg("--")
 				.args(["-p", web_driver.port()])
 				.arg(web_driver.short_name());
 
 			web_drivers.push(ChildWrapper::new(command)?);
 		}
 
-		let group = Group::announce("Build Linker".into(), verbose)?;
-		let mut command = Command::new("cargo");
-		command
-			.current_dir("../host")
-			.env("CI", "true")
-			.arg("+stable")
-			.arg("build")
-			.args(["-p", "js-bindgen-ld"]);
+		if !tools_installed {
+			let group = Group::announce("Build Linker".into(), verbose)?;
+			let mut command = Command::new("cargo");
+			command
+				.current_dir("../host")
+				.env("CI", "true")
+				.arg("+stable")
+				.arg("build")
+				.args(["-p", "js-bindgen-ld"]);
 
-		let (duration, status) = command::run(command, verbose)?;
-		build_time += duration;
+			let (duration, status) = command::run(command, verbose)?;
+			build_time += duration;
 
-		if !status.success() {
-			bail!("build Linker failed with {status}");
+			if !status.success() {
+				bail!("build Linker failed with {status}");
+			}
+
+			drop(group);
+
+			let group = Group::announce("Build Runner".into(), verbose)?;
+			let mut command = Command::new("cargo");
+			command
+				.current_dir("../host")
+				.env("CI", "true")
+				.arg("+stable")
+				.arg("build")
+				.args(["-p", "js-bindgen-runner"]);
+
+			let (duration, status) = command::run(command, verbose)?;
+			build_time += duration;
+
+			if !status.success() {
+				bail!("build Runner failed with {status}");
+			}
+
+			drop(group);
 		}
-
-		drop(group);
-
-		let group = Group::announce("Build Runner".into(), verbose)?;
-		let mut command = Command::new("cargo");
-		command
-			.current_dir("../host")
-			.env("CI", "true")
-			.arg("+stable")
-			.arg("build")
-			.args(["-p", "js-bindgen-runner"]);
-
-		let (duration, status) = command::run(command, verbose)?;
-		build_time += duration;
-
-		if !status.success() {
-			bail!("build Runner failed with {status}");
-		}
-
-		drop(group);
 
 		for permutation in Permutation::iter(targets, target_features) {
 			let mut built = false;

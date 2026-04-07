@@ -1,6 +1,6 @@
 use std::process::Command;
-use std::slice;
 use std::time::Instant;
+use std::{env, slice};
 
 use anyhow::{Result, bail};
 use clap::Args;
@@ -32,22 +32,24 @@ impl Build {
 
 		let start = Instant::now();
 
-		let group = Group::announce("Build Linker".into(), verbose)?;
-		let mut command = Command::new("cargo");
-		command
-			.current_dir("../host")
-			.env("CI", "true")
-			.arg("+stable")
-			.arg("build")
-			.args(["-p", "js-bindgen-ld"]);
+		if env::var_os("JBG_DEV_TOOLS").is_none_or(|value| value != "1") {
+			let group = Group::announce("Build Linker".into(), verbose)?;
+			let mut command = Command::new("cargo");
+			command
+				.current_dir("../host")
+				.env("CI", "true")
+				.arg("+stable")
+				.arg("build")
+				.args(["-p", "js-bindgen-ld"]);
 
-		let (_, status) = command::run(command, verbose)?;
+			let (_, status) = command::run(command, verbose)?;
 
-		if !status.success() {
-			bail!("build Linker failed with {status}");
+			if !status.success() {
+				bail!("build Linker failed with {status}");
+			}
+
+			drop(group);
 		}
-
-		drop(group);
 
 		for permutation in Permutation::iter(targets, target_features) {
 			let group = Group::announce(format!("Build - {permutation}").into(), verbose)?;

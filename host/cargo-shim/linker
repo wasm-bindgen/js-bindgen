@@ -1,6 +1,10 @@
 #!/usr/bin/env sh
 
-cd $(dirname $0)/..
-# This is passed when running Doctests.
-unset RUSTC_BOOTSTRAP
-cargo +stable run -q -p js-bindgen-ld -- $@
+if [ "$JBG_DEV_TOOLS" = "1" ]; then
+    js-bindgen-ld $@
+else
+    cd $(dirname $0)/..
+    # This is passed when running Doctests.
+    unset RUSTC_BOOTSTRAP
+    cargo +stable run -q -p js-bindgen-ld -- $@
+fi

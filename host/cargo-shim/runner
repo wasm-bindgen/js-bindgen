@@ -1,4 +1,8 @@
 #!/usr/bin/env sh
 
-cd $(dirname $0)/..
-cargo +stable run -q -p js-bindgen-runner -- $@
+if [ "$JBG_DEV_TOOLS" = "1" ]; then
+    js-bindgen-runner $@
+else
+    cd $(dirname $0)/..
+    cargo +stable run -q -p js-bindgen-runner -- $@
+fi
