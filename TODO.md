@@ -126,6 +126,8 @@ This is a list of upstream issues that could make our lives significantly easier
   [rust-lang/cargo#4511]
 - Rust has an issue with duplicate symbols during tests. E.g. this prevents us from having unit
   tests in `js-sys`. [rust-lang/rust#145616]
+- Currently `cargo metadata` doesn't list `build-std` dependencies. This is an issue for caching in
+  the CI, significantly increasing our build and test times. [rust-lang/wg-cargo-std-aware#20]
 
 [llvm/llvm-project#136594]: https://github.com/llvm/llvm-project/issues/136594
 [rust-lang/rust#136382]: https://github.com/rust-lang/rust/issues/136382
@@ -145,3 +147,4 @@ This is a list of upstream issues that could make our lives significantly easier
 [rust-lang/cargo#12552]: https://github.com/rust-lang/cargo/issues/12552
 [rust-lang/cargo#4511]: https://github.com/rust-lang/cargo/issues/4511
 [rust-lang/rust#145616]: https://github.com/rust-lang/rust/issues/145616
+[rust-lang/wg-cargo-std-aware#20]: https://github.com/rust-lang/wg-cargo-std-aware/issues/20

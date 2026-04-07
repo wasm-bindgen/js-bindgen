@@ -28,22 +28,25 @@ jobs:
           - { os: ubuntu-latest, name: linux, description: Linux }
           - { os: macos-latest, name: mac-os, description: macOS }
 
-    defaults:
-      run:
-        working-directory: host
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Enable Caching
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "cache"
+          workspaces: |
+            host
+            dev
+          cache-bin: false
       - name: Build `js-bindgen-ld`
-        run: cargo install --path ld --root ../host-tools
+        run: cargo install --path host/ld --root host-tools
       - name: Build `js-bindgen-runner`
-        run: cargo install --path runner --root ../host-tools
+        run: cargo install --path host/runner --root host-tools
       - name: Build `js-bindgen-web-driver`
-        run: cargo install --path web-driver --root ../host-tools
+        run: cargo install --path host/web-driver --root host-tools
       - name: Build `js-bindgen-dev`
-        working-directory: dev
-        run: cargo install --path . --root ../host-tools
+        run: cargo install --path dev --root host-tools
       - name: Upload Host Tools
         uses: actions/upload-artifact@v4
         with:
@@ -64,32 +67,23 @@ jobs:
       matrix:
         target:
           - {
+              name: wasm32,
               target: wasm32-unknown-unknown,
               install: true,
               rust: stable,
-              dev: --target wasm32,
               description: Wasm32,
             }
           - {
+              name: wasm64,
               target: wasm64-unknown-unknown,
               install: false,
               rust: nightly,
               components: -c rust-src,
-              dev: --target wasm64,
               description: Wasm64,
             }
         target-feature:
-          - { dev: --target-feature default }
-          - {
-              rust: nightly,
-              components: -c rust-src,
-              dev: --target-feature atomics,
-              description: Atomics,
-            }
-
-    defaults:
-      run:
-        working-directory: dev
+          - { name: default }
+          - { name: atomics, rust: nightly, components: -c rust-src, description: Atomics }
 
     env:
       JBG_DEV_TOOLS: 1
@@ -117,10 +111,20 @@ jobs:
           path: host-tools/
       - name: Install Host Tools
         run: |
-          chmod +x ../host-tools/bin/*
+          chmod +x host-tools/bin/*
           echo "${{ github.workspace }}/host-tools/bin" >> $GITHUB_PATH
+      - name: Enable Caching
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "cache"
+          key: ${{ matrix.target.name }}-${{ matrix.target-feature.name }}
+          workspaces: client
+          cache-bin: false
       - name: Run
-        run: js-bindgen-dev build -v ${{ matrix.target.dev }} ${{ matrix.target-feature.dev }}
+        working-directory: dev
+        run:
+          js-bindgen-dev build -v --target ${{ matrix.target.name }} --target-feature ${{
+          matrix.target-feature.name }}
 
   test:
     name:
@@ -141,35 +145,26 @@ jobs:
           - { os: macos-latest, name: mac-os, dev: --include safari-driver, description: macOS }
         target:
           - {
+              name: wasm32,
               target: wasm32-unknown-unknown,
               install: true,
               rust: stable,
-              dev: --target wasm32,
               description: Wasm32,
             }
           - {
+              name: wasm64,
               target: wasm64-unknown-unknown,
               install: false,
               rust: nightly,
               components: -c rust-src,
-              dev: --target wasm64,
               description: Wasm64,
             }
         target-feature:
-          - { dev: --target-feature default }
-          - {
-              rust: nightly,
-              components: -c rust-src,
-              dev: --target-feature atomics,
-              description: Atomics,
-            }
+          - { name: default }
+          - { name: atomics, rust: nightly, components: -c rust-src, description: Atomics }
         exclude:
           - os: { description: macOS }
             target: { description: Wasm64 }
-
-    defaults:
-      run:
-        working-directory: dev
 
     env:
       JBG_DEV_TOOLS: 1
@@ -205,9 +200,17 @@ jobs:
           path: host-tools/
       - name: Install Host Tools
         run: |
-          chmod +x ../host-tools/bin/*
+          chmod +x host-tools/bin/*
           echo "${{ github.workspace }}/host-tools/bin" >> $GITHUB_PATH
+      - name: Enable Caching
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "cache"
+          key: ${{ matrix.target.name }}-${{ matrix.target-feature.name }}
+          workspaces: client
+          cache-bin: false
       - name: Run
+        working-directory: dev
         run:
-          js-bindgen-dev test -v ${{ matrix.target.dev }} ${{ matrix.target-feature.dev }} ${{
-          matrix.os.dev }}
+          js-bindgen-dev test -v --target ${{ matrix.target.name }} --target-feature ${{
+          matrix.target-feature.name }} ${{ matrix.os.dev }}
