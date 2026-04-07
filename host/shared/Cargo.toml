@@ -12,7 +12,15 @@ test = false
 
 [features]
 memmap = ["dep:memmap2"]
-web-driver = ["dep:anyhow", "dep:futures-util", "dep:strum", "dep:tokio", "dep:url"]
+web-driver = [
+	"dep:anyhow",
+	"dep:futures-util",
+	"dep:nix",
+	"dep:strum",
+	"dep:tokio",
+	"dep:url",
+	"dep:windows-sys",
+]
 
 [dependencies]
 anyhow = { workspace = true, optional = true }
@@ -21,6 +29,12 @@ memmap2 = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = ["net", "process", "sync", "time"] }
 url = { workspace = true, optional = true }
+
+[target.'cfg(target_family = "unix")'.dependencies]
+nix = { workspace = true, optional = true, features = ["signal"] }
+
+[target.'cfg(target_family = "windows")'.dependencies]
+windows-sys = { workspace = true, optional = true, features = ["Win32_System_Threading"] }
 
 [lints]
 workspace = true

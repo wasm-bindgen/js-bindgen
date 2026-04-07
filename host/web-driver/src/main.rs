@@ -1,3 +1,5 @@
+mod web_driver;
+
 use std::any::Any;
 use std::borrow::Cow;
 use std::ffi::OsString;
@@ -8,11 +10,11 @@ use std::panic;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use axum::body::{Body, Bytes};
 use axum::extract::State;
 use axum::http::header::CONTENT_TYPE;
-use axum::http::{HeaderValue, Method, StatusCode};
+use axum::http::{HeaderValue, Method};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{any, delete, get, post};
 use axum::{Json, Router, extract};
@@ -20,14 +22,15 @@ use clap::{Args, Parser, Subcommand};
 use hashbrown::HashMap;
 use js_bindgen_shared::{AtomicFlag, WebDriver, WebDriverKind, WebDriverLocation};
 use mime::APPLICATION_JSON;
-use reqwest::{Client, Error, Request};
-use serde::{Deserialize, Serialize};
+use reqwest::Request;
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::sync::Mutex;
 use tower_http::catch_panic::CatchPanicLayer;
 use url::Url;
 use xxhash_rust::xxh3::Xxh3Default;
+
+use crate::web_driver::{Client, IntoAxum, StatusResponse, WebDriverErrorKind, WebDriverResponse};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -54,10 +57,9 @@ struct LocalArgs {
 	args: Option<Vec<OsString>>,
 }
 
-#[derive(Clone)]
 struct AppState {
 	client: Client,
-	pool: Arc<DriverPool>,
+	pool: DriverPool,
 }
 
 #[expect(clippy::large_enum_variant, reason = "not in a collection")]
@@ -93,12 +95,10 @@ async fn main() -> Result<()> {
 	println!("Server listening on: {}", listener.local_addr()?);
 
 	let shutdown = Arc::new(AtomicFlag::new());
-	let client = Client::new();
-	let pool = Arc::new(DriverPool::from_command(cli.command).await?);
-	let state = AppState {
-		client: client.clone(),
-		pool: Arc::clone(&pool),
-	};
+	let state = Arc::new(AppState {
+		client: Client::new(),
+		pool: DriverPool::from_command(cli.command).await?,
+	});
 
 	let app = Router::new()
 		.route("/status", get(handle_status))
@@ -112,7 +112,7 @@ async fn main() -> Result<()> {
 				panic::resume_unwind(error)
 			}
 		}))
-		.with_state(state);
+		.with_state(Arc::clone(&state));
 
 	let server = tokio::spawn(
 		axum::serve(listener, app)
@@ -131,36 +131,16 @@ async fn main() -> Result<()> {
 	shutdown.signal();
 	server.await??;
 
-	Arc::into_inner(pool).unwrap().shutdown(client).await?;
+	Arc::into_inner(state).unwrap().shutdown().await?;
 
 	Ok(())
 }
 
-#[derive(Deserialize, Serialize)]
-struct WebDriverResponse<T> {
-	value: T,
-}
-
-async fn handle_status(State(state): State<AppState>) -> Result<Response, Response> {
-	#[derive(Serialize)]
-	pub struct Status {
-		pub ready: bool,
-		pub message: String,
-	}
-
-	match state.pool.deref() {
-		DriverPool::Shared { driver, .. } => {
-			let response = state
-				.client
-				.get(driver.url().join("status").unwrap())
-				.send()
-				.await
-				.map_err(IntoStatus::into_response)?;
-
-			Ok(Response::from(response).map(Body::new))
-		}
+async fn handle_status(State(state): State<Arc<AppState>>) -> Result<Response, Response> {
+	match &state.pool {
+		DriverPool::Shared { driver, .. } => state.client.status(driver).await,
 		DriverPool::Single { .. } => Ok(Json(WebDriverResponse {
-			value: Status {
+			value: StatusResponse {
 				ready: true,
 				message: String::new(),
 			},
@@ -169,45 +149,15 @@ async fn handle_status(State(state): State<AppState>) -> Result<Response, Respon
 	}
 }
 
-async fn create_session(State(state): State<AppState>, body: Bytes) -> Result<Response, Response> {
-	#[derive(Deserialize)]
-	#[serde(rename_all = "camelCase")]
-	struct NewSessionResponse {
-		session_id: String,
-	}
-
-	async fn post_session(
-		state: &AppState,
-		driver: &WebDriver,
-		body: Bytes,
-	) -> Result<(String, Bytes), Response> {
-		let response = state
-			.client
-			.post(driver.url().join("session").unwrap())
-			.body(body)
-			.send()
-			.await
-			.map_err(IntoStatus::into_response)?;
-
-		if !response.status().is_success() {
-			return Err(Response::from(response).map(Body::new));
-		}
-
-		let response = response.bytes().await.map_err(IntoStatus::into_response)?;
-		let WebDriverResponse {
-			value: NewSessionResponse { session_id },
-		} = serde_json::from_slice(&response).unwrap();
-
-		println!("Created new WebDriver session at {}", driver.url());
-
-		Ok((session_id, response))
-	}
-
+async fn create_session(
+	State(state): State<Arc<AppState>>,
+	body: Bytes,
+) -> Result<Response, Response> {
 	let mut hasher = Xxh3Default::new();
 	body.hash(&mut hasher);
 	let caps_hash = hasher.digest();
 
-	let response = match state.pool.deref() {
+	let response = match &state.pool {
 		DriverPool::Shared {
 			driver,
 			available,
@@ -226,7 +176,8 @@ async fn create_session(State(state): State<AppState>, body: Bytes) -> Result<Re
 					.insert(session_id, (caps_hash, response.clone()));
 				response
 			} else {
-				let (session_id, response) = post_session(&state, driver, body).await?;
+				let (session_id, response) = state.client.create_session(driver, body).await?;
+				println!("Created new WebDriver session at {}", driver.url());
 
 				active
 					.lock()
@@ -255,7 +206,7 @@ async fn create_session(State(state): State<AppState>, body: Bytes) -> Result<Re
 				response
 			} else {
 				let driver = WebDriver::run_local(path, args).await.unwrap();
-				let (session_id, response) = post_session(&state, &driver, body).await?;
+				let (session_id, response) = state.client.create_session(&driver, body).await?;
 
 				active.lock().await.insert(
 					session_id,
@@ -282,12 +233,21 @@ async fn create_session(State(state): State<AppState>, body: Bytes) -> Result<Re
 	Ok(response)
 }
 
-async fn delete_session(State(state): State<AppState>, extract::Path(id): extract::Path<String>) {
-	match state.pool.deref() {
+async fn delete_session(
+	State(state): State<Arc<AppState>>,
+	extract::Path(id): extract::Path<String>,
+) -> Result<(), Response> {
+	match &state.pool {
 		DriverPool::Shared {
-			available, active, ..
+			driver,
+			available,
+			active,
 		} => {
-			let (caps_hash, response) = active.lock().await.remove(&id).unwrap();
+			let Some((caps_hash, response)) = active.lock().await.remove(&id) else {
+				return Err(invalid_session_id(&id));
+			};
+			state.client.navigate_to(driver, &id, "about:blank").await?;
+
 			available
 				.lock()
 				.await
@@ -298,7 +258,14 @@ async fn delete_session(State(state): State<AppState>, extract::Path(id): extrac
 		DriverPool::Single {
 			available, active, ..
 		} => {
-			let (caps_hash, driver) = active.lock().await.remove(&id).unwrap();
+			let Some((caps_hash, driver)) = active.lock().await.remove(&id) else {
+				return Err(invalid_session_id(&id));
+			};
+			state
+				.client
+				.navigate_to(&driver.driver, &id, "about:blank")
+				.await?;
+
 			available
 				.lock()
 				.await
@@ -307,18 +274,24 @@ async fn delete_session(State(state): State<AppState>, extract::Path(id): extrac
 				.push((id, driver));
 		}
 	}
+
+	Ok(())
 }
 
 async fn proxy_request(
-	State(state): State<AppState>,
+	State(state): State<Arc<AppState>>,
 	extract::Path((id, path)): extract::Path<(String, String)>,
 	method: Method,
 	body: Bytes,
-) -> Result<Response, StatusCode> {
-	let mut url = match state.pool.deref() {
+) -> Result<Response, Response> {
+	let mut url = match &state.pool {
 		DriverPool::Shared { driver, .. } => driver.url().clone(),
 		DriverPool::Single { active, .. } => {
-			active.lock().await.get(&id).unwrap().1.driver.url().clone()
+			if let Some((_, driver)) = active.lock().await.get(&id) {
+				driver.driver.url().clone()
+			} else {
+				return Err(invalid_session_id(&id));
+			}
 		}
 	};
 
@@ -334,9 +307,71 @@ async fn proxy_request(
 		.client
 		.execute(request)
 		.await
-		.map_err(IntoStatus::into_status)?;
+		.map_err(IntoAxum::into_response)?;
 
 	Ok(Response::from(response).map(Body::new))
+}
+
+impl AppState {
+	async fn shutdown(self) -> Result<()> {
+		let mut errors = false;
+
+		match self.pool {
+			DriverPool::Shared {
+				driver,
+				available,
+				active,
+			} => {
+				for id in available
+					.into_inner()
+					.into_values()
+					.flatten()
+					.map(|(id, _)| id)
+					.chain(active.into_inner().into_keys())
+				{
+					if let Err(error) = self.client.delete_session(&driver, &id).await {
+						eprintln!("{error}\n");
+						errors = true;
+					}
+				}
+
+				if let Err(error) = driver.shutdown().await {
+					eprintln!("{error}\n");
+					errors = true;
+				}
+			}
+			DriverPool::Single {
+				available, active, ..
+			} => {
+				for (id, driver) in available.into_inner().into_values().flatten().chain(
+					active
+						.into_inner()
+						.into_iter()
+						.map(|(id, (_, driver))| (id, driver)),
+				) {
+					if let Err(error) = self.client.delete_session(&driver.driver, &id).await {
+						eprintln!("{error}\n");
+						errors = true;
+					}
+
+					if let Err(error) = driver.driver.shutdown().await {
+						eprintln!("{error}\n");
+						errors = true;
+					}
+				}
+			}
+		}
+
+		if errors {
+			Err(anyhow!("encountered error(s)"))
+		} else {
+			Ok(())
+		}
+	}
+}
+
+fn invalid_session_id(id: &str) -> Response {
+	WebDriverErrorKind::InvalidSessionId.to_response(format!("No active session with ID {id}"))
 }
 
 impl DriverPool {
@@ -374,71 +409,5 @@ impl DriverPool {
 				active: Mutex::new(HashMap::new()),
 			})
 		}
-	}
-
-	async fn shutdown(self, client: Client) -> Result<()> {
-		match self {
-			Self::Shared {
-				driver,
-				available,
-				active,
-			} => {
-				if driver.is_remote() {
-					let url = driver.url().join("session/").unwrap();
-
-					for id in available
-						.into_inner()
-						.into_values()
-						.flatten()
-						.map(|(id, _)| id)
-						.chain(active.into_inner().into_keys())
-					{
-						let response = client.delete(url.join(&id).unwrap()).send().await.unwrap();
-
-						if !response.status().is_success() {
-							println!("Failed to shutdown session {id} at {}:", driver.url());
-							println!("\t{}", response.text().await.unwrap());
-						}
-					}
-				}
-
-				driver.shutdown().await?;
-			}
-			Self::Single {
-				available, active, ..
-			} => {
-				for driver in available
-					.into_inner()
-					.into_values()
-					.flatten()
-					.map(|(_, driver)| driver)
-					.chain(active.into_inner().into_values().map(|(_, driver)| driver))
-				{
-					driver.driver.shutdown().await?;
-				}
-			}
-		}
-
-		Ok(())
-	}
-}
-
-trait IntoStatus: Sized {
-	#[track_caller]
-	fn into_status(self) -> StatusCode;
-
-	#[track_caller]
-	fn into_response(self) -> Response {
-		self.into_status().into_response()
-	}
-}
-
-impl IntoStatus for Error {
-	fn into_status(self) -> StatusCode {
-		if let Some(status) = self.status() {
-			return status;
-		}
-
-		panic::panic_any(self);
 	}
 }

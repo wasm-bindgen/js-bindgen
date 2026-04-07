@@ -1,22 +1,30 @@
 //! This file is not shipped to Crates.io, but it is present when depending on
 //! `js-bindgen-runner` via `git` or `path`.
 
-use std::os::unix::fs::MetadataExt;
+use std::io::ErrorKind;
 use std::path::Path;
 use std::process::Command;
-use std::{env, fs, io, process};
+use std::{env, fs, panic, process};
 
-fn main() -> io::Result<()> {
+fn main() {
 	if option_env!("JBG_LOCAL_DEV").is_some_and(|value| value == "1")
 		&& option_env!("CI").is_none_or(|value| value != "true")
 	{
-		let any = search_folder(&env::current_dir()?.join("src/js"))?;
+		let any = search_folder(&env::current_dir().unwrap().join("src/js"));
 
 		if any {
-			let mtime = fs::metadata(Path::new("src/js/package.json"))?.mtime();
+			let pkg_mtime = fs::metadata(Path::new("src/js/package.json"))
+				.unwrap()
+				.modified()
+				.unwrap();
 			let lock = Path::new("src/js/package-lock.json");
+			let lock_mtime = match fs::metadata(lock) {
+				Ok(meta) => Some(meta.modified().unwrap()),
+				Err(error) if error.kind() == ErrorKind::NotFound => None,
+				Err(error) => panic::panic_any(error),
+			};
 
-			if !fs::metadata(lock).is_ok_and(|meta| meta.mtime() >= mtime) {
+			if lock_mtime.is_none_or(|lock_mtime| lock_mtime < pkg_mtime) {
 				let status = Command::new("npm")
 					.current_dir("src/js")
 					.arg("install")
@@ -24,7 +32,8 @@ fn main() -> io::Result<()> {
 					.arg("--prefer-offline")
 					.arg("--no-audit")
 					.arg("--no-fund")
-					.status()?;
+					.status()
+					.unwrap();
 
 				if !status.success() {
 					process::exit(status.code().unwrap_or(1));
@@ -34,22 +43,21 @@ fn main() -> io::Result<()> {
 			let status = Command::new("tsc")
 				.current_dir("src/js")
 				.arg("--build")
-				.status()?;
+				.status()
+				.unwrap();
 
 			if !status.success() {
 				process::exit(status.code().unwrap_or(1));
 			}
 		}
 	}
-
-	Ok(())
 }
 
-fn search_folder(folder: &Path) -> io::Result<bool> {
+fn search_folder(folder: &Path) -> bool {
 	let mut any = false;
 
-	for entry in fs::read_dir(folder)? {
-		let entry = entry?;
+	for entry in fs::read_dir(folder).unwrap() {
+		let entry = entry.unwrap();
 		let path = entry.path();
 
 		if path.is_file()
@@ -59,16 +67,21 @@ fn search_folder(folder: &Path) -> io::Result<bool> {
 		{
 			println!("cargo::rerun-if-changed={}", path.display());
 
-			let mtime = fs::metadata(&path)?.mtime();
-			let mjs = path.with_extension("").with_extension("mjs");
+			let ts_mtime = fs::metadata(&path).unwrap().modified().unwrap();
+			let js = path.with_extension("").with_extension("mjs");
+			let js_mtime = match fs::metadata(js) {
+				Ok(meta) => Some(meta.modified().unwrap()),
+				Err(error) if error.kind() == ErrorKind::NotFound => None,
+				Err(error) => panic::panic_any(error),
+			};
 
-			if !fs::metadata(mjs).is_ok_and(|meta| meta.mtime() >= mtime) {
+			if js_mtime.is_none_or(|js_mtime| js_mtime < ts_mtime) {
 				any = true;
 			}
 		} else if path.is_dir() {
-			search_folder(&path)?;
+			search_folder(&path);
 		}
 	}
 
-	Ok(any)
+	any
 }

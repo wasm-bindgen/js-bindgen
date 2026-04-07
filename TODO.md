@@ -40,8 +40,6 @@
   - Support return values.
 - WebDriver Session Manager:
   - Add some form of session number limits.
-  - Close window after session is returned to the pool and open new one when intercepting new
-    session creation.
   - Clean up cookies, storage, shared and service workers after session is returned to the pool.
 - E2E testing for the linker. Should also ensure deterministic output.
 - Can we use `TokenStream` from `str` parsing to simplify the code without affecting performance?

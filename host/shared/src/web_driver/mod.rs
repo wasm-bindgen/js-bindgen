@@ -1,30 +1,37 @@
+mod process;
+mod util;
+
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::fmt::{Display, Formatter};
 use std::io::ErrorKind;
 use std::net::{Ipv4Addr, SocketAddrV4};
-use std::ops::Deref;
 use std::path::Path;
-use std::pin::Pin;
-use std::process::{ExitStatus, Stdio};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::task::{Context, Poll};
+use std::process::Stdio;
 use std::time::{Duration, Instant};
 use std::{fmt, io};
 
 use anyhow::{Result, bail};
-use futures_util::task::AtomicWaker;
 use strum::VariantArray;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::process::{Child, Command};
-use tokio::sync::oneshot::{self, Receiver};
+use tokio::process::Command;
 use tokio::time;
 use url::Url;
+
+use self::process::ChildWrapper;
+pub use self::util::AtomicFlag;
 
 pub struct WebDriver {
 	url: Url,
 	child: Option<ChildWrapper>,
+}
+
+#[derive(Clone, Copy, VariantArray)]
+pub enum WebDriverKind {
+	Chrome,
+	Edge,
+	Gecko,
+	Safari,
 }
 
 pub enum WebDriverLocation {
@@ -54,20 +61,20 @@ impl WebDriver {
 			let driver_addr = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
 				.await?
 				.local_addr()?;
-			let child = Command::new(path)
+			let mut command = Command::new(path);
+			command
 				.stdout(Stdio::piped())
 				.stderr(Stdio::piped())
 				.arg(format!("--port={}", driver_addr.port()))
-				.args(args)
-				.spawn()?;
-			let mut child = ChildWrapper::new(child);
+				.args(args);
+			let mut child = ChildWrapper::new(command)?;
 
 			loop {
 				let limit = time::sleep(MAX.saturating_sub(start.elapsed()));
 
 				tokio::select! {
 					() = limit => {
-						child.output_error().await;
+						child.output_error(true).await;
 						bail!("failed to bind WebDriver port in timeout duration");
 					},
 					result = TcpStream::connect(driver_addr) => match result {
@@ -81,7 +88,7 @@ impl WebDriver {
 						}
 					},
 					_ = child.wait() => {
-						child.output_error().await;
+						child.output_error(true).await;
 
 						eprintln!("failed to start WebDriver, trying again ...");
 
@@ -105,146 +112,19 @@ impl WebDriver {
 		&self.url
 	}
 
-	#[must_use]
-	pub fn is_remote(&self) -> bool {
-		self.child.is_none()
-	}
-
 	pub async fn output_error(self) {
 		if let Some(child) = self.child {
-			child.output_error().await;
+			child.output_error(false).await;
 		}
 	}
 
 	pub async fn shutdown(self) -> io::Result<()> {
-		if let Some(mut child) = self.child {
-			child.0.take().unwrap().child.kill().await
+		if let Some(child) = self.child {
+			child.shutdown().await
 		} else {
 			Ok(())
 		}
 	}
-}
-
-struct ChildWrapper(Option<ChildInner>);
-
-struct ChildInner {
-	child: Child,
-	flag: Arc<AtomicFlag>,
-	stdout: Receiver<Vec<u8>>,
-	stderr: Receiver<Vec<u8>>,
-}
-
-impl Drop for ChildWrapper {
-	fn drop(&mut self) {
-		if let Some(mut inner) = self.0.take()
-			&& let Err(error) = inner.child.start_kill()
-		{
-			eprintln!("------ WebDriver Process Kill Error ------\n{error}\n");
-		}
-	}
-}
-
-impl ChildWrapper {
-	fn new(mut child: Child) -> Self {
-		let flag = Arc::new(AtomicFlag::new());
-		let (stdout_tx, stdout_rx) = oneshot::channel();
-		let mut stdout = child.stdout.take().unwrap();
-		tokio::spawn({
-			let flag = flag.clone();
-			async move {
-				let mut output = Vec::new();
-				tokio::select! {
-					() = flag.deref() => (),
-					_ = tokio::io::copy(&mut stdout, &mut output) => (),
-				}
-				let _ = stdout_tx.send(output);
-			}
-		});
-
-		let (stderr_tx, stderr_rx) = oneshot::channel();
-		let mut stderr = child.stderr.take().unwrap();
-		tokio::spawn({
-			let flag = flag.clone();
-			async move {
-				let mut output = Vec::new();
-				tokio::select! {
-					() = flag.deref() => (),
-					_ = tokio::io::copy(&mut stderr, &mut output) => (),
-				}
-				let _ = stderr_tx.send(output);
-			}
-		});
-
-		Self(Some(ChildInner {
-			child,
-			flag,
-			stdout: stdout_rx,
-			stderr: stderr_rx,
-		}))
-	}
-
-	async fn wait(&mut self) -> tokio::io::Result<ExitStatus> {
-		self.0.as_mut().unwrap().child.wait().await
-	}
-
-	async fn output_error(mut self) {
-		let ChildInner {
-			mut child,
-			flag,
-			stdout,
-			stderr,
-		} = self.0.take().unwrap();
-
-		if let Err(error) = child.kill().await {
-			eprintln!("------ WebDriver Process Error ------\n{error}\n");
-		}
-
-		match child.try_wait() {
-			Ok(Some(status)) => {
-				eprintln!("------ WebDriver Process Status ------\n{status}\n");
-			}
-			Ok(None) => (),
-			Err(error) => {
-				eprintln!("------ WebDriver Process Status Error ------\n{error}\n");
-			}
-		}
-
-		flag.signal();
-
-		let stdout = stdout.await.unwrap();
-
-		if !stdout.is_empty() {
-			eprintln!(
-				"------ WebDriver stdout ------\n{}",
-				String::from_utf8_lossy(&stdout)
-			);
-
-			if !stdout.ends_with(b"\n") {
-				eprintln!();
-			}
-		}
-
-		let stderr = stderr.await.unwrap();
-
-		if !stderr.is_empty() {
-			eprintln!(
-				"------ WebDriver stderr ------\n{}",
-				String::from_utf8_lossy(&stderr)
-			);
-
-			if !stderr.ends_with(b"\n") {
-				eprintln!();
-			}
-		}
-	}
-}
-
-#[derive(Clone, Copy, VariantArray)]
-pub enum WebDriverKind {
-	Chrome,
-	Edge,
-	Gecko,
-	Safari,
 }
 
 impl WebDriverKind {
@@ -325,44 +205,5 @@ impl Display for WebDriverKind {
 			Self::Safari => "SafariDriver",
 		};
 		f.write_str(name)
-	}
-}
-
-#[derive(Default)]
-pub struct AtomicFlag {
-	waker: AtomicWaker,
-	set: AtomicBool,
-}
-
-impl AtomicFlag {
-	#[must_use]
-	pub fn new() -> Self {
-		Self::default()
-	}
-
-	pub fn signal(&self) {
-		self.set.store(true, Ordering::Relaxed);
-		self.waker.wake();
-	}
-}
-
-impl Future for &AtomicFlag {
-	type Output = ();
-
-	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-		// Short-circuit.
-		if self.set.load(Ordering::Relaxed) {
-			return Poll::Ready(());
-		}
-
-		self.waker.register(cx.waker());
-
-		// Need to check condition **after** `register()` to avoid a race condition that
-		// would result in lost notifications.
-		if self.set.load(Ordering::Relaxed) {
-			Poll::Ready(())
-		} else {
-			Poll::Pending
-		}
 	}
 }

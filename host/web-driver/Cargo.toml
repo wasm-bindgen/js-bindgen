@@ -18,7 +18,7 @@ clap = { workspace = true }
 hashbrown = { workspace = true, features = ["default-hasher"] }
 js-bindgen-shared = { workspace = true, features = ["web-driver"] }
 mime = { workspace = true }
-reqwest = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 shlex = { workspace = true }
