@@ -1,6 +1,6 @@
 use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
-use std::io::{self, Error, Read, Write};
+use std::io::{Error, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::SystemTime;
@@ -11,11 +11,7 @@ use wasmparser::CustomSectionReader;
 
 /// Currently this simply passes the LLVM s-format assembly to `clang` to
 /// convert to an object file the linker can consume.
-pub fn assembly_to_object(
-	arch_str: &str,
-	assembly: &str,
-	output: &mut dyn Write,
-) -> Result<(), Error> {
+pub fn assembly_to_object(arch_str: &str, assembly: &str) -> Result<Vec<u8>, Error> {
 	let mut child = Command::new("clang")
 		.arg("-xassembler")
 		.arg(format!("--target={arch_str}"))
@@ -39,44 +35,38 @@ pub fn assembly_to_object(
 		.ok_or_else(|| Error::other("`clang` process should have `stdin`"))?;
 	stdin.write_all(assembly.as_bytes())?;
 
-	let status = child.wait()?;
+	let output = child.wait_with_output()?;
 
-	if status.success() {
-		io::copy(&mut child.stdout.unwrap(), output)?;
-		Ok(())
+	if output.status.success() {
+		Ok(output.stdout)
 	} else {
 		eprintln!("------ clang input -------\n{assembly}",);
 
-		let mut stdout = Vec::new();
-		child.stdout.unwrap().read_to_end(&mut stdout)?;
-
-		if !stdout.is_empty() {
+		if !output.stdout.is_empty() {
 			eprintln!(
 				"------ clang stdout ------\n{}",
-				String::from_utf8_lossy(&stdout)
+				String::from_utf8_lossy(&output.stdout)
 			);
 
-			if !stdout.ends_with(b"\n") {
+			if !output.stdout.ends_with(b"\n") {
 				eprintln!();
 			}
 		}
 
-		let mut stderr = Vec::new();
-		child.stderr.unwrap().read_to_end(&mut stderr)?;
-
-		if !stderr.is_empty() {
+		if !output.stderr.is_empty() {
 			eprintln!(
 				"------ clang stderr ------\n{}",
-				String::from_utf8_lossy(&stderr)
+				String::from_utf8_lossy(&output.stderr)
 			);
 
-			if !stderr.ends_with(b"\n") {
+			if !output.stderr.ends_with(b"\n") {
 				eprintln!();
 			}
 		}
 
 		Err(Error::other(format!(
-			"`clang` process failed with status: {status}"
+			"`clang` process failed with status: {}",
+			output.status
 		)))
 	}
 }
