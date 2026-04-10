@@ -1,0 +1,31 @@
+[package]
+edition = { workspace = true }
+include = { workspace = true }
+license = { workspace = true }
+name = "js-bindgen-web-driver"
+rust-version = { workspace = true }
+
+[[bin]]
+bench = false
+doctest = false
+name = "js-bindgen-web-driver"
+test = false
+
+[dependencies]
+anyhow = { workspace = true }
+axum = { workspace = true }
+clap = { workspace = true }
+hashbrown = { workspace = true, features = ["default-hasher"] }
+js-bindgen-shared = { workspace = true, features = ["web-driver"] }
+mime = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+shlex = { workspace = true }
+tokio = { workspace = true, features = ["macros", "net", "process", "rt-multi-thread", "signal"] }
+tower-http = { workspace = true, features = ["catch-panic"] }
+url = { workspace = true }
+xxhash-rust = { workspace = true }
+
+[lints]
+workspace = true

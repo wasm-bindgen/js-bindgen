@@ -1,4 +1,4 @@
-﻿name: Test
+name: Host
 
 on:
   push:
@@ -10,10 +10,36 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
 
 jobs:
-  host:
+  build:
+    name: Build Host ${{ matrix.os.description }}
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - { os: ubuntu-latest, description: Linux }
+          - { os: macos-latest, description: macOS }
+          - { os: windows-latest, description: Windows }
+
+    defaults:
+      run:
+        working-directory: host
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build Crates
+        run: cargo build --all-features
+
+  test:
     name: Test Host ${{ matrix.os.description }}
 
     runs-on: ${{ matrix.os.os }}
@@ -25,7 +51,7 @@ jobs:
       matrix:
         os:
           - { os: ubuntu-latest, description: Linux }
-          - { os: macos-latest, description: MacOS }
+          - { os: macos-latest, description: macOS }
           - { os: windows-latest, description: Windows }
 
     defaults:
@@ -35,7 +61,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install Rust
+      - name: Install Rust Wasm Target
         run: rustup target add wasm32-unknown-unknown
       - name: Install LLVM
         uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
@@ -44,42 +70,3 @@ jobs:
           llvm-version: 21
       - name: Run Tests
         run: cargo test --all-features --no-fail-fast
-
-  client:
-    name: Test Client ${{ matrix.os.description }}
-
-    runs-on: ${{ matrix.os.os }}
-
-    timeout-minutes: 20
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - { os: ubuntu-latest, description: Linux }
-          - { os: macos-latest, description: MacOS }
-          - { os: windows-latest, description: Windows }
-
-    defaults:
-      run:
-        working-directory: client
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install Rust
-        run: rustup target add wasm32-unknown-unknown
-      - name: Install LLVM
-        uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
-        with:
-          # Rustc v1.93
-          llvm-version: 21
-      - name: Install TSC
-        run: npm install -g typescript
-      - name: Update Node.js
-        if: runner.os == 'Linux' || runner.os == 'macOS'
-        uses: actions/setup-node@v6
-        with:
-          node-version: latest
-      - name: Run Tests
-        run: cargo test --workspace --all-features --no-fail-fast

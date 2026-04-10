@@ -61,22 +61,20 @@ pub fn parse_string_arguments(
 		if let TokenTree::Literal(l) = tok {
 			let lit = l.to_string();
 
-			if lit
-				.strip_prefix('"')
-				.and_then(|lit| lit.strip_suffix('"'))
-				.is_none()
-			{
+			let Some(stripped) = lit.strip_prefix('"').and_then(|lit| lit.strip_suffix('"')) else {
 				break;
-			}
+			};
+			previous_span = l.span();
+			stream.next();
 
-			let (lit, string) =
-				parse_string_literal(&mut stream, previous_span, "string literal", false)?;
-			previous_span = lit.span();
+			let string = parse_inner_string(stripped, previous_span)?;
 
 			// Only insert newline when there are multiple strings.
 			if let Some((_, string, _)) = strings.last_mut() {
 				string.push('\n');
 			}
+
+			strings.push((cfg.take(), string, previous_span));
 
 			if stream.peek().is_some() {
 				previous_span = expect_punct(
@@ -88,8 +86,6 @@ pub fn parse_string_arguments(
 				)?
 				.span();
 			}
-
-			strings.push((cfg.take(), string, lit.span()));
 		} else {
 			break;
 		}
@@ -163,8 +159,7 @@ pub fn parse_string_arguments(
 			None
 		};
 
-		let mut expr = Vec::new();
-		let value_span = parse_ty_or_value(stream, previous_span, "a value", &mut expr)?;
+		let (expr, expr_span) = parse_ty_or_value(stream, previous_span, "a value")?;
 
 		let kind = match operator.to_string().as_str() {
 			"const" => ArgKind::Const(expr),
@@ -204,7 +199,7 @@ pub fn parse_string_arguments(
 				cfg: cfg.take(),
 				name,
 				kind,
-				span: (named.span(), value_span.end).into(),
+				span: (named.span(), expr_span.end).into(),
 			});
 		} else {
 			if let Some([punct, group]) = cfg {
@@ -214,7 +209,7 @@ pub fn parse_string_arguments(
 				));
 			}
 
-			unnamed_arguments.push_back((kind, (operator.span(), value_span.end).into()));
+			unnamed_arguments.push_back((kind, (operator.span(), expr_span.end).into()));
 		}
 
 		if stream.peek().is_some() {
@@ -235,7 +230,7 @@ pub fn parse_string_arguments(
 	for (cfg, string, span) in strings {
 		// Don't merge strings when dealing with a `cfg`.
 		if cfg.is_some() && !current_string.is_empty() {
-			custom_section.bytes_value(None, mem::take(&mut current_string).into_bytes());
+			custom_section.string_value(None, &mut current_string);
 		}
 
 		let mut chars = string.chars().peekable();
@@ -286,10 +281,7 @@ pub fn parse_string_arguments(
 						};
 
 						if !current_string.is_empty() {
-							custom_section.bytes_value(
-								cfg.clone(),
-								mem::take(&mut current_string).into_bytes(),
-							);
+							custom_section.string_value(cfg.clone(), &mut current_string);
 						}
 
 						if let Some(name) = name {
@@ -344,12 +336,12 @@ pub fn parse_string_arguments(
 
 		// Don't merge strings when dealing with a `cfg`.
 		if cfg.is_some() && !current_string.is_empty() {
-			custom_section.bytes_value(cfg, mem::take(&mut current_string).into_bytes());
+			custom_section.string_value(cfg, &mut current_string);
 		}
 	}
 
 	if !current_string.is_empty() {
-		custom_section.bytes_value(None, mem::take(&mut current_string).into_bytes());
+		custom_section.string_value(None, &mut current_string);
 	}
 
 	if let Some(span) = named_arguments
@@ -370,6 +362,34 @@ pub fn parse_string_arguments(
 	}
 
 	Ok(())
+}
+
+pub fn parse_inner_string(
+	stripped: &str,
+	previous_span: impl Into<SpanRange>,
+) -> Result<String, TokenStream> {
+	let mut string = String::with_capacity(stripped.len());
+	let mut chars = stripped.chars();
+
+	while let Some(char) = chars.next() {
+		match char {
+			'\\' => match chars.next().unwrap() {
+				'"' => string.push('"'),
+				'\\' => string.push('\\'),
+				'n' => string.push('\n'),
+				't' => string.push('\t'),
+				c => {
+					return Err(compile_error(
+						previous_span,
+						format!("escaping `{c}` is not supported"),
+					));
+				}
+			},
+			c => string.push(c),
+		}
+	}
+
+	Ok(string)
 }
 
 pub struct RequiredEmbed {
@@ -423,8 +443,7 @@ pub fn expect_meta_name_required_embeds(
 			}
 		}
 
-		let mut expr = Vec::new();
-		let local_span = parse_ty_or_value(&mut array_stream, span, "string value", &mut expr)?;
+		let (expr, expr_span) = parse_ty_or_value(&mut array_stream, span, "string value")?;
 
 		values.push(RequiredEmbed { cfg, expr });
 
@@ -432,7 +451,7 @@ pub fn expect_meta_name_required_embeds(
 			span.end = expect_punct(
 				&mut array_stream,
 				',',
-				local_span,
+				expr_span,
 				"a `,` after a tuple",
 				false,
 			)?
@@ -451,30 +470,6 @@ pub fn expect_meta_name_required_embeds(
 	}
 
 	Ok(values)
-}
-
-pub fn expect_meta_name_string(
-	mut stream: &mut Peekable<token_stream::IntoIter>,
-	attribute: &str,
-) -> Result<String, TokenStream> {
-	let error = format!("`{attribute} = \"...\"`");
-	let ident = parse_ident(&mut stream, Span::mixed_site(), &error)?;
-	let mut span = SpanRange::from(ident.span());
-
-	#[cfg_attr(test, expect(clippy::cmp_owned, reason = "`proc-macro2` compatiblity"))]
-	if ident.to_string() != attribute {
-		return Err(compile_error(span, format!("expected `{attribute}`")));
-	}
-
-	span.end = expect_punct(&mut stream, '=', span, &error, true)?.span();
-	let (lit, string) = parse_string_literal(&mut stream, span, &error, true)?;
-	span.end = lit.span();
-
-	if stream.peek().is_some() {
-		expect_punct(&mut stream, ',', span, "a `,` after an attribute", false)?;
-	}
-
-	Ok(string)
 }
 
 fn parse_cfg(
@@ -499,8 +494,8 @@ pub fn parse_ty_or_value(
 	mut stream: &mut Peekable<token_stream::IntoIter>,
 	previous_span: impl Into<SpanRange>,
 	expected: &str,
-	out: &mut Vec<TokenTree>,
-) -> Result<SpanRange, TokenStream> {
+) -> Result<(Vec<TokenTree>, SpanRange), TokenStream> {
+	let mut out = Vec::new();
 	let mut span = previous_span.into();
 	let mut found = false;
 
@@ -539,7 +534,7 @@ pub fn parse_ty_or_value(
 	}
 
 	if found {
-		Ok(span)
+		Ok((out, span))
 	} else {
 		Err(compile_error(span, format!("expected {expected}")))
 	}
@@ -575,59 +570,6 @@ fn parse_angular(
 		Ok((span, angular))
 	} else {
 		Err(compile_error(span, "type not completed, missing `>`"))
-	}
-}
-
-pub fn parse_string_literal(
-	mut stream: impl Iterator<Item = TokenTree>,
-	previous_span: impl Into<SpanRange>,
-	expected: &str,
-	with_previous: bool,
-) -> Result<(Literal, String), TokenStream> {
-	if let Some(tok) = stream.next() {
-		let span: SpanRange = if with_previous {
-			(previous_span.into().start, tok.span()).into()
-		} else {
-			tok.span().into()
-		};
-
-		match tok {
-			TokenTree::Literal(l) => {
-				let lit = l.to_string();
-
-				// Strip starting and ending `"`.
-				let Some(stripped) = lit.strip_prefix('"').and_then(|lit| lit.strip_suffix('"'))
-				else {
-					return Err(compile_error(span, format!("expected {expected}")));
-				};
-
-				let mut string = String::with_capacity(stripped.len());
-				let mut chars = stripped.chars();
-
-				while let Some(char) = chars.next() {
-					match char {
-						'\\' => match chars.next().unwrap() {
-							'"' => string.push('"'),
-							'\\' => string.push('\\'),
-							'n' => string.push('\n'),
-							't' => string.push('\t'),
-							c => {
-								return Err(compile_error(
-									span,
-									format!("escaping `{c}` is not supported"),
-								));
-							}
-						},
-						c => string.push(c),
-					}
-				}
-
-				Ok((l, string))
-			}
-			_ => Err(compile_error(span, format!("expected {expected}"))),
-		}
-	} else {
-		Err(compile_error(previous_span, format!("expected {expected}")))
 	}
 }
 

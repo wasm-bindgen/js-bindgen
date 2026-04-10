@@ -14,18 +14,20 @@ use axum::http::header::CONTENT_TYPE;
 use axum::response::Response;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use js_bindgen_shared::ReadFile;
+use js_bindgen_shared::{AtomicFlag, ReadFile};
 use serde::Deserialize;
 use serde_repr::Deserialize_repr;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
-use crate::util::AtomicFlag;
-use crate::{SHARED_JS, SHARED_TERMINAL_JS, WorkerKind};
+use crate::config::WorkerKind;
+use crate::runner::{SHARED_JS, SHARED_TERMINAL_JS};
 
 const INDEX_HTML: &str = include_str!("js/index.html");
 const BROWSER_JS: &str = include_str!("js/browser.mjs");
 const BROWSER_SPAWNER_JS: &str = include_str!("js/browser-spawner.mjs");
+const BROWSER_WORKER_JS: &str = include_str!("js/browser-worker.mjs");
 const BROWSER_SERVICE_JS: &str = include_str!("js/browser-service.mjs");
 const SERVER_JS: &str = include_str!("js/server.mjs");
 const SERVER_SPAWNER_JS: &str = include_str!("js/server-spawner.mjs");
@@ -35,9 +37,11 @@ const SERVER_SERVICE_JS: &str = include_str!("js/server-service.mjs");
 const SHARED_SPAWNER_JS: &str = include_str!("js/shared-spawner.mjs");
 const SHARED_BROWSER_JS: &str = include_str!("js/shared-browser.mjs");
 const SHARED_SERVER_JS: &str = include_str!("js/shared-server.mjs");
+const SHARED_IMPORT_JS: &str = include_str!("js/shared-import.mjs");
 
 pub struct HttpServer {
 	url: String,
+	server: JoinHandle<Result<(), io::Error>>,
 	state: Arc<ServerState>,
 }
 
@@ -53,7 +57,6 @@ struct ServerState {
 struct Signals {
 	shutdown: AtomicFlag,
 	success: AtomicU8,
-	finished: AtomicFlag,
 }
 
 #[derive(Default)]
@@ -93,21 +96,20 @@ impl HttpServer {
 			let state = state.clone();
 			async move {
 				(&state.signals.shutdown).await;
-				state.signals.finished.signal();
 			}
 		});
-		tokio::spawn(serve.into_future());
+		let server = tokio::spawn(serve.into_future());
 
-		Ok(Self { url, state })
+		Ok(Self { url, server, state })
 	}
 
 	pub async fn shutdown(self) {
 		self.state.signals.shutdown.signal();
-		self.wait().await;
+		self.server.await.unwrap().unwrap();
 	}
 
-	pub async fn wait(&self) -> Status {
-		(&self.state.signals.finished).await;
+	pub async fn wait(self) -> Status {
+		self.server.await.unwrap().unwrap();
 		let status = self.state.signals.success.load(Ordering::Relaxed);
 		Status::from_repr(status).unwrap()
 	}
@@ -135,6 +137,10 @@ impl HttpServer {
 			.route(
 				"/shared.mjs",
 				get(async || response("application/javascript", SHARED_JS)),
+			)
+			.route(
+				"/shared-import.mjs",
+				get(async || response("application/javascript", SHARED_IMPORT_JS)),
 			)
 			.route(
 				"/test-data.json",
@@ -167,7 +173,7 @@ impl HttpServer {
 				Some(WorkerKind::Dedicated | WorkerKind::Shared) => {
 					router = router.route(
 						"/worker.mjs",
-						get(async || response("application/javascript", BROWSER_JS)),
+						get(async || response("application/javascript", BROWSER_WORKER_JS)),
 					);
 				}
 				Some(WorkerKind::Service) => {

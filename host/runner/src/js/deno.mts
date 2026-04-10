@@ -1,9 +1,10 @@
-import { runTests, Stream } from "./shared.mts"
+import { runTests, Stream, Status } from "./shared.mts"
 import { colorText } from "./shared-terminal.mts"
+import { JsBindgen } from "./imports.mts"
 
 const module = await WebAssembly.compileStreaming(fetch(new URL("./wasm.wasm", import.meta.url)))
 
-const success = await runTests(module, (stream, text) => {
+const success = await runTests(module, JsBindgen, (stream, text) => {
 	function printSync(input: string, to: typeof Deno.stdout | typeof Deno.stderr) {
 		let bytesWritten = 0
 		const bytes = new TextEncoder().encode(input)
@@ -24,4 +25,4 @@ const success = await runTests(module, (stream, text) => {
 	}
 })
 
-Deno.exit(success ? 0 : 101)
+Deno.exit(success === Status.Ok ? 0 : 101)

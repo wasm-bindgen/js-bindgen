@@ -1,6 +1,5 @@
 use std::ffi::OsString;
-use std::fs::File;
-use std::io::BufWriter;
+use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -134,15 +133,9 @@ fn process_object(
 							.zip(object_mtime)
 							.is_none_or(|(t1, t2)| t1 < t2)
 					} {
-						let mut asm_file = BufWriter::new(
-							File::create(&asm_path)
-								.expect("output assembly object should be writable"),
-						);
-
-						js_bindgen_ld_shared::assembly_to_object(arch_str, assembly, &mut asm_file)
+						let asm = js_bindgen_ld_shared::assembly_to_object(arch_str, assembly)
 							.expect("compiling assembly should be valid");
-
-						asm_file.into_inner().unwrap().sync_all().unwrap();
+						fs::write(&asm_path, asm).unwrap();
 					}
 
 					add_args.push(asm_path.into());

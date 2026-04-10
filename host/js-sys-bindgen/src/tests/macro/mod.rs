@@ -1,4 +1,4 @@
-use std::io::{self, Cursor};
+use std::io::Cursor;
 use std::path::Path;
 use std::process::Command;
 use std::{env, fs};
@@ -210,11 +210,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 									"found multiple assembly outputs"
 								);
 								assembly_output = Some(assembly.to_owned());
-								js_bindgen_ld_shared::assembly_to_object(
-									"wasm32",
-									assembly,
-									&mut io::sink(),
-								)?;
+								js_bindgen_ld_shared::assembly_to_object("wasm32", assembly)?;
 							}
 							Payload::CustomSection(c) if c.name() == "js_bindgen.import" => {
 								let mut parser = JsBindgenJsSectionParser::new(&c);

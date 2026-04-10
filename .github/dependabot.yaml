@@ -1,0 +1,23 @@
+version: 2
+
+updates:
+  - package-ecosystem: cargo
+    directories:
+      - /client
+      - /host
+      - /dev
+    schedule:
+      interval: daily
+    groups:
+      rust:
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+    groups:
+      github-actions:
+        patterns:
+          - "*"

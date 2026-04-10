@@ -1,4 +1,4 @@
-error: expected `module = "..."`
+error: expected `module = ...`
  --> tests/ui/import.rs:1:1
   |
 1 | js_bindgen::import_js!();
@@ -6,7 +6,7 @@ error: expected `module = "..."`
   |
   = note: this error originates in the macro `js_bindgen::import_js` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: expected `module = "..."`
+error: expected `module = ...`
  --> tests/ui/import.rs:4:24
   |
 4 | js_bindgen::import_js!(42);
@@ -18,223 +18,211 @@ error: expected `module`
 7 | js_bindgen::import_js!(foo);
   |                        ^^^
 
-error: expected `module = "..."`
+error: expected `module = ...`
   --> tests/ui/import.rs:10:24
    |
 10 | js_bindgen::import_js!(module);
    |                        ^^^^^^
 
-error: expected `module = "..."`
+error: expected `module = ...`
   --> tests/ui/import.rs:13:24
    |
 13 | js_bindgen::import_js!(module$);
    |                        ^^^^^^^
 
-error: expected `module = "..."`
+error: expected `module = ...`
   --> tests/ui/import.rs:16:24
    |
 16 | js_bindgen::import_js!(module =);
    |                        ^^^^^^^^
 
-error: expected `module = "..."`
+error: expected `module`
   --> tests/ui/import.rs:19:24
    |
-19 | js_bindgen::import_js!(module = 42);
-   |                        ^^^^^^^^^^^
-
-error: expected `module = "..."`
-  --> tests/ui/import.rs:22:24
-   |
-22 | js_bindgen::import_js!(module = Foo);
-   |                        ^^^^^^^^^^^^
-
-error: expected `module`
-  --> tests/ui/import.rs:25:24
-   |
-25 | js_bindgen::import_js!(foo = "bar");
+19 | js_bindgen::import_js!(foo = "bar");
    |                        ^^^
 
-error: expected `name = "..."`
-  --> tests/ui/import.rs:28:1
+error: expected `name = ...`
+  --> tests/ui/import.rs:22:1
    |
-28 | js_bindgen::import_js!(module = "foo");
+22 | js_bindgen::import_js!(module = "foo");
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: this error originates in the macro `js_bindgen::import_js` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: expected a `,` after an attribute
-  --> tests/ui/import.rs:31:39
+  --> tests/ui/import.rs:25:39
    |
-31 | js_bindgen::import_js!(module = "foo" 42);
-   |                                       ^^
+25 | js_bindgen::import_js!(module = "foo" $);
+   |                                       ^
 
-error: expected `name = "..."`
-  --> tests/ui/import.rs:34:1
+error: expected `name = ...`
+  --> tests/ui/import.rs:28:1
    |
-34 | js_bindgen::import_js!(module = "foo",);
+28 | js_bindgen::import_js!(module = "foo",);
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: this error originates in the macro `js_bindgen::import_js` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: expected `name = "..."`
-  --> tests/ui/import.rs:37:40
+error: expected `name = ...`
+  --> tests/ui/import.rs:31:40
    |
-37 | js_bindgen::import_js!(module = "foo", 42);
+31 | js_bindgen::import_js!(module = "foo", 42);
    |                                        ^^
 
-error: expected `name = "..."`
-  --> tests/ui/import.rs:40:40
+error: expected `name = ...`
+  --> tests/ui/import.rs:34:40
    |
-40 | js_bindgen::import_js!(module = "foo", "bar");
+34 | js_bindgen::import_js!(module = "foo", "bar");
    |                                        ^^^^^
 
 error: expected `name`
-  --> tests/ui/import.rs:43:40
+  --> tests/ui/import.rs:37:40
    |
-43 | js_bindgen::import_js!(module = "foo", bar = Baz);
+37 | js_bindgen::import_js!(module = "foo", bar = Baz);
    |                                        ^^^
 
 error: expected `name`
-  --> tests/ui/import.rs:46:40
+  --> tests/ui/import.rs:40:40
    |
-46 | js_bindgen::import_js!(module = "foo", bar = "baz");
+40 | js_bindgen::import_js!(module = "foo", bar = "baz");
    |                                        ^^^
 
 error: requires at least a string template
-  --> tests/ui/import.rs:49:1
+  --> tests/ui/import.rs:43:1
    |
-49 | js_bindgen::import_js!(module = "foo", name = "bar");
+43 | js_bindgen::import_js!(module = "foo", name = "bar");
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: this error originates in the macro `js_bindgen::import_js` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: requires at least a string template
-  --> tests/ui/import.rs:52:1
+  --> tests/ui/import.rs:46:1
    |
-52 | js_bindgen::import_js!(module = "foo", name = "bar",);
+46 | js_bindgen::import_js!(module = "foo", name = "bar",);
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: this error originates in the macro `js_bindgen::import_js` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: requires at least a string template
-  --> tests/ui/import.rs:55:54
+  --> tests/ui/import.rs:49:54
    |
-55 | js_bindgen::import_js!(module = "foo", name = "bar", 42);
+49 | js_bindgen::import_js!(module = "foo", name = "bar", 42);
    |                                                      ^^
 
 error: expected `required_embeds`
-  --> tests/ui/import.rs:58:54
+  --> tests/ui/import.rs:52:54
    |
-58 | js_bindgen::import_js!(module = "foo", name = "bar", baz = qux);
+52 | js_bindgen::import_js!(module = "foo", name = "bar", baz = qux);
    |                                                      ^^^
 
 error: expected `required_embeds =`
-  --> tests/ui/import.rs:61:54
+  --> tests/ui/import.rs:55:54
    |
-61 | js_bindgen::import_js!(module = "foo", name = "bar", required_embeds);
+55 | js_bindgen::import_js!(module = "foo", name = "bar", required_embeds);
    |                                                      ^^^^^^^^^^^^^^^
 
 error: expected `required_embeds =`
-  --> tests/ui/import.rs:64:54
+  --> tests/ui/import.rs:58:54
    |
-64 | js_bindgen::import_js!(module = "foo", name = "bar", required_embeds$);
+58 | js_bindgen::import_js!(module = "foo", name = "bar", required_embeds$);
    |                                                      ^^^^^^^^^^^^^^^^
 
 error: expected array of string pairs
-  --> tests/ui/import.rs:67:72
+  --> tests/ui/import.rs:61:72
    |
-67 | js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = Qux);
+61 | js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = Qux);
    |                                                                        ^^^
 
 error: expected array of string pairs
-  --> tests/ui/import.rs:70:72
+  --> tests/ui/import.rs:64:72
    |
-70 | js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = "qux");
+64 | js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = "qux");
    |                                                                        ^^^^^
 
 error: requires at least a string template
-  --> tests/ui/import.rs:73:1
+  --> tests/ui/import.rs:67:1
    |
-73 | / js_bindgen::import_js!(
-74 | |     module = "foo",
-75 | |     name = "bar",
-76 | |     required_embeds = [("qux", "quux")]
-77 | | );
+67 | / js_bindgen::import_js!(
+68 | |     module = "foo",
+69 | |     name = "bar",
+70 | |     required_embeds = [("qux", "quux")]
+71 | | );
    | |_^
    |
    = note: this error originates in the macro `js_bindgen::import_js` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: requires at least a string template
-  --> tests/ui/import.rs:80:1
+  --> tests/ui/import.rs:74:1
    |
-80 | / js_bindgen::import_js!(
-81 | |     module = "foo",
-82 | |     name = "bar",
-83 | |     required_embeds = [("qux", "quux")],
-84 | | );
+74 | / js_bindgen::import_js!(
+75 | |     module = "foo",
+76 | |     name = "bar",
+77 | |     required_embeds = [("qux", "quux")],
+78 | | );
    | |_^
    |
    = note: this error originates in the macro `js_bindgen::import_js` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: requires at least a string template
-  --> tests/ui/import.rs:91:2
+  --> tests/ui/import.rs:85:2
    |
-91 |     42
+85 |     42
    |     ^^
 
 error: requires at least a string template
-  --> tests/ui/import.rs:99:2
+  --> tests/ui/import.rs:93:2
    |
-99 |     baz = Qux
+93 |     baz = Qux
    |     ^^^
 
 error: expected string value
-   --> tests/ui/import.rs:106:21
+   --> tests/ui/import.rs:100:21
     |
-106 |     required_embeds = [$("qux", "quux")],
+100 |     required_embeds = [$("qux", "quux")],
     |                        ^
 
 error: expected `cfg`
-   --> tests/ui/import.rs:114:23
+   --> tests/ui/import.rs:108:23
     |
-114 |     required_embeds = [#[test]],
+108 |     required_embeds = [#[test]],
     |                          ^^^^
 
 error: leftover `cfg` attribute
-   --> tests/ui/import.rs:122:21
+   --> tests/ui/import.rs:116:21
     |
-122 |     required_embeds = [#[cfg()]],
+116 |     required_embeds = [#[cfg()]],
     |                        ^^^^^^^^
 
 error: expected string value
-   --> tests/ui/import.rs:130:30
+   --> tests/ui/import.rs:124:30
     |
-130 |     required_embeds = [#[cfg()] $],
+124 |     required_embeds = [#[cfg()] $],
     |                                 ^
 
 error: expected `cfg`
-   --> tests/ui/import.rs:138:32
+   --> tests/ui/import.rs:132:32
     |
-138 |     required_embeds = [#[cfg()] #[test]],
+132 |     required_embeds = [#[cfg()] #[test]],
     |                                   ^^^^
 
 error: multiple `cfg`s in a row not supported
-   --> tests/ui/import.rs:146:30
+   --> tests/ui/import.rs:140:30
     |
-146 |     required_embeds = [#[cfg()] #[cfg()]],
+140 |     required_embeds = [#[cfg()] #[cfg()]],
     |                                 ^^^^^^^^
 
 error: expected a `,` after a tuple
-   --> tests/ui/import.rs:154:36
+   --> tests/ui/import.rs:148:36
     |
-154 |     required_embeds = [("qux", "quux")$],
+148 |     required_embeds = [("qux", "quux")$],
     |                                       ^
 
 error: expected a `,` after an attribute
-   --> tests/ui/import.rs:162:37
+   --> tests/ui/import.rs:156:37
     |
-162 |     required_embeds = [("qux", "quux")]$
+156 |     required_embeds = [("qux", "quux")]$
     |                                        ^
 
-error: aborting due to 36 previous errors
+error: aborting due to 34 previous errors
 

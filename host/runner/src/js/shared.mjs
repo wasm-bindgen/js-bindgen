@@ -1,6 +1,5 @@
 import testData from "./test-data.json" with { type: "json" };
-import { JsBindgen } from "./imports.mjs";
-export async function runTests(module, report) {
+export async function runTests(module, jsBindgenCtor, report) {
     let interceptFlag = false;
     const interceptStore = [];
     const CONSOLE_METHODS = ["debug", "log", "info", "warn", "error"];
@@ -41,7 +40,14 @@ export async function runTests(module, report) {
         interceptStore.length = 0;
         panicPayload = undefined;
         panicMessage = undefined;
-        const jsBindgen = new JsBindgen(module);
+        let jsBindgen;
+        try {
+            jsBindgen = new jsBindgenCtor(module);
+        }
+        catch (error) {
+            report(1 /* Stream.Stderr */, [{ text: error.message, color: 0 /* Color.Default */ }, newLineText]);
+            return 2 /* Status.Abnormal */;
+        }
         jsBindgen.extendImportObject({
             js_bindgen_test: {
                 set_payload: (payload) => (panicPayload = payload),
@@ -60,7 +66,7 @@ export async function runTests(module, report) {
                 ]);
             }
             else {
-                report(0 /* Stream.Stdout */, [testText, { text: `ignored`, color: 2 /* Color.Yellow */ }, newLineText]);
+                report(0 /* Stream.Stdout */, [testText, { text: "ignored", color: 2 /* Color.Yellow */ }, newLineText]);
             }
             continue;
         }
@@ -141,8 +147,8 @@ export async function runTests(module, report) {
         }
         output1 += "\n";
     }
-    let success = failures.length === 0;
-    const result = success ? okText : failedText;
+    let success = failures.length === 0 ? 0 /* Status.Ok */ : 1 /* Status.Failed */;
+    const result = success === 0 /* Status.Ok */ ? okText : failedText;
     const passed = testData.tests.length - failures.length - ignored;
     const durationMs = performance.now() - startTime;
     const durationSecs = (durationMs / 1000).toFixed(2);

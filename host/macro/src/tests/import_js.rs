@@ -9,25 +9,18 @@ fn basic() {
 
 	test!(output, {
 		const _: () = {
-			const ARR_0: [::core::primitive::u8; 11] = *b"\x03\0foo\x03\0bar\0";
-			const ARR_1: [::core::primitive::u8; 7] = *b"baz\nqux";
+			const ARR_0: [::core::primitive::u8; 18] = *b"\x03\0foo\x03\0bar\0baz\nqux";
 			const LEN: ::core::primitive::u32 = {
 				let mut len = 0;
-				len += 11;
-				len += 7;
+				len += 18;
 				len as _
 			};
 
 			#[repr(C)]
-			struct Layout(
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 11],
-				[::core::primitive::u8; 7],
-			);
+			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; 18]);
 
 			#[unsafe(link_section = "js_bindgen.import")]
-			static CUSTOM_SECTION: Layout =
-				Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0, ARR_1);
+			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 		};
 	});
 }
@@ -218,7 +211,7 @@ fn required_embeds_cfg() {
 			static CUSTOM_SECTION: Layout = Layout(
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
-				TUPLE_COUNT,
+				[TUPLE_COUNT],
 				#[cfg(test)]
 				VAL_1_LEN,
 				#[cfg(test)]
@@ -506,7 +499,7 @@ fn required_embeds_mixed() {
 			static CUSTOM_SECTION: Layout = Layout(
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
-				TUPLE_COUNT,
+				[TUPLE_COUNT],
 				VAL_1_LEN,
 				ARR_1,
 				VAL_2_LEN,

@@ -1,0 +1,74 @@
+name: Generate
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  cargo-shim:
+    name: Check Cargo Shim
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 20
+
+    env:
+      XWIN_ARCH: x86_64
+      XWIN_VERSION: 17
+      XWIN_SDK_VERSION: 10.0.26100
+      XWIN_CRT_VERSION: 14.44.17.14
+
+    defaults:
+      run:
+        working-directory: host
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup install 1.94 --profile minimal --override -t x86_64-pc-windows-msvc
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-xwin
+      - name: Restore `cargo-xwin` Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/cargo-xwin
+          key: cargo-xwin-cache
+      - name: Download `cargo-xwin` Cache
+        run: cargo xwin cache xwin
+      - name: Build Cargo Shims
+        env:
+          RUSTFLAGS: -Clink-arg=/Brepro
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: z
+          CARGO_PROFILE_RELEASE_LTO: fat
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
+          CARGO_PROFILE_RELEASE_PANIC: abort
+        run: cargo xwin build --bin linker --bin runner --target x86_64-pc-windows-msvc --release
+      - name: Copy Binaries
+        run: |
+          cp target/x86_64-pc-windows-msvc/release/linker.exe cargo-shim
+          cp target/x86_64-pc-windows-msvc/release/runner.exe cargo-shim
+      - name: Check for Changes
+        id: verify
+        run: |
+          git add -A
+          git diff --staged --exit-code
+      - name: Upload Cargo Shims
+        if: always() && steps.verify.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-shims
+          retention-days: 1
+          path: |
+            host/cargo-shim/linker.exe
+            host/cargo-shim/runner.exe

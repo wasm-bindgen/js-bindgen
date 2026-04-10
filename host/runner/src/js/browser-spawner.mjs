@@ -8,9 +8,25 @@ switch (workerKind) {
         break;
     }
     case 2 /* WorkerKind.Service */:
-        await navigator.serviceWorker.register("./worker.mjs", {
+        await navigator.serviceWorker
+            .register("./worker.mjs", {
             scope: crypto.randomUUID(),
             type: "module",
             updateViaCache: "none",
+        })
+            .catch(async (error) => {
+            await fetch("./report", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    order: 0,
+                    stream: 1 /* Stream.Stderr */,
+                    line: error.message + "\n",
+                }),
+            }).finally(() => fetch("/finished", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(2 /* Status.Abnormal */),
+            }));
         });
 }

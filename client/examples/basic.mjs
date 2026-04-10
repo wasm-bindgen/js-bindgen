@@ -4,11 +4,7 @@ export class JsBindgen {
     // @ts-expect-error TS6133
     #jsEmbed;
     // @ts-expect-error TS6133
-    #memory = (() => {
-        const memory = new WebAssembly.Memory({ initial: 17, maximum: 65536 });
-        memory.toResizableBuffer();
-        return memory;
-    })();
+    #memory = new WebAssembly.Memory({ initial: 17, maximum: 65536 });
     #module;
     constructor(module) {
         this.#module = module;
@@ -20,7 +16,7 @@ export class JsBindgen {
 						ignoreBOM: false,
 					})
 					const view = new Uint8Array(this.#memory.buffer, ptr, len)
-				
+
 					return decoder.decode(view)
 				},
 				'externref.table': (() => {

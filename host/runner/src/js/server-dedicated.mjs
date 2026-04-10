@@ -1,7 +1,13 @@
-/// <reference lib="webworker" />
 import { runTests } from "./shared.mjs";
+import { importJsBindgen } from "./shared-import.mjs";
 const module = await WebAssembly.compileStreaming(fetch("./wasm.wasm"));
-await runTests(module, (_, text) => {
-    self.postMessage(text);
-});
+const jsBindgenCtor = await importJsBindgen();
+if (jsBindgenCtor instanceof Error) {
+    self.postMessage(jsBindgenCtor.message + "\n");
+}
+else {
+    await runTests(module, jsBindgenCtor, (_, text) => {
+        self.postMessage(text);
+    });
+}
 self.close();

@@ -1,3 +1,3 @@
 import { runBrowser } from "./shared-browser.mjs";
-await runBrowser();
-self.close();
+import { importJsBindgen } from "./shared-import.mjs";
+await runBrowser(await importJsBindgen());

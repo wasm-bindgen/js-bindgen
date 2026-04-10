@@ -1,6 +1,6 @@
-/// <reference lib="webworker" />
 declare var self: ServiceWorkerGlobalScope
 
 import { runBrowser } from "./shared-browser.mts"
+import { JsBindgen } from "./imports.mts"
 
-runBrowser().then(() => self.registration.unregister())
+runBrowser(JsBindgen).then(() => self.registration.unregister())

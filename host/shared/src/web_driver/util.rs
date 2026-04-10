@@ -11,6 +11,7 @@ pub struct AtomicFlag {
 }
 
 impl AtomicFlag {
+	#[must_use]
 	pub fn new() -> Self {
 		Self::default()
 	}

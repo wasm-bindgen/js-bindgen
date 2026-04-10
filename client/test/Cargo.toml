@@ -1,8 +1,14 @@
 [package]
 edition = { workspace = true }
 include = { workspace = true }
+license = { workspace = true }
 name = "js-bindgen-test"
 rust-version = "1.87"
+
+[lib]
+bench = false
+doctest = false
+test = false
 
 [dependencies]
 js-bindgen-test-macro = { workspace = true }
