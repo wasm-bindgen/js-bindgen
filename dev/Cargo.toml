@@ -7,6 +7,7 @@ publish = false
 [dependencies]
 anstyle = { version = "1", default-features = false }
 anyhow = "1"
+cargo_metadata = "0.23"
 clap = { version = "4", features = ["derive"] }
 strum = { version = "0.28", default-features = false, features = ["derive"] }
 

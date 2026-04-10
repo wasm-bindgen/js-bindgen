@@ -151,7 +151,7 @@ impl Permutation {
 		})
 	}
 
-	pub fn toolchain(&self) -> Option<&'static str> {
+	pub fn toolchain(&self) -> Toolchain {
 		self.target.toolchain(self.target_feature)
 	}
 
@@ -379,4 +379,10 @@ impl Rustflags {
 		self.rust.push(str);
 		self.doc.push(str);
 	}
+}
+
+#[derive(Clone, Copy)]
+pub enum Toolchain {
+	Any,
+	Nightly,
 }

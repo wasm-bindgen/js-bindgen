@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::ffi::{OsStr, OsString};
 use std::io::Write;
 use std::process::{Command, ExitStatus};
 use std::time::{Duration, Instant};
@@ -6,8 +7,11 @@ use std::{env, io};
 
 use anstyle::{AnsiColor, Style};
 use anyhow::Result;
+use clap::builder::{StringValueParser, TypedValueParser};
+use clap::error::{ContextKind, ContextValue, ErrorKind};
+use clap::{Arg, Error};
 
-use crate::permutation::Permutation;
+use crate::permutation::{Permutation, Toolchain};
 
 #[must_use = "must only be dropped after operation is finished"]
 pub struct Group(Option<(String, Instant)>);
@@ -47,21 +51,26 @@ impl Drop for Group {
 	}
 }
 
-pub fn cargo(permutation: &Permutation, subcommand: &str) -> Command {
+pub fn cargo(
+	permutation: &Permutation,
+	nightly_toolchain: Option<&str>,
+	subcommand: &str,
+) -> Command {
 	let mut command = Command::new("cargo");
 	command
 		.current_dir("../client")
 		.envs(permutation.envs())
 		.env("CI", "true");
 
-	if let Some(toolchain) = permutation.toolchain() {
-		command.arg(toolchain);
+	if let Toolchain::Nightly = permutation.toolchain() {
+		if let Some(toolchain) = nightly_toolchain {
+			command.arg(format!("+{toolchain}"));
+		} else {
+			command.arg("+nightly");
+		}
 	}
 
-	command
-		.arg(subcommand)
-		.arg("--workspace")
-		.args(permutation.args());
+	command.arg(subcommand).args(permutation.args());
 
 	command
 }
@@ -139,4 +148,49 @@ pub fn run(mut command: Command, verbose: bool) -> Result<(Duration, ExitStatus)
 	};
 
 	Ok((start.elapsed(), status))
+}
+
+#[derive(Clone)]
+pub struct ToolchainParser;
+
+impl TypedValueParser for ToolchainParser {
+	type Value = String;
+
+	fn parse_ref(
+		&self,
+		cmd: &clap::Command,
+		arg: Option<&Arg>,
+		value: &OsStr,
+	) -> Result<Self::Value, Error> {
+		TypedValueParser::parse(self, cmd, arg, value.to_owned())
+	}
+
+	fn parse(
+		&self,
+		cmd: &clap::Command,
+		arg: Option<&Arg>,
+		value: OsString,
+	) -> Result<Self::Value, Error> {
+		let value = StringValueParser::parse(&StringValueParser::new(), cmd, arg, value)?;
+
+		if value.chars().any(char::is_whitespace) {
+			let mut error = Error::new(ErrorKind::ValueValidation).with_cmd(cmd);
+
+			if let Some(arg) = arg {
+				error.insert(
+					ContextKind::InvalidArg,
+					ContextValue::String(arg.to_string()),
+				);
+			}
+
+			error.insert(
+				ContextKind::InvalidValue,
+				ContextValue::String(String::from("contains spaces")),
+			);
+
+			Err(error)
+		} else {
+			Ok(value)
+		}
+	}
 }

@@ -13,6 +13,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use strum::{EnumCount, EnumIter, IntoEnumIterator, VariantArray};
 
 use crate::build::Build;
+use crate::permutation::Toolchain;
 use crate::test::Test;
 
 #[derive(Parser)]
@@ -75,10 +76,10 @@ impl Target {
 		}
 	}
 
-	fn toolchain(self, target_feature: TargetFeature) -> Option<&'static str> {
+	fn toolchain(self, target_feature: TargetFeature) -> Toolchain {
 		match (self, target_feature) {
-			(Self::Wasm64, _) | (_, TargetFeature::Atomics) => Some("+nightly"),
-			(Self::Wasm32, TargetFeature::Default) => None,
+			(Self::Wasm64, _) | (_, TargetFeature::Atomics) => Toolchain::Nightly,
+			(Self::Wasm32, TargetFeature::Default) => Toolchain::Any,
 		}
 	}
 

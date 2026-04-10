@@ -6,7 +6,7 @@ use anyhow::{Result, bail};
 use clap::Args;
 use strum::{IntoEnumIterator, VariantArray};
 
-use crate::command::{self, Group};
+use crate::command::{self, Group, ToolchainParser};
 use crate::permutation::Permutation;
 use crate::process::ChildWrapper;
 use crate::{Runner, Target, TargetFeature, WebDriver};
@@ -17,6 +17,8 @@ pub struct Test {
 	target: Option<Target>,
 	#[arg(long, value_delimiter = ',')]
 	target_feature: Vec<TargetFeature>,
+	#[arg(long, value_parser = ToolchainParser)]
+	nightly_toolchain: Option<String>,
 	#[arg(long, value_delimiter = ',', conflicts_with = "exclude")]
 	include: Vec<Runner>,
 	#[arg(long, value_delimiter = ',', conflicts_with = "include")]
@@ -142,8 +144,9 @@ impl Test {
 				if !built {
 					let group =
 						Group::announce(format!("Build Tests - {permutation}").into(), verbose)?;
-					let mut command = command::cargo(&permutation, "test");
-					command.arg("--no-run");
+					let mut command =
+						command::cargo(&permutation, self.nightly_toolchain.as_deref(), "test");
+					command.arg("--workspace").arg("--no-run");
 
 					if verbose {
 						command::print_info(&command);
@@ -161,8 +164,9 @@ impl Test {
 				}
 
 				let group = Group::announce(format!("Run Tests - {test_run}").into(), verbose)?;
-				let mut command = command::cargo(&permutation, "test");
-				command.envs(test_run.envs());
+				let mut command =
+					command::cargo(&permutation, self.nightly_toolchain.as_deref(), "test");
+				command.envs(test_run.envs()).arg("--workspace");
 
 				if verbose {
 					command::print_info(&command);

@@ -3,10 +3,11 @@ use std::time::Instant;
 use std::{env, slice};
 
 use anyhow::{Result, bail};
+use cargo_metadata::{MetadataCommand, TargetKind};
 use clap::Args;
 use strum::VariantArray;
 
-use crate::command::{self, Group};
+use crate::command::{self, Group, ToolchainParser};
 use crate::permutation::Permutation;
 use crate::{Target, TargetFeature};
 
@@ -16,6 +17,8 @@ pub struct Build {
 	target: Option<Target>,
 	#[arg(long, value_delimiter = ',')]
 	target_feature: Vec<TargetFeature>,
+	#[arg(long, value_parser = ToolchainParser)]
+	nightly_toolchain: Option<String>,
 }
 
 impl Build {
@@ -29,6 +32,29 @@ impl Build {
 		} else {
 			&self.target_feature
 		};
+
+		let metadata = MetadataCommand::new()
+			.current_dir("../client")
+			.no_deps()
+			.exec()?;
+
+		let mut packages = Vec::new();
+
+		for package in metadata.packages {
+			for target in package.targets {
+				for kind in target.kind {
+					match kind {
+						TargetKind::Lib => {
+							packages.push((kind, package.name.to_string()));
+						}
+						TargetKind::Example => {
+							packages.push((kind, target.name.clone()));
+						}
+						_ => (),
+					}
+				}
+			}
+		}
 
 		let start = Instant::now();
 
@@ -52,21 +78,37 @@ impl Build {
 		}
 
 		for permutation in Permutation::iter(targets, target_features) {
-			let group = Group::announce(format!("Build - {permutation}").into(), verbose)?;
-			let mut command = command::cargo(&permutation, "build");
-			command.arg("--examples");
+			for (kind, name) in &packages {
+				let mut command =
+					command::cargo(&permutation, self.nightly_toolchain.as_deref(), "build");
 
-			if verbose {
-				command::print_info(&command);
+				let group = match kind {
+					TargetKind::Lib => {
+						command.args(["-p", name]);
+						Group::announce(format!("Build `{name}` - {permutation}").into(), verbose)?
+					}
+					TargetKind::Example => {
+						command.args(["--example", name]);
+						Group::announce(
+							format!("Build Example `{name}` - {permutation}").into(),
+							verbose,
+						)?
+					}
+					_ => unreachable!(),
+				};
+
+				if verbose {
+					command::print_info(&command);
+				}
+
+				let (_, status) = command::run(command, verbose)?;
+
+				if !status.success() {
+					bail!("build \"{permutation}\" failed with {status}");
+				}
+
+				drop(group);
 			}
-
-			let (_, status) = command::run(command, verbose)?;
-
-			if !status.success() {
-				bail!("build \"{permutation}\" failed with {status}");
-			}
-
-			drop(group);
 		}
 
 		println!("-------------------------");
