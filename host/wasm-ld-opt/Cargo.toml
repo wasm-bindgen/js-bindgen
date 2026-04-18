@@ -6,7 +6,6 @@ publish = false
 
 [[bin]]
 bench = false
-doctest = false
 name = "wasm-ld-opt"
 test = false
 

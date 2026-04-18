@@ -4,23 +4,13 @@ use std::{env, iter, mem};
 
 use strum::{EnumIter, IntoEnumIterator};
 
-use crate::{Engine, Runner, Target, TargetFeature, WebDriver};
+use super::{Target, TargetFeature};
 
 pub struct Permutation {
 	target: Target,
 	target_feature: TargetFeature,
 	js_sys_target_feature: Option<JsSysTargetFeature>,
 	rustflags: Option<Rustflags>,
-}
-
-pub struct TestRun {
-	target: Target,
-	target_feature: TargetFeature,
-	js_sys_target_feature: Option<JsSysTargetFeature>,
-	runner: Runner,
-	remote: Option<WebDriver>,
-	worker: Option<Worker>,
-	node_js_arg: Option<&'static str>,
 }
 
 #[derive(Clone, Default)]
@@ -33,6 +23,7 @@ impl Permutation {
 	pub fn iter(
 		targets: &[Target],
 		target_features: &[TargetFeature],
+		js_sys: bool,
 	) -> impl Iterator<Item = Self> {
 		targets
 			.iter()
@@ -49,7 +40,12 @@ impl Permutation {
 				}
 
 				iter::once(None)
-					.chain(JsSysTargetFeature::iter().map(Some))
+					.chain(
+						js_sys
+							.then_some(JsSysTargetFeature::iter().map(Some))
+							.into_iter()
+							.flatten(),
+					)
 					.filter(move |js_sys_target_feature| {
 						!js_sys_target_feature.is_some_and(JsSysTargetFeature::requires_atomic)
 							|| target_feature.supports_atomics()
@@ -83,65 +79,6 @@ impl Permutation {
 			})
 	}
 
-	pub fn test_runs(
-		&self,
-		filter: impl Copy + Fn(&Runner) -> bool,
-	) -> impl Iterator<Item = TestRun> {
-		Runner::iter()
-			.filter(filter)
-			.filter(|runner| runner.supports_target(self.target))
-			.filter(|runner| {
-				!self
-					.js_sys_target_feature
-					.is_some_and(JsSysTargetFeature::requires_rab)
-					|| runner.supports_rab()
-			})
-			.filter(|runner| {
-				!self
-					.js_sys_target_feature
-					.is_some_and(JsSysTargetFeature::requires_sab)
-					|| runner.supports_sab()
-			})
-			.flat_map(move |runner| {
-				let node_js_arg = (matches!(runner, Runner::Engine(Engine::NodeJs))
-					&& self
-						.js_sys_target_feature
-						.is_some_and(JsSysTargetFeature::requires_rab))
-				.then_some("--experimental-wasm-rab-integration");
-				let remote = if let Runner::WebDriver(web_driver) = runner {
-					Some(web_driver)
-				} else {
-					None
-				};
-
-				iter::once(TestRun {
-					target: self.target,
-					target_feature: self.target_feature,
-					js_sys_target_feature: self.js_sys_target_feature,
-					runner,
-					remote,
-					worker: None,
-					node_js_arg,
-				})
-				.chain(
-					matches!(runner, Runner::WebDriver(_))
-						.then(|| {
-							Worker::iter().map(move |worker| TestRun {
-								target: self.target,
-								target_feature: self.target_feature,
-								js_sys_target_feature: self.js_sys_target_feature,
-								runner,
-								remote,
-								worker: Some(worker),
-								node_js_arg,
-							})
-						})
-						.into_iter()
-						.flatten(),
-				)
-			})
-	}
-
 	pub fn envs(&self) -> impl Iterator<Item = (&str, &OsStr)> {
 		self.rustflags.iter().flat_map(|rustflags| {
 			[
@@ -159,7 +96,19 @@ impl Permutation {
 		self.target.args(self.target_feature)
 	}
 
-	fn fmt(
+	pub fn target(&self) -> Target {
+		self.target
+	}
+
+	pub fn target_feature(&self) -> TargetFeature {
+		self.target_feature
+	}
+
+	pub fn js_sys_target_feature(&self) -> Option<JsSysTargetFeature> {
+		self.js_sys_target_feature
+	}
+
+	pub fn fmt(
 		target: Target,
 		target_feature: TargetFeature,
 		js_sys_target_feature: Option<JsSysTargetFeature>,
@@ -190,75 +139,8 @@ impl Display for Permutation {
 	}
 }
 
-impl TestRun {
-	pub fn envs(&self) -> impl Iterator<Item = (&str, &OsStr)> {
-		[("JBG_TEST_RUNNER", OsStr::new(self.runner.env()))]
-			.into_iter()
-			.chain(
-				self.remote
-					.map(|web_driver| (web_driver.remote_env(), web_driver.remote_url().as_ref())),
-			)
-			.chain(
-				self.worker
-					.map(|worker| ("JBG_TEST_WORKER", worker.env().as_ref())),
-			)
-			.chain(
-				self.node_js_arg
-					.map(|value| ("JBG_TEST_NODE_JS_ARGS", value.as_ref())),
-			)
-	}
-}
-
-impl Display for TestRun {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		Permutation::fmt(
-			self.target,
-			self.target_feature,
-			self.js_sys_target_feature,
-			f,
-		)?;
-
-		write!(f, " - {}", self.runner)?;
-
-		if let Some(worker) = self.worker {
-			write!(f, " {worker}")?;
-		}
-
-		Ok(())
-	}
-}
-
 #[derive(Clone, Copy, EnumIter)]
-enum Worker {
-	Dedicated,
-	Shared,
-	Service,
-}
-
-impl Worker {
-	fn env(self) -> &'static str {
-		match self {
-			Self::Dedicated => "dedicated",
-			Self::Shared => "shared",
-			Self::Service => "service",
-		}
-	}
-}
-
-impl Display for Worker {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		let name = match self {
-			Self::Dedicated => "Dedicated",
-			Self::Shared => "Shared",
-			Self::Service => "Service",
-		};
-
-		write!(f, "{name} Worker")
-	}
-}
-
-#[derive(Clone, Copy, EnumIter)]
-enum JsSysTargetFeature {
+pub enum JsSysTargetFeature {
 	NoSharedMemory,
 	SmallEndian,
 	BigEndian,
@@ -305,7 +187,7 @@ impl JsSysTargetFeature {
 		}
 	}
 
-	fn requires_rab(self) -> bool {
+	pub fn requires_rab(self) -> bool {
 		match self {
 			Self::NoSharedMemory
 			| Self::SmallEndian
@@ -316,7 +198,7 @@ impl JsSysTargetFeature {
 		}
 	}
 
-	fn requires_sab(self) -> bool {
+	pub fn requires_sab(self) -> bool {
 		match self {
 			Self::NoSharedMemory
 			| Self::SmallEndian

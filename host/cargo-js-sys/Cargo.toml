@@ -4,10 +4,10 @@ include = { workspace = true }
 license = { workspace = true }
 name = "cargo-js-sys"
 rust-version = "1.91"
+version = "0.1.0"
 
 [[bin]]
 bench = false
-doctest = false
 name = "cargo-js-sys"
 test = false
 
@@ -29,3 +29,6 @@ proc-macro2 = { workspace = true, features = ["span-locations"] }
 
 [lints]
 workspace = true
+
+[package.metadata.dev]
+require-feature = true

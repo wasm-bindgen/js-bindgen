@@ -4,10 +4,10 @@ include = { workspace = true }
 license = { workspace = true }
 name = "js-bindgen-runner"
 rust-version = "1.93"
+version = "0.1.0"
 
 [[bin]]
 bench = false
-doctest = false
 name = "js-bindgen-runner"
 test = false
 

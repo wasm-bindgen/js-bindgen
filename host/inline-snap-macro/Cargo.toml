@@ -16,7 +16,7 @@ test = false
 js-bindgen-shared = { workspace = true, features = ["memmap"] }
 proc-macro2 = { workspace = true, features = ["span-locations"] }
 quote = { workspace = true }
-syn = { workspace = true, features = ["full", "parsing", "proc-macro"] }
+syn = { workspace = true, features = ["full", "parsing", "printing", "proc-macro"] }
 xxhash-rust = { workspace = true }
 
 [lints]

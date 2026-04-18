@@ -17,6 +17,9 @@ nix = { version = "0.31", features = ["signal"] }
 [target.'cfg(target_family = "windows")'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_System_Threading"] }
 
+[dev-dependencies]
+cargo_metadata = { version = "0.23", features = ["builder"] }
+
 [lints.rust]
 linker_messages = "warn"
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(coverage_nightly)'] }

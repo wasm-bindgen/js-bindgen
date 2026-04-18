@@ -4,10 +4,10 @@ include = { workspace = true }
 license = { workspace = true }
 name = "js-bindgen-web-driver"
 rust-version = { workspace = true }
+version = "0.1.0"
 
 [[bin]]
 bench = false
-doctest = false
 name = "js-bindgen-web-driver"
 test = false
 

@@ -149,8 +149,8 @@ js_bindgen::unsafe_embed_asm!("{par()}");
 //~^ ERROR: template string named argument identifier
 
 js_bindgen::unsafe_embed_asm!("{[}");
-//~^ ERROR: invalid template string named argument identifier
-//~^^ ERROR: this file contains an unclosed delimiter
+//~^ ERROR: invalid template string named argument identifier: this file
+// contains an unclosed delimiter
 
 js_bindgen::unsafe_embed_asm!("{par}");
 //~^ ERROR: expected a named argument for `par`

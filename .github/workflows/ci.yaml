@@ -1,4 +1,4 @@
-﻿name: Client
+﻿name: CI
 
 on:
   push:
@@ -27,6 +27,7 @@ jobs:
         os:
           - { os: ubuntu-latest, name: linux, description: Linux }
           - { os: macos-latest, name: mac-os, description: macOS }
+          - { os: windows-latest, name: windows, description: Windows }
 
     steps:
       - name: Checkout
@@ -53,7 +54,7 @@ jobs:
           name: host-tools-${{ matrix.os.name }}
           path: host-tools/
 
-  build:
+  build-client:
     name: Build Client ${{ matrix.target.description }} ${{ matrix.target-feature.description }}
 
     needs: host-tools
@@ -120,13 +121,13 @@ jobs:
           key: ${{ matrix.target.name }}-${{ matrix.target-feature.name }}
           workspaces: client
           cache-bin: false
-      - name: Run
+      - name: Build
         working-directory: dev
         run:
-          js-bindgen-dev build -v --target ${{ matrix.target.name }} --target-feature ${{
+          js-bindgen-dev client build -v --target ${{ matrix.target.name }} --target-feature ${{
           matrix.target-feature.name }}
 
-  test:
+  test-client:
     name:
       Test Client ${{ matrix.os.description }} ${{ matrix.target.description }} ${{
       matrix.target-feature.description }}
@@ -141,8 +142,8 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - { os: ubuntu-latest, name: linux, description: Linux }
-          - { os: macos-latest, name: mac-os, dev: --include safari-driver, description: macOS }
+          - { os: ubuntu-latest, name: linux, runners: all, description: Linux }
+          - { os: macos-latest, name: mac-os, runners: safari-driver, description: macOS }
         target:
           - {
               name: wasm32,
@@ -209,8 +210,101 @@ jobs:
           key: ${{ matrix.target.name }}-${{ matrix.target-feature.name }}
           workspaces: client
           cache-bin: false
-      - name: Run
+      - name: Test
         working-directory: dev
         run:
-          js-bindgen-dev test -v --target ${{ matrix.target.name }} --target-feature ${{
-          matrix.target-feature.name }} ${{ matrix.os.dev }}
+          js-bindgen-dev client test -v --target ${{ matrix.target.name }} --target-feature ${{
+          matrix.target-feature.name }} --include ${{ matrix.os.runners }}
+
+  build-host:
+    name: Build Host ${{ matrix.os.description }}
+
+    needs: host-tools
+
+    runs-on: ${{ matrix.os.os }}
+
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - { os: ubuntu-latest, name: linux, description: Linux }
+          - { os: macos-latest, name: mac-os, description: macOS }
+          - { os: windows-latest, name: windows, description: Windows }
+
+    env:
+      JBG_DEV_TOOLS: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download Host Tools
+        uses: actions/download-artifact@v4
+        with:
+          name: host-tools-${{ matrix.os.name }}
+          path: host-tools/
+      - name: Install Host Tools
+        shell: bash
+        run: |
+          chmod +x host-tools/bin/*
+          echo "${{ github.workspace }}/host-tools/bin" >> $GITHUB_PATH
+      - name: Enable Caching
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "cache"
+          workspaces: host
+          cache-bin: false
+      - name: Build
+        working-directory: dev
+        run: js-bindgen-dev host build -v
+
+  test-host:
+    name: Test Host ${{ matrix.os.description }}
+
+    needs: host-tools
+
+    runs-on: ${{ matrix.os.os }}
+
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - { os: ubuntu-latest, name: linux, description: Linux }
+          - { os: macos-latest, name: mac-os, description: macOS }
+          - { os: windows-latest, name: windows, description: Windows }
+
+    env:
+      JBG_DEV_TOOLS: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust Wasm Target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Install LLVM
+        uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
+        with:
+          # Rustc v1.93
+          llvm-version: 21
+      - name: Download Host Tools
+        uses: actions/download-artifact@v4
+        with:
+          name: host-tools-${{ matrix.os.name }}
+          path: host-tools/
+      - name: Install Host Tools
+        shell: bash
+        run: |
+          chmod +x host-tools/bin/*
+          echo "${{ github.workspace }}/host-tools/bin" >> $GITHUB_PATH
+      - name: Enable Caching
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "cache"
+          workspaces: host
+          cache-bin: false
+      - name: Test
+        working-directory: dev
+        run: js-bindgen-dev host test -v

@@ -11,13 +11,11 @@ test = false
 
 [[bin]]
 bench = false
-doctest = false
 name = "linker"
 test = false
 
 [[bin]]
 bench = false
-doctest = false
 name = "runner"
 test = false
 

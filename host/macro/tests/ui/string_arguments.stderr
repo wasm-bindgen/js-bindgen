@@ -261,15 +261,7 @@ error: invalid template string named argument identifier
 148 | js_bindgen::unsafe_embed_asm!("{par()}");
     |                               ^^^^^^^^^
 
-error: this file contains an unclosed delimiter
-   --> tests/ui/string_arguments.rs:151:1
-    |
-151 | js_bindgen::unsafe_embed_asm!("{[}");
-    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unclosed delimiter
-    |
-    = note: this error originates in the macro `js_bindgen::unsafe_embed_asm` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error: invalid template string named argument identifier
+error: invalid template string named argument identifier: this file contains an unclosed delimiter
    --> tests/ui/string_arguments.rs:151:31
     |
 151 | js_bindgen::unsafe_embed_asm!("{[}");
@@ -293,5 +285,5 @@ error: expected no leftover arguments
 161 | js_bindgen::unsafe_embed_asm!("", par = interpolate "test");
     |                                   ^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: aborting due to 48 previous errors
+error: aborting due to 47 previous errors
 

@@ -16,8 +16,6 @@ You can run parts of the CI locally:
 
 ```sh
 cd dev
-# Run `cargo build` with various flags:
-cargo run -- build
 # Run `cargo test` with various flags:
 cargo run -- test
 ```
