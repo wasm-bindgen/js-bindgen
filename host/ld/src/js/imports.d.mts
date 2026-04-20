@@ -4,6 +4,5 @@ export declare class JsBindgen {
     get importObject(): WebAssembly.Imports;
     extendImportObject(imports: WebAssembly.Imports): void;
     instantiate(): Promise<WebAssembly.Instance>;
-    static instantiateStreaming(): Promise<WebAssembly.Instance>;
-    static instantiateStreaming(...args: Parameters<typeof fetch>): Promise<WebAssembly.Instance>;
+    static instantiateStreaming(...args: Parameters<typeof fetch> | []): Promise<WebAssembly.Instance>;
 }

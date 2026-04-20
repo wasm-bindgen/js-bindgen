@@ -16,10 +16,10 @@ use crate::config::{EngineKind, RunnerConfig, WorkerKind};
 use crate::server::{HttpServer, Status};
 use crate::test::TestData;
 
-const DENO_JS: &str = include_str!("js/deno.mjs");
-const NODE_JS_JS: &str = include_str!("js/node-js.mjs");
-pub const SHARED_JS: &str = include_str!("js/shared.mjs");
-pub const SHARED_TERMINAL_JS: &str = include_str!("js/shared-terminal.mjs");
+const DENO_JS: &str = include_str!("js/deno/deno.mjs");
+const NODE_JS_JS: &str = include_str!("js/node-js/node-js.mjs");
+pub const SHARED_JS: &str = include_str!("js/shared/shared.mjs");
+pub const SHARED_TERMINAL_JS: &str = include_str!("js/shared/shared-terminal.mjs");
 
 pub struct Runner {
 	wasm_path: PathBuf,
@@ -62,20 +62,25 @@ impl Runner {
 	fn run_deno(self, binary: &Path, args: &[OsString]) -> Result<()> {
 		let dir = tempfile::tempdir()?;
 
-		let runner_path = dir.path().join("runner.mts");
-		fs::write(&runner_path, DENO_JS)?;
+		fs::create_dir(dir.path().join("deno"))?;
+		let script_path = dir.path().join("deno/script.mjs");
+		fs::write(&script_path, DENO_JS)?;
 
 		fs::write(dir.path().join("test-data.json"), self.test_data)?;
 		fs::copy(self.wasm_path, dir.path().join("wasm.wasm"))?;
 		fs::copy(self.imports_path, dir.path().join("imports.mjs"))?;
-		fs::write(dir.path().join("shared.mjs"), SHARED_JS)?;
-		fs::write(dir.path().join("shared-terminal.mjs"), SHARED_TERMINAL_JS)?;
+		fs::create_dir(dir.path().join("shared"))?;
+		fs::write(dir.path().join("shared/shared.mjs"), SHARED_JS)?;
+		fs::write(
+			dir.path().join("shared/shared-terminal.mjs"),
+			SHARED_TERMINAL_JS,
+		)?;
 
 		let status = Command::new(binary)
 			.arg("run")
 			.args(args)
 			.arg("--allow-read")
-			.arg(runner_path)
+			.arg(script_path)
 			.status()?;
 
 		if !status.success() {
@@ -88,16 +93,21 @@ impl Runner {
 	fn run_node_js(self, binary: &Path, args: &[OsString]) -> Result<()> {
 		let dir = tempfile::tempdir()?;
 
-		let runner_path = dir.path().join("runner.mjs");
-		fs::write(&runner_path, NODE_JS_JS)?;
+		fs::create_dir(dir.path().join("node-js"))?;
+		let script_path: PathBuf = dir.path().join("node-js/script.mjs");
+		fs::write(&script_path, NODE_JS_JS)?;
 
 		fs::write(dir.path().join("test-data.json"), self.test_data)?;
 		fs::copy(self.wasm_path, dir.path().join("wasm.wasm"))?;
 		fs::copy(self.imports_path, dir.path().join("imports.mjs"))?;
-		fs::write(dir.path().join("shared.mjs"), SHARED_JS)?;
-		fs::write(dir.path().join("shared-terminal.mjs"), SHARED_TERMINAL_JS)?;
+		fs::create_dir(dir.path().join("shared"))?;
+		fs::write(dir.path().join("shared/shared.mjs"), SHARED_JS)?;
+		fs::write(
+			dir.path().join("shared/shared-terminal.mjs"),
+			SHARED_TERMINAL_JS,
+		)?;
 
-		let status = Command::new(binary).args(args).arg(&runner_path).status()?;
+		let status = Command::new(binary).args(args).arg(&script_path).status()?;
 
 		if !status.success() {
 			process::exit(status.code().unwrap_or(1));

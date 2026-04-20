@@ -1,0 +1,7 @@
+{
+	"extends": "../../../../tsconfig.base.json",
+	"compilerOptions": {
+		"lib": ["ESNext", "WebWorker"]
+	},
+	"include": ["**/*", "../imports.d.mts", "../test-data.d.json.ts"]
+}

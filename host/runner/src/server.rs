@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::BTreeMap;
 use std::io::{self, ErrorKind, Write};
 use std::net::{Ipv4Addr, SocketAddr};
 use std::ops::DerefMut;
@@ -25,19 +25,19 @@ use crate::config::WorkerKind;
 use crate::runner::{SHARED_JS, SHARED_TERMINAL_JS};
 
 const INDEX_HTML: &str = include_str!("js/index.html");
-const BROWSER_JS: &str = include_str!("js/browser.mjs");
-const BROWSER_SPAWNER_JS: &str = include_str!("js/browser-spawner.mjs");
-const BROWSER_WORKER_JS: &str = include_str!("js/browser-worker.mjs");
-const BROWSER_SERVICE_JS: &str = include_str!("js/browser-service.mjs");
-const SERVER_JS: &str = include_str!("js/server.mjs");
-const SERVER_SPAWNER_JS: &str = include_str!("js/server-spawner.mjs");
-const SERVER_DEDICATED_JS: &str = include_str!("js/server-dedicated.mjs");
-const SERVER_SHARED_JS: &str = include_str!("js/server-shared.mjs");
-const SERVER_SERVICE_JS: &str = include_str!("js/server-service.mjs");
-const SHARED_SPAWNER_JS: &str = include_str!("js/shared-spawner.mjs");
-const SHARED_BROWSER_JS: &str = include_str!("js/shared-browser.mjs");
-const SHARED_SERVER_JS: &str = include_str!("js/shared-server.mjs");
-const SHARED_IMPORT_JS: &str = include_str!("js/shared-import.mjs");
+const BROWSER_JS: &str = include_str!("js/dom/browser.mjs");
+const BROWSER_SPAWNER_JS: &str = include_str!("js/dom/browser-spawner.mjs");
+const BROWSER_WORKER_JS: &str = include_str!("js/worker/browser-worker.mjs");
+const BROWSER_SERVICE_JS: &str = include_str!("js/worker/browser-service.mjs");
+const SERVER_JS: &str = include_str!("js/dom/server.mjs");
+const SERVER_SPAWNER_JS: &str = include_str!("js/dom/server-spawner.mjs");
+const SERVER_DEDICATED_JS: &str = include_str!("js/worker/server-dedicated.mjs");
+const SERVER_SHARED_JS: &str = include_str!("js/worker/server-shared.mjs");
+const SERVER_SERVICE_JS: &str = include_str!("js/worker/server-service.mjs");
+const SHARED_SPAWNER_JS: &str = include_str!("js/dom/shared-spawner.mjs");
+const SHARED_BROWSER_JS: &str = include_str!("js/shared/shared-browser.mjs");
+const SHARED_SERVER_JS: &str = include_str!("js/dom/shared-server.mjs");
+const SHARED_IMPORT_JS: &str = include_str!("js/shared/shared-import.mjs");
 
 pub struct HttpServer {
 	url: String,
@@ -56,13 +56,14 @@ struct ServerState {
 #[derive(Default)]
 struct Signals {
 	shutdown: AtomicFlag,
-	success: AtomicU8,
+	status: AtomicU8,
 }
 
 #[derive(Default)]
 struct ReportState {
 	index: usize,
-	reports: VecDeque<Report>,
+	finished: Option<usize>,
+	reports: BTreeMap<usize, Report>,
 }
 
 impl HttpServer {
@@ -110,7 +111,7 @@ impl HttpServer {
 
 	pub async fn wait(self) -> Status {
 		self.server.await.unwrap().unwrap();
-		let status = self.state.signals.success.load(Ordering::Relaxed);
+		let status = self.state.signals.status.load(Ordering::Relaxed);
 		Status::from_repr(status).unwrap()
 	}
 
@@ -118,7 +119,7 @@ impl HttpServer {
 		let mut router = Router::new()
 			.route("/", get(async || response("text/html", INDEX_HTML)))
 			.route(
-				"/script.mjs",
+				"/dom/script.mjs",
 				get(async move || {
 					let file = if headless {
 						if worker.is_some() {
@@ -135,11 +136,11 @@ impl HttpServer {
 				}),
 			)
 			.route(
-				"/shared.mjs",
+				"/shared/shared.mjs",
 				get(async || response("application/javascript", SHARED_JS)),
 			)
 			.route(
-				"/shared-import.mjs",
+				"/shared/shared-import.mjs",
 				get(async || response("application/javascript", SHARED_IMPORT_JS)),
 			)
 			.route(
@@ -163,7 +164,7 @@ impl HttpServer {
 
 		if worker.is_some() {
 			router = router.route(
-				"/shared-spawner.mjs",
+				"/dom/shared-spawner.mjs",
 				get(async || response("application/javascript", SHARED_SPAWNER_JS)),
 			);
 		}
@@ -172,13 +173,13 @@ impl HttpServer {
 			match worker {
 				Some(WorkerKind::Dedicated | WorkerKind::Shared) => {
 					router = router.route(
-						"/worker.mjs",
+						"/worker/script.mjs",
 						get(async || response("application/javascript", BROWSER_WORKER_JS)),
 					);
 				}
 				Some(WorkerKind::Service) => {
 					router = router.route(
-						"/worker.mjs",
+						"/worker/script.mjs",
 						get(async || response("application/javascript", BROWSER_SERVICE_JS)),
 					);
 				}
@@ -187,36 +188,41 @@ impl HttpServer {
 
 			router = router
 				.route(
-					"/shared-browser.mjs",
+					"/shared/shared-browser.mjs",
 					get(async || response("application/javascript", SHARED_BROWSER_JS)),
 				)
 				.route(
-					"/shared-terminal.mjs",
+					"/shared/shared-terminal.mjs",
 					get(async || response("application/javascript", SHARED_TERMINAL_JS)),
 				)
 				.route(
 					"/report",
 					post(
 						async |State(state): State<Arc<ServerState>>,
-						       Json(report): Json<Report>| {
-							let mut state = state.reports.lock().await;
-							let ReportState { index, reports } = state.deref_mut();
-							let position = report.order - *index;
+						       Json(message): Json<ReportMessage>| {
+							let mut report_state = state.reports.lock().await;
+							let ReportState {
+								index,
+								finished,
+								reports,
+							} = report_state.deref_mut();
 
-							if position == 0 {
+							if message.order - *index == 0 {
 								*index += 1;
-								report.emit();
+								message.report.emit();
 
-								while let Some(report) =
-									reports.pop_front_if(|report| report.order == *index)
-								{
+								while let Some(report) = reports.remove(index) {
 									*index += 1;
 									report.emit();
 								}
-							} else if position > state.reports.len() {
-								state.reports.push_back(report);
+
+								if let Some(messages) = finished
+									&& messages == index
+								{
+									state.signals.shutdown.signal();
+								}
 							} else {
-								state.reports.insert(position, report);
+								report_state.reports.insert(message.order, message.report);
 							}
 						},
 					),
@@ -225,19 +231,32 @@ impl HttpServer {
 					"/finished",
 					post(
 						async |State(state): State<Arc<ServerState>>,
-						       Json(status): Json<Status>| {
+						       Json(finished): Json<Finished>| {
 							state
 								.signals
-								.success
-								.store(status.to_repr(), Ordering::SeqCst);
-							state.signals.shutdown.signal();
+								.status
+								.store(finished.status.to_repr(), Ordering::Relaxed);
+
+							let mut report_state = state.reports.lock().await;
+
+							if finished.messages == 0 {
+								while let Some((_, report)) = report_state.reports.pop_first() {
+									report.emit();
+								}
+
+								state.signals.shutdown.signal();
+							} else if report_state.index == finished.messages {
+								state.signals.shutdown.signal();
+							} else {
+								report_state.finished = Some(finished.messages);
+							}
 						},
 					),
 				);
 		} else {
 			if let Some(worker) = worker {
 				router = router.route(
-					"/worker.mjs",
+					"/worker/script.mjs",
 					get(async move || {
 						response(
 							"application/javascript",
@@ -252,7 +271,7 @@ impl HttpServer {
 			}
 
 			router = router.route(
-				"/shared-server.mjs",
+				"/dom/shared-server.mjs",
 				get(async || response("application/javascript", SHARED_SERVER_JS)),
 			);
 		}
@@ -280,8 +299,13 @@ impl HttpServer {
 }
 
 #[derive(Deserialize)]
-struct Report {
+struct ReportMessage {
 	order: usize,
+	report: Report,
+}
+
+#[derive(Deserialize)]
+struct Report {
 	stream: Stream,
 	line: String,
 }
@@ -306,6 +330,12 @@ impl Report {
 			}
 		}
 	}
+}
+
+#[derive(Clone, Copy, Deserialize)]
+struct Finished {
+	status: Status,
+	messages: usize,
 }
 
 #[derive(Clone, Copy, Deserialize_repr)]

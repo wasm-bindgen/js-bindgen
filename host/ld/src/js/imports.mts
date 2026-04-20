@@ -1,13 +1,16 @@
 declare const JBG_PLACEHOLDER_MEMORY: WebAssembly.Memory
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const JBG_PLACEHOLDER_JS_EMBED: Record<string, Record<string, any>>
 declare const JBG_PLACEHOLDER_IMPORT_OBJECT: WebAssembly.Imports
 
 export class JsBindgen {
 	#finished = false
 	#importObject: WebAssembly.Imports
-	// @ts-expect-error TS6133
+	// @ts-expect-error: Used in placeholder.
+	// eslint-disable-next-line no-unused-private-class-members, @typescript-eslint/no-explicit-any
 	#jsEmbed: Record<string, Record<string, any>>
-	// @ts-expect-error TS6133
+	// @ts-expect-error: Used in placeholder.
+	// eslint-disable-next-line no-unused-private-class-members
 	#memory: WebAssembly.Memory = JBG_PLACEHOLDER_MEMORY
 	#module: WebAssembly.Module
 
@@ -19,7 +22,7 @@ export class JsBindgen {
 
 	get importObject(): WebAssembly.Imports {
 		if (this.#finished) {
-			throw "create a new `JsBindgen` class"
+			throw new Error("create a new `JsBindgen` class")
 		} else {
 			return this.#importObject
 		}
@@ -27,7 +30,7 @@ export class JsBindgen {
 
 	extendImportObject(imports: WebAssembly.Imports) {
 		if (this.#finished) {
-			throw "create a new `JsBindgen` class"
+			throw new Error("create a new `JsBindgen` class")
 		}
 
 		for (const namespace in imports) {
@@ -37,7 +40,7 @@ export class JsBindgen {
 
 			for (const symbol in imports[namespace]) {
 				if (this.#importObject[namespace][symbol]) {
-					throw `found conflicting symbol: \`${namespace}:${symbol}\``
+					throw new Error(`found conflicting symbol: \`${namespace}:${symbol}\``)
 				}
 			}
 		}
@@ -53,7 +56,7 @@ export class JsBindgen {
 
 	instantiate(): Promise<WebAssembly.Instance> {
 		if (this.#finished) {
-			throw "create a new `JsBindgen` class"
+			throw new Error("create a new `JsBindgen` class")
 		}
 
 		return WebAssembly.instantiate(this.#module, this.#importObject).then(instance => {
@@ -61,9 +64,6 @@ export class JsBindgen {
 			return instance
 		})
 	}
-
-	static instantiateStreaming(): Promise<WebAssembly.Instance>
-	static instantiateStreaming(...args: Parameters<typeof fetch>): Promise<WebAssembly.Instance>
 
 	static async instantiateStreaming(
 		...args: Parameters<typeof fetch> | []

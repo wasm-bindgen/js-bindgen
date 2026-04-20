@@ -1,9 +1,10 @@
 {
 	"files": [],
 	"references": [
-		{ "path": "./tsconfig.dom.json" },
-		{ "path": "./tsconfig.worker.json" },
-		{ "path": "./tsconfig.node-js.json" },
-		{ "path": "./tsconfig.deno.json" }
+		{ "path": "./shared" },
+		{ "path": "./dom" },
+		{ "path": "./worker" },
+		{ "path": "./node-js" },
+		{ "path": "./deno" }
 	]
 }

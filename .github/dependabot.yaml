@@ -21,3 +21,14 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  - package-ecosystem: npm
+    directories:
+      - /host/ld/src/js
+      - /host/runner/src/js
+    schedule:
+      interval: daily
+    groups:
+      npm:
+        patterns:
+          - "*"

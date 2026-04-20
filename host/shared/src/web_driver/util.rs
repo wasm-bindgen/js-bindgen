@@ -17,7 +17,7 @@ impl AtomicFlag {
 	}
 
 	pub fn signal(&self) {
-		self.set.store(true, Ordering::Relaxed);
+		self.set.store(true, Ordering::Release);
 		self.waker.wake();
 	}
 }
@@ -27,7 +27,7 @@ impl Future for &AtomicFlag {
 
 	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 		// Short-circuit.
-		if self.set.load(Ordering::Relaxed) {
+		if self.set.load(Ordering::Acquire) {
 			return Poll::Ready(());
 		}
 
@@ -35,7 +35,7 @@ impl Future for &AtomicFlag {
 
 		// Need to check condition **after** `register()` to avoid a race condition that
 		// would result in lost notifications.
-		if self.set.load(Ordering::Relaxed) {
+		if self.set.load(Ordering::Acquire) {
 			Poll::Ready(())
 		} else {
 			Poll::Pending

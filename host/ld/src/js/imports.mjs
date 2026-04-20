@@ -1,9 +1,11 @@
 export class JsBindgen {
     #finished = false;
     #importObject;
-    // @ts-expect-error TS6133
+    // @ts-expect-error: Used in placeholder.
+    // eslint-disable-next-line no-unused-private-class-members, @typescript-eslint/no-explicit-any
     #jsEmbed;
-    // @ts-expect-error TS6133
+    // @ts-expect-error: Used in placeholder.
+    // eslint-disable-next-line no-unused-private-class-members
     #memory = JBG_PLACEHOLDER_MEMORY;
     #module;
     constructor(module) {
@@ -13,7 +15,7 @@ export class JsBindgen {
     }
     get importObject() {
         if (this.#finished) {
-            throw "create a new `JsBindgen` class";
+            throw new Error("create a new `JsBindgen` class");
         }
         else {
             return this.#importObject;
@@ -21,7 +23,7 @@ export class JsBindgen {
     }
     extendImportObject(imports) {
         if (this.#finished) {
-            throw "create a new `JsBindgen` class";
+            throw new Error("create a new `JsBindgen` class");
         }
         for (const namespace in imports) {
             if (!this.#importObject[namespace]) {
@@ -29,7 +31,7 @@ export class JsBindgen {
             }
             for (const symbol in imports[namespace]) {
                 if (this.#importObject[namespace][symbol]) {
-                    throw `found conflicting symbol: \`${namespace}:${symbol}\``;
+                    throw new Error(`found conflicting symbol: \`${namespace}:${symbol}\``);
                 }
             }
         }
@@ -42,7 +44,7 @@ export class JsBindgen {
     }
     instantiate() {
         if (this.#finished) {
-            throw "create a new `JsBindgen` class";
+            throw new Error("create a new `JsBindgen` class");
         }
         return WebAssembly.instantiate(this.#module, this.#importObject).then(instance => {
             this.#finished = true;
