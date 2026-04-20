@@ -1,9 +1,11 @@
-﻿name: CI
+name: CI
 
 on:
   push:
     branches: ["main"]
   pull_request:
+
+permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref_name }}
@@ -32,6 +34,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Enable Caching
         uses: Swatinem/rust-cache@v2
         with:
@@ -92,6 +96,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Install Rust
         run:
           rustup install --no-update --profile minimal --override ${{
@@ -173,6 +179,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Install Rust
         run:
           rustup install --no-update --profile minimal --override ${{
@@ -239,6 +247,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Download Host Tools
         uses: actions/download-artifact@v4
         with:
@@ -282,6 +292,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Install Rust Wasm Target
         run: rustup target add wasm32-unknown-unknown
       - name: Install LLVM
