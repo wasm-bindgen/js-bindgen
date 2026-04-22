@@ -76,7 +76,7 @@ impl JsSys {
 			let base = package
 				.manifest_path
 				.parent()
-				.expect("package manifest should be in a folder")
+				.expect("package manifest should be in a directory")
 				.as_std_path();
 
 			for target in package
@@ -84,10 +84,10 @@ impl JsSys {
 				.iter()
 				.filter(|target| !target.is_custom_build())
 			{
-				let folder = target
+				let dir = target
 					.src_path
 					.parent()
-					.expect("target source file should be in a folder")
+					.expect("target source file should be in a directory")
 					.as_std_path();
 
 				let mut state = State {
@@ -99,7 +99,7 @@ impl JsSys {
 					js_sys: js_sys.as_ref(),
 				};
 
-				match state.process(folder)? {
+				match state.process(dir)? {
 					ControlFlow::Continue(value) => success &= value,
 					ControlFlow::Break(()) => {
 						success = false;
@@ -162,10 +162,10 @@ impl Summary {
 }
 
 impl State<'_> {
-	fn process(&mut self, folder: &Path) -> Result<ControlFlow<(), bool>> {
+	fn process(&mut self, dir: &Path) -> Result<ControlFlow<(), bool>> {
 		let mut success = true;
 
-		for entry in fs::read_dir(folder)? {
+		for entry in fs::read_dir(dir)? {
 			let entry = entry?.path();
 			let relative_entry = entry.strip_prefix(self.base).unwrap_or(&entry);
 

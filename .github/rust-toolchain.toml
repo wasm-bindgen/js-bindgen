@@ -1,4 +1,4 @@
-# This is only used in the CI, which copies it into the root folder.
+# This is only used in the CI, which copies it into the root directory.
 
 [toolchain]
 channel = "1.95"

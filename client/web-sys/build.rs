@@ -13,7 +13,7 @@ fn main() {
 		return;
 	}
 
-	if search_folder(&env::current_dir().unwrap()) {
+	if search_dir(&env::current_dir().unwrap(), false) {
 		let status = Command::new("cargo")
 			.env_remove("CARGO_ENCODED_RUSTFLAGS")
 			.current_dir("../../host")
@@ -33,10 +33,8 @@ fn main() {
 	}
 }
 
-fn search_folder(folder: &Path) -> bool {
-	let mut any = false;
-
-	for entry in fs::read_dir(folder).unwrap() {
+fn search_dir(dir: &Path, mut any: bool) -> bool {
+	for entry in fs::read_dir(dir).unwrap() {
 		let entry = entry.unwrap();
 		let path = entry.path();
 
@@ -57,7 +55,7 @@ fn search_folder(folder: &Path) -> bool {
 				}
 			}
 		} else if path.is_dir() {
-			any |= search_folder(&path);
+			any |= search_dir(&path, any);
 		}
 	}
 

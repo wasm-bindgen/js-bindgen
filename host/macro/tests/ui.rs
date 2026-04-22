@@ -8,7 +8,7 @@ use ui_test::dependencies::DependencyBuilder;
 
 fn main() -> Result<()> {
 	let mut config = Config::rustc("tests/ui");
-	// `ui_test` is unable to pick up the workspace target folder:
+	// `ui_test` is unable to pick up the workspace target directory:
 	// https://github.com/oli-obk/ui_test/issues/362
 	config.out_dir = env::current_dir()?
 		.parent()

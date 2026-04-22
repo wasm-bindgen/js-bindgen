@@ -13,7 +13,7 @@ fn main() {
 		return;
 	}
 
-	if search_folder(&env::current_dir().unwrap().join("src/js")) {
+	if search_dir(&env::current_dir().unwrap().join("src/js"), false) {
 		let pkg_mtime = fs::metadata(Path::new("src/js/package.json"))
 			.unwrap()
 			.modified()
@@ -53,10 +53,8 @@ fn main() {
 	}
 }
 
-fn search_folder(folder: &Path) -> bool {
-	let mut any = false;
-
-	for entry in fs::read_dir(folder).unwrap() {
+fn search_dir(dir: &Path, mut any: bool) -> bool {
+	for entry in fs::read_dir(dir).unwrap() {
 		let entry = entry.unwrap();
 		let path = entry.path();
 
@@ -81,7 +79,7 @@ fn search_folder(folder: &Path) -> bool {
 				}
 			}
 		} else if path.is_dir() {
-			any |= search_folder(&path);
+			any |= search_dir(&path, any);
 		}
 	}
 
