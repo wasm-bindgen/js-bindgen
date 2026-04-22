@@ -48,7 +48,7 @@ jobs:
         with:
           tool: cargo-xwin
       - name: Restore `cargo-xwin` Cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ~/.cache/cargo-xwin
           key:
@@ -56,6 +56,13 @@ jobs:
             env.XWIN_CRT_VERSION }}
       - name: Download `cargo-xwin` Cache
         run: cargo xwin cache xwin
+      - name: Save `cargo-xwin` Cache
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/cargo-xwin
+          key:
+            cargo-xwin-cache-${{ env.XWIN_VERSION }}-${{ env.XWIN_SDK_VERSION }}-${{
+            env.XWIN_CRT_VERSION }}
       - name: Build Cargo Shims
         working-directory: host
         env:
