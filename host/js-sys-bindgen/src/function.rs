@@ -431,26 +431,24 @@ impl<'a> State<'a> {
 			}
 		}
 
-		let params_placeholder = iter::repeat_n("{}", input_tys.len()).join(", ");
+		let params_placeholder = iter::repeat_n("{}", input_tys.len()).join(" ");
 		let ret_placeholder = if output_ty.is_empty() { "" } else { "{}" };
 		let import_funcs_placeholder: String =
-			iter::repeat_n(r#""{}","","#, input_imports.len() + output_ty.len()).collect();
+			iter::repeat_n(r#""  {}","","#, input_imports.len() + output_ty.len()).collect();
 		let asm_param_gets: String =
-			iter::repeat_n(r#""\tlocal.get {}","#, input_tys.len()).collect();
+			iter::repeat_n(r#""    local.get {}","#, input_tys.len()).collect();
 		let asm_ret_conv = if output_ty.is_empty() { "" } else { "{}" };
 
 		let asm = TokenStream::from_str(&format!(
-			r#"".import_module {crate_}.import.{import_name}, {crate_}",
-			".import_name {crate_}.import.{import_name}, {import_name}",
-			".functype {crate_}.import.{import_name} ({params_placeholder}) -> ({ret_placeholder})",
-			"",
+			r#""(module (@rwat)",
+			"  (import \"{crate_}\" \"{import_name}\" (func ${crate_}.import.{import_name} (@sym) (param {params_placeholder}) (result {ret_placeholder})))",
 			{import_funcs_placeholder}
-			".globl {foreign_name}",
-			"{foreign_name}:",
-			"\t.functype {foreign_name} ({ret_placeholder}{params_placeholder}) -> ({ret_placeholder})",
-			{asm_param_gets}
-			"\tcall {crate_}.import.{import_name}{asm_ret_conv}",
-			"\tend_function","#
+            "  (func ${foreign_name} (@sym) (param {ret_placeholder} {params_placeholder}) (result {ret_placeholder})",
+            {asm_param_gets}
+            "    call ${crate_}.import.{import_name} (@reloc)",
+            "    {asm_ret_conv}",
+            "  )",
+            ")","#
 		))
 		.unwrap();
 

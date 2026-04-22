@@ -182,13 +182,13 @@ unsafe impl Output for u128 {
 	const ASM_TYPE: &str = ASM_PTR_TYPE;
 	const ASM_CONV: Option<OutputAsmConv> = Some(OutputAsmConv {
 		import: Some(const_concat!(
-			".functype js_sys.numeric.128 (i32, i32, i32, i32, ",
+			"(import \"env\" \"js_sys.numeric.128\" (func $js_sys.numeric.128 (@sym) (param i32 i32 i32 i32 ",
 			ASM_PTR_TYPE,
-			") -> ()"
+			")))"
 		)),
 		direct: false,
-		conv: "call js_sys.numeric.128",
-		r#type: "i32, i32, i32, i32",
+		conv: "call $js_sys.numeric.128 (@reloc)",
+		r#type: "i32 i32 i32 i32",
 	});
 	const JS_CONV: Option<OutputJsConv> = Some(OutputJsConv {
 		embed: Some(("js_sys", "numeric.128.encode")),
@@ -239,13 +239,13 @@ unsafe impl Output for i128 {
 	const ASM_TYPE: &str = ASM_PTR_TYPE;
 	const ASM_CONV: Option<OutputAsmConv> = Some(OutputAsmConv {
 		import: Some(const_concat!(
-			".functype js_sys.numeric.128 (i32, i32, i32, i32, ",
+			"(import \"env\" \"js_sys.numeric.128\" (func $js_sys.numeric.128 (@sym) (param i32 i32 i32 i32 ",
 			ASM_PTR_TYPE,
-			") -> ()"
+			")))"
 		)),
 		direct: false,
-		conv: "call js_sys.numeric.128",
-		r#type: "i32, i32, i32, i32",
+		conv: "call $js_sys.numeric.128 (@reloc)",
+		r#type: "i32 i32 i32 i32",
 	});
 	const JS_CONV: Option<OutputJsConv> = Some(OutputJsConv {
 		embed: Some(("js_sys", "numeric.128.encode")),
@@ -280,22 +280,22 @@ js_bindgen::embed_js!(
 );
 
 js_bindgen::unsafe_embed_asm!(
-	".globl js_sys.numeric.128",
-	"js_sys.numeric.128:",
-	"	.functype js_sys.numeric.128 (i32, i32, i32, i32, {}) -> ()",
-	"	local.get 4",
-	"	local.get 0",
-	"	i32.store 0",
-	"	local.get 4",
-	"	local.get 1",
-	"	i32.store 4",
-	"	local.get 4",
-	"	local.get 2",
-	"	i32.store 8",
-	"	local.get 4",
-	"	local.get 3",
-	"	i32.store 12",
-	"	end_function",
+	"(module (@rwat)",
+	"  (func $js_sys.numeric.128 (@sym) (param i32 i32 i32 i32 {})",
+	"    local.get 4",
+	"    local.get 0",
+	"    i32.store",
+	"    local.get 4",
+	"    local.get 1",
+	"    i32.store offset=4",
+	"    local.get 4",
+	"    local.get 2",
+	"    i32.store offset=8",
+	"    local.get 4",
+	"    local.get 3",
+	"    i32.store offset=12",
+	"  )",
+	")",
 	interpolate ASM_PTR_TYPE,
 );
 

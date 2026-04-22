@@ -157,11 +157,6 @@ jobs:
       - name: Install Target
         if: matrix.target.install
         run: rustup target add ${{ matrix.target.target }}
-      - name: Install LLVM
-        uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
-        with:
-          # Rustc v1.95
-          llvm-version: 22
       - name: Download Host Tools
         uses: actions/download-artifact@v8
         with:
@@ -302,11 +297,6 @@ jobs:
       - name: Install Target
         if: matrix.target.install
         run: rustup target add ${{ matrix.target.target }}
-      - name: Install LLVM
-        uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
-        with:
-          # Rustc v1.95
-          llvm-version: 22
       - name: Update Node.js
         if: runner.os == 'Linux'
         uses: actions/setup-node@v6
@@ -508,11 +498,6 @@ jobs:
         run: rustup install --no-update
       - name: Install Rust Wasm Target
         run: rustup target add wasm32-unknown-unknown
-      - name: Install LLVM
-        uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
-        with:
-          # Rustc v1.95
-          llvm-version: 22
       - name: Download Host Tools
         uses: actions/download-artifact@v8
         with:

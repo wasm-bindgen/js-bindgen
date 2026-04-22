@@ -70,14 +70,7 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 	// Extract embedded assembly from object files.
 	for input in wasm_ld_args.inputs() {
 		js_bindgen_ld_shared::ld_input_parser(input, |path, data, object_mtime| {
-			process_object(
-				&mut js_store,
-				arch.to_arg(),
-				&mut add_args,
-				path,
-				data,
-				object_mtime,
-			)
+			process_object(&mut js_store, &mut add_args, path, data, object_mtime)
 		})
 		.unwrap()
 		.unwrap();
@@ -95,7 +88,6 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 /// from them and passes them to the linker.
 fn process_object(
 	js_store: &mut JsStore,
-	arch_str: &str,
 	add_args: &mut Vec<OsString>,
 	archive_path: &Path,
 	object: &[u8],
@@ -116,28 +108,27 @@ fn process_object(
 		// We are only interested in reading custom sections with our name.
 		match &payload {
 			Payload::CustomSection(c) if c.name() == "js_bindgen.assembly" => {
-				for assembly in JsBindgenAssemblySectionParser::new(c) {
+				for wat in JsBindgenAssemblySectionParser::new(c) {
 					file_counter += 1;
-					let asm_path =
-						archive_path.with_added_extension(format!("asm.{file_counter}.o"));
+					let wasm_path =
+						archive_path.with_added_extension(format!("wasm.{file_counter}.o"));
 
-					// We first use a fingerprint to quickly determine whether `asm.o` needs to be
+					// We first use a fingerprint to quickly determine whether `wasm.o` needs to be
 					// regenerated: https://doc.rust-lang.org/1.92.0/nightly-rustc/cargo/core/compiler/fingerprint/index.html#fingerprints-and-unithashs
 					//
-					// Then we compare the `mtime` of the `.o` files with that of `asm.o`. If it is
+					// Then we compare the `mtime` of the `.o` files with that of `wasm.o`. If it is
 					// `None`(should not occur on major platforms), or if the `.o` files are
-					// newer than `asm.o`, we regenerate `asm.o`.
-					if !asm_path.exists() || {
-						js_bindgen_shared::mtime(&std::fs::metadata(&asm_path)?)?
+					// newer than `wasm.o`, we regenerate `wasm.o`.
+					if !wasm_path.exists() || {
+						js_bindgen_shared::mtime(&std::fs::metadata(&wasm_path)?)?
 							.zip(object_mtime)
 							.is_none_or(|(t1, t2)| t1 < t2)
 					} {
-						let asm = js_bindgen_ld_shared::assembly_to_object(arch_str, assembly)
-							.expect("compiling assembly should be valid");
-						fs::write(&asm_path, asm).unwrap();
+						let asm = js_bindgen_ld_shared::wat_to_object(wat);
+						fs::write(&wasm_path, asm).unwrap();
 					}
 
-					add_args.push(asm_path.into());
+					add_args.push(wasm_path.into());
 				}
 			}
 			// Extract all JS imports.
@@ -153,15 +144,6 @@ fn process_object(
 	}
 
 	Ok(())
-}
-
-impl Arch {
-	fn to_arg(self) -> &'static str {
-		match self {
-			Self::Wasm32 => "wasm32",
-			Self::Wasm64 => "wasm64",
-		}
-	}
 }
 
 fn main_memory<'args>(

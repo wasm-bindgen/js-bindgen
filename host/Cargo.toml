@@ -80,6 +80,7 @@ wasmparser = { version = "0.248", default-features = false }
 weedle2 = "5"
 windows-sys = "0.61"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
+rwat = { git = "https://github.com/Spxg/rwat" }
 
 [workspace.lints.clippy]
 alloc_instead_of_core = "warn"

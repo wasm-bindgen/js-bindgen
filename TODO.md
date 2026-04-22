@@ -1,13 +1,10 @@
 # Critical Priority
 
-- Replace `clang` with `wasm-tools`. See [`bytecodealliance/wasm-tools#2405`].
 - Compatibility with `wasm-bindgen`.
 - Do we agree with the new name `js-bindgen`? Maybe `web-bindgen` is the most accurate?
 - `#[js_sys]` is probably also not the ideal name.
 - Stub implementation for non-supported targets.
 - Add ourselves to the tool-conventions tool list.
-
-[`bytecodealliance/wasm-tools#2405`]: https://github.com/bytecodealliance/wasm-tools/issues/2405
 
 # High Priority
 

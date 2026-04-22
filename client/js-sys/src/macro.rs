@@ -5,7 +5,7 @@ macro_rules! asm_indirect {
 		if $crate::r#macro::direct::<$ty>() {
 			""
 		} else {
-			$crate::r#macro::const_concat!(<$ty as $crate::hazard::Output>::ASM_TYPE, ", ")
+			$crate::r#macro::const_concat!(<$ty as $crate::hazard::Output>::ASM_TYPE, " ")
 		}
 	};
 }

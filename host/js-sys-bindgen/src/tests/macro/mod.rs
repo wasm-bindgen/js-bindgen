@@ -196,7 +196,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 
 						match payload {
 							Payload::CustomSection(c) if c.name() == "js_bindgen.assembly" => {
-								let assembly = JsBindgenAssemblySectionParser::new(&c)
+								let wat = JsBindgenAssemblySectionParser::new(&c)
 									.exactly_one()
 									.map_err(|asms| {
 										anyhow!(
@@ -208,8 +208,8 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 									assembly_output.is_none(),
 									"found multiple assembly outputs"
 								);
-								assembly_output = Some(assembly.to_owned());
-								js_bindgen_ld_shared::assembly_to_object("wasm32", assembly)?;
+								assembly_output = Some(wat.to_owned());
+								js_bindgen_ld_shared::wat_to_object(wat);
 							}
 							Payload::CustomSection(c) if c.name() == "js_bindgen.import" => {
 								let mut parser = JsBindgenJsSectionParser::new(&c);
