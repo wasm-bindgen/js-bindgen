@@ -4,3 +4,4 @@
 /host/Cargo.lock
 /dev/target
 /dev/Cargo.lock
+/rust-toolchain.toml

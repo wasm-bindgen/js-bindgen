@@ -36,6 +36,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Stable Rust Override
+        run: cp .github/rust-toolchain.toml .
       - name: Enable Caching
         uses: Swatinem/rust-cache@v2
         with:
@@ -71,13 +73,7 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - {
-              name: wasm32,
-              target: wasm32-unknown-unknown,
-              install: true,
-              rust: stable,
-              description: Wasm32,
-            }
+          - { name: wasm32, target: wasm32-unknown-unknown, install: true, description: Wasm32 }
           - {
               name: wasm64,
               target: wasm64-unknown-unknown,
@@ -98,6 +94,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Stable Rust Override
+        run: cp .github/rust-toolchain.toml .
       - name: Install Rust
         run:
           rustup install --no-update --profile minimal --override ${{
@@ -109,8 +107,8 @@ jobs:
       - name: Install LLVM
         uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
         with:
-          # Rustc v1.93
-          llvm-version: 21
+          # Rustc v1.95
+          llvm-version: 22
       - name: Download Host Tools
         uses: actions/download-artifact@v4
         with:
@@ -151,13 +149,7 @@ jobs:
           - { os: ubuntu-latest, name: linux, runners: all, description: Linux }
           - { os: macos-latest, name: mac-os, runners: safari-driver, description: macOS }
         target:
-          - {
-              name: wasm32,
-              target: wasm32-unknown-unknown,
-              install: true,
-              rust: stable,
-              description: Wasm32,
-            }
+          - { name: wasm32, target: wasm32-unknown-unknown, install: true, description: Wasm32 }
           - {
               name: wasm64,
               target: wasm64-unknown-unknown,
@@ -181,6 +173,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Stable Rust Override
+        run: cp .github/rust-toolchain.toml .
       - name: Install Rust
         run:
           rustup install --no-update --profile minimal --override ${{
@@ -192,8 +186,8 @@ jobs:
       - name: Install LLVM
         uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
         with:
-          # Rustc v1.93
-          llvm-version: 21
+          # Rustc v1.95
+          llvm-version: 22
       - name: Update Node.js
         if: runner.os == 'Linux'
         uses: actions/setup-node@v6
@@ -259,6 +253,8 @@ jobs:
         run: |
           chmod +x host-tools/bin/*
           echo "${{ github.workspace }}/host-tools/bin" >> $GITHUB_PATH
+      - name: Stable Rust Override
+        run: cp .github/rust-toolchain.toml .
       - name: Enable Caching
         uses: Swatinem/rust-cache@v2
         with:
@@ -294,13 +290,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Stable Rust Override
+        run: cp .github/rust-toolchain.toml .
       - name: Install Rust Wasm Target
         run: rustup target add wasm32-unknown-unknown
       - name: Install LLVM
         uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
         with:
-          # Rustc v1.93
-          llvm-version: 21
+          # Rustc v1.95
+          llvm-version: 22
       - name: Download Host Tools
         uses: actions/download-artifact@v4
         with:

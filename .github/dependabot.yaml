@@ -9,6 +9,16 @@ updates:
     schedule:
       interval: daily
     groups:
+      crates-io:
+        patterns:
+          - "*"
+
+  - package-ecosystem: rust-toolchain
+    directories:
+      - /.github
+    schedule:
+      interval: daily
+    groups:
       rust:
         patterns:
           - "*"

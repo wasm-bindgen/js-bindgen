@@ -1,0 +1,5 @@
+# This is only used in the CI, which copies it into the root folder.
+
+[toolchain]
+channel = "1.95"
+profile = "minimal"

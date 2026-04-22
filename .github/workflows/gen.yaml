@@ -25,32 +25,39 @@ jobs:
 
     env:
       XWIN_ARCH: x86_64
+      # https://learn.microsoft.com/en-us/visualstudio/releases/2026/servicing-vs#support-for-older-versions
       XWIN_VERSION: 17
+      # https://learn.microsoft.com/en-us/windows/apps/windows-sdk/release-notes
       XWIN_SDK_VERSION: 10.0.26100
+      # https://learn.microsoft.com/en-us/visualstudio/install/workload-component-id-vs-build-tools#desktop-development-with-c
       XWIN_CRT_VERSION: 14.44.17.14
-
-    defaults:
-      run:
-        working-directory: host
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Stable Rust Override
+        run: cp .github/rust-toolchain.toml .
       - name: Install Rust
-        run: rustup install 1.94 --profile minimal --override -t x86_64-pc-windows-msvc
-      - uses: taiki-e/install-action@v2
+        run: rustup install --no-update
+      - name: Install Target
+        run: rustup target add x86_64-pc-windows-msvc
+      - name: Install `cargo-xwin`
+        uses: taiki-e/install-action@v2
         with:
           tool: cargo-xwin
       - name: Restore `cargo-xwin` Cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/cargo-xwin
-          key: cargo-xwin-cache
+          key:
+            cargo-xwin-cache-${{ env.XWIN_VERSION }}-${{ env.XWIN_SDK_VERSION }}-${{
+            env.XWIN_CRT_VERSION }}
       - name: Download `cargo-xwin` Cache
         run: cargo xwin cache xwin
       - name: Build Cargo Shims
+        working-directory: host
         env:
           RUSTFLAGS: -Clink-arg=/Brepro
           CARGO_PROFILE_RELEASE_OPT_LEVEL: z
@@ -59,6 +66,7 @@ jobs:
           CARGO_PROFILE_RELEASE_PANIC: abort
         run: cargo xwin build --bin linker --bin runner --target x86_64-pc-windows-msvc --release
       - name: Copy Binaries
+        working-directory: host
         run: |
           cp target/x86_64-pc-windows-msvc/release/linker.exe cargo-shim
           cp target/x86_64-pc-windows-msvc/release/runner.exe cargo-shim
