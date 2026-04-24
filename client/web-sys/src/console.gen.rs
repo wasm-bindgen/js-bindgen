@@ -17,7 +17,9 @@ use js_sys::JsValue;
 pub fn log0() {
 	js_bindgen::unsafe_embed_asm! {
 		"(module (@rwat)",
-		"  (import \"web_sys\" \"console.log0\" (func $web_sys.import.console.log0 (@sym) (param ) (result )))",
+		#[cfg(target_arch = "wasm64")]
+		"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+		"  (import \"web_sys\" \"console.log0\" (func $web_sys.import.console.log0 (@sym (name \"web_sys.import.console.log0\")) (param ) (result )))",
 		"  (func $web_sys.console.log0 (@sym) (param  ) (result )",
 		"    call $web_sys.import.console.log0 (@reloc)",
 		"    ",
@@ -38,7 +40,9 @@ pub fn log0() {
 pub fn log(data: &JsValue) {
 	js_bindgen::unsafe_embed_asm! {
 		"(module (@rwat)",
-		"  (import \"web_sys\" \"console.log\" (func $web_sys.import.console.log (@sym) (param {}) (result )))",
+		#[cfg(target_arch = "wasm64")]
+		"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+		"  (import \"web_sys\" \"console.log\" (func $web_sys.import.console.log (@sym (name \"web_sys.import.console.log\")) (param {}) (result )))",
 		"  {}",
 		"",
 		"  (func $web_sys.console.log (@sym) (param  {}) (result )",
@@ -78,7 +82,9 @@ pub fn log(data: &JsValue) {
 pub fn log2(data1: &JsValue, data2: &JsValue) {
 	js_bindgen::unsafe_embed_asm! {
 		"(module (@rwat)",
-		"  (import \"web_sys\" \"console.log2\" (func $web_sys.import.console.log2 (@sym) (param {} {}) (result )))",
+		#[cfg(target_arch = "wasm64")]
+		"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+		"  (import \"web_sys\" \"console.log2\" (func $web_sys.import.console.log2 (@sym (name \"web_sys.import.console.log2\")) (param {} {}) (result )))",
 		"  {}",
 		"",
 		"  (func $web_sys.console.log2 (@sym) (param  {} {}) (result )",
@@ -123,7 +129,9 @@ pub fn log2(data1: &JsValue, data2: &JsValue) {
 pub fn error(data: &JsValue) {
 	js_bindgen::unsafe_embed_asm! {
 		"(module (@rwat)",
-		"  (import \"web_sys\" \"console.error\" (func $web_sys.import.console.error (@sym) (param {}) (result )))",
+		#[cfg(target_arch = "wasm64")]
+		"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+		"  (import \"web_sys\" \"console.error\" (func $web_sys.import.console.error (@sym (name \"web_sys.import.console.error\")) (param {}) (result )))",
 		"  {}",
 		"",
 		"  (func $web_sys.console.error (@sym) (param  {}) (result )",

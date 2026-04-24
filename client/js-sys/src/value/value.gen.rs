@@ -10,7 +10,9 @@ use crate::util::PtrLength;
 pub(super) fn js_value_partial_eq(value1: &JsValue, value2: &JsValue) -> bool {
 	js_bindgen::unsafe_embed_asm! {
 		"(module (@rwat)",
-		"  (import \"js_sys\" \"js_value_partial_eq\" (func $js_sys.import.js_value_partial_eq (@sym) (param {} {}) (result {})))",
+		#[cfg(target_arch = "wasm64")]
+		"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+		"  (import \"js_sys\" \"js_value_partial_eq\" (func $js_sys.import.js_value_partial_eq (@sym (name \"js_sys.import.js_value_partial_eq\")) (param {} {}) (result {})))",
 		"  {}",
 		"",
 		"  {}",

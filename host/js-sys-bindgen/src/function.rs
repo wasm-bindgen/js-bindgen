@@ -441,7 +441,9 @@ impl<'a> State<'a> {
 
 		let asm = TokenStream::from_str(&format!(
 			r#""(module (@rwat)",
-			"  (import \"{crate_}\" \"{import_name}\" (func ${crate_}.import.{import_name} (@sym) (param {params_placeholder}) (result {ret_placeholder})))",
+            #[cfg(target_arch = "wasm64")]
+            "  (import \"env\" \"__linear_memory\" (memory i64 0))",
+			"  (import \"{crate_}\" \"{import_name}\" (func ${crate_}.import.{import_name} (@sym (name \"{crate_}.import.{import_name}\")) (param {params_placeholder}) (result {ret_placeholder})))",
 			{import_funcs_placeholder}
             "  (func ${foreign_name} (@sym) (param {ret_placeholder} {params_placeholder}) (result {ret_placeholder})",
             {asm_param_gets}

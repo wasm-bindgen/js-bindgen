@@ -66,7 +66,9 @@ impl<T> JsArray<T> {
 	pub fn length(self: &JsArray<T>) -> u32 {
 		js_bindgen::unsafe_embed_asm! {
 			"(module (@rwat)",
-			"  (import \"js_sys\" \"length\" (func $js_sys.import.length (@sym) (param {}) (result {})))",
+			#[cfg(target_arch = "wasm64")]
+			"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+			"  (import \"js_sys\" \"length\" (func $js_sys.import.length (@sym (name \"js_sys.import.length\")) (param {}) (result {})))",
 			"  {}",
 			"",
 			"  {}",
@@ -122,7 +124,9 @@ pub(super) unsafe fn array_js_value_decode(
 ) -> JsArray<JsValue> {
 	js_bindgen::unsafe_embed_asm! {
 		"(module (@rwat)",
-		"  (import \"js_sys\" \"array_js_value_decode\" (func $js_sys.import.array_js_value_decode (@sym) (param {} {}) (result {})))",
+		#[cfg(target_arch = "wasm64")]
+		"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+		"  (import \"js_sys\" \"array_js_value_decode\" (func $js_sys.import.array_js_value_decode (@sym (name \"js_sys.import.array_js_value_decode\")) (param {} {}) (result {})))",
 		"  {}",
 		"",
 		"  {}",
@@ -199,7 +203,9 @@ pub(super) unsafe fn array_js_value_encode(
 ) -> bool {
 	js_bindgen::unsafe_embed_asm! {
 		"(module (@rwat)",
-		"  (import \"js_sys\" \"array_js_value_encode\" (func $js_sys.import.array_js_value_encode (@sym) (param {} {} {} {} {}) (result {})))",
+		#[cfg(target_arch = "wasm64")]
+		"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+		"  (import \"js_sys\" \"array_js_value_encode\" (func $js_sys.import.array_js_value_encode (@sym (name \"js_sys.import.array_js_value_encode\")) (param {} {} {} {} {}) (result {})))",
 		"  {}",
 		"",
 		"  {}",
@@ -311,7 +317,9 @@ pub(super) unsafe fn array_js_value_encode(
 pub(super) unsafe fn array_u32_decode(array: *const u32, len: PtrLength<u32>) -> JsArray<u32> {
 	js_bindgen::unsafe_embed_asm! {
 		"(module (@rwat)",
-		"  (import \"js_sys\" \"array_u32_decode\" (func $js_sys.import.array_u32_decode (@sym) (param {} {}) (result {})))",
+		#[cfg(target_arch = "wasm64")]
+		"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+		"  (import \"js_sys\" \"array_u32_decode\" (func $js_sys.import.array_u32_decode (@sym (name \"js_sys.import.array_u32_decode\")) (param {} {}) (result {})))",
 		"  {}",
 		"",
 		"  {}",
@@ -386,7 +394,9 @@ pub(super) unsafe fn array_u32_encode(
 ) -> bool {
 	js_bindgen::unsafe_embed_asm! {
 		"(module (@rwat)",
-		"  (import \"js_sys\" \"array_u32_encode\" (func $js_sys.import.array_u32_encode (@sym) (param {} {} {}) (result {})))",
+		#[cfg(target_arch = "wasm64")]
+		"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+		"  (import \"js_sys\" \"array_u32_encode\" (func $js_sys.import.array_u32_encode (@sym (name \"js_sys.import.array_u32_encode\")) (param {} {} {}) (result {})))",
 		"  {}",
 		"",
 		"  {}",

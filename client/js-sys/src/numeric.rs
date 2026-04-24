@@ -281,6 +281,8 @@ js_bindgen::embed_js!(
 
 js_bindgen::unsafe_embed_asm!(
 	"(module (@rwat)",
+	#[cfg(target_arch = "wasm64")]
+	"  (import \"env\" \"__linear_memory\" (memory i64 0))",
 	"  (func $js_sys.numeric.128 (@sym) (param i32 i32 i32 i32 {})",
 	"    local.get 4",
 	"    local.get 0",

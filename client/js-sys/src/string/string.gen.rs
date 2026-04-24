@@ -59,7 +59,9 @@ impl JsString {
 pub(super) fn string_constructor(value: &JsValue) -> JsString {
 	js_bindgen::unsafe_embed_asm! {
 		"(module (@rwat)",
-		"  (import \"js_sys\" \"string_constructor\" (func $js_sys.import.string_constructor (@sym) (param {}) (result {})))",
+		#[cfg(target_arch = "wasm64")]
+		"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+		"  (import \"js_sys\" \"string_constructor\" (func $js_sys.import.string_constructor (@sym (name \"js_sys.import.string_constructor\")) (param {}) (result {})))",
 		"  {}",
 		"",
 		"  {}",
@@ -111,7 +113,9 @@ pub(super) fn string_constructor(value: &JsValue) -> JsString {
 pub(super) unsafe fn string_eq(string: &JsString, array: *const u8, len: PtrLength<u8>) -> bool {
 	js_bindgen::unsafe_embed_asm! {
 		"(module (@rwat)",
-		"  (import \"js_sys\" \"string_eq\" (func $js_sys.import.string_eq (@sym) (param {} {} {}) (result {})))",
+		#[cfg(target_arch = "wasm64")]
+		"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+		"  (import \"js_sys\" \"string_eq\" (func $js_sys.import.string_eq (@sym (name \"js_sys.import.string_eq\")) (param {} {} {}) (result {})))",
 		"  {}",
 		"",
 		"  {}",
@@ -195,7 +199,9 @@ pub(super) unsafe fn string_eq(string: &JsString, array: *const u8, len: PtrLeng
 pub(super) unsafe fn string_decode(array: *const u8, len: PtrLength<u8>) -> JsString {
 	js_bindgen::unsafe_embed_asm! {
 		"(module (@rwat)",
-		"  (import \"js_sys\" \"string_decode\" (func $js_sys.import.string_decode (@sym) (param {} {}) (result {})))",
+		#[cfg(target_arch = "wasm64")]
+		"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+		"  (import \"js_sys\" \"string_decode\" (func $js_sys.import.string_decode (@sym (name \"js_sys.import.string_decode\")) (param {} {}) (result {})))",
 		"  {}",
 		"",
 		"  {}",
@@ -266,7 +272,9 @@ pub(super) unsafe fn string_decode(array: *const u8, len: PtrLength<u8>) -> JsSt
 pub(super) fn string_utf8_length(string: &JsString) -> f64 {
 	js_bindgen::unsafe_embed_asm! {
 		"(module (@rwat)",
-		"  (import \"js_sys\" \"string_utf8_length\" (func $js_sys.import.string_utf8_length (@sym) (param {}) (result {})))",
+		#[cfg(target_arch = "wasm64")]
+		"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+		"  (import \"js_sys\" \"string_utf8_length\" (func $js_sys.import.string_utf8_length (@sym (name \"js_sys.import.string_utf8_length\")) (param {}) (result {})))",
 		"  {}",
 		"",
 		"  {}",
@@ -319,7 +327,9 @@ pub(super) fn string_utf8_length(string: &JsString) -> f64 {
 pub(super) unsafe fn string_encode(string: &JsString, array: *mut u8, len: PtrLength<u8>) {
 	js_bindgen::unsafe_embed_asm! {
 		"(module (@rwat)",
-		"  (import \"js_sys\" \"string_encode\" (func $js_sys.import.string_encode (@sym) (param {} {} {}) (result )))",
+		#[cfg(target_arch = "wasm64")]
+		"  (import \"env\" \"__linear_memory\" (memory i64 0))",
+		"  (import \"js_sys\" \"string_encode\" (func $js_sys.import.string_encode (@sym (name \"js_sys.import.string_encode\")) (param {} {} {}) (result )))",
 		"  {}",
 		"",
 		"  {}",

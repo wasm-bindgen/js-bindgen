@@ -5,7 +5,9 @@ use crate::panic::panic;
 
 js_bindgen::unsafe_embed_asm!(
 	"(module (@rwat)",
-	"  (import \"js_sys\" \"externref.table\" (table $js_sys.import.externref.table (@sym) 1 externref))",
+    #[cfg(target_arch = "wasm64")]
+    "  (import \"env\" \"__linear_memory\" (memory i64 0))",
+	"  (import \"js_sys\" \"externref.table\" (table $js_sys.import.externref.table (@sym (name  \"js_sys.import.externref.table\")) 1 externref))",
 	"  (import \"env\" \"js_sys.externref.next\" (func $js_sys.externref.next (@sym) (result i32)))",
 	"  (func $js_sys.externref.grow (@sym) (param i32) (result i32)",
 	"    ref.null extern",
