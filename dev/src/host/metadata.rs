@@ -10,7 +10,12 @@ use crate::features::Features;
 use crate::group::Group;
 use crate::{command, features};
 
-pub fn run(commands: &[RunCommand], targets: &[HostTarget], verbose: bool) -> Result<Duration> {
+pub fn run(
+	commands: &[RunCommand],
+	targets: &[HostTarget],
+	private: bool,
+	verbose: bool,
+) -> Result<Duration> {
 	let metadata = MetadataCommand::new()
 		.current_dir("../host")
 		.no_deps()
@@ -19,19 +24,24 @@ pub fn run(commands: &[RunCommand], targets: &[HostTarget], verbose: bool) -> Re
 	let mut packages = Vec::new();
 
 	for package in &metadata.packages {
-		if package.publish.as_ref().is_some_and(Vec::is_empty) {
+		if !private && package.publish.as_ref().is_some_and(Vec::is_empty) {
 			continue;
 		}
 
 		let feature_combinations = features::combinations(package);
 
-		for target in &package.targets {
-			for kind in &target.kind {
-				if let TargetKind::Lib | TargetKind::ProcMacro | TargetKind::Bin = kind {
-					for features in &feature_combinations {
-						packages.push((package.name.to_string(), features.clone()));
-					}
-				}
+		if package
+			.targets
+			.iter()
+			.flat_map(|target| &target.kind)
+			.any(|kind| {
+				matches!(
+					kind,
+					TargetKind::Lib | TargetKind::ProcMacro | TargetKind::Bin
+				)
+			}) {
+			for features in &feature_combinations {
+				packages.push((package.name.to_string(), features.clone()));
 			}
 		}
 	}

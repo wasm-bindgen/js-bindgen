@@ -55,14 +55,27 @@ impl Check {
 							envs: &[],
 						},
 						RunCommand {
-							title: "Doc",
+							title: "Check Tests",
+							sub_command: "clippy",
+							args: &[
+								"--keep-going",
+								"--tests",
+								"--benches",
+								"--",
+								"-D",
+								"warnings",
+							],
+							envs: &[],
+						},
+						RunCommand {
+							title: "Check Doc",
 							sub_command: "doc",
 							args: &["--keep-going", "--no-deps", "--document-private-items"],
 							envs: &[("RUSTDOCFLAGS", "-D warnings")],
 						},
 					];
 					let targets = HostTarget::from_targets(self.targets.clone())?;
-					duration += metadata::run(&commands, &targets, verbose)?;
+					duration += metadata::run(&commands, &targets, true, verbose)?;
 				}
 				Tool::EsLint => {
 					let start = Instant::now();

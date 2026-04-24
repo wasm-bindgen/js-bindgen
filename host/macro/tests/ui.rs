@@ -28,7 +28,7 @@ fn main() -> Result<()> {
 	base.set_custom("rustfix", RustfixMode::Disabled);
 	config.skip_files.push(String::from("lib.rs"));
 
-	if env::var_os("BLESS").filter(|v| v == "1").is_some() {
+	if env::var_os("BLESS").is_some_and(|v| v == "1") {
 		config.output_conflict_handling = ui_test::bless_output_files;
 	}
 

@@ -101,18 +101,19 @@ impl<'m> CargoTarget<'m> {
 			let feature_combinations = features::combinations(package);
 			let js_sys = Self::js_sys_dependency(metadata, package, false);
 
-			for target in &package.targets {
-				for kind in &target.kind {
-					if let TargetKind::Lib = kind {
-						for features in &feature_combinations {
-							targets.push(Self {
-								kind: kind.clone(),
-								name: &package.name,
-								features: features.clone(),
-								js_sys,
-							});
-						}
-					}
+			if package
+				.targets
+				.iter()
+				.flat_map(|target| &target.kind)
+				.any(|kind| matches!(kind, TargetKind::Lib))
+			{
+				for features in &feature_combinations {
+					targets.push(Self {
+						kind: TargetKind::Lib,
+						name: &package.name,
+						features: features.clone(),
+						js_sys,
+					});
 				}
 			}
 		}
@@ -124,7 +125,7 @@ impl<'m> CargoTarget<'m> {
 				for kind in &target.kind {
 					if let TargetKind::Example = kind {
 						targets.push(Self {
-							kind: kind.clone(),
+							kind: TargetKind::Example,
 							name: &target.name,
 							features: Features::Default,
 							js_sys,

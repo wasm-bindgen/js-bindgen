@@ -110,6 +110,19 @@ impl Client {
 						envs: &[],
 					},
 					RunCommand {
+						title: "Check Tests",
+						sub_command: "clippy",
+						args: &[
+							"--keep-going",
+							"--tests",
+							"--benches",
+							"--",
+							"-D",
+							"warnings",
+						],
+						envs: &[],
+					},
+					RunCommand {
 						title: "Doc",
 						sub_command: "doc",
 						args: &["--keep-going", "--no-deps", "--document-private-items"],

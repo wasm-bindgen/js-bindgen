@@ -50,7 +50,7 @@ impl Host {
 					args: &[],
 					envs: &[],
 				};
-				let duration = metadata::run(&[command], &[HostTarget::host()], verbose)?;
+				let duration = metadata::run(&[command], &[HostTarget::host()], false, verbose)?;
 
 				println!("-------------------------");
 				println!("Total Time: {:.2}s", duration.as_secs_f32());
