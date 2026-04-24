@@ -37,6 +37,8 @@ pub fn print_info(command: &Command) {
 pub fn run(mut command: Command, verbose: bool) -> Result<(Duration, ExitStatus)> {
 	let start = Instant::now();
 
+	command.env("CARGO_TERM_COLOR", "always");
+
 	let status = if verbose {
 		command.status()?
 	} else {
@@ -77,4 +79,11 @@ pub fn run(mut command: Command, verbose: bool) -> Result<(Duration, ExitStatus)
 	};
 
 	Ok((start.elapsed(), status))
+}
+
+pub struct RunCommand<'a> {
+	pub title: &'a str,
+	pub sub_command: &'a str,
+	pub envs: &'a [(&'a str, &'a str)],
+	pub args: &'a [&'a str],
 }

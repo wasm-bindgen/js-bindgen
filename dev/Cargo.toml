@@ -4,6 +4,10 @@ license = "MIT OR Apache-2.0"
 name = "js-bindgen-dev"
 publish = false
 
+[[bin]]
+bench = false
+name = "js-bindgen-dev"
+
 [dependencies]
 anstyle = { version = "1", default-features = false }
 anyhow = "1"

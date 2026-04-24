@@ -34,8 +34,7 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 
 	if wasm_ld_args
 		.arg_single("flavor")
-		.filter(|v| *v == "wasm")
-		.is_none()
+		.is_none_or(|v| v != "wasm")
 	{
 		panic!("the `js-bindgen-ld` should only be used when compiling to a Wasm target")
 	}
@@ -73,7 +72,7 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 		js_bindgen_ld_shared::ld_input_parser(input, |path, data, object_mtime| {
 			process_object(
 				&mut js_store,
-				arch.as_str(),
+				arch.to_arg(),
 				&mut add_args,
 				path,
 				data,
@@ -157,7 +156,7 @@ fn process_object(
 }
 
 impl Arch {
-	fn as_str(self) -> &'static str {
+	fn to_arg(self) -> &'static str {
 		match self {
 			Self::Wasm32 => "wasm32",
 			Self::Wasm64 => "wasm64",

@@ -1,89 +1,56 @@
-use std::process::Command;
 use std::time::Instant;
-use std::{env, slice};
 
 use anyhow::{Result, bail};
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, Package, TargetKind};
-use clap::Args;
-use strum::VariantArray;
 
 use super::permutation::Permutation;
-use super::{ClientArgs, Target, TargetFeature, util};
+use super::{ClientArgs, util};
+use crate::command::RunCommand;
 use crate::features::Features;
-use crate::github::Group;
+use crate::group::Group;
 use crate::{command, features};
 
-#[derive(Args, Default)]
-pub struct Build {
-	#[command(flatten)]
-	args: ClientArgs,
-}
+pub fn run(client_args: &ClientArgs, commands: &[RunCommand], verbose: bool) -> Result<()> {
+	let metadata = MetadataCommand::new().current_dir("../client").exec()?;
 
-impl Build {
-	pub fn new(args: ClientArgs) -> Self {
-		Self { args }
-	}
+	let start = Instant::now();
 
-	pub fn execute(self, verbose: bool) -> Result<()> {
-		let targets = self
-			.args
-			.target
-			.as_ref()
-			.map_or(Target::VARIANTS, slice::from_ref);
-		let target_features = if self.args.target_feature.is_empty() {
-			TargetFeature::VARIANTS
-		} else {
-			&self.args.target_feature
-		};
+	util::build_linker(verbose)?;
 
-		let metadata = MetadataCommand::new().current_dir("../client").exec()?;
-
-		let start = Instant::now();
-
-		if env::var_os("JBG_DEV_TOOLS").is_none_or(|value| value != "1") {
-			let group = Group::announce("Build Linker".into(), verbose)?;
-			let mut command = Command::new("cargo");
-			command
-				.current_dir("../host")
-				.env("CI", "true")
-				.arg("+stable")
-				.arg("build")
-				.args(["-p", "js-bindgen-ld"]);
-
-			let (_, status) = command::run(command, verbose)?;
-
-			if !status.success() {
-				bail!("build Linker failed with {status}");
-			}
-
-			drop(group);
-		}
-
-		for CargoTarget {
-			kind,
-			name,
-			features,
-			js_sys,
-		} in CargoTarget::from_metadata(&metadata)
+	for CargoTarget {
+		kind,
+		name,
+		features,
+		js_sys,
+	} in CargoTarget::from_metadata(&metadata)
+	{
+		for permutation in
+			Permutation::iter(&client_args.targets, &client_args.target_features, js_sys)
 		{
-			for permutation in Permutation::iter(targets, target_features, js_sys) {
-				let mut command = util::cargo(
-					&permutation,
-					self.args.nightly_toolchain.as_deref(),
-					"build",
-				);
+			for RunCommand {
+				title,
+				sub_command,
+				envs,
+				args,
+			} in commands
+			{
+				let mut command =
+					util::cargo(&permutation, &client_args.nightly_toolchain, sub_command);
 
 				let announce = match kind {
 					TargetKind::Lib => {
 						command.args(["-p", name]);
-						"Build"
+						*title
 					}
 					TargetKind::Example => {
 						command.args(["--example", name]);
-						"Build Example"
+						&format!("{title} Example")
 					}
 					_ => unreachable!(),
 				};
+
+				command.envs(envs.iter().copied());
+				command.args(*args);
 
 				let features_str = match features {
 					Features::Default => String::new(),
@@ -102,18 +69,21 @@ impl Build {
 				let (_, status) = command::run(command, verbose)?;
 
 				if !status.success() {
-					bail!("build \"`{name}`{features_str} - {permutation}\" failed with {status}");
+					bail!(
+						"{} \"`{name}`{features_str} - {permutation}\" failed with {status}",
+						title.to_lowercase()
+					);
 				}
 
 				drop(group);
 			}
 		}
-
-		println!("-------------------------");
-		println!("Total Time: {:.2}s", start.elapsed().as_secs_f32());
-
-		Ok(())
 	}
+
+	println!("-------------------------");
+	println!("Total Time: {:.2}s", start.elapsed().as_secs_f32());
+
+	Ok(())
 }
 
 struct CargoTarget<'m> {

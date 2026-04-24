@@ -940,8 +940,8 @@ impl Bytes {
 				buffer.extend_from_slice(slice);
 				return;
 			}
-			Bytes::One(byte) => vec![*byte],
-			Bytes::Two(bytes) => bytes.to_vec(),
+			Self::One(byte) => vec![*byte],
+			Self::Two(bytes) => bytes.to_vec(),
 		};
 
 		buffer.extend_from_slice(slice);
@@ -954,9 +954,9 @@ impl Deref for Bytes {
 
 	fn deref(&self) -> &Self::Target {
 		match self {
-			Bytes::One(bytes) => slice::from_ref(bytes),
-			Bytes::Two(bytes) => bytes,
-			Bytes::Buffer(bytes) => bytes,
+			Self::One(bytes) => slice::from_ref(bytes),
+			Self::Two(bytes) => bytes,
+			Self::Buffer(bytes) => bytes,
 		}
 	}
 }

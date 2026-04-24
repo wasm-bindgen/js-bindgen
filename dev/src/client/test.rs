@@ -1,31 +1,57 @@
 use std::ffi::OsStr;
 use std::fmt::{self, Display, Formatter};
 use std::process::{Command, Stdio};
+use std::sync::LazyLock;
 use std::time::{Duration, Instant};
-use std::{env, iter, slice};
+use std::{env, iter};
 
 use anyhow::{Result, anyhow, bail};
-use clap::builder::PossibleValue;
+use clap::builder::{ArgPredicate, PossibleValue};
 use clap::{Args, ValueEnum};
-use strum::{EnumCount, EnumIter, IntoEnumIterator, VariantArray};
+use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
 use super::permutation::{JsSysTargetFeature, Permutation};
 use super::process::ChildWrapper;
 use super::{ClientArgs, Target, TargetFeature, util};
 use crate::command;
-use crate::github::Group;
+use crate::group::Group;
 
-#[derive(Args, Default)]
+#[derive(Args)]
 pub struct Test {
 	#[command(flatten)]
 	args: ClientArgs,
-	#[arg(long, value_delimiter = ',', conflicts_with = "exclude")]
+	#[arg(
+		long,
+		value_delimiter = ',',
+		conflicts_with = "exclude",
+		default_value = "engine",
+		default_values_if("exclude", ArgPredicate::IsPresent, iter::empty::<&str>()),
+		required = false
+	)]
 	include: Vec<Include>,
 	#[arg(long, value_delimiter = ',', conflicts_with = "include")]
 	exclude: Vec<Runner>,
 }
 
+impl Default for Test {
+	fn default() -> Self {
+		Self {
+			args: ClientArgs::default(),
+			include: vec![Include::Engine(None)],
+			exclude: Vec::new(),
+		}
+	}
+}
+
 impl Test {
+	pub fn all() -> Self {
+		Self {
+			args: ClientArgs::all(),
+			include: vec![Include::All],
+			exclude: Vec::new(),
+		}
+	}
+
 	pub fn args(&self) -> &ClientArgs {
 		&self.args
 	}
@@ -38,19 +64,9 @@ impl Test {
 				.filter(|runner| !self.exclude.contains(runner))
 				.collect()
 		} else {
-			Runner::from_include(vec![Include::Engine(None)])?
+			unreachable!()
 		};
 
-		let targets = self
-			.args
-			.target
-			.as_ref()
-			.map_or(Target::VARIANTS, slice::from_ref);
-		let target_features = if self.args.target_feature.is_empty() {
-			TargetFeature::VARIANTS
-		} else {
-			&self.args.target_feature
-		};
 		let tools_installed = env::var_os("JBG_DEV_TOOLS").is_some_and(|value| value == "1");
 
 		let start = Instant::now();
@@ -72,7 +88,6 @@ impl Test {
 				let mut command = Command::new("cargo");
 				command
 					.current_dir("../host")
-					.arg("+stable")
 					.arg("build")
 					.args(["-p", "js-bindgen-web-driver"]);
 
@@ -93,7 +108,6 @@ impl Test {
 				let mut command = Command::new("cargo");
 				command
 					.current_dir("../host")
-					.arg("+stable")
 					.arg("run")
 					.args(["-p", "js-bindgen-web-driver"])
 					.arg("--");
@@ -110,30 +124,12 @@ impl Test {
 		}
 
 		if !tools_installed {
-			let group = Group::announce("Build Linker".into(), verbose)?;
-			let mut command = Command::new("cargo");
-			command
-				.current_dir("../host")
-				.env("CI", "true")
-				.arg("+stable")
-				.arg("build")
-				.args(["-p", "js-bindgen-ld"]);
-
-			let (duration, status) = command::run(command, verbose)?;
-			build_time += duration;
-
-			if !status.success() {
-				bail!("build Linker failed with {status}");
-			}
-
-			drop(group);
+			build_time += util::build_linker(verbose)?.unwrap();
 
 			let group = Group::announce("Build Runner".into(), verbose)?;
 			let mut command = Command::new("cargo");
 			command
 				.current_dir("../host")
-				.env("CI", "true")
-				.arg("+stable")
 				.arg("build")
 				.args(["-p", "js-bindgen-runner"]);
 
@@ -147,7 +143,7 @@ impl Test {
 			drop(group);
 		}
 
-		for permutation in Permutation::iter(targets, target_features, true) {
+		for permutation in Permutation::iter(&self.args.targets, &self.args.target_features, true) {
 			let mut built = false;
 
 			for test_run in TestRun::from_permuation(&permutation, &runners) {
@@ -155,7 +151,7 @@ impl Test {
 					let group =
 						Group::announce(format!("Build Tests - {permutation}").into(), verbose)?;
 					let mut command =
-						util::cargo(&permutation, self.args.nightly_toolchain.as_deref(), "test");
+						util::cargo(&permutation, &self.args.nightly_toolchain, "test");
 					command
 						.arg("--workspace")
 						.arg("--all-features")
@@ -177,8 +173,7 @@ impl Test {
 				}
 
 				let group = Group::announce(format!("Run Tests - {test_run}").into(), verbose)?;
-				let mut command =
-					util::cargo(&permutation, self.args.nightly_toolchain.as_deref(), "test");
+				let mut command = util::cargo(&permutation, &self.args.nightly_toolchain, "test");
 				command
 					.envs(test_run.envs())
 					.arg("--workspace")
@@ -311,26 +306,15 @@ impl Display for Runner {
 
 impl ValueEnum for Include {
 	fn value_variants<'a>() -> &'a [Self] {
-		const COUNT: usize = 2 + Engine::COUNT + WebDriver::COUNT;
-		const ARRAY: [Include; COUNT] = {
-			let mut array = [Include::All; COUNT];
-			array[1] = Include::Engine(None);
-			let mut index = 2;
+		static VARIANTS: LazyLock<Vec<Include>> = LazyLock::new(|| {
+			[Include::All, Include::Engine(None)]
+				.into_iter()
+				.chain(Engine::iter().map(Some).map(Include::Engine))
+				.chain(WebDriver::iter().map(Include::WebDriver))
+				.collect()
+		});
 
-			while index < 2 + Engine::COUNT {
-				array[index] = Include::Engine(Some(Engine::VARIANTS[index - 2]));
-				index += 1;
-			}
-
-			while index < 2 + Engine::COUNT + WebDriver::COUNT {
-				array[index] = Include::WebDriver(WebDriver::VARIANTS[index - 2 - Engine::COUNT]);
-				index += 1;
-			}
-
-			array
-		};
-
-		&ARRAY
+		&VARIANTS
 	}
 
 	fn to_possible_value(&self) -> Option<PossibleValue> {
@@ -345,25 +329,14 @@ impl ValueEnum for Include {
 
 impl ValueEnum for Runner {
 	fn value_variants<'a>() -> &'a [Self] {
-		const COUNT: usize = Engine::COUNT + WebDriver::COUNT;
-		const ARRAY: [Runner; COUNT] = {
-			let mut array = [Runner::Engine(Engine::Deno); COUNT];
-			let mut index = 0;
+		static VARIANTS: LazyLock<Vec<Runner>> = LazyLock::new(|| {
+			Engine::iter()
+				.map(Runner::Engine)
+				.chain(WebDriver::iter().map(Runner::WebDriver))
+				.collect()
+		});
 
-			while index < Engine::COUNT {
-				array[index] = Runner::Engine(Engine::VARIANTS[index]);
-				index += 1;
-			}
-
-			while index < Engine::COUNT + WebDriver::COUNT {
-				array[index] = Runner::WebDriver(WebDriver::VARIANTS[index - Engine::COUNT]);
-				index += 1;
-			}
-
-			array
-		};
-
-		&ARRAY
+		&VARIANTS
 	}
 
 	fn to_possible_value(&self) -> Option<PossibleValue> {
@@ -371,7 +344,7 @@ impl ValueEnum for Runner {
 	}
 }
 
-#[derive(Clone, Copy, EnumCount, EnumIter, Eq, PartialEq, VariantArray)]
+#[derive(Clone, Copy, EnumCount, EnumIter, Eq, PartialEq)]
 enum Engine {
 	Deno,
 	NodeJs,
@@ -404,7 +377,7 @@ impl Display for Engine {
 	}
 }
 
-#[derive(Clone, Copy, EnumCount, EnumIter, Eq, PartialEq, VariantArray)]
+#[derive(Clone, Copy, EnumCount, EnumIter, Eq, PartialEq)]
 enum WebDriver {
 	Chrome,
 	Gecko,

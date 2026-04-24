@@ -40,7 +40,7 @@ pub fn assembly_to_object(arch_str: &str, assembly: &str) -> Result<Vec<u8>, Err
 	if output.status.success() {
 		Ok(output.stdout)
 	} else {
-		eprintln!("------ clang input -------\n{assembly}",);
+		eprintln!("------ clang input -------\n{assembly}");
 
 		if !output.stdout.is_empty() {
 			eprintln!(

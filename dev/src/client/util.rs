@@ -1,35 +1,51 @@
+use std::env;
 use std::ffi::{OsStr, OsString};
 use std::process::Command;
+use std::time::Duration;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use clap::builder::{StringValueParser, TypedValueParser};
 use clap::error::{ContextKind, ContextValue, ErrorKind};
 use clap::{Arg, Error};
 
 use super::permutation::{Permutation, Toolchain};
+use crate::command;
+use crate::group::Group;
 
-pub fn cargo(
-	permutation: &Permutation,
-	nightly_toolchain: Option<&str>,
-	subcommand: &str,
-) -> Command {
+pub fn cargo(permutation: &Permutation, nightly_toolchain: &str, subcommand: &str) -> Command {
 	let mut command = Command::new("cargo");
-	command
-		.current_dir("../client")
-		.envs(permutation.envs())
-		.env("CI", "true");
+	command.current_dir("../client").envs(permutation.envs());
 
 	if let Toolchain::Nightly = permutation.toolchain() {
-		if let Some(toolchain) = nightly_toolchain {
-			command.arg(format!("+{toolchain}"));
-		} else {
-			command.arg("+nightly");
-		}
+		command.arg(format!("+{nightly_toolchain}"));
 	}
 
 	command.arg(subcommand).args(permutation.args());
 
 	command
+}
+
+pub fn build_linker(verbose: bool) -> Result<Option<Duration>> {
+	if env::var_os("JBG_DEV_TOOLS").is_none_or(|value| value != "1") {
+		let group = Group::announce("Build Linker".into(), verbose)?;
+		let mut command = Command::new("cargo");
+		command
+			.current_dir("../host")
+			.arg("build")
+			.args(["-p", "js-bindgen-ld"]);
+
+		let (duration, status) = command::run(command, verbose)?;
+
+		if !status.success() {
+			bail!("build Linker failed with {status}");
+		}
+
+		drop(group);
+
+		Ok(Some(duration))
+	} else {
+		Ok(None)
+	}
 }
 
 #[derive(Clone)]

@@ -128,7 +128,80 @@ jobs:
       - name: Build
         working-directory: dev
         run:
-          js-bindgen-dev client build -v --target ${{ matrix.target.name }} --target-feature ${{
+          js-bindgen-dev client build -v --targets ${{ matrix.target.name }} --target-features ${{
+          matrix.target-feature.name }}
+
+  check-client:
+    name: Check Client ${{ matrix.target.description }} ${{ matrix.target-feature.description }}
+
+    needs: host-tools
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { name: wasm32, target: wasm32-unknown-unknown, install: true, description: Wasm32 }
+          - {
+              name: wasm64,
+              target: wasm64-unknown-unknown,
+              install: false,
+              rust: nightly,
+              components: -c rust-src,
+              description: Wasm64,
+            }
+        target-feature:
+          - { name: default }
+          - { name: atomics, rust: nightly, components: -c rust-src, description: Atomics }
+
+    env:
+      JBG_DEV_TOOLS: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Stable Rust Override
+        run: cp .github/rust-toolchain.toml .
+      - name: Install Rust
+        run:
+          rustup install --no-update --profile minimal --override ${{
+          matrix.target-feature.components || matrix.target.components }} ${{
+          matrix.target-feature.rust || matrix.target.rust }}
+      - name: Install Target
+        if: matrix.target.install
+        run: rustup target add ${{ matrix.target.target }}
+      - name: Install Clippy
+        run: rustup component add clippy
+      - name: Install LLVM
+        uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
+        with:
+          # Rustc v1.95
+          llvm-version: 22
+      - name: Download Host Tools
+        uses: actions/download-artifact@v4
+        with:
+          name: host-tools-linux
+          path: host-tools/
+      - name: Install Host Tools
+        run: |
+          chmod +x host-tools/bin/*
+          echo "${{ github.workspace }}/host-tools/bin" >> $GITHUB_PATH
+      - name: Enable Caching
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "cache"
+          key: ${{ matrix.target.name }}-${{ matrix.target-feature.name }}
+          workspaces: client
+          cache-bin: false
+      - name: Check
+        working-directory: dev
+        run:
+          js-bindgen-dev client check -v --targets ${{ matrix.target.name }} --target-features ${{
           matrix.target-feature.name }}
 
   test-client:
@@ -215,7 +288,7 @@ jobs:
       - name: Test
         working-directory: dev
         run:
-          js-bindgen-dev client test -v --target ${{ matrix.target.name }} --target-feature ${{
+          js-bindgen-dev client test -v --targets ${{ matrix.target.name }} --target-features ${{
           matrix.target-feature.name }} --include ${{ matrix.os.runners }}
 
   build-host:
@@ -255,6 +328,8 @@ jobs:
           echo "${{ github.workspace }}/host-tools/bin" >> $GITHUB_PATH
       - name: Stable Rust Override
         run: cp .github/rust-toolchain.toml .
+      - name: Install Rust
+        run: rustup install --no-update
       - name: Enable Caching
         uses: Swatinem/rust-cache@v2
         with:
@@ -264,6 +339,57 @@ jobs:
       - name: Build
         working-directory: dev
         run: js-bindgen-dev host build -v
+
+  check-host:
+    name: Check Host ${{ matrix.os.description }}
+
+    needs: host-tools
+
+    runs-on: ${{ matrix.os.os }}
+
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - { os: ubuntu-latest, name: linux, description: Linux }
+          - { os: macos-latest, name: mac-os, description: macOS }
+          - { os: windows-latest, name: windows, description: Windows }
+
+    env:
+      JBG_DEV_TOOLS: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download Host Tools
+        uses: actions/download-artifact@v4
+        with:
+          name: host-tools-${{ matrix.os.name }}
+          path: host-tools/
+      - name: Install Host Tools
+        shell: bash
+        run: |
+          chmod +x host-tools/bin/*
+          echo "${{ github.workspace }}/host-tools/bin" >> $GITHUB_PATH
+      - name: Stable Rust Override
+        run: cp .github/rust-toolchain.toml .
+      - name: Install Rust
+        run: rustup install --no-update
+      - name: Install Clippy
+        run: rustup component add clippy
+      - name: Enable Caching
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "cache"
+          workspaces: host
+          cache-bin: false
+      - name: Check
+        working-directory: dev
+        run: js-bindgen-dev host check -v
 
   test-host:
     name: Test Host ${{ matrix.os.description }}
@@ -292,6 +418,8 @@ jobs:
           persist-credentials: false
       - name: Stable Rust Override
         run: cp .github/rust-toolchain.toml .
+      - name: Install Rust
+        run: rustup install --no-update
       - name: Install Rust Wasm Target
         run: rustup target add wasm32-unknown-unknown
       - name: Install LLVM

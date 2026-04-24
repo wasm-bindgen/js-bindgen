@@ -1,4 +1,4 @@
-mod build;
+mod metadata;
 mod permutation;
 mod process;
 mod test;
@@ -9,62 +9,147 @@ use std::fmt::{Display, Formatter};
 
 use anyhow::Result;
 use clap::{Args, Subcommand, ValueEnum};
-use strum::VariantArray;
+use strum::{EnumIter, IntoEnumIterator};
 
-use self::build::Build;
 use self::permutation::Toolchain;
 use self::test::Test;
 use self::util::ToolchainParser;
+use crate::command::RunCommand;
 
 #[derive(Subcommand)]
 pub enum Client {
 	All(Test),
-	Build(Build),
+	Build {
+		#[command(flatten)]
+		args: ClientArgs,
+	},
+	Check {
+		#[command(flatten)]
+		args: ClientArgs,
+	},
 	Test(Test),
 }
 
-#[derive(Args, Clone, Default)]
+#[derive(Args, Clone)]
 pub struct ClientArgs {
-	#[arg(long)]
-	target: Option<Target>,
-	#[arg(long, value_delimiter = ',')]
-	target_feature: Vec<TargetFeature>,
-	#[arg(long, value_parser = ToolchainParser)]
-	nightly_toolchain: Option<String>,
+	#[arg(long, value_delimiter = ',', default_value = "wasm32")]
+	targets: Vec<Target>,
+	#[arg(long, value_delimiter = ',', default_value = "default")]
+	target_features: Vec<TargetFeature>,
+	#[arg(long, value_parser = ToolchainParser, default_value = "nightly")]
+	nightly_toolchain: String,
 }
 
 impl Client {
-	pub fn build() -> Self {
-		Self::Build(Build::default())
+	pub fn build(all: bool) -> Self {
+		if all {
+			Self::Build {
+				args: ClientArgs::all(),
+			}
+		} else {
+			Self::Build {
+				args: ClientArgs::default(),
+			}
+		}
 	}
 
-	pub fn test() -> Self {
-		Self::Test(Test::default())
+	pub fn check(all: bool) -> Self {
+		if all {
+			Self::Check {
+				args: ClientArgs::all(),
+			}
+		} else {
+			Self::Check {
+				args: ClientArgs::default(),
+			}
+		}
+	}
+
+	pub fn test(all: bool) -> Self {
+		if all {
+			Self::Test(Test::all())
+		} else {
+			Self::Test(Test::default())
+		}
 	}
 
 	pub fn execute(self, verbose: bool) -> Result<()> {
 		match self {
 			Self::All(test) => {
-				Build::new(test.args().clone()).execute(verbose)?;
+				Self::Build {
+					args: test.args().clone(),
+				}
+				.execute(verbose)?;
+				println!("-------------------------");
+				println!();
+				Self::Check {
+					args: test.args().clone(),
+				}
+				.execute(verbose)?;
 				println!("-------------------------");
 				println!();
 				test.execute(verbose)?;
 
 				Ok(())
 			}
-			Self::Build(build) => build.execute(verbose),
+			Self::Build { args } => {
+				let command = RunCommand {
+					title: "Build",
+					sub_command: "build",
+					args: &[],
+					envs: &[],
+				};
+				metadata::run(&args, &[command], verbose)
+			}
+			Self::Check { args } => {
+				let commands = [
+					RunCommand {
+						title: "Check",
+						sub_command: "clippy",
+						args: &["--keep-going", "--", "-D", "warnings"],
+						envs: &[],
+					},
+					RunCommand {
+						title: "Doc",
+						sub_command: "doc",
+						args: &["--keep-going", "--no-deps", "--document-private-items"],
+						envs: &[("RUSTDOCFLAGS", "-D warnings")],
+					},
+				];
+				metadata::run(&args, &commands, verbose)
+			}
 			Self::Test(test) => test.execute(verbose),
 		}
 	}
 }
 
-#[derive(Clone, Copy, ValueEnum, VariantArray)]
+impl Default for ClientArgs {
+	fn default() -> Self {
+		Self {
+			targets: vec![Target::Wasm32],
+			target_features: vec![TargetFeature::Default],
+			nightly_toolchain: String::from("nightly"),
+		}
+	}
+}
+
+impl ClientArgs {
+	fn all() -> Self {
+		Self {
+			targets: Target::iter().collect(),
+			target_features: TargetFeature::iter().collect(),
+			nightly_toolchain: String::from("nightly"),
+		}
+	}
+}
+
+#[derive(Clone, Copy, EnumIter, ValueEnum)]
 enum Target {
 	Wasm32,
 	Wasm64,
 }
 
-#[derive(Clone, Copy, ValueEnum, VariantArray)]
+#[derive(Clone, Copy, EnumIter, ValueEnum)]
 enum TargetFeature {
 	Default,
 	Atomics,

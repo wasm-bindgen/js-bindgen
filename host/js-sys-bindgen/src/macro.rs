@@ -163,7 +163,7 @@ pub(crate) fn internal(
 					error.push(Error::new_spanned(attr, "unsupported attribute"));
 				}
 
-				output.extend(Type::new(&mut hygiene, item).into_iter());
+				output.extend(Type::new(&mut hygiene, item));
 			}
 			item => {
 				error.push(Error::new_spanned(

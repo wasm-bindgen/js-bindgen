@@ -1,7 +1,7 @@
 mod client;
 mod command;
 mod features;
-mod github;
+mod group;
 mod host;
 
 use anyhow::Result;
@@ -20,9 +20,22 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum CliCommand {
-	All,
-	Build,
-	Test,
+	All {
+		#[arg(long)]
+		all: bool,
+	},
+	Build {
+		#[arg(long)]
+		all: bool,
+	},
+	Check {
+		#[arg(long)]
+		all: bool,
+	},
+	Test {
+		#[arg(long)]
+		all: bool,
+	},
 	Client {
 		#[command(subcommand)]
 		client: Client,
@@ -46,24 +59,35 @@ impl Cli {
 impl CliCommand {
 	fn execute(self, verbose: bool) -> Result<()> {
 		match self {
-			Self::All => {
-				Self::Build.execute(verbose)?;
+			Self::All { all } => {
+				Self::Build { all }.execute(verbose)?;
 				println!("-------------------------");
 				println!();
-				Self::Test.execute(verbose)?;
+				Self::Check { all }.execute(verbose)?;
+				println!("-------------------------");
+				println!();
+				Self::Test { all }.execute(verbose)?;
 
 				Ok(())
 			}
-			Self::Build => {
-				Client::build().execute(verbose)?;
+			Self::Build { all } => {
+				Client::build(all).execute(verbose)?;
 				println!("-------------------------");
 				println!();
 				Host::Build.execute(verbose)?;
 
 				Ok(())
 			}
-			Self::Test => {
-				Client::test().execute(verbose)?;
+			Self::Check { all } => {
+				Client::check(all).execute(verbose)?;
+				println!("-------------------------");
+				println!();
+				Host::check(all).execute(verbose)?;
+
+				Ok(())
+			}
+			Self::Test { all } => {
+				Client::test(all).execute(verbose)?;
 				println!("-------------------------");
 				println!();
 				Host::Test.execute(verbose)?;

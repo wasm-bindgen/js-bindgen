@@ -368,10 +368,8 @@ impl<'a> State<'a> {
 									(
 										GenericParam::Lifetime(param),
 										GenericArgument::Lifetime(arg),
-									) => {
-										if &param.lifetime == arg {
-											return true;
-										}
+									) if &param.lifetime == arg => {
+										return true;
 									}
 									(
 										GenericParam::Type(param),
