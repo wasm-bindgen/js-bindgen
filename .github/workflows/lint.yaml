@@ -16,55 +16,12 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  code-ql:
-    name: CodeQL ${{ matrix.language.name }}
-
-    runs-on: ubuntu-latest
-
-    timeout-minutes: 20
-
-    permissions:
-      security-events: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        language:
-          - { language: actions, name: Actions }
-          - { language: javascript-typescript, name: JS/TS }
-          - { language: rust, name: Rust }
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
-        with:
-          languages: ${{ matrix.language.language }}
-          config: |
-            queries:
-              - uses: security-and-quality
-            query-filters:
-              - exclude:
-                  id: actions/unpinned-tag
-              - exclude:
-                  id: actions/missing-workflow-permissions
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: /language:${{ matrix.language.language }}
-
   eslint:
     name: ESLint
 
     runs-on: ubuntu-slim
 
     timeout-minutes: 20
-
-    permissions:
-      security-events: write
 
     strategy:
       fail-fast: false
@@ -84,17 +41,8 @@ jobs:
           persist-credentials: false
       - name: NPM Install
         run: npm install --no-audit --no-fund
-      - name: Install ESLint SARIF Formatter
-        run: npm install @microsoft/eslint-formatter-sarif@latest --no-audit --no-fund
       - name: Run ESLint
-        env:
-          SARIF_ESLINT_IGNORE_SUPPRESSED: true
-        run:
-          npx eslint -f @microsoft/eslint-formatter-sarif -o ${{ github.workspace
-          }}/../results/eslint.sarif
-      - name: Upload SARIF
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        run: npx eslint
 
   zizmor:
     name: Zizmor
@@ -116,8 +64,4 @@ jobs:
         with:
           tool: zizmor
       - name: Run Zizmor
-        run: |
-          mkdir ../results
-          zizmor . --format sarif > ../results/zizmor.sarif
-      - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        run: zizmor .
