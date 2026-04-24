@@ -14,6 +14,7 @@ concurrency:
 env:
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
+  XWIN_ARCH: x86_64
 
 jobs:
   host-tools:
@@ -29,7 +30,15 @@ jobs:
         os:
           - { os: ubuntu-latest, name: linux, description: Linux }
           - { os: macos-latest, name: mac-os, description: macOS }
-          - { os: windows-latest, name: windows, description: Windows }
+          - {
+              os: ubuntu-latest,
+              name: windows,
+              sub-command: xwin,
+              args: --target x86_64-pc-windows-msvc,
+              exe: .exe,
+              path: x86_64-pc-windows-msvc/,
+              description: Windows,
+            }
 
     steps:
       - name: Checkout
@@ -38,27 +47,68 @@ jobs:
           persist-credentials: false
       - name: Stable Rust Override
         run: cp .github/rust-toolchain.toml .
+      - name: Install Target
+        if: matrix.os.name == 'windows'
+        run: rustup target add x86_64-pc-windows-msvc
+      - name: Install `libLLVM`
+        if: matrix.os.name == 'windows'
+        run: rustup component add llvm-tools
+      - name: Install `cargo-xwin`
+        if: matrix.os.name == 'windows'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-xwin
+      - name: Restore `cargo-xwin` Cache
+        if: matrix.os.name == 'windows'
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/cargo-xwin
+          key: cargo-xwin-cache-default
+      - name: Download `cargo-xwin` Cache
+        if: matrix.os.name == 'windows'
+        run: cargo xwin cache xwin
+      - name: Save `cargo-xwin` Cache
+        if: matrix.os.name == 'windows'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/cargo-xwin
+          key: cargo-xwin-cache-default
       - name: Enable Caching
         uses: Swatinem/rust-cache@v2
         with:
           prefix-key: "cache"
+          key: ${{ matrix.os.name }}
           workspaces: |
             host
             dev
           cache-bin: false
+      - name: Prepare Output Directory
+        run: mkdir ${{ runner.temp }}/host-tools
       - name: Build `js-bindgen-ld`
-        run: cargo install --path host/ld --root host-tools
+        working-directory: host
+        run: |
+          cargo ${{ matrix.os.sub-command }} build -p js-bindgen-ld ${{ matrix.os.args }} --release
+          cp target/${{ matrix.os.path }}release/js-bindgen-ld${{ matrix.os.exe }} ${{ runner.temp }}/host-tools/
       - name: Build `js-bindgen-runner`
-        run: cargo install --path host/runner --root host-tools
+        working-directory: host
+        run: |
+          cargo ${{ matrix.os.sub-command }} build -p js-bindgen-runner ${{ matrix.os.args }} --release
+          cp target/${{ matrix.os.path }}release/js-bindgen-runner${{ matrix.os.exe }} ${{ runner.temp }}/host-tools/
       - name: Build `js-bindgen-web-driver`
-        run: cargo install --path host/web-driver --root host-tools
+        working-directory: host
+        run: |
+          cargo ${{ matrix.os.sub-command }} build -p js-bindgen-web-driver ${{ matrix.os.args }} --release
+          cp target/${{ matrix.os.path }}release/js-bindgen-web-driver${{ matrix.os.exe }} ${{ runner.temp }}/host-tools/
       - name: Build `js-bindgen-dev`
-        run: cargo install --path dev --root host-tools
+        working-directory: dev
+        run: |
+          cargo ${{ matrix.os.sub-command }} build ${{ matrix.os.args }} --release
+          cp target/${{ matrix.os.path }}release/js-bindgen-dev${{ matrix.os.exe }} ${{ runner.temp }}/host-tools/
       - name: Upload Host Tools
         uses: actions/upload-artifact@v4
         with:
           name: host-tools-${{ matrix.os.name }}
-          path: host-tools/
+          path: ${{ runner.temp }}/host-tools/
 
   build-client:
     name: Build Client ${{ matrix.target.description }} ${{ matrix.target-feature.description }}
@@ -113,11 +163,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: host-tools-linux
-          path: host-tools/
+          path: ${{ runner.temp }}/host-tools/
       - name: Install Host Tools
         run: |
-          chmod +x host-tools/bin/*
-          echo "${{ github.workspace }}/host-tools/bin" >> $GITHUB_PATH
+          chmod +x ${{ runner.temp }}/host-tools/*
+          echo "${{ runner.temp }}/host-tools" >> $GITHUB_PATH
       - name: Enable Caching
         uses: Swatinem/rust-cache@v2
         with:
@@ -186,11 +236,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: host-tools-linux
-          path: host-tools/
+          path: ${{ runner.temp }}/host-tools/
       - name: Install Host Tools
         run: |
-          chmod +x host-tools/bin/*
-          echo "${{ github.workspace }}/host-tools/bin" >> $GITHUB_PATH
+          chmod +x ${{ runner.temp }}/host-tools/*
+          echo "${{ runner.temp }}/host-tools" >> $GITHUB_PATH
       - name: Enable Caching
         uses: Swatinem/rust-cache@v2
         with:
@@ -273,11 +323,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: host-tools-${{ matrix.os.name }}
-          path: host-tools/
+          path: ${{ runner.temp }}/host-tools/
       - name: Install Host Tools
         run: |
-          chmod +x host-tools/bin/*
-          echo "${{ github.workspace }}/host-tools/bin" >> $GITHUB_PATH
+          chmod +x ${{ runner.temp }}/host-tools/*
+          echo "${{ runner.temp }}/host-tools" >> $GITHUB_PATH
       - name: Enable Caching
         uses: Swatinem/rust-cache@v2
         with:
@@ -306,7 +356,7 @@ jobs:
         os:
           - { os: ubuntu-latest, name: linux, description: Linux }
           - { os: macos-latest, name: mac-os, description: macOS }
-          - { os: windows-latest, name: windows, description: Windows }
+          - { os: ubuntu-latest, name: windows, real-name: linux, description: Windows }
 
     env:
       JBG_DEV_TOOLS: 1
@@ -316,16 +366,35 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Install `cargo-xwin`
+        if: matrix.os.name == 'windows'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-xwin
+      - name: Restore `cargo-xwin` Cache
+        if: matrix.os.name == 'windows'
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/cargo-xwin
+          key: cargo-xwin-cache-default
+      - name: Download `cargo-xwin` Cache
+        if: matrix.os.name == 'windows'
+        run: cargo xwin cache xwin
+      - name: Save `cargo-xwin` Cache
+        if: matrix.os.name == 'windows'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/cargo-xwin
+          key: cargo-xwin-cache-default
       - name: Download Host Tools
         uses: actions/download-artifact@v4
         with:
-          name: host-tools-${{ matrix.os.name }}
-          path: host-tools/
+          name: host-tools-${{ matrix.os.real-name || matrix.os.name }}
+          path: ${{ runner.temp }}/host-tools/
       - name: Install Host Tools
-        shell: bash
         run: |
-          chmod +x host-tools/bin/*
-          echo "${{ github.workspace }}/host-tools/bin" >> $GITHUB_PATH
+          chmod +x ${{ runner.temp }}/host-tools/*
+          echo "${{ runner.temp }}/host-tools" >> $GITHUB_PATH
       - name: Stable Rust Override
         run: cp .github/rust-toolchain.toml .
       - name: Install Rust
@@ -334,11 +403,12 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           prefix-key: "cache"
+          key: ${{ matrix.os.name }}
           workspaces: host
           cache-bin: false
       - name: Build
         working-directory: dev
-        run: js-bindgen-dev host build -v
+        run: js-bindgen-dev host build -v --targets ${{ matrix.os.name }}
 
   check-host:
     name: Check Host ${{ matrix.os.description }}
@@ -355,7 +425,7 @@ jobs:
         os:
           - { os: ubuntu-latest, name: linux, description: Linux }
           - { os: macos-latest, name: mac-os, description: macOS }
-          - { os: windows-latest, name: windows, description: Windows }
+          - { os: ubuntu-latest, name: windows, real-name: linux, description: Windows }
 
     env:
       JBG_DEV_TOOLS: 1
@@ -365,16 +435,35 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Install `cargo-xwin`
+        if: matrix.os.name == 'windows'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-xwin
+      - name: Restore `cargo-xwin` Cache
+        if: matrix.os.name == 'windows'
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/cargo-xwin
+          key: cargo-xwin-cache-default
+      - name: Download `cargo-xwin` Cache
+        if: matrix.os.name == 'windows'
+        run: cargo xwin cache xwin
+      - name: Save `cargo-xwin` Cache
+        if: matrix.os.name == 'windows'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/cargo-xwin
+          key: cargo-xwin-cache-default
       - name: Download Host Tools
         uses: actions/download-artifact@v4
         with:
-          name: host-tools-${{ matrix.os.name }}
-          path: host-tools/
+          name: host-tools-${{ matrix.os.real-name || matrix.os.name }}
+          path: ${{ runner.temp }}/host-tools/
       - name: Install Host Tools
-        shell: bash
         run: |
-          chmod +x host-tools/bin/*
-          echo "${{ github.workspace }}/host-tools/bin" >> $GITHUB_PATH
+          chmod +x ${{ runner.temp }}/host-tools/*
+          echo "${{ runner.temp }}/host-tools" >> $GITHUB_PATH
       - name: Stable Rust Override
         run: cp .github/rust-toolchain.toml .
       - name: Install Rust
@@ -385,11 +474,12 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           prefix-key: "cache"
+          key: ${{ matrix.os.name }}
           workspaces: host
           cache-bin: false
       - name: Check
         working-directory: dev
-        run: js-bindgen-dev host check -v
+        run: js-bindgen-dev host check -v --targets ${{ matrix.os.name }}
 
   test-host:
     name: Test Host ${{ matrix.os.description }}
@@ -431,12 +521,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: host-tools-${{ matrix.os.name }}
-          path: host-tools/
+          path: ${{ runner.temp }}/host-tools/
+      - name: Host Tools Permissions
+        if: runner.os != 'Windows'
+        run: chmod +x ${{ runner.temp }}/host-tools/*
       - name: Install Host Tools
         shell: bash
-        run: |
-          chmod +x host-tools/bin/*
-          echo "${{ github.workspace }}/host-tools/bin" >> $GITHUB_PATH
+        run: echo "${{ runner.temp }}/host-tools" >> $GITHUB_PATH
       - name: Enable Caching
         uses: Swatinem/rust-cache@v2
         with:

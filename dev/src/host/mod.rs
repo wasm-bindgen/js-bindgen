@@ -1,3 +1,4 @@
+mod build;
 mod check;
 mod metadata;
 mod test;
@@ -10,18 +11,26 @@ use clap::builder::PossibleValue;
 use clap::{Subcommand, ValueEnum};
 use strum::{Display, EnumIter, IntoEnumIterator};
 
+use self::build::Build;
 use self::check::Check;
-use crate::command::RunCommand;
 
 #[derive(Subcommand)]
 pub enum Host {
 	All(Check),
-	Build,
+	Build(Build),
 	Check(Check),
 	Test,
 }
 
 impl Host {
+	pub fn build(all: bool) -> Self {
+		if all {
+			Self::Build(Build::all())
+		} else {
+			Self::Build(Build::default())
+		}
+	}
+
 	pub fn check(all: bool) -> Self {
 		if all {
 			Self::Check(Check::all())
@@ -33,7 +42,7 @@ impl Host {
 	pub fn execute(self, verbose: bool) -> Result<()> {
 		match self {
 			Self::All(check) => {
-				Self::Build.execute(verbose)?;
+				Self::Build(Build::new(check.targets().to_owned())).execute(verbose)?;
 				println!("-------------------------");
 				println!();
 				check.execute(verbose)?;
@@ -43,20 +52,7 @@ impl Host {
 
 				Ok(())
 			}
-			Self::Build => {
-				let command = RunCommand {
-					title: "Build",
-					sub_command: "build",
-					args: &[],
-					envs: &[],
-				};
-				let duration = metadata::run(&[command], &[HostTarget::host()], false, verbose)?;
-
-				println!("-------------------------");
-				println!("Total Time: {:.2}s", duration.as_secs_f32());
-
-				Ok(())
-			}
+			Self::Build(build) => build.execute(verbose),
 			Self::Check(check) => check.execute(verbose),
 			Self::Test => test::run(verbose),
 		}

@@ -41,6 +41,10 @@ impl Check {
 		}
 	}
 
+	pub fn targets(&self) -> &[HostTargets] {
+		&self.targets
+	}
+
 	pub fn execute(self, verbose: bool) -> Result<()> {
 		let mut duration = Duration::ZERO;
 

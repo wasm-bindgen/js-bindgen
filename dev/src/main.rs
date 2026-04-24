@@ -74,7 +74,7 @@ impl CliCommand {
 				Client::build(all).execute(verbose)?;
 				println!("-------------------------");
 				println!();
-				Host::Build.execute(verbose)?;
+				Host::build(all).execute(verbose)?;
 
 				Ok(())
 			}
