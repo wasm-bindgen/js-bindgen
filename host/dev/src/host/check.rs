@@ -28,6 +28,7 @@ enum Tools {
 #[derive(Clone, Copy, EnumIter)]
 enum Tool {
 	Clippy,
+	Tsc,
 	EsLint,
 	Zizmor,
 }
@@ -90,6 +91,14 @@ impl Check {
 					let targets = HostTarget::from_targets(self.targets.clone())?;
 					duration += metadata::run(&commands, &targets, true, verbose)?;
 				}
+				Tool::Tsc => {
+					let start = Instant::now();
+
+					Self::tsc("js-bindgen-ld", "ld/src/js", verbose)?;
+					Self::tsc("js-bindgen-runner", "runner/src/js", verbose)?;
+
+					duration += start.elapsed();
+				}
 				Tool::EsLint => {
 					let start = Instant::now();
 
@@ -113,6 +122,15 @@ impl Check {
 
 		println!("-------------------------");
 		println!("Total Time: {:.2}s", duration.as_secs_f32());
+
+		Ok(())
+	}
+
+	fn tsc(package: &str, path: &str, verbose: bool) -> Result<()> {
+		let mut command = Command::new("tsc");
+		command.current_dir(path).arg("-b").arg("--noEmit");
+
+		command::run(&format!("TSC `{package}`"), command, verbose)?;
 
 		Ok(())
 	}
@@ -163,6 +181,7 @@ impl Tool {
 	fn to_arg(self) -> &'static str {
 		match self {
 			Self::Clippy => "clippy",
+			Self::Tsc => "tsc",
 			Self::EsLint => "es-lint",
 			Self::Zizmor => "zizmor",
 		}
