@@ -1,14 +1,13 @@
 use std::time::Instant;
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, Package, TargetKind};
 
 use super::permutation::Permutation;
 use super::{ClientArgs, util};
-use crate::command::RunCommand;
+use crate::command::{self, RunCommand};
+use crate::features;
 use crate::features::Features;
-use crate::group::Group;
-use crate::{command, features};
 
 pub fn run(client_args: &ClientArgs, commands: &[RunCommand], verbose: bool) -> Result<()> {
 	let metadata = MetadataCommand::new().current_dir("../client").exec()?;
@@ -57,25 +56,11 @@ pub fn run(client_args: &ClientArgs, commands: &[RunCommand], verbose: bool) -> 
 					_ => format!(" - {features}"),
 				};
 
-				let group = Group::announce(
-					format!("{announce} `{name}`{features_str} - {permutation}").into(),
+				command::run(
+					&format!("{announce} `{name}`{features_str} - {permutation}"),
+					command,
 					verbose,
 				)?;
-
-				if verbose {
-					command::print_info(&command);
-				}
-
-				let (_, status) = command::run(command, verbose)?;
-
-				if !status.success() {
-					bail!(
-						"{} \"`{name}`{features_str} - {permutation}\" failed with {status}",
-						title.to_lowercase()
-					);
-				}
-
-				drop(group);
 			}
 		}
 	}

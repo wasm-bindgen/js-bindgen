@@ -1,33 +1,41 @@
+use std::iter;
 use std::process::Command;
+use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow};
+use clap::builder::PossibleValue;
 use clap::{Args, ValueEnum};
 use strum::{EnumIter, IntoEnumIterator};
 
 use super::{HostTarget, HostTargets, metadata};
-use crate::command;
-use crate::command::RunCommand;
-use crate::group::Group;
+use crate::command::{self, RunCommand};
 
 #[derive(Args)]
 pub struct Check {
 	#[arg(long, value_delimiter = ',', default_value = "clippy")]
-	tools: Vec<Tool>,
+	tools: Vec<Tools>,
 	#[arg(long, short, default_value = HostTarget::host().to_clap_arg())]
 	targets: Vec<HostTargets>,
 }
 
-#[derive(Clone, Copy, EnumIter, ValueEnum)]
+#[derive(Clone, Copy)]
+enum Tools {
+	All,
+	Tool(Tool),
+}
+
+#[derive(Clone, Copy, EnumIter)]
 enum Tool {
 	Clippy,
 	EsLint,
+	Zizmor,
 }
 
 impl Default for Check {
 	fn default() -> Self {
 		Self {
-			tools: vec![Tool::Clippy],
+			tools: vec![Tools::Tool(Tool::Clippy)],
 			targets: vec![HostTargets::Target(HostTarget::host())],
 		}
 	}
@@ -36,7 +44,7 @@ impl Default for Check {
 impl Check {
 	pub fn all() -> Self {
 		Self {
-			tools: Tool::iter().collect(),
+			tools: vec![Tools::All],
 			targets: vec![HostTargets::All],
 		}
 	}
@@ -47,8 +55,9 @@ impl Check {
 
 	pub fn execute(self, verbose: bool) -> Result<()> {
 		let mut duration = Duration::ZERO;
+		let tools = Tool::from_tools(self.tools)?;
 
-		for tool in self.tools {
+		for tool in tools {
 			match tool {
 				Tool::Clippy => {
 					let commands = [
@@ -84,8 +93,18 @@ impl Check {
 				Tool::EsLint => {
 					let start = Instant::now();
 
-					Self::eslint("js-bindgen-ld", "../host/ld/src/js", verbose)?;
-					Self::eslint("js-bindgen-runner", "../host/runner/src/js", verbose)?;
+					Self::eslint("js-bindgen-ld", "ld/src/js", verbose)?;
+					Self::eslint("js-bindgen-runner", "runner/src/js", verbose)?;
+
+					duration += start.elapsed();
+				}
+				Tool::Zizmor => {
+					let start = Instant::now();
+
+					let mut command = Command::new("zizmor");
+					command.current_dir("../").arg(".");
+
+					command::run("Zizmor", command, verbose)?;
 
 					duration += start.elapsed();
 				}
@@ -99,23 +118,53 @@ impl Check {
 	}
 
 	fn eslint(package: &str, path: &str, verbose: bool) -> Result<()> {
-		let group = Group::announce(format!("ESLint `{package}`").into(), verbose)?;
-
 		let mut command = Command::new("npx");
 		command.current_dir(path).arg("eslint");
 
-		if verbose {
-			command::print_info(&command);
-		}
-
-		let (_, status) = command::run(command, verbose)?;
-
-		if !status.success() {
-			bail!("ESLint \"`{package}`\" failed with {status}");
-		}
-
-		drop(group);
+		command::run(&format!("ESLint `{package}`"), command, verbose)?;
 
 		Ok(())
+	}
+}
+
+impl ValueEnum for Tools {
+	fn value_variants<'a>() -> &'a [Self] {
+		static VARIANTS: LazyLock<Vec<Tools>> = LazyLock::new(|| {
+			iter::once(Tools::All)
+				.chain(Tool::iter().map(Tools::Tool))
+				.collect()
+		});
+
+		&VARIANTS
+	}
+
+	fn to_possible_value(&self) -> Option<PossibleValue> {
+		match self {
+			Self::All => Some(PossibleValue::new("all")),
+			Self::Tool(tool) => Some(PossibleValue::new(tool.to_arg())),
+		}
+	}
+}
+
+impl Tool {
+	fn from_tools(cli: Vec<Tools>) -> Result<Vec<Self>> {
+		if let [Tools::All] = cli.as_slice() {
+			return Ok(Self::iter().collect());
+		}
+
+		cli.into_iter()
+			.map(|runner| match runner {
+				Tools::All => Err(anyhow!("`--tools`s `all` option conflicts with all others")),
+				Tools::Tool(tool) => Ok(tool),
+			})
+			.collect()
+	}
+
+	fn to_arg(self) -> &'static str {
+		match self {
+			Self::Clippy => "clippy",
+			Self::EsLint => "es-lint",
+			Self::Zizmor => "zizmor",
+		}
 	}
 }

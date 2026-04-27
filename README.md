@@ -15,7 +15,7 @@ Now host `client` with your favorite HTTP server and navigate to `examples/basic
 You can run parts of the CI locally:
 
 ```sh
-cd dev
+cd host
 # Run `cargo test` with various flags:
 cargo run -- test
 ```

@@ -5,7 +5,7 @@ use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 use std::{env, iter};
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, anyhow};
 use clap::builder::{ArgPredicate, PossibleValue};
 use clap::{Args, ValueEnum};
 use strum::{EnumCount, EnumIter, IntoEnumIterator};
@@ -14,7 +14,6 @@ use super::permutation::{JsSysTargetFeature, Permutation};
 use super::process::ChildWrapper;
 use super::{ClientArgs, Target, TargetFeature, util};
 use crate::command;
-use crate::group::Group;
 
 #[derive(Args)]
 pub struct Test {
@@ -84,21 +83,11 @@ impl Test {
 			}
 		}) {
 			if !session_manager_built {
-				let group = Group::announce("Build Session Manager".into(), verbose)?;
 				let mut command = Command::new("cargo");
-				command
-					.current_dir("../host")
-					.arg("build")
-					.args(["-p", "js-bindgen-web-driver"]);
+				command.arg("build").args(["-p", "js-bindgen-web-driver"]);
 
-				let (duration, status) = command::run(command, verbose)?;
-				build_time += duration;
+				build_time += command::run("Build Session Manager", command, verbose)?;
 
-				if !status.success() {
-					bail!("build Session Manager failed with {status}");
-				}
-
-				drop(group);
 				session_manager_built = true;
 			}
 
@@ -107,7 +96,6 @@ impl Test {
 			} else {
 				let mut command = Command::new("cargo");
 				command
-					.current_dir("../host")
 					.arg("run")
 					.args(["-p", "js-bindgen-web-driver"])
 					.arg("--");
@@ -124,23 +112,12 @@ impl Test {
 		}
 
 		if !tools_installed {
-			build_time += util::build_linker(verbose)?.unwrap();
+			build_time += util::build_linker(verbose)?;
 
-			let group = Group::announce("Build Runner".into(), verbose)?;
 			let mut command = Command::new("cargo");
-			command
-				.current_dir("../host")
-				.arg("build")
-				.args(["-p", "js-bindgen-runner"]);
+			command.arg("build").args(["-p", "js-bindgen-runner"]);
 
-			let (duration, status) = command::run(command, verbose)?;
-			build_time += duration;
-
-			if !status.success() {
-				bail!("build Runner failed with {status}");
-			}
-
-			drop(group);
+			build_time += command::run("Build Runner", command, verbose)?;
 		}
 
 		for permutation in Permutation::iter(&self.args.targets, &self.args.target_features, true) {
@@ -148,8 +125,6 @@ impl Test {
 
 			for test_run in TestRun::from_permuation(&permutation, &runners) {
 				if !built {
-					let group =
-						Group::announce(format!("Build Tests - {permutation}").into(), verbose)?;
 					let mut command =
 						util::cargo(&permutation, &self.args.nightly_toolchain, "test");
 					command
@@ -157,40 +132,19 @@ impl Test {
 						.arg("--all-features")
 						.arg("--no-run");
 
-					if verbose {
-						command::print_info(&command);
-					}
+					build_time +=
+						command::run(&format!("Build Tests - {permutation}"), command, verbose)?;
 
-					let (duration, status) = command::run(command, verbose)?;
-					build_time += duration;
-
-					if !status.success() {
-						bail!("build \"{permutation}\" failed with {status}");
-					}
-
-					drop(group);
 					built = true;
 				}
 
-				let group = Group::announce(format!("Run Tests - {test_run}").into(), verbose)?;
 				let mut command = util::cargo(&permutation, &self.args.nightly_toolchain, "test");
 				command
 					.envs(test_run.envs())
 					.arg("--workspace")
 					.arg("--all-features");
 
-				if verbose {
-					command::print_info(&command);
-				}
-
-				let (duration, status) = command::run(command, verbose)?;
-				test_time += duration;
-
-				if !status.success() {
-					bail!("test \"{test_run}\" failed with {status}");
-				}
-
-				drop(group);
+				test_time += command::run(&format!("Run Tests - {test_run}"), command, verbose)?;
 			}
 		}
 

@@ -1,7 +1,9 @@
 [workspace]
+default-members = ["dev"]
 members = [
 	"cargo-js-sys",
 	"cargo-shim",
+	"dev",
 	"inline-snap",
 	"inline-snap-macro",
 	"js-sys-bindgen",

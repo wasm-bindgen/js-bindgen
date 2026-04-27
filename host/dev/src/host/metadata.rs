@@ -1,14 +1,13 @@
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use cargo_metadata::{MetadataCommand, TargetKind};
 
 use super::HostTarget;
-use crate::command::RunCommand;
+use crate::command::{self, RunCommand};
+use crate::features;
 use crate::features::Features;
-use crate::group::Group;
-use crate::{command, features};
 
 pub fn run(
 	commands: &[RunCommand],
@@ -16,10 +15,7 @@ pub fn run(
 	private: bool,
 	verbose: bool,
 ) -> Result<Duration> {
-	let metadata = MetadataCommand::new()
-		.current_dir("../host")
-		.no_deps()
-		.exec()?;
+	let metadata = MetadataCommand::new().no_deps().exec()?;
 
 	let mut packages = Vec::new();
 
@@ -65,10 +61,7 @@ pub fn run(
 					command.arg("xwin");
 				}
 
-				command
-					.current_dir("../host")
-					.arg(sub_command)
-					.args(["-p", &name]);
+				command.arg(sub_command).args(["-p", &name]);
 
 				let target_str = if target.is_host() && targets.len() == 1 {
 					String::new()
@@ -89,25 +82,11 @@ pub fn run(
 					_ => format!(" - {features}"),
 				};
 
-				let group = Group::announce(
-					format!("{title} `{name}`{target_str}{features_str}").into(),
+				command::run(
+					&format!("{title} `{name}`{target_str}{features_str}"),
+					command,
 					verbose,
 				)?;
-
-				if verbose {
-					command::print_info(&command);
-				}
-
-				let (_, status) = command::run(command, verbose)?;
-
-				if !status.success() {
-					bail!(
-						"{} \"`{name}`{features_str}\" failed with {status}",
-						title.to_lowercase()
-					);
-				}
-
-				drop(group);
 			}
 		}
 	}

@@ -78,9 +78,7 @@ jobs:
         with:
           prefix-key: "cache"
           key: ${{ matrix.os.name }}
-          workspaces: |
-            host
-            dev
+          workspaces: host
           cache-bin: false
       - name: Prepare Output Directory
         run: mkdir ${{ runner.temp }}/host-tools
@@ -100,7 +98,7 @@ jobs:
           cargo ${{ matrix.os.sub-command }} build -p js-bindgen-web-driver ${{ matrix.os.args }} --release
           cp target/${{ matrix.os.path }}release/js-bindgen-web-driver${{ matrix.os.exe }} ${{ runner.temp }}/host-tools/
       - name: Build `js-bindgen-dev`
-        working-directory: dev
+        working-directory: host
         run: |
           cargo ${{ matrix.os.sub-command }} build ${{ matrix.os.args }} --release
           cp target/${{ matrix.os.path }}release/js-bindgen-dev${{ matrix.os.exe }} ${{ runner.temp }}/host-tools/
@@ -176,7 +174,7 @@ jobs:
           workspaces: client
           cache-bin: false
       - name: Build
-        working-directory: dev
+        working-directory: host
         run:
           js-bindgen-dev client build -v --targets ${{ matrix.target.name }} --target-features ${{
           matrix.target-feature.name }}
@@ -249,7 +247,7 @@ jobs:
           workspaces: client
           cache-bin: false
       - name: Check
-        working-directory: dev
+        working-directory: host
         run:
           js-bindgen-dev client check -v --targets ${{ matrix.target.name }} --target-features ${{
           matrix.target-feature.name }}
@@ -336,7 +334,7 @@ jobs:
           workspaces: client
           cache-bin: false
       - name: Test
-        working-directory: dev
+        working-directory: host
         run:
           js-bindgen-dev client test -v --targets ${{ matrix.target.name }} --target-features ${{
           matrix.target-feature.name }} --include ${{ matrix.os.runners }}
@@ -407,7 +405,7 @@ jobs:
           workspaces: host
           cache-bin: false
       - name: Build
-        working-directory: dev
+        working-directory: host
         run: js-bindgen-dev host build -v --targets ${{ matrix.os.name }}
 
   check-host:
@@ -478,7 +476,7 @@ jobs:
           workspaces: host
           cache-bin: false
       - name: Check
-        working-directory: dev
+        working-directory: host
         run: js-bindgen-dev host check -v --targets ${{ matrix.os.name }}
 
   test-host:
@@ -535,5 +533,5 @@ jobs:
           workspaces: host
           cache-bin: false
       - name: Test
-        working-directory: dev
+        working-directory: host
         run: js-bindgen-dev host test -v

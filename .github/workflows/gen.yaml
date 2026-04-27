@@ -71,7 +71,9 @@ jobs:
           CARGO_PROFILE_RELEASE_LTO: fat
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
           CARGO_PROFILE_RELEASE_PANIC: abort
-        run: cargo xwin build --bin linker --bin runner --target x86_64-pc-windows-msvc --release
+        run:
+          cargo xwin build -p cargo-shim --bin linker --bin runner --target x86_64-pc-windows-msvc
+          --release
       - name: Copy Binaries
         working-directory: host
         run: |

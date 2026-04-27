@@ -1,7 +1,6 @@
 mod client;
 mod command;
 mod features;
-mod group;
 mod host;
 
 use anyhow::Result;

@@ -5,7 +5,6 @@ updates:
     directories:
       - /client
       - /host
-      - /dev
     schedule:
       interval: daily
     groups:
