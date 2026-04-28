@@ -2,7 +2,7 @@
 
 [package]
 edition = "2024"
-name = "js-bindgen-macro-test"
+name = "placeholder"
 publish = false
 
 [lib]

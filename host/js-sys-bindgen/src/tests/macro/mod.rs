@@ -80,7 +80,6 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 		name = "test-crate"
 		edition = "2024"
 		publish = false
-		resolver = "2"
 
 		[dependencies]
 		js-sys = {{ path = '{}' }}
