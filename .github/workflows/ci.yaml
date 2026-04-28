@@ -42,7 +42,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Stable Rust Override
@@ -60,7 +60,7 @@ jobs:
           tool: cargo-xwin
       - name: Restore `cargo-xwin` Cache
         if: matrix.os.name == 'windows'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/.cache/cargo-xwin
           key: cargo-xwin-cache-default
@@ -69,7 +69,7 @@ jobs:
         run: cargo xwin cache xwin
       - name: Save `cargo-xwin` Cache
         if: matrix.os.name == 'windows'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ~/.cache/cargo-xwin
           key: cargo-xwin-cache-default
@@ -108,7 +108,7 @@ jobs:
           cargo ${{ matrix.os.sub-command }} build ${{ matrix.os.args }} --release
           cp target/${{ matrix.os.path }}release/js-bindgen-dev${{ matrix.os.exe }} ${{ runner.temp }}/host-tools/
       - name: Upload Host Tools
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: host-tools-${{ matrix.os.name }}
           path: ${{ runner.temp }}/host-tools/
@@ -144,7 +144,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Stable Rust Override
@@ -162,7 +162,7 @@ jobs:
           # Rustc v1.95
           llvm-version: 22
       - name: Download Host Tools
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: host-tools-linux
           path: ${{ runner.temp }}/host-tools/
@@ -214,7 +214,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Stable Rust Override
@@ -229,7 +229,7 @@ jobs:
       - name: Install Clippy
         run: rustup component add clippy
       - name: Download Host Tools
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: host-tools-linux
           path: ${{ runner.temp }}/host-tools/
@@ -289,7 +289,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Stable Rust Override
@@ -315,7 +315,7 @@ jobs:
         if: runner.os == 'Linux'
         uses: denoland/setup-deno@v2
       - name: Download Host Tools
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: host-tools-${{ matrix.runner.name }}
           path: ${{ runner.temp }}/host-tools/
@@ -358,7 +358,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Install `cargo-xwin`
@@ -368,7 +368,7 @@ jobs:
           tool: cargo-xwin
       - name: Restore `cargo-xwin` Cache
         if: matrix.os.name == 'windows'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/.cache/cargo-xwin
           key: cargo-xwin-cache-default
@@ -377,12 +377,12 @@ jobs:
         run: cargo xwin cache xwin
       - name: Save `cargo-xwin` Cache
         if: matrix.os.name == 'windows'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ~/.cache/cargo-xwin
           key: cargo-xwin-cache-default
       - name: Download Host Tools
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: host-tools-${{ matrix.os.real-name || matrix.os.name }}
           path: ${{ runner.temp }}/host-tools/
@@ -427,7 +427,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Install `cargo-xwin`
@@ -437,7 +437,7 @@ jobs:
           tool: cargo-xwin
       - name: Restore `cargo-xwin` Cache
         if: matrix.os.name == 'windows'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/.cache/cargo-xwin
           key: cargo-xwin-cache-default
@@ -446,12 +446,12 @@ jobs:
         run: cargo xwin cache xwin
       - name: Save `cargo-xwin` Cache
         if: matrix.os.name == 'windows'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ~/.cache/cargo-xwin
           key: cargo-xwin-cache-default
       - name: Download Host Tools
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: host-tools-${{ matrix.os.real-name || matrix.os.name }}
           path: ${{ runner.temp }}/host-tools/
@@ -498,7 +498,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Stable Rust Override
@@ -513,7 +513,7 @@ jobs:
           # Rustc v1.95
           llvm-version: 22
       - name: Download Host Tools
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: host-tools-${{ matrix.os.name }}
           path: ${{ runner.temp }}/host-tools/
@@ -554,11 +554,11 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Download Host Tools
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: host-tools-linux
           path: ${{ runner.temp }}/host-tools/
