@@ -30,7 +30,6 @@ fn main() {
 				.current_dir("src/js")
 				.arg("install")
 				.arg("-s")
-				.arg("--prefer-offline")
 				.arg("--no-audit")
 				.arg("--no-fund")
 				.status()
