@@ -151,9 +151,8 @@ jobs:
         run: cp .github/rust-toolchain.toml .
       - name: Install Rust
         run:
-          rustup install --no-update --profile minimal --override ${{
-          matrix.target-feature.components || matrix.target.components }} ${{
-          matrix.target-feature.rust || matrix.target.rust }}
+          rustup install --no-update --override ${{ matrix.target-feature.components ||
+          matrix.target.components }} ${{ matrix.target-feature.rust || matrix.target.rust }}
       - name: Install Target
         if: matrix.target.install
         run: rustup target add ${{ matrix.target.target }}
@@ -222,9 +221,8 @@ jobs:
         run: cp .github/rust-toolchain.toml .
       - name: Install Rust
         run:
-          rustup install --no-update --profile minimal --override ${{
-          matrix.target-feature.components || matrix.target.components }} ${{
-          matrix.target-feature.rust || matrix.target.rust }}
+          rustup install --no-update --override ${{ matrix.target-feature.components ||
+          matrix.target.components }} ${{ matrix.target-feature.rust || matrix.target.rust }}
       - name: Install Target
         if: matrix.target.install
         run: rustup target add ${{ matrix.target.target }}
@@ -303,9 +301,8 @@ jobs:
         run: cp .github/rust-toolchain.toml .
       - name: Install Rust
         run:
-          rustup install --no-update --profile minimal --override ${{
-          matrix.target-feature.components || matrix.target.components }} ${{
-          matrix.target-feature.rust || matrix.target.rust }}
+          rustup install --no-update --override ${{ matrix.target-feature.components ||
+          matrix.target.components }} ${{ matrix.target-feature.rust || matrix.target.rust }}
       - name: Install Target
         if: matrix.target.install
         run: rustup target add ${{ matrix.target.target }}

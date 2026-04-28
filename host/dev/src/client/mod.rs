@@ -7,6 +7,7 @@ mod util;
 
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::process::Command;
 
 use anyhow::Result;
 use clap::{Args, Subcommand, ValueEnum};
@@ -16,7 +17,7 @@ use self::check::{Check, Tool};
 use self::permutation::Toolchain;
 use self::test::Test;
 use self::util::ToolchainParser;
-use crate::command::CargoCommand;
+use crate::command::{self, CargoCommand};
 
 #[derive(Subcommand)]
 pub enum Client {
@@ -26,6 +27,7 @@ pub enum Client {
 		#[command(flatten)]
 		test: Test,
 	},
+	Fmt,
 	Build {
 		#[command(flatten)]
 		args: ClientArgs,
@@ -76,6 +78,9 @@ impl Client {
 	pub fn execute(self, verbose: bool) -> Result<()> {
 		match self {
 			Self::All { check_tools, test } => {
+				Self::Fmt.execute(verbose)?;
+				println!("-------------------------");
+				println!();
 				Self::Build {
 					args: test.args().clone(),
 				}
@@ -86,6 +91,16 @@ impl Client {
 				println!("-------------------------");
 				println!();
 				test.execute(verbose)?;
+
+				Ok(())
+			}
+			Self::Fmt => {
+				let mut command = Command::new("cargo");
+				command.current_dir("../client").args(["+nightly", "fmt"]);
+				let duration = command::run("Rustfmt", command, verbose)?;
+
+				println!("-------------------------");
+				println!("Total Time: {:.2}s", duration.as_secs_f32());
 
 				Ok(())
 			}

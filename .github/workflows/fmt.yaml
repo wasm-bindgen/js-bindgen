@@ -1,0 +1,45 @@
+name: Format
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rustfmt:
+    name: Rustfmt - ${{ matrix.workspace.name }}
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace:
+          - { name: Client, path: client }
+          - { name: Host, path: host }
+
+    defaults:
+      run:
+        working-directory: ${{ matrix.workspace.path }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Rustfmt
+        run: rustup +nightly component add rustfmt
+      - name: Rustfmt
+        run: cargo +nightly fmt --check

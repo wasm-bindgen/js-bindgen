@@ -24,7 +24,7 @@ pub struct Test {
 		value_delimiter = ',',
 		conflicts_with = "exclude",
 		default_value = "engine",
-		default_value_if("exclude", ArgPredicate::IsPresent, None),
+		default_value_if("exclude", ArgPredicate::IsPresent, None)
 	)]
 	include: Vec<Include>,
 	#[arg(long, value_delimiter = ',', conflicts_with = "include")]

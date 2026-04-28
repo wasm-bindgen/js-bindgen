@@ -4,6 +4,7 @@ mod metadata;
 mod test;
 
 use std::iter;
+use std::process::Command;
 use std::sync::LazyLock;
 
 use anyhow::{Result, anyhow};
@@ -13,10 +14,12 @@ use strum::{Display, EnumIter, IntoEnumIterator};
 
 use self::build::Build;
 use self::check::Check;
+use crate::command;
 
 #[derive(Subcommand)]
 pub enum Host {
 	All(Check),
+	Fmt,
 	Build(Build),
 	Check(Check),
 	Test,
@@ -42,6 +45,9 @@ impl Host {
 	pub fn execute(self, verbose: bool) -> Result<()> {
 		match self {
 			Self::All(check) => {
+				Self::Fmt.execute(verbose)?;
+				println!("-------------------------");
+				println!();
 				Self::Build(Build::new(check.targets().to_owned())).execute(verbose)?;
 				println!("-------------------------");
 				println!();
@@ -49,6 +55,16 @@ impl Host {
 				println!("-------------------------");
 				println!();
 				Self::Test.execute(verbose)?;
+
+				Ok(())
+			}
+			Self::Fmt => {
+				let mut command = Command::new("cargo");
+				command.args(["+nightly", "fmt"]);
+				let duration = command::run("Rustfmt", command, verbose)?;
+
+				println!("-------------------------");
+				println!("Total Time: {:.2}s", duration.as_secs_f32());
 
 				Ok(())
 			}

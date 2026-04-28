@@ -23,6 +23,7 @@ enum CliCommand {
 		#[arg(long)]
 		all: bool,
 	},
+	Fmt,
 	Build {
 		#[arg(long)]
 		all: bool,
@@ -59,6 +60,9 @@ impl CliCommand {
 	fn execute(self, verbose: bool) -> Result<()> {
 		match self {
 			Self::All { all } => {
+				Self::Fmt.execute(verbose)?;
+				println!("-------------------------");
+				println!();
 				Self::Build { all }.execute(verbose)?;
 				println!("-------------------------");
 				println!();
@@ -66,6 +70,14 @@ impl CliCommand {
 				println!("-------------------------");
 				println!();
 				Self::Test { all }.execute(verbose)?;
+
+				Ok(())
+			}
+			Self::Fmt => {
+				Client::Fmt.execute(verbose)?;
+				println!("-------------------------");
+				println!();
+				Host::Fmt.execute(verbose)?;
 
 				Ok(())
 			}
