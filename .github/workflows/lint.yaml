@@ -182,9 +182,6 @@ jobs:
 
     timeout-minutes: 20
 
-    permissions:
-      security-events: write
-
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -195,4 +192,4 @@ jobs:
         with:
           tool: zizmor
       - name: Run Zizmor
-        run: zizmor .
+        run: zizmor --pedantic .

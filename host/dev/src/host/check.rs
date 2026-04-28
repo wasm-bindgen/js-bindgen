@@ -102,7 +102,7 @@ impl Check {
 				}
 				Tool::Zizmor => {
 					let mut command = Command::new("zizmor");
-					command.current_dir("../").arg(".");
+					command.current_dir("../").args(["--pedantic", "."]);
 					duration += command::run("Zizmor", command, verbose)?;
 				}
 			}

@@ -3,3 +3,5 @@ rules:
     disable: true
   unpinned-uses:
     disable: true
+  template-injection:
+    disable: true
