@@ -55,6 +55,8 @@ impl Test {
 	}
 
 	pub fn execute(self, verbose: bool) -> Result<()> {
+		let targets = Target::from_targets(self.args.targets)?;
+		let target_features = TargetFeature::from_target_features(self.args.target_features)?;
 		let runners = if !self.include.is_empty() {
 			Runner::from_include(self.include)?
 		} else if !self.exclude.is_empty() {
@@ -119,7 +121,7 @@ impl Test {
 			build_time += command::run("Build Runner", command, verbose)?;
 		}
 
-		for permutation in Permutation::iter(&self.args.targets, &self.args.target_features, true) {
+		for permutation in Permutation::iter(&targets, &target_features, true) {
 			let mut built = false;
 
 			for test_run in TestRun::from_permuation(&permutation, &runners) {

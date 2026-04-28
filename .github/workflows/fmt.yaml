@@ -43,3 +43,39 @@ jobs:
         run: rustup +nightly component add rustfmt
       - name: Rustfmt
         run: cargo +nightly fmt --check
+
+  taplo:
+    name: Taplo Format
+
+    runs-on: ubuntu-slim
+
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Taplo
+        uses: taiki-e/install-action@v2
+        with:
+          tool: taplo
+      - name: Taplo Format
+        run: taplo fmt --check --diff
+
+  prettier:
+    name: Prettier
+
+    runs-on: ubuntu-slim
+
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Prettier
+        run: npm install -g prettier
+      - name: Prettier
+        run: prettier . -c

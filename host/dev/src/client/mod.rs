@@ -8,26 +8,33 @@ mod util;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::process::Command;
+use std::time::Duration;
 
 use anyhow::Result;
 use clap::{Args, Subcommand, ValueEnum};
-use strum::{EnumIter, IntoEnumIterator};
+use strum::EnumIter;
 
-use self::check::{Check, Tool};
+use self::check::{Check, Tools};
 use self::permutation::Toolchain;
 use self::test::Test;
 use self::util::ToolchainParser;
 use crate::command::{self, CargoCommand};
+use crate::{FmtTool, FmtTools};
 
 #[derive(Subcommand)]
 pub enum Client {
 	All {
-		#[arg(long, value_delimiter = ',', default_value = "clippy")]
-		check_tools: Vec<Tool>,
+		#[arg(long, value_delimiter = ',', default_value = FmtTools::default_arg())]
+		fmt_tools: Vec<FmtTools>,
+		#[arg(long, value_delimiter = ',', default_value = Tools::default_arg())]
+		check_tools: Vec<Tools>,
 		#[command(flatten)]
 		test: Test,
 	},
-	Fmt,
+	Fmt {
+		#[arg(long, value_delimiter = ',', default_value = FmtTools::default_arg())]
+		tools: Vec<FmtTools>,
+	},
 	Build {
 		#[command(flatten)]
 		args: ClientArgs,
@@ -38,15 +45,21 @@ pub enum Client {
 
 #[derive(Args, Clone)]
 pub struct ClientArgs {
-	#[arg(long, value_delimiter = ',', default_value = "wasm32")]
-	targets: Vec<Target>,
-	#[arg(long, value_delimiter = ',', default_value = "default")]
-	target_features: Vec<TargetFeature>,
+	#[arg(long, value_delimiter = ',', default_value = Targets::default_arg())]
+	targets: Vec<Targets>,
+	#[arg(long, value_delimiter = ',', default_value = TargetFeatures::default_arg())]
+	target_features: Vec<TargetFeatures>,
 	#[arg(long, value_parser = ToolchainParser, default_value = "nightly")]
 	nightly_toolchain: String,
 }
 
 impl Client {
+	pub fn fmt() -> Self {
+		Self::Fmt {
+			tools: vec![FmtTools::default()],
+		}
+	}
+
 	pub fn build(all: bool) -> Self {
 		if all {
 			Self::Build {
@@ -77,8 +90,12 @@ impl Client {
 
 	pub fn execute(self, verbose: bool) -> Result<()> {
 		match self {
-			Self::All { check_tools, test } => {
-				Self::Fmt.execute(verbose)?;
+			Self::All {
+				fmt_tools,
+				check_tools,
+				test,
+			} => {
+				Self::Fmt { tools: fmt_tools }.execute(verbose)?;
 				println!("-------------------------");
 				println!();
 				Self::Build {
@@ -94,10 +111,29 @@ impl Client {
 
 				Ok(())
 			}
-			Self::Fmt => {
-				let mut command = Command::new("cargo");
-				command.current_dir("../client").args(["+nightly", "fmt"]);
-				let duration = command::run("Rustfmt", command, verbose)?;
+			Self::Fmt { tools } => {
+				let tools = FmtTool::from_tools(tools)?;
+				let mut duration = Duration::ZERO;
+
+				for tool in tools {
+					match tool {
+						FmtTool::Rustfmt => {
+							let mut command = Command::new("cargo");
+							command.current_dir("../client").args(["+nightly", "fmt"]);
+							duration += command::run("Rustfmt", command, verbose)?;
+						}
+						FmtTool::Taplo => {
+							let mut command = Command::new("taplo");
+							command.current_dir("../client").arg("fmt");
+							duration += command::run("Taplo Format", command, verbose)?;
+						}
+						FmtTool::Prettier => {
+							let mut command = Command::new("prettier");
+							command.current_dir("..").args(["client", "-w"]);
+							duration += command::run("Prettier", command, verbose)?;
+						}
+					}
+				}
 
 				println!("-------------------------");
 				println!("Total Time: {:.2}s", duration.as_secs_f32());
@@ -111,7 +147,7 @@ impl Client {
 					args: &[],
 					envs: &[],
 				};
-				let duration = metadata::run(&args, &[command], verbose)?;
+				let duration = metadata::run(args, &[command], verbose)?;
 
 				println!("-------------------------");
 				println!("Total Time: {:.2}s", duration.as_secs_f32());
@@ -127,8 +163,8 @@ impl Client {
 impl Default for ClientArgs {
 	fn default() -> Self {
 		Self {
-			targets: vec![Target::Wasm32],
-			target_features: vec![TargetFeature::Default],
+			targets: vec![Targets::default()],
+			target_features: vec![TargetFeatures::default()],
 			nightly_toolchain: String::from("nightly"),
 		}
 	}
@@ -137,21 +173,27 @@ impl Default for ClientArgs {
 impl ClientArgs {
 	fn all() -> Self {
 		Self {
-			targets: Target::iter().collect(),
-			target_features: TargetFeature::iter().collect(),
+			targets: vec![Targets::All],
+			target_features: vec![TargetFeatures::All],
 			nightly_toolchain: String::from("nightly"),
 		}
 	}
 }
 
-#[derive(Clone, Copy, EnumIter, ValueEnum)]
+enum_with_all!(enum Targets, Target(Target), "targets");
+
+#[derive(Clone, Copy, Default, EnumIter, Eq, PartialEq, ValueEnum)]
 enum Target {
+	#[default]
 	Wasm32,
 	Wasm64,
 }
 
-#[derive(Clone, Copy, EnumIter, ValueEnum)]
+enum_with_all!(enum TargetFeatures, TargetFeature(TargetFeature), "target-features");
+
+#[derive(Clone, Copy, Default, EnumIter, Eq, PartialEq, ValueEnum)]
 enum TargetFeature {
+	#[default]
 	Default,
 	Atomics,
 }

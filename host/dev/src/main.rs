@@ -1,10 +1,16 @@
+#[macro_use]
+mod util;
 mod client;
 mod command;
 mod features;
 mod host;
 
+use std::process::Command;
+use std::time::Duration;
+
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
+use strum::EnumIter;
 
 use crate::client::Client;
 use crate::host::Host;
@@ -23,7 +29,10 @@ enum CliCommand {
 		#[arg(long)]
 		all: bool,
 	},
-	Fmt,
+	Fmt {
+		#[arg(long, value_delimiter = ',', default_value = FmtTools::default_arg())]
+		tools: Vec<FmtTools>,
+	},
 	Build {
 		#[arg(long)]
 		all: bool,
@@ -60,7 +69,12 @@ impl CliCommand {
 	fn execute(self, verbose: bool) -> Result<()> {
 		match self {
 			Self::All { all } => {
-				Self::Fmt.execute(verbose)?;
+				let tools = if all {
+					FmtTools::all()
+				} else {
+					vec![FmtTools::default()]
+				};
+				Self::Fmt { tools }.execute(verbose)?;
 				println!("-------------------------");
 				println!();
 				Self::Build { all }.execute(verbose)?;
@@ -73,11 +87,38 @@ impl CliCommand {
 
 				Ok(())
 			}
-			Self::Fmt => {
-				Client::Fmt.execute(verbose)?;
+			Self::Fmt { tools } => {
+				let tools = FmtTool::from_tools(tools)?;
+
+				if tools.contains(&FmtTool::default()) {
+					Client::fmt().execute(verbose)?;
+					println!("-------------------------");
+					println!();
+					Host::fmt().execute(verbose)?;
+					println!("-------------------------");
+					println!();
+				}
+
+				let mut duration = Duration::ZERO;
+
+				for tool in tools {
+					match tool {
+						FmtTool::Rustfmt => (),
+						FmtTool::Taplo => {
+							let mut command = Command::new("taplo");
+							command.current_dir("..").arg("fmt");
+							duration += command::run("Taplo Format", command, verbose)?;
+						}
+						FmtTool::Prettier => {
+							let mut command = Command::new("prettier");
+							command.current_dir("..").args([".", "-w"]);
+							duration += command::run("Prettier", command, verbose)?;
+						}
+					}
+				}
+
 				println!("-------------------------");
-				println!();
-				Host::Fmt.execute(verbose)?;
+				println!("Total Time: {:.2}s", duration.as_secs_f32());
 
 				Ok(())
 			}
@@ -108,5 +149,21 @@ impl CliCommand {
 			Self::Client { client } => client.execute(verbose),
 			Self::Host { host } => host.execute(verbose),
 		}
+	}
+}
+
+enum_with_all!(enum FmtTools, Tool(FmtTool), "tools");
+
+#[derive(Clone, Copy, Default, EnumIter, Eq, PartialEq, ValueEnum)]
+enum FmtTool {
+	#[default]
+	Rustfmt,
+	Taplo,
+	Prettier,
+}
+
+impl FmtTools {
+	fn all() -> Vec<Self> {
+		vec![Self::All]
 	}
 }

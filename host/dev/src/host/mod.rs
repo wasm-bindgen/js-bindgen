@@ -3,29 +3,41 @@ mod check;
 mod metadata;
 mod test;
 
-use std::iter;
 use std::process::Command;
-use std::sync::LazyLock;
+use std::time::Duration;
 
-use anyhow::{Result, anyhow};
-use clap::builder::PossibleValue;
+use anyhow::Result;
 use clap::{Subcommand, ValueEnum};
-use strum::{Display, EnumIter, IntoEnumIterator};
+use strum::{Display, EnumIter};
 
 use self::build::Build;
 use self::check::Check;
-use crate::command;
+use crate::{FmtTool, FmtTools, command};
 
 #[derive(Subcommand)]
 pub enum Host {
-	All(Check),
-	Fmt,
+	All {
+		#[arg(long, value_delimiter = ',', default_value = FmtTools::default_arg())]
+		fmt_tools: Vec<FmtTools>,
+		#[command(flatten)]
+		check: Check,
+	},
+	Fmt {
+		#[arg(long, value_delimiter = ',', default_value = FmtTools::default_arg())]
+		tools: Vec<FmtTools>,
+	},
 	Build(Build),
 	Check(Check),
 	Test,
 }
 
 impl Host {
+	pub fn fmt() -> Self {
+		Self::Fmt {
+			tools: vec![FmtTools::default()],
+		}
+	}
+
 	pub fn build(all: bool) -> Self {
 		if all {
 			Self::Build(Build::all())
@@ -44,8 +56,8 @@ impl Host {
 
 	pub fn execute(self, verbose: bool) -> Result<()> {
 		match self {
-			Self::All(check) => {
-				Self::Fmt.execute(verbose)?;
+			Self::All { fmt_tools, check } => {
+				Self::Fmt { tools: fmt_tools }.execute(verbose)?;
 				println!("-------------------------");
 				println!();
 				Self::Build(Build::new(check.targets().to_owned())).execute(verbose)?;
@@ -58,10 +70,29 @@ impl Host {
 
 				Ok(())
 			}
-			Self::Fmt => {
-				let mut command = Command::new("cargo");
-				command.args(["+nightly", "fmt"]);
-				let duration = command::run("Rustfmt", command, verbose)?;
+			Self::Fmt { tools } => {
+				let tools = FmtTool::from_tools(tools)?;
+				let mut duration = Duration::ZERO;
+
+				for tool in tools {
+					match tool {
+						FmtTool::Rustfmt => {
+							let mut command = Command::new("cargo");
+							command.args(["+nightly", "fmt"]);
+							duration += command::run("Rustfmt", command, verbose)?;
+						}
+						FmtTool::Taplo => {
+							let mut command = Command::new("taplo");
+							command.arg("fmt");
+							duration += command::run("Taplo Fmt", command, verbose)?;
+						}
+						FmtTool::Prettier => {
+							let mut command = Command::new("prettier");
+							command.current_dir("..").args(["host", "-w"]);
+							duration += command::run("Prettier", command, verbose)?;
+						}
+					}
+				}
 
 				println!("-------------------------");
 				println!("Total Time: {:.2}s", duration.as_secs_f32());
@@ -75,62 +106,19 @@ impl Host {
 	}
 }
 
-#[derive(Clone, Copy)]
-pub enum HostTargets {
-	All,
-	Target(HostTarget),
-}
+enum_with_all!(pub enum HostTargets, Target(HostTarget), "targets");
 
-#[derive(Clone, Copy, Display, EnumIter, Eq, PartialEq)]
+#[derive(Clone, Copy, Default, Display, EnumIter, Eq, PartialEq, ValueEnum)]
 pub enum HostTarget {
+	#[cfg_attr(target_os = "linux", default)]
 	Linux,
+	#[cfg_attr(target_os = "macos", default)]
 	MacOs,
+	#[cfg_attr(target_os = "windows", default)]
 	Windows,
 }
 
-impl ValueEnum for HostTargets {
-	fn value_variants<'a>() -> &'a [Self] {
-		static VARIANTS: LazyLock<Vec<HostTargets>> = LazyLock::new(|| {
-			iter::once(HostTargets::All)
-				.chain(HostTarget::iter().map(HostTargets::Target))
-				.collect()
-		});
-
-		&VARIANTS
-	}
-
-	fn to_possible_value(&self) -> Option<PossibleValue> {
-		match self {
-			Self::All => Some(PossibleValue::new("all")),
-			Self::Target(target) => Some(PossibleValue::new(target.to_clap_arg())),
-		}
-	}
-}
-
 impl HostTarget {
-	fn from_targets(cli: Vec<HostTargets>) -> Result<Vec<Self>> {
-		if let [HostTargets::All] = cli.as_slice() {
-			return Ok(Self::iter().collect());
-		}
-
-		cli.into_iter()
-			.map(|runner| match runner {
-				HostTargets::All => Err(anyhow!(
-					"`--targets`s `all` option conflicts with all others"
-				)),
-				HostTargets::Target(target) => Ok(target),
-			})
-			.collect()
-	}
-
-	fn to_clap_arg(self) -> &'static str {
-		match self {
-			Self::Linux => "linux",
-			Self::MacOs => "mac-os",
-			Self::Windows => "windows",
-		}
-	}
-
 	fn to_cargo_arg(self) -> &'static str {
 		match self {
 			Self::Linux => "x86_64-unknown-linux-gnu",
@@ -140,7 +128,7 @@ impl HostTarget {
 	}
 
 	fn is_host(self) -> bool {
-		self == Self::host()
+		self == Self::default()
 	}
 
 	fn host() -> Self {

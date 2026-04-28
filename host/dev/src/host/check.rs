@@ -1,43 +1,38 @@
-use std::iter;
 use std::process::Command;
-use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
-use anyhow::{Result, anyhow};
-use clap::builder::PossibleValue;
+use anyhow::Result;
 use clap::{Args, ValueEnum};
-use strum::{EnumIter, IntoEnumIterator};
+use strum::EnumIter;
 
 use super::{HostTarget, HostTargets, metadata};
 use crate::command::{self, CargoCommand};
 
 #[derive(Args)]
 pub struct Check {
-	#[arg(long, value_delimiter = ',', default_value = "clippy")]
+	#[arg(long, value_delimiter = ',', default_value = Tools::default_arg())]
 	tools: Vec<Tools>,
-	#[arg(long, short, default_value = HostTarget::host().to_clap_arg())]
+	#[arg(long, short, default_value = HostTargets::default_arg())]
 	targets: Vec<HostTargets>,
 }
 
-#[derive(Clone, Copy)]
-enum Tools {
-	All,
-	Tool(Tool),
-}
+enum_with_all!(enum Tools, Tool(Tool), "tools");
 
-#[derive(Clone, Copy, EnumIter)]
+#[derive(Clone, Copy, Default, EnumIter, Eq, PartialEq, ValueEnum)]
 enum Tool {
+	#[default]
 	Clippy,
 	Tsc,
 	EsLint,
+	Taplo,
 	Zizmor,
 }
 
 impl Default for Check {
 	fn default() -> Self {
 		Self {
-			tools: vec![Tools::Tool(Tool::Clippy)],
-			targets: vec![HostTargets::Target(HostTarget::host())],
+			tools: vec![Tools::default()],
+			targets: vec![HostTargets::default()],
 		}
 	}
 }
@@ -100,15 +95,15 @@ impl Check {
 
 					duration += start.elapsed();
 				}
+				Tool::Taplo => {
+					let mut command = Command::new("taplo");
+					command.args(["lint", "--default-schema-catalogs"]);
+					duration += command::run("Taplo Lint", command, verbose)?;
+				}
 				Tool::Zizmor => {
-					let start = Instant::now();
-
 					let mut command = Command::new("zizmor");
 					command.current_dir("../").arg(".");
-
-					command::run("Zizmor", command, verbose)?;
-
-					duration += start.elapsed();
+					duration += command::run("Zizmor", command, verbose)?;
 				}
 			}
 		}
@@ -135,48 +130,5 @@ impl Check {
 		command::run(&format!("ESLint `{package}`"), command, verbose)?;
 
 		Ok(())
-	}
-}
-
-impl ValueEnum for Tools {
-	fn value_variants<'a>() -> &'a [Self] {
-		static VARIANTS: LazyLock<Vec<Tools>> = LazyLock::new(|| {
-			iter::once(Tools::All)
-				.chain(Tool::iter().map(Tools::Tool))
-				.collect()
-		});
-
-		&VARIANTS
-	}
-
-	fn to_possible_value(&self) -> Option<PossibleValue> {
-		match self {
-			Self::All => Some(PossibleValue::new("all")),
-			Self::Tool(tool) => Some(PossibleValue::new(tool.to_arg())),
-		}
-	}
-}
-
-impl Tool {
-	fn from_tools(cli: Vec<Tools>) -> Result<Vec<Self>> {
-		if let [Tools::All] = cli.as_slice() {
-			return Ok(Self::iter().collect());
-		}
-
-		cli.into_iter()
-			.map(|runner| match runner {
-				Tools::All => Err(anyhow!("`--tools`s `all` option conflicts with all others")),
-				Tools::Tool(tool) => Ok(tool),
-			})
-			.collect()
-	}
-
-	fn to_arg(self) -> &'static str {
-		match self {
-			Self::Clippy => "clippy",
-			Self::Tsc => "tsc",
-			Self::EsLint => "es-lint",
-			Self::Zizmor => "zizmor",
-		}
 	}
 }

@@ -58,6 +58,7 @@ memmap2 = "0.9"
 mime = "0.3"
 nix = "0.31"
 object = { version = "0.39", default-features = false, features = ["archive", "read_core", "std"] }
+paste = "1"
 prettyplease = { version = "0.2", features = ["verbatim"] }
 proc-macro2 = { version = "1", default-features = false }
 quote = { version = "1", default-features = false }

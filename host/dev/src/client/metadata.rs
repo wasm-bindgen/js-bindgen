@@ -4,12 +4,14 @@ use anyhow::Result;
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, Package, TargetKind};
 
 use super::permutation::Permutation;
-use super::{ClientArgs, util};
+use super::{ClientArgs, Target, TargetFeature, util};
 use crate::command::{self, CargoCommand};
 use crate::features;
 use crate::features::Features;
 
-pub fn run(client_args: &ClientArgs, commands: &[CargoCommand], verbose: bool) -> Result<Duration> {
+pub fn run(client_args: ClientArgs, commands: &[CargoCommand], verbose: bool) -> Result<Duration> {
+	let targets = Target::from_targets(client_args.targets)?;
+	let target_features = TargetFeature::from_target_features(client_args.target_features)?;
 	let metadata = MetadataCommand::new().current_dir("../client").exec()?;
 
 	let start = Instant::now();
@@ -23,9 +25,7 @@ pub fn run(client_args: &ClientArgs, commands: &[CargoCommand], verbose: bool) -
 		js_sys,
 	} in CargoTarget::from_metadata(&metadata)
 	{
-		for permutation in
-			Permutation::iter(&client_args.targets, &client_args.target_features, js_sys)
-		{
+		for permutation in Permutation::iter(&targets, &target_features, js_sys) {
 			for CargoCommand {
 				title,
 				sub_command,

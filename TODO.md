@@ -65,8 +65,8 @@
 - We still need to look into what happens with old files. We might need to delete them ourselves.
 - Evaluate the output directory of our ASM objet files. Some ideas:
   - Store them next to the output file.
-  - Pass an environment variable from a `build.rs` pointing to the target directory and go from there.
-    This seems to have failed. No build script instruction can reach the linker on Wasm.
+  - Pass an environment variable from a `build.rs` pointing to the target directory and go from
+    there. This seems to have failed. No build script instruction can reach the linker on Wasm.
 - Memory-mapped file reading should lock files to make it safe.
 - Add diagnostics for traits when they are not implemented, e.g. `Input`/`Output`.
 - Inline JS code is getting quite complex, consider moving to external TS file.

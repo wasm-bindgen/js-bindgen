@@ -6,7 +6,7 @@ use crate::command::CargoCommand;
 
 #[derive(Args)]
 pub struct Build {
-	#[arg(long, short, default_value = HostTarget::host().to_clap_arg())]
+	#[arg(long, short, default_value = HostTargets::default_arg())]
 	targets: Vec<HostTargets>,
 }
 

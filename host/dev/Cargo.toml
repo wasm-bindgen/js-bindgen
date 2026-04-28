@@ -13,6 +13,7 @@ anstyle = { workspace = true }
 anyhow = { workspace = true }
 cargo_metadata = { workspace = true }
 clap = { workspace = true }
+paste = { workspace = true }
 strum = { workspace = true }
 
 [target.'cfg(target_family = "unix")'.dependencies]

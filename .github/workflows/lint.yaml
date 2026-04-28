@@ -156,6 +156,25 @@ jobs:
       - name: Run ESLint
         run: npx eslint
 
+  taplo:
+    name: Taplo Lint
+
+    runs-on: ubuntu-slim
+
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Taplo
+        uses: taiki-e/install-action@v2
+        with:
+          tool: taplo
+      - name: Taplo Lint
+        run: taplo lint --default-schema-catalogs
+
   zizmor:
     name: Zizmor
 

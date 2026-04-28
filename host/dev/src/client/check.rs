@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use anyhow::Result;
 use clap::{Args, ValueEnum};
-use strum::{EnumIter, IntoEnumIterator};
+use strum::EnumIter;
 
 use super::{ClientArgs, metadata};
 use crate::command::{self, CargoCommand};
@@ -13,41 +13,46 @@ use crate::command::{self, CargoCommand};
 pub struct Check {
 	#[command(flatten)]
 	args: ClientArgs,
-	#[arg(long, value_delimiter = ',', default_value = "clippy")]
-	tools: Vec<Tool>,
+	#[arg(long, value_delimiter = ',', default_value = Tools::default_arg())]
+	tools: Vec<Tools>,
 }
 
-#[derive(Clone, Copy, EnumIter, ValueEnum)]
+enum_with_all!(pub enum Tools, Tool(Tool), "tools");
+
+#[derive(Clone, Copy, Default, EnumIter, Eq, PartialEq, ValueEnum)]
 pub enum Tool {
+	#[default]
 	Clippy,
 	CargoJsSys,
+	Taplo,
 }
 
 impl Default for Check {
 	fn default() -> Self {
 		Self {
 			args: ClientArgs::default(),
-			tools: vec![Tool::Clippy],
+			tools: vec![Tools::default()],
 		}
 	}
 }
 
 impl Check {
-	pub fn new(args: ClientArgs, tools: Vec<Tool>) -> Self {
+	pub fn new(args: ClientArgs, tools: Vec<Tools>) -> Self {
 		Self { args, tools }
 	}
 
 	pub fn all() -> Self {
 		Self {
 			args: ClientArgs::all(),
-			tools: Tool::iter().collect(),
+			tools: vec![Tools::All],
 		}
 	}
 
 	pub fn execute(self, verbose: bool) -> Result<()> {
+		let tools = Tool::from_tools(self.tools)?;
 		let mut duration = Duration::ZERO;
 
-		for tool in self.tools {
+		for tool in tools {
 			match tool {
 				Tool::Clippy => {
 					let commands = [
@@ -64,13 +69,13 @@ impl Check {
 							envs: &[],
 						},
 						CargoCommand {
-							title: "Doc",
+							title: "Check Doc",
 							sub_command: "doc",
 							args: &["--no-deps", "--document-private-items"],
 							envs: &[("RUSTDOCFLAGS", "-D warnings")],
 						},
 					];
-					duration += metadata::run(&self.args, &commands, verbose)?;
+					duration += metadata::run(self.args.clone(), &commands, verbose)?;
 				}
 				Tool::CargoJsSys => {
 					let tools_installed =
@@ -85,6 +90,13 @@ impl Check {
 
 					duration += Self::cargo_js_sys("js-sys", tools_installed, verbose)?;
 					duration += Self::cargo_js_sys("web-sys", tools_installed, verbose)?;
+				}
+				Tool::Taplo => {
+					let mut command = Command::new("taplo");
+					command
+						.current_dir("../client")
+						.args(["lint", "--default-schema-catalogs"]);
+					duration += command::run("Taplo Lint", command, verbose)?;
 				}
 			}
 		}
