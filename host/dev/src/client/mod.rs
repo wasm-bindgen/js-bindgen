@@ -41,6 +41,7 @@ pub enum Client {
 	},
 	Check(Check),
 	Test(Test),
+	Audit,
 }
 
 #[derive(Args, Clone)]
@@ -156,6 +157,16 @@ impl Client {
 			}
 			Self::Check(check) => check.execute(verbose),
 			Self::Test(test) => test.execute(verbose),
+			Self::Audit => {
+				let mut command = Command::new("cargo");
+				command.current_dir("../client").arg("audit");
+				let duration = command::run("RustSec", command, verbose)?;
+
+				println!("-------------------------");
+				println!("Total Time: {:.2}s", duration.as_secs_f32());
+
+				Ok(())
+			}
 		}
 	}
 }

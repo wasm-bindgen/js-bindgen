@@ -1,0 +1,62 @@
+name: Audit
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  schedule:
+    - cron: "0 0 * * *"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust-sec:
+    name: RustSec - ${{ matrix.workspace.name }}
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write # To create Security Advisory issues.
+      checks: write # To create blocking CI check.
+
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace:
+          - { name: Client, path: client }
+          - { name: Host, path: host }
+
+    defaults:
+      run:
+        working-directory: ${{ matrix.workspace.path }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install `cargo audit`
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - name: Run `cargo audit`
+        id: verify
+        run: cargo audit
+      - name: Generate SARIF
+        if: always() && steps.verify.outcome == 'failure'
+        run: |
+          mkdir ../../results
+          cargo audit --format sarif > ../../results/cargo-audit.sarif
+      - name: Upload SARIF
+        if: always() && steps.verify.outcome == 'failure'
+        uses: github/codeql-action/upload-sarif@v3

@@ -1,0 +1,12 @@
+[advisories]
+ignore = [
+	# `paste`: Unmaintained.
+	"RUSTSEC-2024-0436",
+	# MSRV: Workspace MSRV causes `js-bindgen-runner` to pick an old version of `time` with an old security advisory.
+	# Remove with v1.88.
+	"RUSTSEC-2026-0009",
+]
+
+[output]
+deny = ["warnings"]
+quiet = false

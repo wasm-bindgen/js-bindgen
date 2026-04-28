@@ -45,6 +45,7 @@ enum CliCommand {
 		#[arg(long)]
 		all: bool,
 	},
+	Audit,
 	Client {
 		#[command(subcommand)]
 		client: Client,
@@ -84,6 +85,9 @@ impl CliCommand {
 				println!("-------------------------");
 				println!();
 				Self::Test { all }.execute(verbose)?;
+				println!("-------------------------");
+				println!();
+				Self::Audit.execute(verbose)?;
 
 				Ok(())
 			}
@@ -143,6 +147,14 @@ impl CliCommand {
 				println!("-------------------------");
 				println!();
 				Host::Test.execute(verbose)?;
+
+				Ok(())
+			}
+			Self::Audit => {
+				Client::Audit.execute(verbose)?;
+				println!("-------------------------");
+				println!();
+				Host::Audit.execute(verbose)?;
 
 				Ok(())
 			}
