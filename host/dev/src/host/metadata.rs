@@ -5,12 +5,12 @@ use anyhow::Result;
 use cargo_metadata::{MetadataCommand, TargetKind};
 
 use super::HostTarget;
-use crate::command::{self, RunCommand};
+use crate::command::{self, CargoCommand};
 use crate::features;
 use crate::features::Features;
 
 pub fn run(
-	commands: &[RunCommand],
+	commands: &[CargoCommand],
 	targets: &[HostTarget],
 	private: bool,
 	verbose: bool,
@@ -46,7 +46,7 @@ pub fn run(
 
 	for (name, features) in packages {
 		for target in targets {
-			for RunCommand {
+			for CargoCommand {
 				title,
 				sub_command,
 				envs,
@@ -74,6 +74,7 @@ pub fn run(
 				};
 
 				features.args(&mut command);
+				command.arg("--keep-going");
 				command.envs(envs.iter().copied());
 				command.args(*args);
 

@@ -95,7 +95,7 @@ jobs:
             host/cargo-shim/runner.exe
 
   tsc:
-    name: TSC
+    name: TSC - `${{ matrix.package.name }}`
 
     runs-on: ubuntu-slim
 
@@ -104,13 +104,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        directory:
-          - host/ld/src/js
-          - host/runner/src/js
+        package:
+          - { name: js-bindgen-ld, path: host/ld/src/js }
+          - { name: js-bindgen-runner, path: host/runner/src/js }
 
     defaults:
       run:
-        working-directory: ${{ matrix.directory }}
+        working-directory: ${{ matrix.package.path }}
 
     steps:
       - name: Checkout
@@ -129,7 +129,7 @@ jobs:
           git diff --staged --exit-code
 
   eslint:
-    name: ESLint
+    name: ESLint - `${{ matrix.package.name }}`
 
     runs-on: ubuntu-slim
 
@@ -138,13 +138,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        directory:
-          - host/ld/src/js
-          - host/runner/src/js
+        package:
+          - { name: js-bindgen-ld, path: host/ld/src/js }
+          - { name: js-bindgen-runner, path: host/runner/src/js }
 
     defaults:
       run:
-        working-directory: ${{ matrix.directory }}
+        working-directory: ${{ matrix.package.path }}
 
     steps:
       - name: Checkout

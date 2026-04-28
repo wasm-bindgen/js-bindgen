@@ -6,28 +6,28 @@ use std::{env, io};
 use anstyle::{AnsiColor, Style};
 use anyhow::{Result, bail};
 
-pub struct RunCommand<'a> {
+pub struct CargoCommand<'a> {
 	pub title: &'a str,
 	pub sub_command: &'a str,
 	pub envs: &'a [(&'a str, &'a str)],
 	pub args: &'a [&'a str],
 }
 
-pub fn run(text: &str, mut command: Command, verbose: bool) -> Result<Duration> {
+pub fn run(title: &str, mut command: Command, verbose: bool) -> Result<Duration> {
 	let gh_actions = env::var_os("GITHUB_ACTIONS").is_some_and(|value| value == "true");
 
 	if verbose {
 		if gh_actions {
-			println!("::group::{text}");
+			println!("::group::{title}");
 		} else {
 			println!();
 			println!("-------------------------");
-			println!("{text}");
+			println!("{title}");
 			println!("-------------------------");
 			println!();
 		}
 	} else {
-		print!("{text} ...");
+		print!("{title} ...");
 		io::stdout().flush()?;
 	}
 
@@ -83,12 +83,12 @@ pub fn run(text: &str, mut command: Command, verbose: bool) -> Result<Duration> 
 	let duration = start.elapsed();
 
 	if !status.success() {
-		bail!("{text} failed with {status}");
+		bail!("{title} failed with {status}");
 	}
 
 	if gh_actions {
 		println!("-------------------------");
-		println!("Finished {text}: {:.2}s", duration.as_secs_f32());
+		println!("Finished {title}: {:.2}s", duration.as_secs_f32());
 		println!("::endgroup::");
 	}
 

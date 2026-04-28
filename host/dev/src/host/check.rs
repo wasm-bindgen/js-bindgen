@@ -9,7 +9,7 @@ use clap::{Args, ValueEnum};
 use strum::{EnumIter, IntoEnumIterator};
 
 use super::{HostTarget, HostTargets, metadata};
-use crate::command::{self, RunCommand};
+use crate::command::{self, CargoCommand};
 
 #[derive(Args)]
 pub struct Check {
@@ -62,29 +62,22 @@ impl Check {
 			match tool {
 				Tool::Clippy => {
 					let commands = [
-						RunCommand {
+						CargoCommand {
 							title: "Check",
 							sub_command: "clippy",
-							args: &["--keep-going", "--", "-D", "warnings"],
+							args: &["--", "-D", "warnings"],
 							envs: &[],
 						},
-						RunCommand {
+						CargoCommand {
 							title: "Check Tests",
 							sub_command: "clippy",
-							args: &[
-								"--keep-going",
-								"--tests",
-								"--benches",
-								"--",
-								"-D",
-								"warnings",
-							],
+							args: &["--tests", "--benches", "--", "-D", "warnings"],
 							envs: &[],
 						},
-						RunCommand {
+						CargoCommand {
 							title: "Check Doc",
 							sub_command: "doc",
-							args: &["--keep-going", "--no-deps", "--document-private-items"],
+							args: &["--no-deps", "--document-private-items"],
 							envs: &[("RUSTDOCFLAGS", "-D warnings")],
 						},
 					];

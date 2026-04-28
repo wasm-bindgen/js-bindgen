@@ -1,15 +1,15 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, Package, TargetKind};
 
 use super::permutation::Permutation;
 use super::{ClientArgs, util};
-use crate::command::{self, RunCommand};
+use crate::command::{self, CargoCommand};
 use crate::features;
 use crate::features::Features;
 
-pub fn run(client_args: &ClientArgs, commands: &[RunCommand], verbose: bool) -> Result<()> {
+pub fn run(client_args: &ClientArgs, commands: &[CargoCommand], verbose: bool) -> Result<Duration> {
 	let metadata = MetadataCommand::new().current_dir("../client").exec()?;
 
 	let start = Instant::now();
@@ -26,7 +26,7 @@ pub fn run(client_args: &ClientArgs, commands: &[RunCommand], verbose: bool) -> 
 		for permutation in
 			Permutation::iter(&client_args.targets, &client_args.target_features, js_sys)
 		{
-			for RunCommand {
+			for CargoCommand {
 				title,
 				sub_command,
 				envs,
@@ -48,6 +48,7 @@ pub fn run(client_args: &ClientArgs, commands: &[RunCommand], verbose: bool) -> 
 					_ => unreachable!(),
 				};
 
+				command.arg("--keep-going");
 				command.envs(envs.iter().copied());
 				command.args(*args);
 
@@ -65,10 +66,7 @@ pub fn run(client_args: &ClientArgs, commands: &[RunCommand], verbose: bool) -> 
 		}
 	}
 
-	println!("-------------------------");
-	println!("Total Time: {:.2}s", start.elapsed().as_secs_f32());
-
-	Ok(())
+	Ok(start.elapsed())
 }
 
 struct CargoTarget<'m> {

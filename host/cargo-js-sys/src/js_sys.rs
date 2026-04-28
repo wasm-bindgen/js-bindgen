@@ -11,6 +11,7 @@ use clap::Args;
 use clap_cargo::{Manifest, Workspace};
 use js_bindgen_shared::ReadFile;
 use js_sys_bindgen::syn::{self, Error, parse_quote};
+use similar_asserts::SimpleDiff;
 
 use crate::GlobalArgs;
 
@@ -114,16 +115,18 @@ impl JsSys {
 
 			let style = Style::new().bold();
 			println!(
-				"{style}{:>9}:{style:#} Total {}, {} {}, Skipped {}, Errors {}",
+				"{style}{:>9}:{style:#} Total {}, {} {}, Unchanged {}, Errors {}",
 				"Summary",
-				summary.generated + summary.skipped + summary.errors,
-				if global_args.dry_run {
+				summary.generated + summary.unchanged + summary.errors,
+				if global_args.check {
+					"Checked"
+				} else if global_args.dry_run {
 					"Planned"
 				} else {
 					"Generated"
 				},
 				summary.generated,
-				summary.skipped,
+				summary.unchanged,
 				summary.errors
 			);
 		}
@@ -147,7 +150,7 @@ struct State<'a> {
 
 struct Summary {
 	generated: usize,
-	skipped: usize,
+	unchanged: usize,
 	errors: usize,
 }
 
@@ -155,7 +158,7 @@ impl Summary {
 	fn new() -> Self {
 		Self {
 			generated: 0,
-			skipped: 0,
+			unchanged: 0,
 			errors: 0,
 		}
 	}
@@ -252,7 +255,7 @@ impl State<'_> {
 		if exists && !output_file.is_file() {
 			let style = Style::new().bold().fg_color(Some(AnsiColor::Red.into()));
 			eprintln!(
-				"{style}{:>9}:{style:#} output file exists and is not a file: {}",
+				"{style}{:>9}:{style:#} output file exists but is not a file: {}",
 				"Error",
 				relative_output_file.display()
 			);
@@ -262,41 +265,87 @@ impl State<'_> {
 			return Ok(false);
 		}
 
-		if !exists || ReadFile::new(&output_file)?.deref() != output.as_bytes() {
+		let current = exists.then(|| ReadFile::new(&output_file)).transpose()?;
+		let current = if let Some(current) = &current {
+			match str::from_utf8(current.deref()) {
+				Ok(current) => Some(current),
+				Err(error) => {
+					let style = Style::new().bold().fg_color(Some(AnsiColor::Red.into()));
+					eprintln!(
+						"{style}{:>9}:{style:#} output file exists but is not UTF-8: {}\n\t{error}",
+						"Error",
+						relative_output_file.display(),
+					);
+
+					self.summary.errors += 1;
+
+					return Ok(false);
+				}
+			}
+		} else {
+			None
+		};
+
+		let feedback = |color: AnsiColor, text: &str| {
+			let style = Style::new().fg_color(Some(color.into()));
+			println!(
+				"{style}{:>9}:{style:#} {} -> {}",
+				text,
+				relative_entry.display(),
+				relative_output_file.display()
+			);
+		};
+
+		if self.global_args.check {
+			let Some(current) = current else {
+				feedback(AnsiColor::Red, "Missing");
+				self.summary.errors += 1;
+				return Ok(false);
+			};
+
+			if current == output {
+				if self.global_args.verbose {
+					feedback(AnsiColor::Green, "Checked");
+				}
+
+				self.summary.generated += 1;
+				Ok(true)
+			} else {
+				feedback(AnsiColor::Red, "Different");
+				eprintln!(
+					"{}",
+					SimpleDiff::from_str(current, output, "current", "expected")
+				);
+
+				self.summary.errors += 1;
+				Ok(false)
+			}
+		} else if current.is_none_or(|current| current != output) {
 			if !self.global_args.dry_run {
 				fs::write(&output_file, output)?;
 			}
 
-			if !self.global_args.quiet {
-				let style = Style::new().fg_color(Some(AnsiColor::Green.into()));
-				println!(
-					"{style}{:>9}:{style:#} {} -> {}",
+			if !self.global_args.quiet || self.global_args.check {
+				feedback(
+					AnsiColor::Green,
 					if self.global_args.dry_run {
 						"Planned"
 					} else {
 						"Generated"
 					},
-					relative_entry.display(),
-					relative_output_file.display()
 				);
 			}
 
 			self.summary.generated += 1;
+			Ok(true)
 		} else {
 			if self.global_args.verbose {
-				let style = Style::new().fg_color(Some(AnsiColor::BrightBlack.into()));
-				println!(
-					"{style}{:>9}:{style:#} {} -> {}",
-					"Unchanged",
-					relative_entry.display(),
-					relative_output_file.display()
-				);
+				feedback(AnsiColor::BrightBlack, "Unchanged");
 			}
 
-			self.summary.skipped += 1;
+			self.summary.unchanged += 1;
+			Ok(true)
 		}
-
-		Ok(true)
 	}
 }
 

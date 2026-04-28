@@ -1,3 +1,4 @@
+mod check;
 mod metadata;
 mod permutation;
 mod process;
@@ -11,22 +12,25 @@ use anyhow::Result;
 use clap::{Args, Subcommand, ValueEnum};
 use strum::{EnumIter, IntoEnumIterator};
 
+use self::check::{Check, Tool};
 use self::permutation::Toolchain;
 use self::test::Test;
 use self::util::ToolchainParser;
-use crate::command::RunCommand;
+use crate::command::CargoCommand;
 
 #[derive(Subcommand)]
 pub enum Client {
-	All(Test),
+	All {
+		#[arg(long, value_delimiter = ',', default_value = "clippy")]
+		check_tools: Vec<Tool>,
+		#[command(flatten)]
+		test: Test,
+	},
 	Build {
 		#[command(flatten)]
 		args: ClientArgs,
 	},
-	Check {
-		#[command(flatten)]
-		args: ClientArgs,
-	},
+	Check(Check),
 	Test(Test),
 }
 
@@ -55,13 +59,9 @@ impl Client {
 
 	pub fn check(all: bool) -> Self {
 		if all {
-			Self::Check {
-				args: ClientArgs::all(),
-			}
+			Self::Check(Check::all())
 		} else {
-			Self::Check {
-				args: ClientArgs::default(),
-			}
+			Self::Check(Check::default())
 		}
 	}
 
@@ -75,17 +75,14 @@ impl Client {
 
 	pub fn execute(self, verbose: bool) -> Result<()> {
 		match self {
-			Self::All(test) => {
+			Self::All { check_tools, test } => {
 				Self::Build {
 					args: test.args().clone(),
 				}
 				.execute(verbose)?;
 				println!("-------------------------");
 				println!();
-				Self::Check {
-					args: test.args().clone(),
-				}
-				.execute(verbose)?;
+				Self::Check(Check::new(test.args().clone(), check_tools)).execute(verbose)?;
 				println!("-------------------------");
 				println!();
 				test.execute(verbose)?;
@@ -93,44 +90,20 @@ impl Client {
 				Ok(())
 			}
 			Self::Build { args } => {
-				let command = RunCommand {
+				let command = CargoCommand {
 					title: "Build",
 					sub_command: "build",
 					args: &[],
 					envs: &[],
 				};
-				metadata::run(&args, &[command], verbose)
+				let duration = metadata::run(&args, &[command], verbose)?;
+
+				println!("-------------------------");
+				println!("Total Time: {:.2}s", duration.as_secs_f32());
+
+				Ok(())
 			}
-			Self::Check { args } => {
-				let commands = [
-					RunCommand {
-						title: "Check",
-						sub_command: "clippy",
-						args: &["--keep-going", "--", "-D", "warnings"],
-						envs: &[],
-					},
-					RunCommand {
-						title: "Check Tests",
-						sub_command: "clippy",
-						args: &[
-							"--keep-going",
-							"--tests",
-							"--benches",
-							"--",
-							"-D",
-							"warnings",
-						],
-						envs: &[],
-					},
-					RunCommand {
-						title: "Doc",
-						sub_command: "doc",
-						args: &["--keep-going", "--no-deps", "--document-private-items"],
-						envs: &[("RUSTDOCFLAGS", "-D warnings")],
-					},
-				];
-				metadata::run(&args, &commands, verbose)
-			}
+			Self::Check(check) => check.execute(verbose),
 			Self::Test(test) => test.execute(verbose),
 		}
 	}

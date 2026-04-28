@@ -18,7 +18,7 @@ env:
 
 jobs:
   host-tools:
-    name: Build Host Tools ${{ matrix.os.description }}
+    name: Build Host Tools - ${{ matrix.os.description }}
 
     runs-on: ${{ matrix.os.os }}
 
@@ -82,6 +82,11 @@ jobs:
           cache-bin: false
       - name: Prepare Output Directory
         run: mkdir ${{ runner.temp }}/host-tools
+      - name: Build `cargo-js-sys`
+        working-directory: host
+        run: |
+          cargo ${{ matrix.os.sub-command }} build -p cargo-js-sys ${{ matrix.os.args }} --release
+          cp target/${{ matrix.os.path }}release/cargo-js-sys${{ matrix.os.exe }} ${{ runner.temp }}/host-tools/
       - name: Build `js-bindgen-ld`
         working-directory: host
         run: |
@@ -109,7 +114,7 @@ jobs:
           path: ${{ runner.temp }}/host-tools/
 
   build-client:
-    name: Build Client ${{ matrix.target.description }} ${{ matrix.target-feature.description }}
+    name: Build Client - ${{ matrix.target.description }} ${{ matrix.target-feature.description }}
 
     needs: host-tools
 
@@ -179,8 +184,8 @@ jobs:
           js-bindgen-dev client build -v --targets ${{ matrix.target.name }} --target-features ${{
           matrix.target-feature.name }}
 
-  check-client:
-    name: Check Client ${{ matrix.target.description }} ${{ matrix.target-feature.description }}
+  clippy-client:
+    name: Clippy Client - ${{ matrix.target.description }} ${{ matrix.target-feature.description }}
 
     needs: host-tools
 
@@ -246,7 +251,7 @@ jobs:
           key: ${{ matrix.target.name }}-${{ matrix.target-feature.name }}
           workspaces: client
           cache-bin: false
-      - name: Check
+      - name: Clippy
         working-directory: host
         run:
           js-bindgen-dev client check -v --targets ${{ matrix.target.name }} --target-features ${{
@@ -254,21 +259,21 @@ jobs:
 
   test-client:
     name:
-      Test Client ${{ matrix.os.description }} ${{ matrix.target.description }} ${{
-      matrix.target-feature.description }}
+      Test Client ${{ matrix.target.description }} ${{ matrix.target-feature.description }} ${{
+      matrix.runner.description }}
 
     needs: host-tools
 
-    runs-on: ${{ matrix.os.os }}
+    runs-on: ${{ matrix.runner.os }}
 
     timeout-minutes: 20
 
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - { os: ubuntu-latest, name: linux, runners: all, description: Linux }
-          - { os: macos-latest, name: mac-os, runners: safari-driver, description: macOS }
+        runner:
+          - { os: ubuntu-latest, name: linux, runners: all }
+          - { os: macos-latest, name: mac-os, runners: safari-driver, description: "- Safari" }
         target:
           - { name: wasm32, target: wasm32-unknown-unknown, install: true, description: Wasm32 }
           - {
@@ -283,8 +288,8 @@ jobs:
           - { name: default }
           - { name: atomics, rust: nightly, components: -c rust-src, description: Atomics }
         exclude:
-          - os: { description: macOS }
-            target: { description: Wasm64 }
+          - runner: { name: mac-os }
+            target: { name: wasm64 }
 
     env:
       JBG_DEV_TOOLS: 1
@@ -320,7 +325,7 @@ jobs:
       - name: Download Host Tools
         uses: actions/download-artifact@v4
         with:
-          name: host-tools-${{ matrix.os.name }}
+          name: host-tools-${{ matrix.runner.name }}
           path: ${{ runner.temp }}/host-tools/
       - name: Install Host Tools
         run: |
@@ -337,10 +342,10 @@ jobs:
         working-directory: host
         run:
           js-bindgen-dev client test -v --targets ${{ matrix.target.name }} --target-features ${{
-          matrix.target-feature.name }} --include ${{ matrix.os.runners }}
+          matrix.target-feature.name }} --include ${{ matrix.runner.runners }}
 
   build-host:
-    name: Build Host ${{ matrix.os.description }}
+    name: Build Host - ${{ matrix.os.description }}
 
     needs: host-tools
 
@@ -408,8 +413,8 @@ jobs:
         working-directory: host
         run: js-bindgen-dev host build -v --targets ${{ matrix.os.name }}
 
-  check-host:
-    name: Check Host ${{ matrix.os.description }}
+  clippy-host:
+    name: Clippy Host - ${{ matrix.os.description }}
 
     needs: host-tools
 
@@ -475,12 +480,12 @@ jobs:
           key: ${{ matrix.os.name }}
           workspaces: host
           cache-bin: false
-      - name: Check
+      - name: Clippy
         working-directory: host
         run: js-bindgen-dev host check -v --targets ${{ matrix.os.name }}
 
   test-host:
-    name: Test Host ${{ matrix.os.description }}
+    name: Test Host - ${{ matrix.os.description }}
 
     needs: host-tools
 
@@ -535,3 +540,40 @@ jobs:
       - name: Test
         working-directory: host
         run: js-bindgen-dev host test -v
+
+  cargo-js-sys:
+    name: Check `cargo-js-sys` - `${{ matrix.package.name }}`
+
+    needs: host-tools
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - { name: js-sys, path: client/js-sys }
+          - { name: web-sys, path: client/web-sys }
+
+    env:
+      JBG_DEV_TOOLS: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download Host Tools
+        uses: actions/download-artifact@v4
+        with:
+          name: host-tools-linux
+          path: ${{ runner.temp }}/host-tools/
+      - name: Install Host Tools
+        run: |
+          chmod +x ${{ runner.temp }}/host-tools/*
+          echo "${{ runner.temp }}/host-tools" >> $GITHUB_PATH
+      - name: Check
+        working-directory: ${{ matrix.package.path }}
+        run: cargo-js-sys js-sys -c -v

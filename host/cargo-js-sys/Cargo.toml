@@ -26,6 +26,7 @@ js-bindgen-shared = { workspace = true, features = ["memmap"] }
 js-sys-bindgen = { workspace = true }
 prettyplease = { workspace = true }
 proc-macro2 = { workspace = true, features = ["span-locations"] }
+similar-asserts = { workspace = true }
 
 [lints]
 workspace = true

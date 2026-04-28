@@ -2,6 +2,7 @@
 mod js_sys;
 
 use anyhow::Result;
+use clap::builder::ArgPredicate;
 use clap::{Args, Parser, Subcommand};
 use clap_cargo::style::CLAP_STYLING;
 
@@ -26,8 +27,16 @@ struct GlobalArgs {
 	quiet: bool,
 	#[arg(global = true, short, long)]
 	verbose: bool,
-	#[arg(global = true, short = 'n', long)]
+	#[arg(
+		global = true,
+		short = 'n',
+		long,
+		conflicts_with = "check",
+		default_value_if("check", ArgPredicate::IsPresent, Some("true"))
+	)]
 	dry_run: bool,
+	#[arg(global = true, short = 'c', long)]
+	check: bool,
 }
 
 #[derive(Subcommand)]

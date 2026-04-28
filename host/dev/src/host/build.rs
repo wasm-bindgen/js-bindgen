@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Args;
 
 use super::{HostTarget, HostTargets, metadata};
-use crate::command::RunCommand;
+use crate::command::CargoCommand;
 
 #[derive(Args)]
 pub struct Build {
@@ -30,7 +30,7 @@ impl Build {
 	}
 
 	pub fn execute(self, verbose: bool) -> Result<()> {
-		let command = RunCommand {
+		let command = CargoCommand {
 			title: "Build",
 			sub_command: "build",
 			args: &[],
