@@ -228,11 +228,6 @@ jobs:
         run: rustup target add ${{ matrix.target.target }}
       - name: Install Clippy
         run: rustup component add clippy
-      - name: Install LLVM
-        uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
-        with:
-          # Rustc v1.95
-          llvm-version: 22
       - name: Download Host Tools
         uses: actions/download-artifact@v4
         with:
@@ -257,7 +252,7 @@ jobs:
 
   test-client:
     name:
-      Test Client ${{ matrix.target.description }} ${{ matrix.target-feature.description }} ${{
+      Test Client - ${{ matrix.target.description }}${{ matrix.target-feature.description }} ${{
       matrix.runner.description }}
 
     needs: host-tools
@@ -284,7 +279,7 @@ jobs:
             }
         target-feature:
           - { name: default }
-          - { name: atomics, rust: nightly, components: -c rust-src, description: Atomics }
+          - { name: atomics, rust: nightly, components: -c rust-src, description: " Atomics" }
         exclude:
           - runner: { name: mac-os }
             target: { name: wasm64 }
