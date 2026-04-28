@@ -62,7 +62,7 @@ impl TestUpdates {
 	}
 }
 
-#[dtor]
+#[dtor(unsafe)]
 fn run_test_updates() {
 	let updates = mem::take(TEST_UPDATES.0.lock().unwrap().deref_mut());
 
