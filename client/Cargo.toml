@@ -29,7 +29,7 @@ web-sys = { path = "web-sys" }
 [package]
 edition = { workspace = true }
 license = { workspace = true }
-name = "examples"
+name = "placeholder"
 publish = false
 
 [dev-dependencies]
