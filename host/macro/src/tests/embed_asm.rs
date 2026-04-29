@@ -279,6 +279,30 @@ fn escape() {
 }
 
 #[test]
+fn escape_newline() {
+	let output = crate::embed_asm_internal(quote! { "foo \
+	bar" })
+	.unwrap();
+
+	test!(output, {
+		const _: () = {
+			const ARR_0: [::core::primitive::u8; 7] = *b"foo bar";
+			const LEN: ::core::primitive::u32 = {
+				let mut len = 0;
+				len += 7;
+				len as _
+			};
+
+			#[repr(C)]
+			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; 7]);
+
+			#[unsafe(link_section = "js_bindgen.assembly")]
+			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
+		};
+	});
+}
+
+#[test]
 fn interpolate() {
 	let output = crate::embed_asm_internal(quote! { "{}", interpolate "test" }).unwrap();
 

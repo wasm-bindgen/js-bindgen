@@ -182,7 +182,8 @@ unsafe impl Output for u128 {
 	const ASM_TYPE: &str = ASM_PTR_TYPE;
 	const ASM_CONV: Option<OutputAsmConv> = Some(OutputAsmConv {
 		import: Some(const_concat!(
-			"(import \"env\" \"js_sys.numeric.128\" (func $js_sys.numeric.128 (@sym) (param i32 i32 i32 i32 ",
+			"(import \"env\" \"js_sys.numeric.128\" (func $js_sys.numeric.128 (@sym) (param i32 \
+			 i32 i32 i32 ",
 			ASM_PTR_TYPE,
 			")))"
 		)),
@@ -239,7 +240,8 @@ unsafe impl Output for i128 {
 	const ASM_TYPE: &str = ASM_PTR_TYPE;
 	const ASM_CONV: Option<OutputAsmConv> = Some(OutputAsmConv {
 		import: Some(const_concat!(
-			"(import \"env\" \"js_sys.numeric.128\" (func $js_sys.numeric.128 (@sym) (param i32 i32 i32 i32 ",
+			"(import \"env\" \"js_sys.numeric.128\" (func $js_sys.numeric.128 (@sym) (param i32 \
+			 i32 i32 i32 ",
 			ASM_PTR_TYPE,
 			")))"
 		)),

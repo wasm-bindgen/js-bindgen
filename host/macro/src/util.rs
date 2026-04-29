@@ -369,7 +369,7 @@ pub fn parse_inner_string(
 	previous_span: impl Into<SpanRange>,
 ) -> Result<String, TokenStream> {
 	let mut string = String::with_capacity(stripped.len());
-	let mut chars = stripped.chars();
+	let mut chars = stripped.chars().peekable();
 
 	while let Some(char) = chars.next() {
 		match char {
@@ -378,6 +378,7 @@ pub fn parse_inner_string(
 				'\\' => string.push('\\'),
 				'n' => string.push('\n'),
 				't' => string.push('\t'),
+				'\n' => while chars.next_if(|c| c.is_whitespace()).is_some() {},
 				c => {
 					return Err(compile_error(
 						previous_span,
