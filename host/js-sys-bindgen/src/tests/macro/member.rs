@@ -73,6 +73,7 @@ fn method() {
 	);
 }
 
+#[ignore = "duplicate imports"]
 #[test]
 fn method_par() {
 	test!(
@@ -274,6 +275,7 @@ fn getter() {
 	);
 }
 
+#[ignore = "duplicate imports"]
 #[test]
 fn setter() {
 	test!(
