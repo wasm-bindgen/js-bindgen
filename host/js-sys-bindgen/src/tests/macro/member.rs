@@ -58,8 +58,10 @@ fn method() {
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result externref)))
+			  (import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \
+			 \"test_crate.import.test\")) (param externref) (result )))
+			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
+			 (result externref)))
 
 			  (func $test_crate.test (@sym) (param  i32) (result )
 			    local.get 0
@@ -160,10 +162,13 @@ fn method_par() {
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param externref externref externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result externref)))
+			  (import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \
+			 \"test_crate.import.test\")) (param externref externref externref) (result )))
+			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
+			 (result externref)))
 
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result externref)))
+			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
+			 (result externref)))
 
 			  (func $test_crate.test (@sym) (param  i32 i32 i32) (result )
 			    local.get 0
@@ -251,16 +256,21 @@ fn getter() {
 						) -> <JsValue as ::js_sys::hazard::Output>::Type;
 					}
 
-					::js_sys::hazard::Output::from_raw(unsafe { test(::js_sys::hazard::Input::into_raw(self)) })
+					::js_sys::hazard::Output::from_raw(unsafe {
+						test(::js_sys::hazard::Input::into_raw(self))
+					})
 				}
 			}
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param externref) (result externref)))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result externref)))
+			  (import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \
+			 \"test_crate.import.test\")) (param externref) (result externref)))
+			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
+			 (result externref)))
 
-			  (import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) (param externref) (result i32)))
+			  (import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) (param \
+			 externref) (result i32)))
 
 			  (func $test_crate.test (@sym) (param  i32) (result i32)
 			    local.get 0
@@ -346,17 +356,23 @@ fn setter() {
 					}
 
 					unsafe {
-						test(::js_sys::hazard::Input::into_raw(self), ::js_sys::hazard::Input::into_raw(value))
+						test(
+							::js_sys::hazard::Input::into_raw(self),
+							::js_sys::hazard::Input::into_raw(value),
+						)
 					};
 				}
 			}
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param externref externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result externref)))
+			  (import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \
+			 \"test_crate.import.test\")) (param externref externref) (result )))
+			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
+			 (result externref)))
 
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result externref)))
+			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
+			 (result externref)))
 
 			  (func $test_crate.test (@sym) (param  i32 i32) (result )
 			    local.get 0

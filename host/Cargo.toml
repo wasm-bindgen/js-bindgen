@@ -63,6 +63,7 @@ prettyplease = { version = "0.2", features = ["verbatim"] }
 proc-macro2 = { version = "1", default-features = false }
 quote = { version = "1", default-features = false }
 reqwest = { version = "0.13", default-features = false, features = ["http2"] }
+rwat = "0.1"
 serde = { version = "1", default-features = false }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 serde_repr = "0.1"
@@ -80,7 +81,6 @@ wasmparser = { version = "0.248", default-features = false }
 weedle2 = "5"
 windows-sys = "0.61"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
-rwat = "0.1"
 
 [workspace.lints.clippy]
 alloc_instead_of_core = "warn"

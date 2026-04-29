@@ -10,6 +10,7 @@ use wasmparser::CustomSectionReader;
 
 /// Currently this simply passes the WAT to `rwat` to
 /// convert to an object file the linker can consume.
+#[must_use]
 pub fn wat_to_object(wat: &str) -> Vec<u8> {
 	rwat::parse_rwat(wat).expect("failed to parse rwat")
 }

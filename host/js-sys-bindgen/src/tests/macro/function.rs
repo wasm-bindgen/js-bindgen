@@ -52,8 +52,10 @@ fn basic() {
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result externref)))
+			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
+			 \"test_crate.import.log\")) (param externref) (result )))
+			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
+			 (result externref)))
 
 			  (func $test_crate.log (@sym) (param  i32) (result )
 			    local.get 0
@@ -121,8 +123,10 @@ fn namespace() {
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"console.log\" (func $test_crate.import.console.log (@sym (name \"test_crate.import.console.log\")) (param externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result externref)))
+			  (import \"test_crate\" \"console.log\" (func $test_crate.import.console.log (@sym (name \
+			 \"test_crate.import.console.log\")) (param externref) (result )))
+			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
+			 (result externref)))
 
 			  (func $test_crate.console.log (@sym) (param  i32) (result )
 			    local.get 0
@@ -190,8 +194,10 @@ fn js_sys() {
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result externref)))
+			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
+			 \"test_crate.import.log\")) (param externref) (result )))
+			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
+			 (result externref)))
 
 			  (func $test_crate.log (@sym) (param  i32) (result )
 			    local.get 0
@@ -263,14 +269,19 @@ fn two_parameters() {
 				}
 
 				unsafe {
-					log(::js_sys::hazard::Input::into_raw(data1), ::js_sys::hazard::Input::into_raw(data2))
+					log(
+						::js_sys::hazard::Input::into_raw(data1),
+						::js_sys::hazard::Input::into_raw(data2),
+					)
 				};
 			}
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param externref externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result externref)))
+			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
+			 \"test_crate.import.log\")) (param externref externref) (result )))
+			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
+			 (result externref)))
 
 			  (func $test_crate.log (@sym) (param  i32 i32) (result )
 			    local.get 0
@@ -309,7 +320,11 @@ fn empty() {
 					")",
 				}
 
-				::js_sys::js_bindgen::import_js! (module = "test_crate", name = "log", "globalThis.log");
+				::js_sys::js_bindgen::import_js!(
+					module = "test_crate",
+					name = "log",
+					"globalThis.log"
+				);
 
 				unsafe extern "C" {
 					#[link_name = "test_crate.log"]
@@ -321,7 +336,8 @@ fn empty() {
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param ) (result )))
+			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
+			 \"test_crate.import.log\")) (param ) (result )))
 			  (func $test_crate.log (@sym) (param  ) (result )
 			    call $test_crate.import.log (@reloc)
 			    
@@ -387,8 +403,10 @@ fn js_name() {
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"logx\" (func $test_crate.import.logx (@sym (name \"test_crate.import.logx\")) (param externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result externref)))
+			  (import \"test_crate\" \"logx\" (func $test_crate.import.logx (@sym (name \
+			 \"test_crate.import.logx\")) (param externref) (result )))
+			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
+			 (result externref)))
 
 			  (func $test_crate.logx (@sym) (param  i32) (result )
 			    local.get 0
@@ -443,8 +461,10 @@ fn js_import() {
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result externref)))
+			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
+			 \"test_crate.import.log\")) (param externref) (result )))
+			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
+			 (result externref)))
 
 			  (func $test_crate.log (@sym) (param  i32) (result )
 			    local.get 0
@@ -516,8 +536,10 @@ fn js_embed() {
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result externref)))
+			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
+			 \"test_crate.import.log\")) (param externref) (result )))
+			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
+			 (result externref)))
 
 			  (func $test_crate.log (@sym) (param  i32) (result )
 			    local.get 0
@@ -585,8 +607,10 @@ fn r#return() {
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"is_nan\" (func $test_crate.import.is_nan (@sym (name \"test_crate.import.is_nan\")) (param ) (result externref)))
-			  (import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) (param externref) (result i32)))
+			  (import \"test_crate\" \"is_nan\" (func $test_crate.import.is_nan (@sym (name \
+			 \"test_crate.import.is_nan\")) (param ) (result externref)))
+			  (import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) (param \
+			 externref) (result i32)))
 
 			  (func $test_crate.is_nan (@sym) (param  ) (result i32)
 			    call $test_crate.import.is_nan (@reloc)
@@ -662,15 +686,19 @@ fn pointer() {
 					) -> <JsString as ::js_sys::hazard::Output>::Type;
 				}
 
-				::js_sys::hazard::Output::from_raw(unsafe { array(::js_sys::hazard::Input::into_raw(ptr)) })
+				::js_sys::hazard::Output::from_raw(unsafe {
+					array(::js_sys::hazard::Input::into_raw(ptr))
+				})
 			}
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"array\" (func $test_crate.import.array (@sym (name \"test_crate.import.array\")) (param i32) (result externref)))
+			  (import \"test_crate\" \"array\" (func $test_crate.import.array (@sym (name \
+			 \"test_crate.import.array\")) (param i32) (result externref)))
 			  
 
-			  (import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) (param externref) (result i32)))
+			  (import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) (param \
+			 externref) (result i32)))
 
 			  (func $test_crate.array (@sym) (param  i32) (result i32)
 			    local.get 0
@@ -714,7 +742,11 @@ fn cfg() {
 					")",
 				}
 
-				::js_sys::js_bindgen::import_js! (module = "test_crate", name = "log", "globalThis.log");
+				::js_sys::js_bindgen::import_js!(
+					module = "test_crate",
+					name = "log",
+					"globalThis.log"
+				);
 
 				unsafe extern "C" {
 					#[link_name = "test_crate.log"]
@@ -726,7 +758,8 @@ fn cfg() {
 		},
 		indoc::indoc!(
 			"(module (@rwat)
-			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param ) (result )))
+			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
+			 \"test_crate.import.log\")) (param ) (result )))
 			  (func $test_crate.log (@sym) (param  ) (result )
 			    call $test_crate.import.log (@reloc)
 			    
