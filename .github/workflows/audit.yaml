@@ -4,8 +4,6 @@ on:
   push:
     branches: ["main"]
   pull_request:
-  schedule:
-    - cron: "0 0 * * *"
 
 permissions: {}
 
@@ -22,9 +20,6 @@ jobs:
     name: RustSec - ${{ matrix.workspace.name }}
 
     runs-on: ubuntu-latest
-
-    permissions:
-      security-events: write # To create Security Advisories.
 
     timeout-minutes: 20
 
@@ -50,11 +45,3 @@ jobs:
           tool: cargo-audit
       - name: Run `cargo audit`
         run: cargo audit
-      - name: Generate SARIF
-        if: always()
-        run: |
-          mkdir ../../results
-          cargo audit --format sarif > ../../results/cargo-audit.sarif
-      - name: Upload SARIF
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
