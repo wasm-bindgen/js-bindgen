@@ -1,6 +1,6 @@
 use std::env;
 use std::process::Command;
-use std::time::Duration;
+use std::time::Instant;
 
 use anyhow::Result;
 use clap::{Args, ValueEnum};
@@ -24,6 +24,7 @@ pub enum Tool {
 	#[default]
 	Clippy,
 	CargoJsSys,
+	RustSec,
 	Tombi,
 }
 
@@ -50,7 +51,7 @@ impl Check {
 
 	pub fn execute(self, verbose: bool) -> Result<()> {
 		let tools = Tool::from_tools(self.tools)?;
-		let mut duration = Duration::ZERO;
+		let start = Instant::now();
 
 		for tool in tools {
 			match tool {
@@ -65,7 +66,7 @@ impl Check {
 						CargoCommand {
 							title: "Check Tests",
 							sub_command: "clippy",
-							args: &["--tests", "--benches", "--", "-D", "warnings"],
+							args: &["--tests", "--benches", "--examples", "--", "-D", "warnings"],
 							envs: &[],
 						},
 						CargoCommand {
@@ -75,7 +76,7 @@ impl Check {
 							envs: &[("RUSTDOCFLAGS", "-D warnings")],
 						},
 					];
-					duration += metadata::run(self.args.clone(), &commands, verbose)?;
+					metadata::run(self.args.clone(), &commands, verbose)?;
 				}
 				Tool::CargoJsSys => {
 					let tools_installed =
@@ -88,26 +89,31 @@ impl Check {
 						command::run("Build `cargo-js-sys`", command, verbose)?;
 					}
 
-					duration += Self::cargo_js_sys("js-sys", tools_installed, verbose)?;
-					duration += Self::cargo_js_sys("web-sys", tools_installed, verbose)?;
+					Self::cargo_js_sys("js-sys", tools_installed, verbose)?;
+					Self::cargo_js_sys("web-sys", tools_installed, verbose)?;
+				}
+				Tool::RustSec => {
+					let mut command = Command::new("cargo");
+					command.current_dir("../client").arg("audit");
+					command::run("RustSec", command, verbose)?;
 				}
 				Tool::Tombi => {
 					let mut command = Command::new("tombi");
 					command
 						.current_dir("../client")
 						.args(["lint", "--error-on-warnings", "."]);
-					duration += command::run("Tombi Lint", command, verbose)?;
+					command::run("Tombi Lint", command, verbose)?;
 				}
 			}
 		}
 
 		println!("-------------------------");
-		println!("Total Time: {:.2}s", duration.as_secs_f32());
+		println!("Total Time: {:.2}s", start.elapsed().as_secs_f32());
 
 		Ok(())
 	}
 
-	fn cargo_js_sys(pkg: &str, tools_installed: bool, verbose: bool) -> Result<Duration> {
+	fn cargo_js_sys(pkg: &str, tools_installed: bool, verbose: bool) -> Result<()> {
 		let mut command = if tools_installed {
 			Command::new("cargo-js-sys")
 		} else {
@@ -125,6 +131,8 @@ impl Check {
 			command.arg("-v");
 		}
 
-		command::run(&format!("Check `cargo-js-sys` - `{pkg}`"), command, verbose)
+		command::run(&format!("Check `cargo-js-sys` - `{pkg}`"), command, verbose)?;
+
+		Ok(())
 	}
 }

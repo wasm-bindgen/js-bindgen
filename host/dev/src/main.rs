@@ -6,14 +6,14 @@ mod features;
 mod host;
 
 use std::process::Command;
-use std::time::Duration;
+use std::time::Instant;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use strum::EnumIter;
 
 use self::client::Client;
-use self::host::{Audit, AuditTool, AuditTools, Host};
+use self::host::Host;
 
 #[derive(Parser)]
 struct Cli {
@@ -44,10 +44,6 @@ enum CliCommand {
 	Test {
 		#[arg(long)]
 		all: bool,
-	},
-	Audit {
-		#[arg(long, value_delimiter = ',', default_value = AuditTools::default_arg())]
-		tools: Vec<AuditTools>,
 	},
 	Client {
 		#[command(subcommand)]
@@ -88,14 +84,6 @@ impl CliCommand {
 				println!("-------------------------");
 				println!();
 				Self::Test { all }.execute(verbose)?;
-				println!("-------------------------");
-				println!();
-				let tools = if all {
-					AuditTools::all()
-				} else {
-					vec![AuditTools::default()]
-				};
-				Self::Audit { tools }.execute(verbose)?;
 
 				Ok(())
 			}
@@ -111,7 +99,7 @@ impl CliCommand {
 					println!();
 				}
 
-				let mut duration = Duration::ZERO;
+				let start = Instant::now();
 
 				for tool in tools {
 					match tool {
@@ -119,18 +107,18 @@ impl CliCommand {
 						FmtTool::Tombi => {
 							let mut command = Command::new("tombi");
 							command.current_dir("..").arg("format");
-							duration += command::run("Tombi Format", command, verbose)?;
+							command::run("Tombi Format", command, verbose)?;
 						}
 						FmtTool::Prettier => {
 							let mut command = Command::new("prettier");
 							command.current_dir("..").args([".", "-w"]);
-							duration += command::run("Prettier", command, verbose)?;
+							command::run("Prettier", command, verbose)?;
 						}
 					}
 				}
 
 				println!("-------------------------");
-				println!("Total Time: {:.2}s", duration.as_secs_f32());
+				println!("Total Time: {:.2}s", start.elapsed().as_secs_f32());
 
 				Ok(())
 			}
@@ -155,17 +143,6 @@ impl CliCommand {
 				println!("-------------------------");
 				println!();
 				Host::Test.execute(verbose)?;
-
-				Ok(())
-			}
-			Self::Audit { tools } => {
-				if AuditTool::from_tools(tools.clone())?.contains(&AuditTool::default()) {
-					Client::Audit.execute(verbose)?;
-					println!("-------------------------");
-					println!();
-				}
-
-				Host::Audit(Audit::new(tools)).execute(verbose)?;
 
 				Ok(())
 			}

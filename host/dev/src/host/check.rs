@@ -2,7 +2,7 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::Path;
 use std::process::Command;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use anyhow::Result;
 use clap::{Args, ValueEnum};
@@ -25,6 +25,8 @@ enum_with_all!(enum Tools, Tool(Tool), "tools");
 enum Tool {
 	#[default]
 	Clippy,
+	RustSec,
+	NpmAudit,
 	Tsc,
 	EsLint,
 	Tombi,
@@ -53,8 +55,8 @@ impl Check {
 	}
 
 	pub fn execute(self, verbose: bool) -> Result<()> {
-		let mut duration = Duration::ZERO;
 		let tools = Tool::from_tools(self.tools)?;
+		let start = Instant::now();
 
 		for tool in tools {
 			match tool {
@@ -69,7 +71,7 @@ impl Check {
 						CargoCommand {
 							title: "Check Tests",
 							sub_command: "clippy",
-							args: &["--tests", "--benches", "--", "-D", "warnings"],
+							args: &["--tests", "--benches", "--examples", "--", "-D", "warnings"],
 							envs: &[],
 						},
 						CargoCommand {
@@ -80,45 +82,46 @@ impl Check {
 						},
 					];
 					let targets = HostTarget::from_targets(self.targets.clone())?;
-					duration += metadata::run(&commands, &targets, true, verbose)?;
+					metadata::run(&commands, &targets, true, verbose)?;
+				}
+				Tool::RustSec => {
+					let mut command = Command::new("cargo");
+					command.arg("audit");
+					command::run("RustSec", command, verbose)?;
+				}
+				Tool::NpmAudit => {
+					Self::npm_lock_file("js-bindgen-ld", "ld/src/js", verbose)?;
+					Self::npm_lock_file("js-bindgen-runner", "runner/src/js", verbose)?;
 				}
 				Tool::Tsc => {
-					let start = Instant::now();
-
 					Self::tsc("js-bindgen-ld", "ld/src/js", verbose)?;
 					Self::tsc("js-bindgen-runner", "runner/src/js", verbose)?;
-
-					duration += start.elapsed();
 				}
 				Tool::EsLint => {
-					let start = Instant::now();
-
 					Self::eslint("js-bindgen-ld", "ld/src/js", verbose)?;
 					Self::eslint("js-bindgen-runner", "runner/src/js", verbose)?;
-
-					duration += start.elapsed();
 				}
 				Tool::Tombi => {
 					let mut command = Command::new("tombi");
 					command.args(["lint", "--error-on-warnings", "."]);
-					duration += command::run("Tombi Lint", command, verbose)?;
+					command::run("Tombi Lint", command, verbose)?;
 				}
 				Tool::Zizmor => {
 					let mut command = Command::new("zizmor");
 					command.current_dir("../").args(["--pedantic", "."]);
-					duration += command::run("Zizmor", command, verbose)?;
+					command::run("Zizmor", command, verbose)?;
 				}
 			}
 		}
 
 		println!("-------------------------");
-		println!("Total Time: {:.2}s", duration.as_secs_f32());
+		println!("Total Time: {:.2}s", start.elapsed().as_secs_f32());
 
 		Ok(())
 	}
 
 	fn tsc(package: &str, path: &str, verbose: bool) -> Result<()> {
-		Self::npm(package, path, verbose)?;
+		Self::npm_install(package, path, verbose)?;
 
 		let mut command = Command::new("tsc");
 		command.current_dir(path).arg("-b").arg("--noEmit");
@@ -128,7 +131,7 @@ impl Check {
 	}
 
 	fn eslint(package: &str, path: &str, verbose: bool) -> Result<()> {
-		Self::npm(package, path, verbose)?;
+		Self::npm_install(package, path, verbose)?;
 
 		let mut command = Command::new("npx");
 		command.current_dir(path).arg("eslint");
@@ -137,7 +140,38 @@ impl Check {
 		Ok(())
 	}
 
-	fn npm(package: &str, path: &str, verbose: bool) -> Result<()> {
+	fn npm_lock_file(package: &str, path: &str, verbose: bool) -> Result<()> {
+		let needs_install = match fs::metadata(Path::new(path).join("package-lock.json")) {
+			Ok(meta) => {
+				let lock_mtime = meta.modified()?;
+				let pkg_mtime = fs::metadata(Path::new(path).join("package.json"))?.modified()?;
+
+				lock_mtime < pkg_mtime
+			}
+			Err(error) if error.kind() == ErrorKind::NotFound => true,
+			Err(error) => return Err(error.into()),
+		};
+
+		if needs_install {
+			let mut command = Command::new("npm");
+			command
+				.current_dir(path)
+				.arg("install")
+				.arg("--package-lock-only")
+				.arg("--no-audit")
+				.arg("--no-fund");
+
+			command::run(&format!("NPM Install `{package}`"), command, verbose)?;
+		}
+
+		let mut command = Command::new("npm");
+		command.current_dir(path).arg("audit");
+		command::run(&format!("NPM Audit `{package}`"), command, verbose)?;
+
+		Ok(())
+	}
+
+	fn npm_install(package: &str, path: &str, verbose: bool) -> Result<()> {
 		let needs_install = match fs::metadata(Path::new(path).join("package-lock.json")) {
 			Ok(meta) => 'outer: {
 				let lock_mtime = meta.modified()?;

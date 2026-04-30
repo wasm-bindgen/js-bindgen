@@ -1,20 +1,17 @@
-mod audit;
 mod build;
 mod check;
+mod fmt;
 mod metadata;
 mod test;
-
-use std::process::Command;
-use std::time::Duration;
 
 use anyhow::Result;
 use clap::{Subcommand, ValueEnum};
 use strum::{Display, EnumIter};
 
-pub use self::audit::{Audit, AuditTool, AuditTools};
 use self::build::Build;
 use self::check::Check;
-use crate::{FmtTool, FmtTools, command};
+use self::fmt::Fmt;
+use crate::FmtTools;
 
 #[derive(Subcommand)]
 pub enum Host {
@@ -24,21 +21,15 @@ pub enum Host {
 		#[command(flatten)]
 		check: Check,
 	},
-	Fmt {
-		#[arg(long, value_delimiter = ',', default_value = FmtTools::default_arg())]
-		tools: Vec<FmtTools>,
-	},
+	Fmt(Fmt),
 	Build(Build),
 	Check(Check),
 	Test,
-	Audit(Audit),
 }
 
 impl Host {
 	pub fn fmt() -> Self {
-		Self::Fmt {
-			tools: vec![FmtTools::default()],
-		}
+		Self::Fmt(Fmt::default())
 	}
 
 	pub fn build(all: bool) -> Self {
@@ -60,7 +51,7 @@ impl Host {
 	pub fn execute(self, verbose: bool) -> Result<()> {
 		match self {
 			Self::All { fmt_tools, check } => {
-				Self::Fmt { tools: fmt_tools }.execute(verbose)?;
+				Self::Fmt(Fmt::new(fmt_tools)).execute(verbose)?;
 				println!("-------------------------");
 				println!();
 				Self::Build(Build::new(check.targets().to_owned())).execute(verbose)?;
@@ -73,39 +64,10 @@ impl Host {
 
 				Ok(())
 			}
-			Self::Fmt { tools } => {
-				let tools = FmtTool::from_tools(tools)?;
-				let mut duration = Duration::ZERO;
-
-				for tool in tools {
-					match tool {
-						FmtTool::Rustfmt => {
-							let mut command = Command::new("cargo");
-							command.args(["+nightly", "fmt"]);
-							duration += command::run("Rustfmt", command, verbose)?;
-						}
-						FmtTool::Tombi => {
-							let mut command = Command::new("tombi");
-							command.args(["fmt", "."]);
-							duration += command::run("Tombi Fmt", command, verbose)?;
-						}
-						FmtTool::Prettier => {
-							let mut command = Command::new("prettier");
-							command.current_dir("..").args(["host", "-w"]);
-							duration += command::run("Prettier", command, verbose)?;
-						}
-					}
-				}
-
-				println!("-------------------------");
-				println!("Total Time: {:.2}s", duration.as_secs_f32());
-
-				Ok(())
-			}
+			Self::Fmt(fmt) => fmt.execute(verbose),
 			Self::Build(build) => build.execute(verbose),
 			Self::Check(check) => check.execute(verbose),
 			Self::Test => test::run(verbose),
-			Self::Audit(audit) => audit.execute(verbose),
 		}
 	}
 }

@@ -1,25 +1,24 @@
 mod check;
+mod fmt;
 mod metadata;
 mod permutation;
 mod process;
 mod test;
 mod util;
 
-use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::process::Command;
-use std::time::Duration;
 
 use anyhow::Result;
 use clap::{Args, Subcommand, ValueEnum};
 use strum::EnumIter;
 
 use self::check::{Check, Tools};
+use self::fmt::Fmt;
 use self::permutation::Toolchain;
 use self::test::Test;
 use self::util::ToolchainParser;
-use crate::command::{self, CargoCommand};
-use crate::{FmtTool, FmtTools};
+use crate::FmtTools;
+use crate::command::CargoCommand;
 
 #[derive(Subcommand)]
 pub enum Client {
@@ -31,17 +30,13 @@ pub enum Client {
 		#[command(flatten)]
 		test: Test,
 	},
-	Fmt {
-		#[arg(long, value_delimiter = ',', default_value = FmtTools::default_arg())]
-		tools: Vec<FmtTools>,
-	},
+	Fmt(Fmt),
 	Build {
 		#[command(flatten)]
 		args: ClientArgs,
 	},
 	Check(Check),
 	Test(Test),
-	Audit,
 }
 
 #[derive(Args, Clone)]
@@ -56,9 +51,7 @@ pub struct ClientArgs {
 
 impl Client {
 	pub fn fmt() -> Self {
-		Self::Fmt {
-			tools: vec![FmtTools::default()],
-		}
+		Self::Fmt(Fmt::default())
 	}
 
 	pub fn build(all: bool) -> Self {
@@ -96,7 +89,7 @@ impl Client {
 				check_tools,
 				test,
 			} => {
-				Self::Fmt { tools: fmt_tools }.execute(verbose)?;
+				Self::Fmt(Fmt::new(fmt_tools)).execute(verbose)?;
 				println!("-------------------------");
 				println!();
 				Self::Build {
@@ -112,35 +105,7 @@ impl Client {
 
 				Ok(())
 			}
-			Self::Fmt { tools } => {
-				let tools = FmtTool::from_tools(tools)?;
-				let mut duration = Duration::ZERO;
-
-				for tool in tools {
-					match tool {
-						FmtTool::Rustfmt => {
-							let mut command = Command::new("cargo");
-							command.current_dir("../client").args(["+nightly", "fmt"]);
-							duration += command::run("Rustfmt", command, verbose)?;
-						}
-						FmtTool::Tombi => {
-							let mut command = Command::new("tombi");
-							command.current_dir("../client").args(["format", "."]);
-							duration += command::run("Tombi Format", command, verbose)?;
-						}
-						FmtTool::Prettier => {
-							let mut command = Command::new("prettier");
-							command.current_dir("..").args(["client", "-w"]);
-							duration += command::run("Prettier", command, verbose)?;
-						}
-					}
-				}
-
-				println!("-------------------------");
-				println!("Total Time: {:.2}s", duration.as_secs_f32());
-
-				Ok(())
-			}
+			Self::Fmt(fmt) => fmt.execute(verbose),
 			Self::Build { args } => {
 				let command = CargoCommand {
 					title: "Build",
@@ -157,16 +122,6 @@ impl Client {
 			}
 			Self::Check(check) => check.execute(verbose),
 			Self::Test(test) => test.execute(verbose),
-			Self::Audit => {
-				let mut command = Command::new("cargo");
-				command.current_dir("../client").arg("audit");
-				let duration = command::run("RustSec", command, verbose)?;
-
-				println!("-------------------------");
-				println!("Total Time: {:.2}s", duration.as_secs_f32());
-
-				Ok(())
-			}
 		}
 	}
 }
@@ -249,7 +204,7 @@ impl Target {
 }
 
 impl Display for Target {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self {
 			Self::Wasm32 => f.write_str("Wasm32"),
 			Self::Wasm64 => f.write_str("Wasm64"),
@@ -274,7 +229,7 @@ impl TargetFeature {
 }
 
 impl Display for TargetFeature {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self {
 			Self::Default => Ok(()),
 			Self::Atomics => f.write_str("Atomics"),
