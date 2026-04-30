@@ -1,19 +1,14 @@
 [package]
-edition = { workspace = true }
-include = { workspace = true }
-license = { workspace = true }
 name = "js-sys-bindgen"
-rust-version = "1.87"
 version = "0.1.0"
+edition = { workspace = true }
+rust-version = "1.87"
+license = { workspace = true }
+include = { workspace = true }
 
 [lib]
 bench = false
 doctest = false
-
-[features]
-file = ["macro"]
-macro = []
-web-idl = ["dep:weedle2"]
 
 [dependencies]
 foldhash = { workspace = true }
@@ -40,6 +35,11 @@ prettyplease = { workspace = true }
 similar-asserts = { workspace = true }
 tempfile = { workspace = true }
 wasmparser = { workspace = true }
+
+[features]
+file = ["macro"]
+macro = []
+web-idl = ["dep:weedle2"]
 
 [lints]
 workspace = true

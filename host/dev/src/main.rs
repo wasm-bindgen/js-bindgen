@@ -108,10 +108,10 @@ impl CliCommand {
 				for tool in tools {
 					match tool {
 						FmtTool::Rustfmt => (),
-						FmtTool::Taplo => {
-							let mut command = Command::new("taplo");
-							command.current_dir("..").arg("fmt");
-							duration += command::run("Taplo Format", command, verbose)?;
+						FmtTool::Tombi => {
+							let mut command = Command::new("tombi");
+							command.current_dir("..").arg("format");
+							duration += command::run("Tombi Format", command, verbose)?;
 						}
 						FmtTool::Prettier => {
 							let mut command = Command::new("prettier");
@@ -170,7 +170,7 @@ enum_with_all!(enum FmtTools, Tool(FmtTool), "tools");
 enum FmtTool {
 	#[default]
 	Rustfmt,
-	Taplo,
+	Tombi,
 	Prettier,
 }
 

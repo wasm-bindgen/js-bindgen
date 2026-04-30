@@ -1,9 +1,9 @@
-[workspace]
-
 [package]
-edition = "2024"
 name = "placeholder"
+edition = "2024"
 publish = false
+
+[workspace]
 
 [lib]
 path = "lib.rs"

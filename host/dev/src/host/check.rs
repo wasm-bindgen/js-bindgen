@@ -24,7 +24,7 @@ enum Tool {
 	Clippy,
 	Tsc,
 	EsLint,
-	Taplo,
+	Tombi,
 	Zizmor,
 }
 
@@ -95,10 +95,10 @@ impl Check {
 
 					duration += start.elapsed();
 				}
-				Tool::Taplo => {
-					let mut command = Command::new("taplo");
-					command.args(["lint", "--default-schema-catalogs"]);
-					duration += command::run("Taplo Lint", command, verbose)?;
+				Tool::Tombi => {
+					let mut command = Command::new("tombi");
+					command.args(["lint", "--error-on-warnings", "."]);
+					duration += command::run("Tombi Lint", command, verbose)?;
 				}
 				Tool::Zizmor => {
 					let mut command = Command::new("zizmor");

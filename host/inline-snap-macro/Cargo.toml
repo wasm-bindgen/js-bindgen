@@ -1,7 +1,7 @@
 [package]
+name = "inline-snap-macro"
 edition = { workspace = true }
 license = { workspace = true }
-name = "inline-snap-macro"
 publish = false
 
 [lib]

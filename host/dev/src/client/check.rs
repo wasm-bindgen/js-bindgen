@@ -24,7 +24,7 @@ pub enum Tool {
 	#[default]
 	Clippy,
 	CargoJsSys,
-	Taplo,
+	Tombi,
 }
 
 impl Default for Check {
@@ -91,12 +91,12 @@ impl Check {
 					duration += Self::cargo_js_sys("js-sys", tools_installed, verbose)?;
 					duration += Self::cargo_js_sys("web-sys", tools_installed, verbose)?;
 				}
-				Tool::Taplo => {
-					let mut command = Command::new("taplo");
+				Tool::Tombi => {
+					let mut command = Command::new("tombi");
 					command
 						.current_dir("../client")
-						.args(["lint", "--default-schema-catalogs"]);
-					duration += command::run("Taplo Lint", command, verbose)?;
+						.args(["lint", "--error-on-warnings", "."]);
+					duration += command::run("Tombi Lint", command, verbose)?;
 				}
 			}
 		}

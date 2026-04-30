@@ -44,8 +44,8 @@ jobs:
       - name: Rustfmt
         run: cargo +nightly fmt --check
 
-  taplo:
-    name: Taplo Format
+  tombi:
+    name: Tombi Format
 
     runs-on: ubuntu-slim
 
@@ -56,12 +56,10 @@ jobs:
         uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Install Taplo
-        uses: taiki-e/install-action@v2
-        with:
-          tool: taplo
-      - name: Taplo Format
-        run: taplo fmt --check --diff
+      - name: Install Tombi
+        run: npm install -g tombi
+      - name: Tombi Format
+        run: tombi format --check --diff
 
   prettier:
     name: Prettier

@@ -1,15 +1,19 @@
 [package]
-edition = { workspace = true }
-include = { workspace = true }
-license = { workspace = true }
 name = "js-bindgen-macro"
-rust-version = { workspace = true }
 version = "0.1.0"
+edition = { workspace = true }
+rust-version = { workspace = true }
+license = { workspace = true }
+include = { workspace = true }
 
 [lib]
 bench = false
 doctest = false
 proc-macro = true
+
+[[test]]
+harness = false
+name = "ui"
 
 [dev-dependencies]
 inline-snap = { workspace = true }
@@ -19,10 +23,6 @@ quote = { workspace = true }
 similar-asserts = { workspace = true }
 syn = { workspace = true }
 ui_test = { workspace = true }
-
-[[test]]
-harness = false
-name = "ui"
 
 [lints]
 workspace = true

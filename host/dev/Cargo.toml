@@ -1,7 +1,7 @@
 [package]
+name = "js-bindgen-dev"
 edition = { workspace = true }
 license = { workspace = true }
-name = "js-bindgen-dev"
 publish = false
 
 [[bin]]
@@ -16,14 +16,14 @@ clap = { workspace = true }
 paste = { workspace = true }
 strum = { workspace = true }
 
+[dev-dependencies]
+cargo_metadata = { workspace = true, features = ["builder"] }
+
 [target.'cfg(target_family = "unix")'.dependencies]
 nix = { workspace = true, features = ["signal"] }
 
 [target.'cfg(target_family = "windows")'.dependencies]
 windows-sys = { workspace = true, features = ["Win32_System_Threading"] }
-
-[dev-dependencies]
-cargo_metadata = { workspace = true, features = ["builder"] }
 
 [lints]
 workspace = true

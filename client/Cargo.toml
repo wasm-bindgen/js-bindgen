@@ -1,19 +1,25 @@
+[package]
+name = "placeholder"
+edition = { workspace = true }
+license = { workspace = true }
+publish = false
+
 [workspace]
-members = ["js-bindgen", "js-sys", "test", "web-sys"]
 resolver = "3"
+members = ["js-bindgen", "js-sys", "test", "web-sys"]
 
 [workspace.package]
 edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
 include = [
-	"/LICENSE-APACHE",
-	"/LICENSE-MIT",
-	"/Cargo.toml",
-	"/src/**/*.rs",
 	"!/src/**/*.js-sys.rs",
 	"!/src/**/tests/**",
+	"/Cargo.toml",
+	"/LICENSE-APACHE",
+	"/LICENSE-MIT",
+	"/src/**/*.rs",
 ]
-license = "MIT OR Apache-2.0"
-rust-version = "1.85"
 
 [workspace.dependencies]
 js-bindgen = { path = "js-bindgen" }
@@ -26,27 +32,6 @@ mini-alloc = "1"
 paste = "1"
 web-sys = { path = "web-sys" }
 
-[package]
-edition = { workspace = true }
-license = { workspace = true }
-name = "placeholder"
-publish = false
-
-[dev-dependencies]
-mini-alloc = { workspace = true }
-web-sys = { workspace = true }
-
-[[example]]
-crate-type = ["cdylib"]
-name = "basic"
-
-[workspace.lints.rust]
-linker_messages = "warn"
-unexpected_cfgs = { level = "allow", check-cfg = [
-	'cfg(js_sys_target_feature, values("sab", "unstable-rab"))',
-	'cfg(js_sys_assume_endianness, values("big", "little"))',
-] }
-
 [workspace.lints.clippy]
 alloc_instead_of_core = "warn"
 allow_attributes = "warn"
@@ -58,10 +43,26 @@ tabs_in_doc_comments = "allow"
 undocumented_unsafe_blocks = "warn"
 use_self = "warn"
 wildcard_imports = "allow"
+
 # TODO: remove
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 too_many_lines = "allow"
+
+[workspace.lints.rust]
+linker_messages = "warn"
+unexpected_cfgs = { level = "allow", check-cfg = [
+	'cfg(js_sys_target_feature, values("sab", "unstable-rab"))',
+	'cfg(js_sys_assume_endianness, values("big", "little"))',
+] }
+
+[[example]]
+crate-type = ["cdylib"]
+name = "basic"
+
+[dev-dependencies]
+mini-alloc = { workspace = true }
+web-sys = { workspace = true }
 
 [lints]
 workspace = true

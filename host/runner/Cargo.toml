@@ -1,10 +1,10 @@
 [package]
-edition = { workspace = true }
-include = { workspace = true }
-license = { workspace = true }
 name = "js-bindgen-runner"
-rust-version = "1.93"
 version = "0.1.0"
+edition = { workspace = true }
+rust-version = "1.93"
+license = { workspace = true }
+include = { workspace = true }
 
 [[bin]]
 bench = false

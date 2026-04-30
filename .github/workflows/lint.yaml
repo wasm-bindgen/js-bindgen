@@ -156,8 +156,8 @@ jobs:
       - name: Run ESLint
         run: npx eslint
 
-  taplo:
-    name: Taplo Lint
+  tombi:
+    name: Tombi Lint
 
     runs-on: ubuntu-slim
 
@@ -168,12 +168,10 @@ jobs:
         uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Install Taplo
-        uses: taiki-e/install-action@v2
-        with:
-          tool: taplo
-      - name: Taplo Lint
-        run: taplo lint --default-schema-catalogs
+      - name: Install Tombi
+        run: npm install -g tombi
+      - name: Tombi Lint
+        run: tombi lint --error-on-warnings
 
   zizmor:
     name: Zizmor

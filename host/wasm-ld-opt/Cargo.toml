@@ -1,7 +1,7 @@
 [package]
+name = "wasm-ld-opt"
 edition = { workspace = true }
 license = { workspace = true }
-name = "wasm-ld-opt"
 publish = false
 
 [[bin]]

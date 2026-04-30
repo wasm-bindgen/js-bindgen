@@ -1,5 +1,5 @@
 [workspace]
-default-members = ["dev"]
+resolver = "3"
 members = [
 	"cargo-js-sys",
 	"cargo-shim",
@@ -17,28 +17,28 @@ members = [
 	"wasm-ld-opt",
 	"web-driver",
 ]
-resolver = "3"
+default-members = ["dev"]
 
 [workspace.package]
 edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
 include = [
+	"!/src/**/tests/**",
+	"/Cargo.toml",
 	"/LICENSE-APACHE",
 	"/LICENSE-MIT",
-	"/Cargo.toml",
-	"/src/**/*.rs",
-	"!/src/**/tests/**",
 	"/src/**/*.html",
 	"/src/**/*.mjs",
+	"/src/**/*.rs",
 ]
-license = "MIT OR Apache-2.0"
-rust-version = "1.85"
 
 [workspace.dependencies]
 annotate-snippets = { version = "0.12", default-features = false }
 anstyle = { version = "1", default-features = false }
 anyhow = "1"
 argfile = { version = "1", features = ["response"] }
-axum = { version = "0.8", default-features = false, features = ["tokio", "json", "http1", "http2"] }
+axum = { version = "0.8", default-features = false, features = ["http1", "http2", "json", "tokio"] }
 cargo_metadata = "0.23"
 clap = { version = "4", features = ["derive"] }
 clap-cargo = { version = "0.18", features = ["cargo_metadata"] }
@@ -81,15 +81,6 @@ weedle2 = "5"
 windows-sys = "0.61"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 
-[patch.crates-io]
-prettyplease = { git = "https://github.com/daxpedda/prettyplease", branch = "js-bindgen" }
-# Proc-macro bug: https://github.com/oli-obk/ui_test/issues/361.
-ui_test = { git = "https://github.com/daxpedda/ui_test", branch = "js-bindgen" }
-
-[workspace.lints.rust]
-linker_messages = "warn"
-unexpected_cfgs = { level = "allow", check-cfg = ['cfg(coverage_nightly)'] }
-
 [workspace.lints.clippy]
 alloc_instead_of_core = "warn"
 allow_attributes = "warn"
@@ -101,7 +92,17 @@ tabs_in_doc_comments = "allow"
 undocumented_unsafe_blocks = "warn"
 use_self = "warn"
 wildcard_imports = "allow"
+
 # TODO: remove
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 too_many_lines = "allow"
+
+[workspace.lints.rust]
+linker_messages = "warn"
+unexpected_cfgs = { level = "allow", check-cfg = ["cfg(coverage_nightly)"] }
+
+[patch.crates-io]
+prettyplease = { git = "https://github.com/daxpedda/prettyplease", branch = "js-bindgen" }
+# Proc-macro bug: https://github.com/oli-obk/ui_test/issues/361.
+ui_test = { git = "https://github.com/daxpedda/ui_test", branch = "js-bindgen" }

@@ -82,10 +82,10 @@ impl Host {
 							command.args(["+nightly", "fmt"]);
 							duration += command::run("Rustfmt", command, verbose)?;
 						}
-						FmtTool::Taplo => {
-							let mut command = Command::new("taplo");
-							command.arg("fmt");
-							duration += command::run("Taplo Fmt", command, verbose)?;
+						FmtTool::Tombi => {
+							let mut command = Command::new("tombi");
+							command.args(["fmt", "."]);
+							duration += command::run("Tombi Fmt", command, verbose)?;
 						}
 						FmtTool::Prettier => {
 							let mut command = Command::new("prettier");

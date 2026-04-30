@@ -123,10 +123,10 @@ impl Client {
 							command.current_dir("../client").args(["+nightly", "fmt"]);
 							duration += command::run("Rustfmt", command, verbose)?;
 						}
-						FmtTool::Taplo => {
-							let mut command = Command::new("taplo");
-							command.current_dir("../client").arg("fmt");
-							duration += command::run("Taplo Format", command, verbose)?;
+						FmtTool::Tombi => {
+							let mut command = Command::new("tombi");
+							command.current_dir("../client").args(["format", "."]);
+							duration += command::run("Tombi Format", command, verbose)?;
 						}
 						FmtTool::Prettier => {
 							let mut command = Command::new("prettier");
