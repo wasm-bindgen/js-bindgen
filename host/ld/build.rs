@@ -39,16 +39,19 @@ fn search_dir(dir: &Path, mut any: bool) -> bool {
 			println!("cargo::rerun-if-changed={}", path.display());
 
 			if !any {
-				let ts_mtime = fs::metadata(&path).unwrap().modified().unwrap();
 				let js = path.with_extension("").with_extension("mjs");
-				let js_mtime = match fs::metadata(js) {
-					Ok(meta) => Some(meta.modified().unwrap()),
-					Err(error) if error.kind() == ErrorKind::NotFound => None,
-					Err(error) => panic::panic_any(error),
-				};
 
-				if js_mtime.is_none_or(|js_mtime| js_mtime < ts_mtime) {
-					any = true;
+				match fs::metadata(js) {
+					Ok(meta) => {
+						let js_mtime = meta.modified().unwrap();
+						let ts_mtime = fs::metadata(&path).unwrap().modified().unwrap();
+
+						if js_mtime < ts_mtime {
+							any = true;
+						}
+					}
+					Err(error) if error.kind() == ErrorKind::NotFound => any = true,
+					Err(error) => panic::panic_any(error),
 				}
 			}
 		} else if path.is_dir() {

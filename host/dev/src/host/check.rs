@@ -1,3 +1,6 @@
+use std::fs;
+use std::io::ErrorKind;
+use std::path::Path;
 use std::process::Command;
 use std::time::{Duration, Instant};
 
@@ -115,19 +118,48 @@ impl Check {
 	}
 
 	fn tsc(package: &str, path: &str, verbose: bool) -> Result<()> {
+		Self::npm(package, path, verbose)?;
+
 		let mut command = Command::new("tsc");
 		command.current_dir(path).arg("-b").arg("--noEmit");
-
 		command::run(&format!("TSC `{package}`"), command, verbose)?;
 
 		Ok(())
 	}
 
 	fn eslint(package: &str, path: &str, verbose: bool) -> Result<()> {
+		Self::npm(package, path, verbose)?;
+
 		let mut command = Command::new("npx");
 		command.current_dir(path).arg("eslint");
-
 		command::run(&format!("ESLint `{package}`"), command, verbose)?;
+
+		Ok(())
+	}
+
+	fn npm(package: &str, path: &str, verbose: bool) -> Result<()> {
+		let needs_update = match fs::metadata(Path::new(path).join("package-lock.json")) {
+			Ok(meta) => {
+				let lock_mtime = meta.modified()?;
+				let pkg_mtime = fs::metadata(Path::new(path).join("package.json"))?.modified()?;
+
+				lock_mtime < pkg_mtime
+			}
+			Err(error) if error.kind() == ErrorKind::NotFound => true,
+			Err(error) => return Err(error.into()),
+		};
+
+		if needs_update {
+			let mut command = Command::new("npm");
+			command
+				.current_dir(path)
+				.arg("install")
+				.arg("-s")
+				.arg("--no-audit")
+				.arg("--no-fund");
+
+			command::run(&format!("NPM Install `{package}`"), command, verbose)?;
+		}
 
 		Ok(())
 	}

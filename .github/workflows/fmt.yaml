@@ -57,7 +57,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Tombi
-        run: npm install -g tombi
+        run: npm install -g tombi --no-audit --no-fund
       - name: Tombi Format
         run: tombi format --check --diff
 
@@ -74,6 +74,6 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Prettier
-        run: npm install -g prettier
+        run: npm install -g prettier --no-audit --no-fund
       - name: Prettier
         run: prettier . -c

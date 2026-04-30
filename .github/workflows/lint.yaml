@@ -120,7 +120,7 @@ jobs:
       - name: NPM Install
         run: npm install --no-audit --no-fund
       - name: Install TSC
-        run: npm install -g typescript
+        run: npm install -g typescript --no-audit --no-fund
       - name: Run TSC
         run: tsc -b
       - name: Check for Changes
@@ -169,7 +169,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Tombi
-        run: npm install -g tombi
+        run: npm install -g tombi --no-audit --no-fund
       - name: Tombi Lint
         run: tombi lint --error-on-warnings
 
