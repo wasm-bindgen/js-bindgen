@@ -1,0 +1,47 @@
+name: Dependency Submission
+
+on:
+  push:
+    branches: ["main"]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  crates-io:
+    name: Crates.io
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 20
+
+    permissions:
+      id-token: write # Access GitHub Dependency Submission API.
+      contents: write # Access GitHub Dependency Submission API.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Stable Rust Override
+        run: cp .github/rust-toolchain.toml .
+      - name: Install Rust
+        run: rustup install --no-update
+      - name: Generate Client Lockfile
+        working-directory: client
+        run: cargo generate-lockfile
+      - name: Generate Host Lockfile
+        working-directory: host
+        run: cargo generate-lockfile
+      - name: Component Detection
+        uses: advanced-security/component-detection-dependency-submission-action@v0.1.3
+        with:
+          detectorsCategories: Rust
