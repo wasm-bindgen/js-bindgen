@@ -43,8 +43,8 @@ impl Default for Check {
 impl Check {
 	pub fn all() -> Self {
 		Self {
-			tools: vec![Tools::All],
-			targets: vec![HostTargets::All],
+			tools: Tools::all(),
+			targets: HostTargets::all(),
 		}
 	}
 
@@ -138,23 +138,30 @@ impl Check {
 	}
 
 	fn npm(package: &str, path: &str, verbose: bool) -> Result<()> {
-		let needs_update = match fs::metadata(Path::new(path).join("package-lock.json")) {
-			Ok(meta) => {
+		let needs_install = match fs::metadata(Path::new(path).join("package-lock.json")) {
+			Ok(meta) => 'outer: {
 				let lock_mtime = meta.modified()?;
 				let pkg_mtime = fs::metadata(Path::new(path).join("package.json"))?.modified()?;
 
-				lock_mtime < pkg_mtime
+				if lock_mtime < pkg_mtime {
+					break 'outer true;
+				}
+
+				match fs::metadata(Path::new(path).join("node_modules/.package-lock.json")) {
+					Ok(meta) => meta.modified()? < pkg_mtime,
+					Err(error) if error.kind() == ErrorKind::NotFound => true,
+					Err(error) => return Err(error.into()),
+				}
 			}
 			Err(error) if error.kind() == ErrorKind::NotFound => true,
 			Err(error) => return Err(error.into()),
 		};
 
-		if needs_update {
+		if needs_install {
 			let mut command = Command::new("npm");
 			command
 				.current_dir(path)
 				.arg("install")
-				.arg("-s")
 				.arg("--no-audit")
 				.arg("--no-fund");
 

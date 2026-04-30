@@ -45,3 +45,31 @@ jobs:
           tool: cargo-audit
       - name: Run `cargo audit`
         run: cargo audit
+
+  npm:
+    name: NPM - `${{ matrix.package.name }}`
+
+    runs-on: ubuntu-slim
+
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - { name: js-bindgen-ld, path: host/ld/src/js }
+          - { name: js-bindgen-runner, path: host/runner/src/js }
+
+    defaults:
+      run:
+        working-directory: ${{ matrix.package.path }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Generate Lockfile
+        run: npm install --package-lock-only --no-audit --no-fund
+      - name: Run `npm audit`
+        run: npm audit

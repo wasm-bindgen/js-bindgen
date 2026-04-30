@@ -45,7 +45,7 @@ impl Test {
 	pub fn all() -> Self {
 		Self {
 			args: ClientArgs::all(),
-			include: vec![Include::All],
+			include: Include::all(),
 			exclude: Vec::new(),
 		}
 	}
@@ -167,6 +167,12 @@ enum Include {
 	All,
 	Engine(Option<Engine>),
 	WebDriver(WebDriver),
+}
+
+impl Include {
+	fn all() -> Vec<Self> {
+		vec![Self::All]
+	}
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]

@@ -42,6 +42,10 @@ macro_rules! enum_with_all {
 				}
 
 				impl $name {
+					$vis fn all() -> Vec<Self> {
+						vec![Self::All]
+					}
+
 					$vis fn default_arg() -> &'static str {
 						static DEFAULT: LazyLock<String> = LazyLock::new(|| {
 							let value = $name::default().to_possible_value().unwrap();
@@ -53,7 +57,7 @@ macro_rules! enum_with_all {
 				}
 
 				impl $type {
-					fn [<from_ $opt>](cli: Vec<$name>) -> Result<Vec<Self>> {
+					$vis fn [<from_ $opt>](cli: Vec<$name>) -> Result<Vec<Self>> {
 						if let [$name::All] = cli.as_slice() {
 							return Ok(Self::iter().collect());
 						}

@@ -44,7 +44,7 @@ impl Check {
 	pub fn all() -> Self {
 		Self {
 			args: ClientArgs::all(),
-			tools: vec![Tools::All],
+			tools: Tools::all(),
 		}
 	}
 

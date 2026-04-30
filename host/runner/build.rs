@@ -15,14 +15,22 @@ fn main() {
 
 	if search_dir(&env::current_dir().unwrap().join("src/js"), false) {
 		let needs_update = match fs::metadata("src/js/package-lock.json") {
-			Ok(meta) => {
+			Ok(meta) => 'outer: {
 				let lock_mtime = meta.modified().unwrap();
 				let pkg_mtime = fs::metadata("src/js/package.json")
 					.unwrap()
 					.modified()
 					.unwrap();
 
-				lock_mtime < pkg_mtime
+				if lock_mtime < pkg_mtime {
+					break 'outer true;
+				}
+
+				match fs::metadata("src/js/node_modules/.package-lock.json") {
+					Ok(meta) => meta.modified().unwrap() < pkg_mtime,
+					Err(error) if error.kind() == ErrorKind::NotFound => true,
+					Err(error) => panic::panic_any(error),
+				}
 			}
 			Err(error) if error.kind() == ErrorKind::NotFound => true,
 			Err(error) => panic::panic_any(error),

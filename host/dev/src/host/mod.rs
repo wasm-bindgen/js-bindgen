@@ -1,3 +1,4 @@
+mod audit;
 mod build;
 mod check;
 mod metadata;
@@ -10,6 +11,7 @@ use anyhow::Result;
 use clap::{Subcommand, ValueEnum};
 use strum::{Display, EnumIter};
 
+pub use self::audit::{Audit, AuditTool, AuditTools};
 use self::build::Build;
 use self::check::Check;
 use crate::{FmtTool, FmtTools, command};
@@ -29,7 +31,7 @@ pub enum Host {
 	Build(Build),
 	Check(Check),
 	Test,
-	Audit,
+	Audit(Audit),
 }
 
 impl Host {
@@ -103,16 +105,7 @@ impl Host {
 			Self::Build(build) => build.execute(verbose),
 			Self::Check(check) => check.execute(verbose),
 			Self::Test => test::run(verbose),
-			Self::Audit => {
-				let mut command = Command::new("cargo");
-				command.arg("audit");
-				let duration = command::run("RustSec", command, verbose)?;
-
-				println!("-------------------------");
-				println!("Total Time: {:.2}s", duration.as_secs_f32());
-
-				Ok(())
-			}
+			Self::Audit(audit) => audit.execute(verbose),
 		}
 	}
 }

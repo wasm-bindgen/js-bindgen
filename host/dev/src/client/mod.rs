@@ -184,8 +184,8 @@ impl Default for ClientArgs {
 impl ClientArgs {
 	fn all() -> Self {
 		Self {
-			targets: vec![Targets::All],
-			target_features: vec![TargetFeatures::All],
+			targets: Targets::all(),
+			target_features: TargetFeatures::all(),
 			nightly_toolchain: String::from("nightly"),
 		}
 	}

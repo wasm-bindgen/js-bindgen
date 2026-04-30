@@ -12,8 +12,8 @@ use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use strum::EnumIter;
 
-use crate::client::Client;
-use crate::host::Host;
+use self::client::Client;
+use self::host::{Audit, AuditTool, AuditTools, Host};
 
 #[derive(Parser)]
 struct Cli {
@@ -45,7 +45,10 @@ enum CliCommand {
 		#[arg(long)]
 		all: bool,
 	},
-	Audit,
+	Audit {
+		#[arg(long, value_delimiter = ',', default_value = AuditTools::default_arg())]
+		tools: Vec<AuditTools>,
+	},
 	Client {
 		#[command(subcommand)]
 		client: Client,
@@ -87,7 +90,12 @@ impl CliCommand {
 				Self::Test { all }.execute(verbose)?;
 				println!("-------------------------");
 				println!();
-				Self::Audit.execute(verbose)?;
+				let tools = if all {
+					AuditTools::all()
+				} else {
+					vec![AuditTools::default()]
+				};
+				Self::Audit { tools }.execute(verbose)?;
 
 				Ok(())
 			}
@@ -150,11 +158,14 @@ impl CliCommand {
 
 				Ok(())
 			}
-			Self::Audit => {
-				Client::Audit.execute(verbose)?;
-				println!("-------------------------");
-				println!();
-				Host::Audit.execute(verbose)?;
+			Self::Audit { tools } => {
+				if AuditTool::from_tools(tools.clone())?.contains(&AuditTool::default()) {
+					Client::Audit.execute(verbose)?;
+					println!("-------------------------");
+					println!();
+				}
+
+				Host::Audit(Audit::new(tools)).execute(verbose)?;
 
 				Ok(())
 			}
@@ -172,10 +183,4 @@ enum FmtTool {
 	Rustfmt,
 	Tombi,
 	Prettier,
-}
-
-impl FmtTools {
-	fn all() -> Vec<Self> {
-		vec![Self::All]
-	}
 }

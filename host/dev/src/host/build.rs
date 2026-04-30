@@ -25,7 +25,7 @@ impl Build {
 
 	pub fn all() -> Self {
 		Self {
-			targets: vec![HostTargets::All],
+			targets: HostTargets::all(),
 		}
 	}
 
