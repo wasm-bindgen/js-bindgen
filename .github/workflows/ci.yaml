@@ -157,7 +157,7 @@ jobs:
         if: matrix.target.install
         run: rustup target add ${{ matrix.target.target }}
       - name: Install LLVM
-        uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
+        uses: ZhongRuoyu/setup-llvm@171bf5d7f40598502efb6fecdad489f62b38b230
         with:
           # Rustc v1.95
           llvm-version: 22
@@ -302,7 +302,7 @@ jobs:
         if: matrix.target.install
         run: rustup target add ${{ matrix.target.target }}
       - name: Install LLVM
-        uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
+        uses: ZhongRuoyu/setup-llvm@171bf5d7f40598502efb6fecdad489f62b38b230
         with:
           # Rustc v1.95
           llvm-version: 22
@@ -508,7 +508,7 @@ jobs:
       - name: Install Rust Wasm Target
         run: rustup target add wasm32-unknown-unknown
       - name: Install LLVM
-        uses: ZhongRuoyu/setup-llvm@ec41d6e5f3c15c96fa642a49c6e7effac6261778
+        uses: ZhongRuoyu/setup-llvm@171bf5d7f40598502efb6fecdad489f62b38b230
         with:
           # Rustc v1.95
           llvm-version: 22
