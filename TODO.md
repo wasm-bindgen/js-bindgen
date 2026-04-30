@@ -1,20 +1,20 @@
 # Critical Priority
 
-- Replace `clang` with `wasm-tools`. See [bytecodealliance/wasm-tools#2405].
+- Replace `clang` with `wasm-tools`. See [`bytecodealliance/wasm-tools#2405`].
 - Compatibility with `wasm-bindgen`.
 - Do we agree with the new name `js-bindgen`? Maybe `web-bindgen` is the most accurate?
 - `#[js_sys]` is probably also not the ideal name.
 - Stub implementation for non-supported targets.
 - Add ourselves to the tool-conventions tool list.
 
-[bytecodealliance/wasm-tools#2405]: https://github.com/bytecodealliance/wasm-tools/issues/2405
+[`bytecodealliance/wasm-tools#2405`]: https://github.com/bytecodealliance/wasm-tools/issues/2405
 
 # High Priority
 
 - Test Runner:
   - Consider moving environment variables to CLI arguments.
   - Lint and format TS files and minimize JS files.
-  - Add support for `--test-threads` and multithread tests where possible for `panic = "abort"`.
+  - Add support for `--test-threads` and multi-threaded tests where possible for `panic = "abort"`.
   - Add support for `panic = "unwind"`.
   - Add support for `--force-run-in-process`.
   - Add support for `--skip`, `--quiet`, `--show-output`, `--color` and `--format pretty`.
@@ -22,7 +22,7 @@
     especially carefully.
   - Design a way to let users set the default driver, overwrite and whitelist drivers globally or
     for specific tests.
-  - Add multithread support when running with `target_feature = "atomics"` where possible.
+  - Add multi-threading support when running with `target_feature = "atomics"` where possible.
   - Crate feature to switch to `native-tls`.
   - Add environment variable to set driver startup timeout.
   - Properly emit errors when WebDrivers fail between startup and finish. Make sure we don't wait
@@ -63,7 +63,7 @@
 - Version all names to make packages compatible with other versions of itself.
 - Embed crate version to make linker capable of detecting unsupported versions.
 - We still need to look into what happens with old files. We might need to delete them ourselves.
-- Evaluate the output directory of our ASM objet files. Some ideas:
+- Evaluate the output directory of our ASM object files. Some ideas:
   - Store them next to the output file.
   - Pass an environment variable from a `build.rs` pointing to the target directory and go from
     there. This seems to have failed. No build script instruction can reach the linker on Wasm.
@@ -104,47 +104,48 @@ This is a list of upstream issues that could make our lives significantly easier
 
 - LLVM v22 delivers support for the GC proposal, with which we can implement the `externref` table
   much more efficiently.
-- LLVM has incomplete GC support for our needs: [llvm/llvm-project#136594].
-- Stable `asm!` support for Wasm: [rust-lang/rust#136382].
-- `asm!` support with target features: [rust-lang/rust#113221]
-- Verbatim `asm!` parameters: [rust-lang/rust#132083].
+- LLVM has incomplete GC support for our needs: [`llvm/llvm-project#136594`].
+- Stable `asm!` support for Wasm: [`rust-lang/rust#136382`].
+- `asm!` support with target features: [`rust-lang/rust#113221`]
+- Verbatim `asm!` parameters: [`rust-lang/rust#132083`].
 - Better stable proc-macro support:
-  - `quote!`: [rust-lang/rust#54722].
-  - Diagnostics: [rust-lang/rust#54140].
-  - Execution in non-proc-macro crates: [rust-lang/rust#130856].
-- Elevate `wasm64-unknown-unknown` to tier 2: [rust-lang/rust#146944].
-- A way to flag proc-macros as `unsafe`: [rust-lang/rfcs#3715].
-- Link internal functions without exporting them: [rust-lang/rust#29603] or [rust-lang/rfcs#3834].
-- Our linker warnings should show up for users: [rust-lang/rust#136096].
+  - `quote!`: [`rust-lang/rust#54722`].
+  - Diagnostics: [`rust-lang/rust#54140`].
+  - Execution in non-proc-macro crates: [`rust-lang/rust#130856`].
+- Elevate `wasm64-unknown-unknown` to tier 2: [`rust-lang/rust#146944`].
+- A way to flag proc-macros as `unsafe`: [`rust-lang/rfcs#3715`].
+- Link internal functions without exporting them: [`rust-lang/rust#29603`] or
+  [`rust-lang/rfcs#3834`].
+- Our linker warnings should show up for users: [`rust-lang/rust#136096`].
 - `TextDe/Encoder` could support `SharedArrayBuffer`s:
   - [Chrome Bug](https://issues.chromium.org/issues/40102463)
   - [Firefox Bug](https://bugzilla.mozilla.org/show_bug.cgi?id=1561594)
-- `TextDe/Encoder` could support resizable buffers: [whatwg/encoding#344].
-- `wasm-encoder` `io::Write` support: [bytecodealliance/wasm-tools#778]
-- Improved test coverage data merging: [llvm/llvm-project#121194]
-- Cargo support for local development pre-processing: [rust-lang/cargo#12552] or
-  [rust-lang/cargo#4511]
+- `TextDe/Encoder` could support resizable buffers: [`whatwg/encoding#344`].
+- `wasm-encoder` `io::Write` support: [`bytecodealliance/wasm-tools#778`]
+- Improved test coverage data merging: [`llvm/llvm-project#121194`]
+- Cargo support for local development pre-processing: [`rust-lang/cargo#12552`] or
+  [`rust-lang/cargo#4511`]
 - Rust has an issue with duplicate symbols during tests. E.g. this prevents us from having unit
-  tests in `js-sys`. [rust-lang/rust#145616]
+  tests in `js-sys`. [`rust-lang/rust#145616`]
 - Currently `cargo metadata` doesn't list `build-std` dependencies. This is an issue for caching in
-  the CI, significantly increasing our build and test times. [rust-lang/wg-cargo-std-aware#20]
+  the CI, significantly increasing our build and test times. [`rust-lang/wg-cargo-std-aware#20`]
 
-[llvm/llvm-project#136594]: https://github.com/llvm/llvm-project/issues/136594
-[rust-lang/rust#136382]: https://github.com/rust-lang/rust/issues/136382
-[rust-lang/rust#113221]: https://github.com/rust-lang/rust/issues/113221
-[rust-lang/rust#132083]: https://github.com/rust-lang/rust/issues/132083
-[rust-lang/rust#54722]: https://github.com/rust-lang/rust/issues/54722
-[rust-lang/rust#54140]: https://github.com/rust-lang/rust/issues/54140
-[rust-lang/rust#130856]: https://github.com/rust-lang/rust/issues/130856
-[rust-lang/rust#146944]: https://github.com/rust-lang/rust/issues/146944
-[rust-lang/rfcs#3715]: https://github.com/rust-lang/rfcs/pull/3715
-[rust-lang/rust#29603]: https://github.com/rust-lang/rust/issues/29603
-[rust-lang/rfcs#3834]: https://github.com/rust-lang/rfcs/pull/3834
-[rust-lang/rust#136096]: https://github.com/rust-lang/rust/issues/136096
-[whatwg/encoding#344]: https://github.com/whatwg/encoding/issues/344
-[bytecodealliance/wasm-tools#778]: https://github.com/bytecodealliance/wasm-tools/issues/778
-[llvm/llvm-project#121194]: https://github.com/llvm/llvm-project/pull/121194
-[rust-lang/cargo#12552]: https://github.com/rust-lang/cargo/issues/12552
-[rust-lang/cargo#4511]: https://github.com/rust-lang/cargo/issues/4511
-[rust-lang/rust#145616]: https://github.com/rust-lang/rust/issues/145616
-[rust-lang/wg-cargo-std-aware#20]: https://github.com/rust-lang/wg-cargo-std-aware/issues/20
+[`llvm/llvm-project#136594`]: https://github.com/llvm/llvm-project/issues/136594
+[`rust-lang/rust#136382`]: https://github.com/rust-lang/rust/issues/136382
+[`rust-lang/rust#113221`]: https://github.com/rust-lang/rust/issues/113221
+[`rust-lang/rust#132083`]: https://github.com/rust-lang/rust/issues/132083
+[`rust-lang/rust#54722`]: https://github.com/rust-lang/rust/issues/54722
+[`rust-lang/rust#54140`]: https://github.com/rust-lang/rust/issues/54140
+[`rust-lang/rust#130856`]: https://github.com/rust-lang/rust/issues/130856
+[`rust-lang/rust#146944`]: https://github.com/rust-lang/rust/issues/146944
+[`rust-lang/rfcs#3715`]: https://github.com/rust-lang/rfcs/pull/3715
+[`rust-lang/rust#29603`]: https://github.com/rust-lang/rust/issues/29603
+[`rust-lang/rfcs#3834`]: https://github.com/rust-lang/rfcs/pull/3834
+[`rust-lang/rust#136096`]: https://github.com/rust-lang/rust/issues/136096
+[`whatwg/encoding#344`]: https://github.com/whatwg/encoding/issues/344
+[`bytecodealliance/wasm-tools#778`]: https://github.com/bytecodealliance/wasm-tools/issues/778
+[`llvm/llvm-project#121194`]: https://github.com/llvm/llvm-project/pull/121194
+[`rust-lang/cargo#12552`]: https://github.com/rust-lang/cargo/issues/12552
+[`rust-lang/cargo#4511`]: https://github.com/rust-lang/cargo/issues/4511
+[`rust-lang/rust#145616`]: https://github.com/rust-lang/rust/issues/145616
+[`rust-lang/wg-cargo-std-aware#20`]: https://github.com/rust-lang/wg-cargo-std-aware/issues/20

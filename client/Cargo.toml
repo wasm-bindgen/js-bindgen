@@ -56,6 +56,9 @@ unexpected_cfgs = { level = "allow", check-cfg = [
 	'cfg(js_sys_assume_endianness, values("big", "little"))',
 ] }
 
+[workspace.metadata.spellcheck]
+config = "../.config/spellcheck.toml"
+
 [[example]]
 crate-type = ["cdylib"]
 name = "basic"

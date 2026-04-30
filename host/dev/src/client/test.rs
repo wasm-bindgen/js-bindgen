@@ -124,7 +124,7 @@ impl Test {
 		for permutation in Permutation::iter(&targets, &target_features, true) {
 			let mut built = false;
 
-			for test_run in TestRun::from_permuation(&permutation, &runners) {
+			for test_run in TestRun::from_permutation(&permutation, &runners) {
 				if !built {
 					let mut command =
 						util::cargo(&permutation, &self.args.nightly_toolchain, "test");
@@ -417,7 +417,7 @@ struct TestRun {
 }
 
 impl TestRun {
-	fn from_permuation(
+	fn from_permutation(
 		permutation: &Permutation,
 		runners: &[Runner],
 	) -> impl Iterator<Item = Self> {

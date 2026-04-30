@@ -102,6 +102,9 @@ too_many_lines = "allow"
 linker_messages = "warn"
 unexpected_cfgs = { level = "allow", check-cfg = ["cfg(coverage_nightly)"] }
 
+[workspace.metadata.spellcheck]
+config = "../.config/spellcheck.toml"
+
 [patch.crates-io]
 prettyplease = { git = "https://github.com/daxpedda/prettyplease", branch = "js-bindgen" }
 # Proc-macro bug: https://github.com/oli-obk/ui_test/issues/361.

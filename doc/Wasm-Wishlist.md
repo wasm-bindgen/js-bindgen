@@ -60,7 +60,7 @@ of this solution.
 
 At this point we can show off how an already existing Wasm proposal can solve this problem for us:
 the [JS Primitive Builtins Proposal]. Now we can simply expect `externref` and the user can
-_cheaply_ do the conversion in Wasm themselves without having to cross the Wasm<->JS boundary.
+_cheaply_ do the conversion in Wasm themselves without having to cross the Wasm <-> JS boundary.
 
 In addition this has the advantage of not requiring the user to choose between language native types
 and Wasm types. E.g. by expecting `u32` in Rust, we force the user to potentially convert existing

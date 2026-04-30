@@ -19,10 +19,10 @@ pub fn assembly_to_object(arch_str: &str, assembly: &str) -> Result<Vec<u8>, Err
 		.arg("-mreference-types")
 		.arg("-mcall-indirect-overlong")
 		.arg("-c")
-		// from stdin
+		// from Stdin
 		.arg("-")
 		.arg("-o")
-		// to stdout
+		// to Stdout
 		.arg("-")
 		.stdout(Stdio::piped())
 		.stderr(Stdio::piped())

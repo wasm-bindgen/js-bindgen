@@ -105,9 +105,9 @@ impl Serialize for TestAttr {
 }
 
 impl TestAttr {
-	/// - None:        `[0]`
-	/// - Present:     `[1]`
-	/// - WithText(s): `[2][len(s)][s]`
+	/// - `None`:        `[0]`
+	/// - `Present`:     `[1]`
+	/// - `WithText(s)`: `[2][len(s)][s]`
 	fn parse(data: &mut &[u8]) -> Result<Self> {
 		let value = match data
 			.split_off_first()
