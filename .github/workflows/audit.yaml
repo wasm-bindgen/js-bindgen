@@ -24,8 +24,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      issues: write # To create Security Advisory issues.
-      checks: write # To create blocking CI check.
+      security-events: write # To create Security Advisories.
 
     timeout-minutes: 20
 
