@@ -1,0 +1,10 @@
+dev_comments = true
+
+[Hunspell]
+extra_dictionaries = ["topic.dic"]
+search_dirs = ["."]
+skip_os_lookups = true
+use_builtin = true
+
+[Hunspell.quirks]
+transform_regex = ["^v[0-9]+$", "^https://[^ ]+$"]

@@ -1,5 +1,6 @@
 #[macro_use]
 mod util;
+mod check;
 mod client;
 mod command;
 mod features;
@@ -12,6 +13,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use strum::EnumIter;
 
+use self::check::Check;
 use self::client::Client;
 use self::host::Host;
 
@@ -37,10 +39,7 @@ enum CliCommand {
 		#[arg(long)]
 		all: bool,
 	},
-	Check {
-		#[arg(long)]
-		all: bool,
-	},
+	Check(Check),
 	Test {
 		#[arg(long)]
 		all: bool,
@@ -80,7 +79,8 @@ impl CliCommand {
 				Self::Build { all }.execute(verbose)?;
 				println!("-------------------------");
 				println!();
-				Self::Check { all }.execute(verbose)?;
+				let check = if all { Check::all() } else { Check::default() };
+				Self::Check(check).execute(verbose)?;
 				println!("-------------------------");
 				println!();
 				Self::Test { all }.execute(verbose)?;
@@ -130,14 +130,7 @@ impl CliCommand {
 
 				Ok(())
 			}
-			Self::Check { all } => {
-				Client::check(all).execute(verbose)?;
-				println!("-------------------------");
-				println!();
-				Host::check(all).execute(verbose)?;
-
-				Ok(())
-			}
+			Self::Check(check) => check.execute(verbose),
 			Self::Test { all } => {
 				Client::test(all).execute(verbose)?;
 				println!("-------------------------");

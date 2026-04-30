@@ -1,12 +1,17 @@
 use std::env;
+use std::iter::Copied;
 use std::process::Command;
+use std::slice::Iter;
+use std::sync::LazyLock;
 use std::time::Instant;
 
 use anyhow::Result;
+use clap::builder::PossibleValue;
 use clap::{Args, ValueEnum};
-use strum::EnumIter;
+use strum::{EnumIter, IntoEnumIterator};
 
 use super::{ClientArgs, metadata};
+use crate::check::CheckTool;
 use crate::command::{self, CargoCommand};
 
 #[derive(Args)]
@@ -19,13 +24,15 @@ pub struct Check {
 
 enum_with_all!(pub enum Tools, Tool(Tool), "tools");
 
-#[derive(Clone, Copy, Default, EnumIter, Eq, PartialEq, ValueEnum)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub enum Tool {
-	#[default]
-	Clippy,
+	Shared(CheckTool),
+	Client(ClientTool),
+}
+
+#[derive(Clone, Copy, EnumIter, Eq, PartialEq, ValueEnum)]
+pub enum ClientTool {
 	CargoJsSys,
-	RustSec,
-	Tombi,
 }
 
 impl Default for Check {
@@ -42,20 +49,13 @@ impl Check {
 		Self { args, tools }
 	}
 
-	pub fn all() -> Self {
-		Self {
-			args: ClientArgs::all(),
-			tools: Tools::all(),
-		}
-	}
-
 	pub fn execute(self, verbose: bool) -> Result<()> {
 		let tools = Tool::from_tools(self.tools)?;
 		let start = Instant::now();
 
 		for tool in tools {
 			match tool {
-				Tool::Clippy => {
+				Tool::Shared(CheckTool::Clippy) => {
 					let commands = [
 						CargoCommand {
 							title: "Check",
@@ -78,7 +78,7 @@ impl Check {
 					];
 					metadata::run(self.args.clone(), &commands, verbose)?;
 				}
-				Tool::CargoJsSys => {
+				Tool::Client(ClientTool::CargoJsSys) => {
 					let tools_installed =
 						env::var_os("JBG_DEV_TOOLS").is_some_and(|value| value == "1");
 
@@ -92,17 +92,29 @@ impl Check {
 					Self::cargo_js_sys("js-sys", tools_installed, verbose)?;
 					Self::cargo_js_sys("web-sys", tools_installed, verbose)?;
 				}
-				Tool::RustSec => {
+				Tool::Shared(CheckTool::RustSec) => {
 					let mut command = Command::new("cargo");
 					command.current_dir("../client").arg("audit");
 					command::run("RustSec", command, verbose)?;
 				}
-				Tool::Tombi => {
+				Tool::Shared(CheckTool::Tombi) => {
 					let mut command = Command::new("tombi");
 					command
 						.current_dir("../client")
 						.args(["lint", "--error-on-warnings", "."]);
 					command::run("Tombi Lint", command, verbose)?;
+				}
+				Tool::Shared(CheckTool::CargoSpellcheck) => {
+					let mut command = Command::new("cargo");
+					command
+						.current_dir("../client")
+						.args(["spellcheck", "-m", "1"]);
+					command::run("`cargo-spellcheck`", command, verbose)?;
+				}
+				Tool::Shared(CheckTool::Typos) => {
+					let mut command = Command::new("typos");
+					command.current_dir("../client");
+					command::run("Typos", command, verbose)?;
 				}
 			}
 		}
@@ -134,5 +146,39 @@ impl Check {
 		command::run(&format!("Check `cargo-js-sys` - `{pkg}`"), command, verbose)?;
 
 		Ok(())
+	}
+}
+
+impl Default for Tool {
+	fn default() -> Self {
+		Self::Shared(CheckTool::default())
+	}
+}
+
+impl IntoEnumIterator for Tool {
+	type Iterator = Copied<Iter<'static, Self>>;
+
+	fn iter() -> Self::Iterator {
+		Self::value_variants().iter().copied()
+	}
+}
+
+impl ValueEnum for Tool {
+	fn value_variants<'a>() -> &'a [Self] {
+		static VALUES: LazyLock<Vec<Tool>> = LazyLock::new(|| {
+			CheckTool::iter()
+				.map(Tool::Shared)
+				.chain(ClientTool::iter().map(Tool::Client))
+				.collect()
+		});
+
+		&VALUES
+	}
+
+	fn to_possible_value(&self) -> Option<PossibleValue> {
+		match self {
+			Self::Shared(tool) => tool.to_possible_value(),
+			Self::Client(tool) => tool.to_possible_value(),
+		}
 	}
 }

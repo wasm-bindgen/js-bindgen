@@ -1,0 +1,56 @@
+name: Spellcheck
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  CLICOLOR_FORCE: ""
+
+jobs:
+  cargo-spellcheck:
+    name: "`cargo-spellcheck`"
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install `cargo-spellcheck`
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-spellcheck
+      - name: Run `cargo-spellcheck`
+        run: cargo spellcheck -m 1
+
+  typos:
+    name: Typos
+
+    runs-on: ubuntu-slim
+
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install Typos
+        uses: taiki-e/install-action@v2
+        with:
+          tool: typos-cli
+      - name: Run Typos
+        run: typos

@@ -14,6 +14,7 @@ concurrency:
 env:
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
+  CLICOLOR_FORCE: ""
 
 jobs:
   cargo-shim:

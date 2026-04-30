@@ -14,7 +14,7 @@
 - Test Runner:
   - Consider moving environment variables to CLI arguments.
   - Lint and format TS files and minimize JS files.
-  - Add support for `--test-threads` and multithread tests where possible for `panic = "abort"`.
+  - Add support for `--test-threads` and multi-threaded tests where possible for `panic = "abort"`.
   - Add support for `panic = "unwind"`.
   - Add support for `--force-run-in-process`.
   - Add support for `--skip`, `--quiet`, `--show-output`, `--color` and `--format pretty`.
@@ -22,7 +22,7 @@
     especially carefully.
   - Design a way to let users set the default driver, overwrite and whitelist drivers globally or
     for specific tests.
-  - Add multithread support when running with `target_feature = "atomics"` where possible.
+  - Add multi-threading support when running with `target_feature = "atomics"` where possible.
   - Crate feature to switch to `native-tls`.
   - Add environment variable to set driver startup timeout.
   - Properly emit errors when WebDrivers fail between startup and finish. Make sure we don't wait
@@ -63,7 +63,7 @@
 - Version all names to make packages compatible with other versions of itself.
 - Embed crate version to make linker capable of detecting unsupported versions.
 - We still need to look into what happens with old files. We might need to delete them ourselves.
-- Evaluate the output directory of our ASM objet files. Some ideas:
+- Evaluate the output directory of our ASM object files. Some ideas:
   - Store them next to the output file.
   - Pass an environment variable from a `build.rs` pointing to the target directory and go from
     there. This seems to have failed. No build script instruction can reach the linker on Wasm.

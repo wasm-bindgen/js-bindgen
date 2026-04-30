@@ -37,7 +37,9 @@ pub fn run(title: &str, mut command: Command, verbose: bool) -> Result<Duration>
 
 	let start = Instant::now();
 
-	command.env("CARGO_TERM_COLOR", "always");
+	command
+		.env("CARGO_TERM_COLOR", "always")
+		.env("CLICOLOR_FORCE", "");
 
 	let status = if verbose {
 		command.status()?

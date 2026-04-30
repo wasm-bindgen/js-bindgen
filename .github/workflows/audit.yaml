@@ -14,6 +14,7 @@ concurrency:
 env:
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
+  CLICOLOR_FORCE: ""
 
 jobs:
   rust-sec:
@@ -47,7 +48,7 @@ jobs:
         run: cargo audit
 
   npm:
-    name: NPM - `${{ matrix.package.name }}`
+    name: NPM Audit - `${{ matrix.package.name }}`
 
     runs-on: ubuntu-slim
 

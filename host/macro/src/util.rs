@@ -615,7 +615,10 @@ pub fn expect_ident(
 ) -> Result<Ident, TokenStream> {
 	let i = parse_ident(stream, previous_span, expected)?;
 
-	#[cfg_attr(test, expect(clippy::cmp_owned, reason = "`proc-macro2` compatiblity"))]
+	#[cfg_attr(
+		test,
+		expect(clippy::cmp_owned, reason = "`proc-macro2` compatibility")
+	)]
 	if i.to_string() == ident {
 		Ok(i)
 	} else {

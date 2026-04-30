@@ -18,7 +18,7 @@ use crate::custom_section::CustomSection;
 pub fn unsafe_embed_asm(input: ::proc_macro::TokenStream) -> ::proc_macro::TokenStream {
 	#[cfg_attr(
 		not(test),
-		expect(clippy::useless_conversion, reason = "`proc-macro2` compatiblity")
+		expect(clippy::useless_conversion, reason = "`proc-macro2` compatibility")
 	)]
 	embed_asm_internal(input.into())
 		.unwrap_or_else(|e| e)
@@ -37,7 +37,7 @@ fn embed_asm_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 pub fn embed_js(input: ::proc_macro::TokenStream) -> ::proc_macro::TokenStream {
 	#[cfg_attr(
 		not(test),
-		expect(clippy::useless_conversion, reason = "`proc-macro2` compatiblity")
+		expect(clippy::useless_conversion, reason = "`proc-macro2` compatibility")
 	)]
 	embed_js_internal(input.into()).unwrap_or_else(|e| e).into()
 }
@@ -50,7 +50,7 @@ fn embed_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 pub fn import_js(input: ::proc_macro::TokenStream) -> ::proc_macro::TokenStream {
 	#[cfg_attr(
 		not(test),
-		expect(clippy::useless_conversion, reason = "`proc-macro2` compatiblity")
+		expect(clippy::useless_conversion, reason = "`proc-macro2` compatibility")
 	)]
 	import_js_internal(input.into())
 		.unwrap_or_else(|e| e)
@@ -115,7 +115,10 @@ fn expect_js_path(
 	let ident = parse_ident(&mut stream, Span::mixed_site(), &error)?;
 	let mut span = SpanRange::from(ident.span());
 
-	#[cfg_attr(test, expect(clippy::cmp_owned, reason = "`proc-macro2` compatiblity"))]
+	#[cfg_attr(
+		test,
+		expect(clippy::cmp_owned, reason = "`proc-macro2` compatibility")
+	)]
 	if ident.to_string() != attribute {
 		return Err(compile_error(span, format!("expected `{attribute}`")));
 	}

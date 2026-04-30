@@ -42,6 +42,7 @@ macro_rules! enum_with_all {
 				}
 
 				impl $name {
+					#[allow(clippy::allow_attributes, unused, reason = "not always used")]
 					$vis fn all() -> Vec<Self> {
 						vec![Self::All]
 					}

@@ -1,14 +1,19 @@
 use std::fs;
 use std::io::ErrorKind;
+use std::iter::Copied;
 use std::path::Path;
 use std::process::Command;
+use std::slice::Iter;
+use std::sync::LazyLock;
 use std::time::Instant;
 
 use anyhow::Result;
+use clap::builder::PossibleValue;
 use clap::{Args, ValueEnum};
-use strum::EnumIter;
+use strum::{EnumIter, IntoEnumIterator};
 
 use super::{HostTarget, HostTargets, metadata};
+use crate::check::CheckTool;
 use crate::command::{self, CargoCommand};
 
 #[derive(Args)]
@@ -19,18 +24,19 @@ pub struct Check {
 	targets: Vec<HostTargets>,
 }
 
-enum_with_all!(enum Tools, Tool(Tool), "tools");
+enum_with_all!(pub enum Tools, Tool(Tool), "tools");
 
-#[derive(Clone, Copy, Default, EnumIter, Eq, PartialEq, ValueEnum)]
-enum Tool {
-	#[default]
-	Clippy,
-	RustSec,
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub enum Tool {
+	Shared(CheckTool),
+	Host(HostTool),
+}
+
+#[derive(Clone, Copy, EnumIter, Eq, PartialEq, ValueEnum)]
+pub enum HostTool {
 	NpmAudit,
 	Tsc,
 	EsLint,
-	Tombi,
-	Zizmor,
 }
 
 impl Default for Check {
@@ -43,15 +49,8 @@ impl Default for Check {
 }
 
 impl Check {
-	pub fn all() -> Self {
-		Self {
-			tools: Tools::all(),
-			targets: HostTargets::all(),
-		}
-	}
-
-	pub fn targets(&self) -> &[HostTargets] {
-		&self.targets
+	pub fn new(tools: Vec<Tools>, targets: Vec<HostTargets>) -> Self {
+		Self { tools, targets }
 	}
 
 	pub fn execute(self, verbose: bool) -> Result<()> {
@@ -60,7 +59,7 @@ impl Check {
 
 		for tool in tools {
 			match tool {
-				Tool::Clippy => {
+				Tool::Shared(CheckTool::Clippy) => {
 					let commands = [
 						CargoCommand {
 							title: "Check",
@@ -84,32 +83,35 @@ impl Check {
 					let targets = HostTarget::from_targets(self.targets.clone())?;
 					metadata::run(&commands, &targets, true, verbose)?;
 				}
-				Tool::RustSec => {
+				Tool::Shared(CheckTool::RustSec) => {
 					let mut command = Command::new("cargo");
 					command.arg("audit");
 					command::run("RustSec", command, verbose)?;
 				}
-				Tool::NpmAudit => {
+				Tool::Host(HostTool::NpmAudit) => {
 					Self::npm_lock_file("js-bindgen-ld", "ld/src/js", verbose)?;
 					Self::npm_lock_file("js-bindgen-runner", "runner/src/js", verbose)?;
 				}
-				Tool::Tsc => {
+				Tool::Host(HostTool::Tsc) => {
 					Self::tsc("js-bindgen-ld", "ld/src/js", verbose)?;
 					Self::tsc("js-bindgen-runner", "runner/src/js", verbose)?;
 				}
-				Tool::EsLint => {
+				Tool::Host(HostTool::EsLint) => {
 					Self::eslint("js-bindgen-ld", "ld/src/js", verbose)?;
 					Self::eslint("js-bindgen-runner", "runner/src/js", verbose)?;
 				}
-				Tool::Tombi => {
+				Tool::Shared(CheckTool::Tombi) => {
 					let mut command = Command::new("tombi");
 					command.args(["lint", "--error-on-warnings", "."]);
 					command::run("Tombi Lint", command, verbose)?;
 				}
-				Tool::Zizmor => {
-					let mut command = Command::new("zizmor");
-					command.current_dir("../").args(["--pedantic", "."]);
-					command::run("Zizmor", command, verbose)?;
+				Tool::Shared(CheckTool::CargoSpellcheck) => {
+					let mut command = Command::new("cargo");
+					command.args(["spellcheck", "-m", "1"]);
+					command::run("`cargo-spellcheck`", command, verbose)?;
+				}
+				Tool::Shared(CheckTool::Typos) => {
+					command::run("Typos", Command::new("typos"), verbose)?;
 				}
 			}
 		}
@@ -203,5 +205,39 @@ impl Check {
 		}
 
 		Ok(())
+	}
+}
+
+impl Default for Tool {
+	fn default() -> Self {
+		Self::Shared(CheckTool::default())
+	}
+}
+
+impl IntoEnumIterator for Tool {
+	type Iterator = Copied<Iter<'static, Self>>;
+
+	fn iter() -> Self::Iterator {
+		Self::value_variants().iter().copied()
+	}
+}
+
+impl ValueEnum for Tool {
+	fn value_variants<'a>() -> &'a [Self] {
+		static VALUES: LazyLock<Vec<Tool>> = LazyLock::new(|| {
+			CheckTool::iter()
+				.map(Tool::Shared)
+				.chain(HostTool::iter().map(Tool::Host))
+				.collect()
+		});
+
+		&VALUES
+	}
+
+	fn to_possible_value(&self) -> Option<PossibleValue> {
+		match self {
+			Self::Shared(tool) => tool.to_possible_value(),
+			Self::Host(tool) => tool.to_possible_value(),
+		}
 	}
 }

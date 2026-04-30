@@ -9,7 +9,8 @@ use clap::{Subcommand, ValueEnum};
 use strum::{Display, EnumIter};
 
 use self::build::Build;
-use self::check::Check;
+use self::check::{Check, Tools};
+pub use self::check::{HostTool, Tool};
 use self::fmt::Fmt;
 use crate::FmtTools;
 
@@ -18,8 +19,10 @@ pub enum Host {
 	All {
 		#[arg(long, value_delimiter = ',', default_value = FmtTools::default_arg())]
 		fmt_tools: Vec<FmtTools>,
-		#[command(flatten)]
-		check: Check,
+		#[arg(long, value_delimiter = ',', default_value = Tools::default_arg())]
+		check_tools: Vec<Tools>,
+		#[arg(long, short, default_value = HostTargets::default_arg())]
+		targets: Vec<HostTargets>,
 	},
 	Fmt(Fmt),
 	Build(Build),
@@ -40,24 +43,31 @@ impl Host {
 		}
 	}
 
-	pub fn check(all: bool) -> Self {
-		if all {
-			Self::Check(Check::all())
+	pub fn check(tools: Vec<Tool>, all: bool) -> Self {
+		let targets = if all {
+			HostTargets::all()
 		} else {
-			Self::Check(Check::default())
-		}
+			vec![HostTargets::default()]
+		};
+		let tools = tools.into_iter().map(Tools::Tool).collect();
+
+		Self::Check(Check::new(tools, targets))
 	}
 
 	pub fn execute(self, verbose: bool) -> Result<()> {
 		match self {
-			Self::All { fmt_tools, check } => {
+			Self::All {
+				fmt_tools,
+				check_tools,
+				targets,
+			} => {
 				Self::Fmt(Fmt::new(fmt_tools)).execute(verbose)?;
 				println!("-------------------------");
 				println!();
-				Self::Build(Build::new(check.targets().to_owned())).execute(verbose)?;
+				Self::Build(Build::new(targets.clone())).execute(verbose)?;
 				println!("-------------------------");
 				println!();
-				check.execute(verbose)?;
+				Self::Check(Check::new(check_tools, targets)).execute(verbose)?;
 				println!("-------------------------");
 				println!();
 				Self::Test.execute(verbose)?;

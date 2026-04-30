@@ -13,6 +13,7 @@ use clap::{Args, Subcommand, ValueEnum};
 use strum::EnumIter;
 
 use self::check::{Check, Tools};
+pub use self::check::{ClientTool, Tool};
 use self::fmt::Fmt;
 use self::permutation::Toolchain;
 use self::test::Test;
@@ -66,12 +67,15 @@ impl Client {
 		}
 	}
 
-	pub fn check(all: bool) -> Self {
-		if all {
-			Self::Check(Check::all())
+	pub fn check(tools: Vec<Tool>, all: bool) -> Self {
+		let client_args = if all {
+			ClientArgs::all()
 		} else {
-			Self::Check(Check::default())
-		}
+			ClientArgs::default()
+		};
+		let tools = tools.into_iter().map(Tools::Tool).collect();
+
+		Self::Check(Check::new(client_args, tools))
 	}
 
 	pub fn test(all: bool) -> Self {
