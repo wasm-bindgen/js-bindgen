@@ -36,7 +36,7 @@ impl Type {
 		let output = hygiene.output(&cfgs, span);
 		let output_asm_conv = hygiene.output_asm_conv(&cfgs, span);
 		let output_js_conv = hygiene.output_js_conv(&cfgs, span);
-		let deref = hygiene.deref(&cfgs, span);
+		let as_ref = hygiene.as_ref(span);
 		let str = hygiene.str(span);
 		let from = hygiene.from(span);
 		let option = hygiene.option(span);
@@ -81,10 +81,8 @@ impl Type {
 		let impls = [
 			parse_quote_spanned! {span=>
 				#(#cfgs)*
-				impl #gen_impl #deref for #ident #gen_type #gen_where {
-					type Target = #js_value;
-
-					fn deref(&self) -> &Self::Target {
+				impl #gen_impl #as_ref<#js_value> for #ident #gen_type #gen_where {
+					fn as_ref(&self) -> &#js_value {
 						&self.#value
 					}
 				}

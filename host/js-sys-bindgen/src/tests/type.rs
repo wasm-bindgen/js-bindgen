@@ -19,17 +19,14 @@ fn basic() {
 			#items
 		},
 		{
-			use core::ops::Deref;
 			use js_sys::JsValue;
 			use js_sys::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
 
 			#[repr(transparent)]
 			struct Test(JsValue);
 
-			impl Deref for Test {
-				type Target = JsValue;
-
-				fn deref(&self) -> &Self::Target {
+			impl AsRef<JsValue> for Test {
+				fn as_ref(&self) -> &JsValue {
 					&self.0
 				}
 			}
@@ -92,7 +89,6 @@ fn generic() {
 		},
 		{
 			use core::marker::PhantomData;
-			use core::ops::Deref;
 			use js_sys::JsValue;
 			use js_sys::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
 
@@ -102,10 +98,8 @@ fn generic() {
 				_type: PhantomData<T>,
 			}
 
-			impl<T> Deref for Test<T> {
-				type Target = JsValue;
-
-				fn deref(&self) -> &Self::Target {
+			impl<T> AsRef<JsValue> for Test<T> {
+				fn as_ref(&self) -> &JsValue {
 					&self.value
 				}
 			}

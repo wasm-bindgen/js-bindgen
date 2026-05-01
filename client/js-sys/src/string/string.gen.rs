@@ -2,7 +2,6 @@
 
 #![allow(warnings)]
 
-use core::ops::Deref;
 use crate::{js_bindgen, r#macro, JsValue};
 use crate::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
 use crate::util::{PtrConst, PtrLength, PtrMut};
@@ -11,10 +10,8 @@ use crate::util::{PtrConst, PtrLength, PtrMut};
 #[repr(transparent)]
 pub struct JsString(JsValue);
 
-impl Deref for JsString {
-	type Target = JsValue;
-
-	fn deref(&self) -> &Self::Target {
+impl AsRef<JsValue> for JsString {
+	fn as_ref(&self) -> &JsValue {
 		&self.0
 	}
 }

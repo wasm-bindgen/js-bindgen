@@ -11,10 +11,8 @@ fn basic() {
 			#[repr(transparent)]
 			pub struct JsString(::js_sys::JsValue);
 
-			impl ::core::ops::Deref for JsString {
-				type Target = ::js_sys::JsValue;
-
-				fn deref(&self) -> &Self::Target {
+			impl ::core::convert::AsRef<::js_sys::JsValue> for JsString {
+				fn as_ref(&self) -> &::js_sys::JsValue {
 					&self.0
 				}
 			}
@@ -83,10 +81,8 @@ fn generic() {
 				_type: ::core::marker::PhantomData<T>,
 			}
 
-			impl<T> ::core::ops::Deref for JsString<T> {
-				type Target = ::js_sys::JsValue;
-
-				fn deref(&self) -> &Self::Target {
+			impl<T> ::core::convert::AsRef<::js_sys::JsValue> for JsString<T> {
+				fn as_ref(&self) -> &::js_sys::JsValue {
 					&self.value
 				}
 			}
@@ -161,10 +157,8 @@ fn default() {
 				_type: ::core::marker::PhantomData<T>,
 			}
 
-			impl<T> ::core::ops::Deref for JsString<T> {
-				type Target = ::js_sys::JsValue;
-
-				fn deref(&self) -> &Self::Target {
+			impl<T> ::core::convert::AsRef<::js_sys::JsValue> for JsString<T> {
+				fn as_ref(&self) -> &::js_sys::JsValue {
 					&self.value
 				}
 			}
@@ -239,10 +233,8 @@ fn r#trait() {
 				_type: ::core::marker::PhantomData<T>,
 			}
 
-			impl<T: Sized> ::core::ops::Deref for JsString<T> {
-				type Target = ::js_sys::JsValue;
-
-				fn deref(&self) -> &Self::Target {
+			impl<T: Sized> ::core::convert::AsRef<::js_sys::JsValue> for JsString<T> {
+				fn as_ref(&self) -> &::js_sys::JsValue {
 					&self.value
 				}
 			}

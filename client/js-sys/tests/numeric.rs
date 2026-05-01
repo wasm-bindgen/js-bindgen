@@ -16,11 +16,11 @@ fn bool() {
 	}
 
 	let r#false = bool_input(false);
-	assert_eq!(JsString::new(&r#false), "false");
+	assert_eq!(JsString::new(r#false.as_ref()), "false");
 	assert!(!bool_output(&r#false));
 
 	let r#true = bool_input(true);
-	assert_eq!(JsString::new(&r#true), "true");
+	assert_eq!(JsString::new(r#true.as_ref()), "true");
 	assert!(bool_output(&r#true));
 }
 
@@ -40,7 +40,7 @@ macro_rules! signed {
             internal!($js, $ty);
 
             let null = [<$ty _input>](0);
-			assert_eq!(JsString::new(&null), 0.to_string());
+			assert_eq!(JsString::new(null.as_ref()), 0.to_string());
 			assert_eq!([<$ty _output>](&null), 0);
         }
     })*};
@@ -59,11 +59,11 @@ macro_rules! internal {
 			}
 
 			let min = [<$ty _input>]($ty::MIN);
-			assert_eq!(JsString::new(&min), $ty::MIN.to_string());
+			assert_eq!(JsString::new(min.as_ref()), $ty::MIN.to_string());
 			assert_eq!([<$ty _output>](&min), $ty::MIN);
 
 			let max = [<$ty _input>]($ty::MAX);
-			assert_eq!(JsString::new(&max), $ty::MAX.to_string());
+			assert_eq!(JsString::new(max.as_ref()), $ty::MAX.to_string());
 			assert_eq!([<$ty _output>](&max), $ty::MAX);
 		}
 	};

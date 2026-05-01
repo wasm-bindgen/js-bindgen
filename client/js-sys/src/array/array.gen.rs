@@ -3,7 +3,6 @@
 #![allow(warnings)]
 
 use core::marker::PhantomData;
-use core::ops::Deref;
 use crate::{js_bindgen, r#macro, JsValue};
 use crate::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
 use crate::util::{PtrConst, PtrLength, PtrMut};
@@ -14,10 +13,8 @@ pub struct JsArray<T = JsValue> {
 	_type: PhantomData<T>,
 }
 
-impl<T> Deref for JsArray<T> {
-	type Target = JsValue;
-
-	fn deref(&self) -> &Self::Target {
+impl<T> AsRef<JsValue> for JsArray<T> {
+	fn as_ref(&self) -> &JsValue {
 		&self.value
 	}
 }

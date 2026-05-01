@@ -3,7 +3,6 @@
 #![allow(warnings)]
 
 use core::marker::PhantomData;
-use core::ops::Deref;
 use crate::JsValue;
 use crate::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
 
@@ -13,10 +12,8 @@ pub struct JsNumber<T = f64> {
 	_type: PhantomData<T>,
 }
 
-impl<T> Deref for JsNumber<T> {
-	type Target = JsValue;
-
-	fn deref(&self) -> &Self::Target {
+impl<T> AsRef<JsValue> for JsNumber<T> {
+	fn as_ref(&self) -> &JsValue {
 		&self.value
 	}
 }

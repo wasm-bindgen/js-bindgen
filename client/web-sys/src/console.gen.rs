@@ -6,7 +6,7 @@
 //! # #[js_bindgen_test::test]
 //! # fn doctest() {
 //! let log = js_sys::JsString::from("hello world");
-//! web_sys::console::log(&log);
+//! web_sys::console::log(log.as_ref());
 //! # }
 //! ````
 

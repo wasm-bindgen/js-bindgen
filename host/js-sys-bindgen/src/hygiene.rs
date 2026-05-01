@@ -112,14 +112,13 @@ impl Hygiene<'_> {
 		}
 	}
 
-	pub(crate) fn deref(&mut self, attrs: &[Attribute], span: Span) -> Path {
+	pub(crate) fn as_ref(&mut self, span: Span) -> Path {
 		match self {
-			Hygiene::Imports(imports) => {
-				imports.deref.get_or_insert_with(attrs, <[_]>::to_vec);
-				parse_quote_spanned!(span=> Deref)
+			Hygiene::Imports(_) => {
+				parse_quote_spanned!(span=> AsRef)
 			}
 			Hygiene::Hygiene { .. } => {
-				parse_quote_spanned!(span=> ::core::ops::Deref)
+				parse_quote_spanned!(span=> ::core::convert::AsRef)
 			}
 		}
 	}

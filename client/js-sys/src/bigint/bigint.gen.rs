@@ -2,17 +2,14 @@
 
 #![allow(warnings)]
 
-use core::ops::Deref;
 use crate::JsValue;
 use crate::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
 
 #[repr(transparent)]
 pub struct JsBigInt(JsValue);
 
-impl Deref for JsBigInt {
-	type Target = JsValue;
-
-	fn deref(&self) -> &Self::Target {
+impl AsRef<JsValue> for JsBigInt {
+	fn as_ref(&self) -> &JsValue {
 		&self.0
 	}
 }

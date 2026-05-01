@@ -7,17 +7,14 @@ fn basic() {
 	test!(
 		{ #file },
 		{
-			use core::ops::Deref;
 			use js_sys::JsValue;
 			use js_sys::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
 
 			#[repr(transparent)]
 			struct Test(JsValue);
 
-			impl Deref for Test {
-				type Target = JsValue;
-
-				fn deref(&self) -> &Self::Target {
+			impl AsRef<JsValue> for Test {
+				fn as_ref(&self) -> &JsValue {
 					&self.0
 				}
 			}
