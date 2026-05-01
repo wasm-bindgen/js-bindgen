@@ -125,9 +125,10 @@ impl From<&JsString> for String {
 		);
 
 		let len = string::string_utf8_length(value);
-		debug_assert!(
-			len < 9_007_199_254_740_992.,
-			"found pointer + length bigger than `Number.MAX_SAFE_INTEGER`"
+		#[cfg(target_arch = "wasm32")]
+		assert!(
+			len < f64::from(u32::MAX),
+			"found string length bigger than `usize::MAX`"
 		);
 		#[expect(
 			clippy::cast_possible_truncation,
