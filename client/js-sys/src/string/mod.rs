@@ -9,7 +9,7 @@ use core::fmt::{self, Display, Formatter};
 pub use self::string::JsString;
 use crate::JsValue;
 use crate::hazard::{Input, InputAsmConv, InputJsConv};
-use crate::util::{ExternSlice, PtrLength};
+use crate::util::{ExternSlice, PtrConst, PtrLength, PtrMut};
 
 impl JsString {
 	#[must_use]
@@ -37,7 +37,13 @@ impl PartialEq<&str> for JsString {
 		);
 
 		// SAFETY: Parameters are correct.
-		unsafe { string::string_eq(self, other.as_ptr(), PtrLength::new(other.as_bytes())) }
+		unsafe {
+			string::string_eq(
+				self,
+				PtrConst::new(other.as_bytes()),
+				PtrLength::new(other.as_bytes()),
+			)
+		}
 	}
 }
 
@@ -86,7 +92,12 @@ impl From<&str> for JsString {
 		);
 
 		// SAFETY: Parameters are correct.
-		unsafe { string::string_decode(value.as_ptr(), PtrLength::new(value.as_bytes())) }
+		unsafe {
+			string::string_decode(
+				PtrConst::new(value.as_bytes()),
+				PtrLength::new(value.as_bytes()),
+			)
+		}
 	}
 }
 
@@ -142,7 +153,7 @@ impl From<&JsString> for String {
 		unsafe {
 			string::string_encode(
 				value,
-				vec.as_mut_ptr(),
+				PtrMut::new(&mut vec),
 				PtrLength::from_uninit_slice(vec.spare_capacity_mut()),
 			);
 		}

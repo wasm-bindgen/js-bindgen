@@ -1,4 +1,4 @@
-use crate::util::PtrLength;
+use crate::util::{PtrConst, PtrLength, PtrMut};
 
 #[js_sys]
 extern "js-sys" {
@@ -9,14 +9,18 @@ extern "js-sys" {
 	pub(super) fn string_constructor(value: &JsValue) -> JsString;
 
 	#[js_sys(js_embed = "string.eq")]
-	pub(super) unsafe fn string_eq(string: &JsString, array: *const u8, len: PtrLength<u8>) -> bool;
+	pub(super) unsafe fn string_eq(
+		string: &JsString,
+		array: PtrConst<u8>,
+		len: PtrLength<u8>,
+	) -> bool;
 
 	#[js_sys(js_embed = "string.decode")]
-	pub(super) unsafe fn string_decode(array: *const u8, len: PtrLength<u8>) -> JsString;
+	pub(super) unsafe fn string_decode(array: PtrConst<u8>, len: PtrLength<u8>) -> JsString;
 
 	#[js_sys(js_embed = "string.utf8_length")]
 	pub(super) fn string_utf8_length(string: &JsString) -> f64;
 
 	#[js_sys(js_embed = "string.encode")]
-	pub(super) unsafe fn string_encode(string: &JsString, array: *mut u8, len: PtrLength<u8>);
+	pub(super) unsafe fn string_encode(string: &JsString, array: PtrMut<u8>, len: PtrLength<u8>);
 }

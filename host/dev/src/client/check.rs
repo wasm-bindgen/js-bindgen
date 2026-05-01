@@ -76,7 +76,7 @@ impl Check {
 							envs: &[("RUSTDOCFLAGS", "-D warnings")],
 						},
 					];
-					metadata::run(self.args.clone(), &commands, verbose)?;
+					metadata::run(self.args.clone(), &commands, false, verbose)?;
 				}
 				Tool::Client(ClientTool::CargoJsSys) => {
 					let tools_installed =

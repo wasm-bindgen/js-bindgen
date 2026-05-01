@@ -117,7 +117,7 @@ impl Client {
 					args: &[],
 					envs: &[],
 				};
-				let duration = metadata::run(args, &[command], verbose)?;
+				let duration = metadata::run(args, &[command], true, verbose)?;
 
 				println!("-------------------------");
 				println!("Total Time: {:.2}s", duration.as_secs_f32());

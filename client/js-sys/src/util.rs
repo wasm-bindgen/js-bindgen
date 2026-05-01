@@ -55,7 +55,7 @@ impl<T> ExternValue<T> {
 
 #[repr(C)]
 pub struct ExternSlice<T> {
-	ptr: <*const T as Input>::Type,
+	ptr: PtrConst<T>,
 	len: PtrLength<T>,
 }
 
@@ -71,7 +71,7 @@ impl<T> ExternSlice<T> {
 
 	pub(crate) fn new(value: &[T]) -> Self {
 		Self {
-			ptr: <*const T>::into_raw(value.as_ptr()),
+			ptr: PtrConst::new(value),
 			len: PtrLength::new(value),
 		}
 	}
@@ -80,7 +80,7 @@ impl<T> ExternSlice<T> {
 // Verify that we can access `ExternSlice` via a `TypedArray` with two elements.
 const _: () = {
 	debug_assert!(
-		mem::align_of::<ExternSlice<()>>() == mem::size_of::<<*const () as Input>::Type>()
+		mem::align_of::<ExternSlice<()>>() == mem::size_of::<<PtrConst<()> as Input>::Type>()
 	);
 };
 
@@ -96,9 +96,104 @@ js_bindgen::embed_js!(
 );
 
 #[cfg(target_arch = "wasm32")]
+type AsmUsizeType = u32;
+#[cfg(target_arch = "wasm64")]
+type AsmUsizeType = f64;
+
+#[cfg(target_arch = "wasm32")]
 pub(crate) const ASM_PTR_TYPE: &str = "i32";
 #[cfg(target_arch = "wasm64")]
 pub(crate) const ASM_PTR_TYPE: &str = "i64";
+
+#[repr(transparent)]
+pub(crate) struct PtrConst<T> {
+	ptr: <Self as Input>::Type,
+	_ty: PhantomData<T>,
+}
+
+impl<T> PtrConst<T> {
+	pub(crate) fn new(value: &[T]) -> Self {
+		let ptr = value.as_ptr();
+
+		#[cfg(target_arch = "wasm64")]
+		#[expect(
+			clippy::cast_precision_loss,
+			reason = "can't be larger than `MAX_SAFE_INTEGER`"
+		)]
+		let ptr = ptr.addr() as <Self as Input>::Type;
+
+		Self {
+			ptr,
+			_ty: PhantomData,
+		}
+	}
+}
+
+// SAFETY: Delegated to already implemented types.
+unsafe impl<T> Input for PtrConst<T> {
+	const ASM_TYPE: &str = AsmUsizeType::ASM_TYPE;
+	const ASM_CONV: Option<InputAsmConv> = AsmUsizeType::ASM_CONV;
+	const JS_CONV: Option<InputJsConv> = AsmUsizeType::JS_CONV;
+
+	#[cfg(target_arch = "wasm32")]
+	type Type = *const T;
+	#[cfg(target_arch = "wasm64")]
+	type Type = f64;
+
+	fn into_raw(self) -> Self::Type {
+		self.ptr
+	}
+}
+
+#[repr(transparent)]
+pub(crate) struct PtrMut<T> {
+	ptr: <Self as Input>::Type,
+	_ty: PhantomData<T>,
+}
+
+impl<T> PtrMut<T> {
+	pub(crate) fn new(value: &mut [T]) -> Self {
+		Self::internal(value.as_mut_ptr())
+	}
+
+	pub(crate) fn from_uninit_array<const N: usize>(value: &mut MaybeUninit<[T; N]>) -> Self {
+		Self::internal(value.as_mut_ptr().cast())
+	}
+
+	pub(crate) fn from_uninit_slice(value: &mut [MaybeUninit<T>]) -> Self {
+		Self::internal(value.as_mut_ptr().cast())
+	}
+
+	fn internal(ptr: *mut T) -> Self {
+		#[cfg(target_arch = "wasm64")]
+		#[expect(
+			clippy::cast_precision_loss,
+			reason = "can't be larger than `MAX_SAFE_INTEGER`"
+		)]
+		let ptr = ptr.addr() as <Self as Input>::Type;
+
+		Self {
+			ptr,
+			_ty: PhantomData,
+		}
+	}
+}
+
+// SAFETY: Delegated to already implemented types.
+unsafe impl<T> Input for PtrMut<T> {
+	const ASM_TYPE: &str = AsmUsizeType::ASM_TYPE;
+	const ASM_CONV: Option<InputAsmConv> = AsmUsizeType::ASM_CONV;
+	const JS_CONV: Option<InputJsConv> = AsmUsizeType::JS_CONV;
+
+	#[cfg(target_arch = "wasm32")]
+	type Type = *mut T;
+	#[cfg(target_arch = "wasm64")]
+	type Type = f64;
+
+	fn into_raw(self) -> Self::Type {
+		self.ptr
+	}
+}
 
 #[repr(transparent)]
 pub(crate) struct PtrLength<T> {
@@ -120,16 +215,10 @@ impl<T> PtrLength<T> {
 	}
 
 	fn internal(len: usize) -> Self {
-		#[cfg_attr(
-			target_arch = "wasm32",
-			expect(clippy::cast_possible_truncation, reason = "32-bit")
-		)]
-		#[cfg_attr(
-			target_arch = "wasm64",
-			expect(
-				clippy::cast_precision_loss,
-				reason = "can't be larger than `MAX_SAFE_INTEGER`"
-			)
+		#[cfg(target_arch = "wasm64")]
+		#[expect(
+			clippy::cast_precision_loss,
+			reason = "can't be larger than `MAX_SAFE_INTEGER`"
 		)]
 		let len = len as <Self as Input>::Type;
 
@@ -142,11 +231,12 @@ impl<T> PtrLength<T> {
 
 // SAFETY: Delegated to already implemented types.
 unsafe impl<T> Input for PtrLength<T> {
-	const ASM_TYPE: &str = Self::Type::ASM_TYPE;
-	const JS_CONV: Option<InputJsConv> = Self::Type::JS_CONV;
+	const ASM_TYPE: &str = AsmUsizeType::ASM_TYPE;
+	const ASM_CONV: Option<InputAsmConv> = AsmUsizeType::ASM_CONV;
+	const JS_CONV: Option<InputJsConv> = AsmUsizeType::JS_CONV;
 
 	#[cfg(target_arch = "wasm32")]
-	type Type = u32;
+	type Type = usize;
 	#[cfg(target_arch = "wasm64")]
 	type Type = f64;
 

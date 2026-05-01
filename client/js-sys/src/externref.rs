@@ -2,6 +2,7 @@ use alloc::vec::Vec;
 use core::cell::RefCell;
 
 use crate::panic::panic;
+use crate::util::PtrConst;
 
 js_bindgen::unsafe_embed_asm!(
 	"(import \"js_sys\" \"externref.table\" (table $js_sys.import.externref.table (@sym (name \
@@ -62,7 +63,7 @@ thread_local! {
 pub(crate) struct ExternrefTable(Vec<i32>);
 
 pub(crate) struct ExternrefTablePtr {
-	pub(crate) ptr: *const i32,
+	pub(crate) ptr: PtrConst<i32>,
 	pub(crate) len: i32,
 }
 
@@ -100,7 +101,7 @@ impl ExternrefTable {
 			let table = &table.try_borrow().unwrap().0;
 
 			ExternrefTablePtr {
-				ptr: table.as_ptr(),
+				ptr: PtrConst::new(table),
 				len: table.len().try_into().unwrap(),
 			}
 		})

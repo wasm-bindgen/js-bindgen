@@ -1,7 +1,4 @@
 use core::mem;
-#[cfg(target_arch = "wasm64")]
-use core::ptr;
-use core::ptr::NonNull;
 
 use crate::hazard::{Input, InputAsmConv, InputJsConv, Output, OutputAsmConv, OutputJsConv};
 use crate::r#macro::const_concat;
@@ -37,49 +34,6 @@ macro_rules! output {
 			}
 		}
 	)*};
-}
-
-macro_rules! delegate {
-	($origin:ty, $ty:ty $(:<$ge:tt>)?) => {
-		delegate!($origin, $ty $(:<$ge>)?, $ty);
-	};
-	($origin:ty, $ty:ty $(:<$ge:tt>)?, $ty_impl:ty) => {
-		delegate!(
-			$origin, $ty $(:<$ge>)?, $ty_impl,
-			fn into_raw(self) -> Self::Type {
-				self
-			}
-		);
-	};
-	($origin:ty, $ty:ty $(:<$ge:tt>)?, $ty_impl:ty, $into_raw:item) => {
-		delegate!(
-			$origin, $ty $(:<$ge>)?, $ty_impl, $into_raw
-			fn from_raw(raw: Self::Type) -> Self {
-				raw
-			}
-		);
-	};
-	($origin:ty, $ty:ty $(:<$ge:tt>)?, $ty_impl:ty, $into_raw:item $from_raw:item) => {
-		// SAFETY: Implementation.
-		unsafe impl <$($ge)?> Input for $ty {
-			const ASM_TYPE: &str = <$origin as Input>::ASM_TYPE;
-			const JS_CONV: Option<InputJsConv> = <$origin as Input>::JS_CONV;
-
-
-			type Type = $ty_impl;
-
-			$into_raw
-		}
-
-		// SAFETY: Implementation.
-		unsafe impl <$($ge)?> Output for $ty {
-			const ASM_TYPE: &str = <$origin as Output>::ASM_TYPE;
-
-			type Type = $ty_impl;
-
-			$from_raw
-		}
-	};
 }
 
 output!("i32", bool);
@@ -290,66 +244,3 @@ js_bindgen::unsafe_embed_asm!(
 	")",
 	interpolate ASM_PTR_TYPE,
 );
-
-#[cfg(target_arch = "wasm32")]
-delegate!(u32, *const T:<T>);
-#[cfg(target_arch = "wasm64")]
-delegate!(
-	f64, *const T:<T>, f64,
-	fn into_raw(self) -> Self::Type {
-		wasm64_into_raw(self)
-	}
-
-	fn from_raw(raw: Self::Type) -> Self {
-		wasm64_from_raw(raw)
-	}
-);
-
-#[cfg(target_arch = "wasm32")]
-delegate!(
-	u32, *mut T:<T>, *mut T,
-	fn into_raw(self) -> Self::Type {
-		self
-	}
-);
-#[cfg(target_arch = "wasm64")]
-delegate!(
-	f64, *mut T:<T>, f64,
-	fn into_raw(self) -> Self::Type {
-		wasm64_into_raw(self)
-	}
-
-	fn from_raw(raw: Self::Type) -> Self {
-		wasm64_from_raw(raw)
-	}
-);
-
-#[cfg(target_arch = "wasm32")]
-delegate!(u32, NonNull<T>:<T>);
-#[cfg(target_arch = "wasm64")]
-delegate!(
-	f64, NonNull<T>:<T>, f64,
-	fn into_raw(self) -> Self::Type {
-		wasm64_into_raw(self.as_ptr())
-	}
-
-	fn from_raw(raw: Self::Type) -> Self {
-		NonNull::new(wasm64_from_raw(raw)).unwrap()
-	}
-);
-
-#[cfg(target_arch = "wasm64")]
-#[expect(clippy::cast_precision_loss, reason = "checked")]
-fn wasm64_into_raw<T>(ptr: *const T) -> f64 {
-	ptr.addr() as f64
-}
-
-#[cfg(target_arch = "wasm64")]
-#[expect(
-	clippy::cast_possible_truncation,
-	clippy::cast_sign_loss,
-	reason = "unchecked"
-)]
-fn wasm64_from_raw<T>(raw: f64) -> *mut T {
-	ptr::without_provenance_mut(raw as usize)
-}

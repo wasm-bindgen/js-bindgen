@@ -6,7 +6,7 @@ use core::marker::PhantomData;
 use core::ops::Deref;
 use crate::{js_bindgen, r#macro, JsValue};
 use crate::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
-use crate::util::PtrLength;
+use crate::util::{PtrConst, PtrLength, PtrMut};
 
 #[repr(transparent)]
 pub struct JsArray<T = JsValue> {
@@ -115,7 +115,7 @@ impl<T> JsArray<T> {
 }
 
 pub(super) unsafe fn array_js_value_decode(
-	array: *const JsValue,
+	array: PtrConst<JsValue>,
 	len: PtrLength<JsValue>,
 ) -> JsArray<JsValue> {
 	js_bindgen::unsafe_embed_asm! {
@@ -132,17 +132,17 @@ pub(super) unsafe fn array_js_value_decode(
 		"  call $js_sys.import.array_js_value_decode (@reloc)",
 		"{}",
 		")",
-		interpolate r#macro::asm_input_import_type::<*const JsValue>(),
+		interpolate r#macro::asm_input_import_type::<PtrConst<JsValue>>(),
 		interpolate r#macro::asm_input_import_type::<PtrLength<JsValue>>(),
 		interpolate r#macro::asm_output_import_type::<JsArray<JsValue>>(),
-		interpolate r#macro::asm_input_import::<*const JsValue>(),
+		interpolate r#macro::asm_input_import::<PtrConst<JsValue>>(),
 		interpolate r#macro::asm_input_import::<PtrLength<JsValue>>(),
 		interpolate r#macro::asm_output_import::<JsArray<JsValue>>(),
 		interpolate r#macro::asm_indirect!(JsArray<JsValue>),
-		interpolate <*const JsValue as Input>::ASM_TYPE,
+		interpolate <PtrConst<JsValue> as Input>::ASM_TYPE,
 		interpolate <PtrLength<JsValue> as Input>::ASM_TYPE,
 		interpolate r#macro::asm_direct::<JsArray<JsValue>>(),
-		interpolate r#macro::asm_input!("0", "1", *const JsValue, JsArray<JsValue>),
+		interpolate r#macro::asm_input!("0", "1", PtrConst<JsValue>, JsArray<JsValue>),
 		interpolate r#macro::asm_input!("1", "2", PtrLength<JsValue>, JsArray<JsValue>),
 		interpolate r#macro::asm_output!(JsArray<JsValue>),
 	}
@@ -152,7 +152,7 @@ pub(super) unsafe fn array_js_value_decode(
 		name = "array_js_value_decode",
 		required_embeds = [
 			("js_sys", "array.js_value.decode"),
-			r#macro::js_input_embed::<*const JsValue>(),
+			r#macro::js_input_embed::<PtrConst<JsValue>>(),
 			r#macro::js_input_embed::<PtrLength<JsValue>>(),
 			r#macro::js_output_embed::<JsArray<JsValue>>(),
 		],
@@ -160,17 +160,17 @@ pub(super) unsafe fn array_js_value_decode(
 		interpolate r#macro::js_select!(
 			"",
 			"(array, len) => {\n",
-			(*const JsValue, PtrLength<JsValue>),
+			(PtrConst<JsValue>, PtrLength<JsValue>),
 			JsArray<JsValue>,
 		),
-		interpolate r#macro::js_parameter!("array", *const JsValue),
+		interpolate r#macro::js_parameter!("array", PtrConst<JsValue>),
 		interpolate r#macro::js_parameter!("len", PtrLength<JsValue>),
 		interpolate r#macro::js_output!(
 			"\treturn ",
 			"this.#jsEmbed.js_sys['array.js_value.decode']",
 			"this.#jsEmbed.js_sys['array.js_value.decode'](array, len)",
 			JsArray<JsValue>,
-			*const JsValue,
+			PtrConst<JsValue>,
 			PtrLength<JsValue>,
 		),
 	}
@@ -178,7 +178,7 @@ pub(super) unsafe fn array_js_value_decode(
 	unsafe extern "C" {
 		#[link_name = "js_sys.array_js_value_decode"]
 		fn array_js_value_decode(
-			array: <*const JsValue as Input>::Type,
+			array: <PtrConst<JsValue> as Input>::Type,
 			len: <PtrLength<JsValue> as Input>::Type,
 		) -> <JsArray<JsValue> as Output>::Type;
 	}
@@ -188,9 +188,9 @@ pub(super) unsafe fn array_js_value_decode(
 
 pub(super) unsafe fn array_js_value_encode(
 	array: &JsArray,
-	array_ptr: *mut JsValue,
+	array_ptr: PtrMut<JsValue>,
 	array_len: PtrLength<JsValue>,
-	externref_ptr: *const i32,
+	externref_ptr: PtrConst<i32>,
 	externref_len: i32,
 ) -> bool {
 	js_bindgen::unsafe_embed_asm! {
@@ -217,28 +217,28 @@ pub(super) unsafe fn array_js_value_encode(
 		"{}",
 		")",
 		interpolate r#macro::asm_input_import_type::<&JsArray>(),
-		interpolate r#macro::asm_input_import_type::<*mut JsValue>(),
+		interpolate r#macro::asm_input_import_type::<PtrMut<JsValue>>(),
 		interpolate r#macro::asm_input_import_type::<PtrLength<JsValue>>(),
-		interpolate r#macro::asm_input_import_type::<*const i32>(),
+		interpolate r#macro::asm_input_import_type::<PtrConst<i32>>(),
 		interpolate r#macro::asm_input_import_type::<i32>(),
 		interpolate r#macro::asm_output_import_type::<bool>(),
 		interpolate r#macro::asm_input_import::<&JsArray>(),
-		interpolate r#macro::asm_input_import::<*mut JsValue>(),
+		interpolate r#macro::asm_input_import::<PtrMut<JsValue>>(),
 		interpolate r#macro::asm_input_import::<PtrLength<JsValue>>(),
-		interpolate r#macro::asm_input_import::<*const i32>(),
+		interpolate r#macro::asm_input_import::<PtrConst<i32>>(),
 		interpolate r#macro::asm_input_import::<i32>(),
 		interpolate r#macro::asm_output_import::<bool>(),
 		interpolate r#macro::asm_indirect!(bool),
 		interpolate <&JsArray as Input>::ASM_TYPE,
-		interpolate <*mut JsValue as Input>::ASM_TYPE,
+		interpolate <PtrMut<JsValue> as Input>::ASM_TYPE,
 		interpolate <PtrLength<JsValue> as Input>::ASM_TYPE,
-		interpolate <*const i32 as Input>::ASM_TYPE,
+		interpolate <PtrConst<i32> as Input>::ASM_TYPE,
 		interpolate <i32 as Input>::ASM_TYPE,
 		interpolate r#macro::asm_direct::<bool>(),
 		interpolate r#macro::asm_input!("0", "1", &JsArray, bool),
-		interpolate r#macro::asm_input!("1", "2", *mut JsValue, bool),
+		interpolate r#macro::asm_input!("1", "2", PtrMut<JsValue>, bool),
 		interpolate r#macro::asm_input!("2", "3", PtrLength<JsValue>, bool),
-		interpolate r#macro::asm_input!("3", "4", *const i32, bool),
+		interpolate r#macro::asm_input!("3", "4", PtrConst<i32>, bool),
 		interpolate r#macro::asm_input!("4", "5", i32, bool),
 		interpolate r#macro::asm_output!(bool),
 	}
@@ -249,9 +249,9 @@ pub(super) unsafe fn array_js_value_encode(
 		required_embeds = [
 			("js_sys", "array.js_value.encode"),
 			r#macro::js_input_embed::<&JsArray>(),
-			r#macro::js_input_embed::<*mut JsValue>(),
+			r#macro::js_input_embed::<PtrMut<JsValue>>(),
 			r#macro::js_input_embed::<PtrLength<JsValue>>(),
-			r#macro::js_input_embed::<*const i32>(),
+			r#macro::js_input_embed::<PtrConst<i32>>(),
 			r#macro::js_input_embed::<i32>(),
 			r#macro::js_output_embed::<bool>(),
 		],
@@ -259,13 +259,13 @@ pub(super) unsafe fn array_js_value_encode(
 		interpolate r#macro::js_select!(
 			"",
 			"(array, array_ptr, array_len, externref_ptr, externref_len) => {\n",
-			(&JsArray, *mut JsValue, PtrLength<JsValue>, *const i32, i32),
+			(&JsArray, PtrMut<JsValue>, PtrLength<JsValue>, PtrConst<i32>, i32),
 			bool,
 		),
 		interpolate r#macro::js_parameter!("array", &JsArray),
-		interpolate r#macro::js_parameter!("array_ptr", *mut JsValue),
+		interpolate r#macro::js_parameter!("array_ptr", PtrMut<JsValue>),
 		interpolate r#macro::js_parameter!("array_len", PtrLength<JsValue>),
-		interpolate r#macro::js_parameter!("externref_ptr", *const i32),
+		interpolate r#macro::js_parameter!("externref_ptr", PtrConst<i32>),
 		interpolate r#macro::js_parameter!("externref_len", i32),
 		interpolate r#macro::js_output!(
 			"\treturn ",
@@ -273,9 +273,9 @@ pub(super) unsafe fn array_js_value_encode(
 			"this.#jsEmbed.js_sys['array.js_value.encode'](array, array_ptr, array_len, externref_ptr, externref_len)",
 			bool,
 			&JsArray,
-			*mut JsValue,
+			PtrMut<JsValue>,
 			PtrLength<JsValue>,
-			*const i32,
+			PtrConst<i32>,
 			i32,
 		),
 	}
@@ -284,9 +284,9 @@ pub(super) unsafe fn array_js_value_encode(
 		#[link_name = "js_sys.array_js_value_encode"]
 		fn array_js_value_encode(
 			array: <&JsArray as Input>::Type,
-			array_ptr: <*mut JsValue as Input>::Type,
+			array_ptr: <PtrMut<JsValue> as Input>::Type,
 			array_len: <PtrLength<JsValue> as Input>::Type,
-			externref_ptr: <*const i32 as Input>::Type,
+			externref_ptr: <PtrConst<i32> as Input>::Type,
 			externref_len: <i32 as Input>::Type,
 		) -> <bool as Output>::Type;
 	}
@@ -302,7 +302,7 @@ pub(super) unsafe fn array_js_value_encode(
 	})
 }
 
-pub(super) unsafe fn array_u32_decode(array: *const u32, len: PtrLength<u32>) -> JsArray<u32> {
+pub(super) unsafe fn array_u32_decode(array: PtrConst<u32>, len: PtrLength<u32>) -> JsArray<u32> {
 	js_bindgen::unsafe_embed_asm! {
 		"(import \"js_sys\" \"array_u32_decode\" (func $js_sys.import.array_u32_decode (@sym (name \"js_sys.import.array_u32_decode\")) (param {} {}) (result {})))",
 		"{}",
@@ -317,17 +317,17 @@ pub(super) unsafe fn array_u32_decode(array: *const u32, len: PtrLength<u32>) ->
 		"  call $js_sys.import.array_u32_decode (@reloc)",
 		"{}",
 		")",
-		interpolate r#macro::asm_input_import_type::<*const u32>(),
+		interpolate r#macro::asm_input_import_type::<PtrConst<u32>>(),
 		interpolate r#macro::asm_input_import_type::<PtrLength<u32>>(),
 		interpolate r#macro::asm_output_import_type::<JsArray<u32>>(),
-		interpolate r#macro::asm_input_import::<*const u32>(),
+		interpolate r#macro::asm_input_import::<PtrConst<u32>>(),
 		interpolate r#macro::asm_input_import::<PtrLength<u32>>(),
 		interpolate r#macro::asm_output_import::<JsArray<u32>>(),
 		interpolate r#macro::asm_indirect!(JsArray<u32>),
-		interpolate <*const u32 as Input>::ASM_TYPE,
+		interpolate <PtrConst<u32> as Input>::ASM_TYPE,
 		interpolate <PtrLength<u32> as Input>::ASM_TYPE,
 		interpolate r#macro::asm_direct::<JsArray<u32>>(),
-		interpolate r#macro::asm_input!("0", "1", *const u32, JsArray<u32>),
+		interpolate r#macro::asm_input!("0", "1", PtrConst<u32>, JsArray<u32>),
 		interpolate r#macro::asm_input!("1", "2", PtrLength<u32>, JsArray<u32>),
 		interpolate r#macro::asm_output!(JsArray<u32>),
 	}
@@ -337,7 +337,7 @@ pub(super) unsafe fn array_u32_decode(array: *const u32, len: PtrLength<u32>) ->
 		name = "array_u32_decode",
 		required_embeds = [
 			("js_sys", "view.getUint32"),
-			r#macro::js_input_embed::<*const u32>(),
+			r#macro::js_input_embed::<PtrConst<u32>>(),
 			r#macro::js_input_embed::<PtrLength<u32>>(),
 			r#macro::js_output_embed::<JsArray<u32>>(),
 		],
@@ -345,17 +345,17 @@ pub(super) unsafe fn array_u32_decode(array: *const u32, len: PtrLength<u32>) ->
 		interpolate r#macro::js_select!(
 			"",
 			"(array, len) => {\n",
-			(*const u32, PtrLength<u32>),
+			(PtrConst<u32>, PtrLength<u32>),
 			JsArray<u32>,
 		),
-		interpolate r#macro::js_parameter!("array", *const u32),
+		interpolate r#macro::js_parameter!("array", PtrConst<u32>),
 		interpolate r#macro::js_parameter!("len", PtrLength<u32>),
 		interpolate r#macro::js_output!(
 			"\treturn ",
 			"this.#jsEmbed.js_sys['view.getUint32']",
 			"this.#jsEmbed.js_sys['view.getUint32'](array, len)",
 			JsArray<u32>,
-			*const u32,
+			PtrConst<u32>,
 			PtrLength<u32>,
 		),
 	}
@@ -363,7 +363,7 @@ pub(super) unsafe fn array_u32_decode(array: *const u32, len: PtrLength<u32>) ->
 	unsafe extern "C" {
 		#[link_name = "js_sys.array_u32_decode"]
 		fn array_u32_decode(
-			array: <*const u32 as Input>::Type,
+			array: <PtrConst<u32> as Input>::Type,
 			len: <PtrLength<u32> as Input>::Type,
 		) -> <JsArray<u32> as Output>::Type;
 	}
@@ -373,7 +373,7 @@ pub(super) unsafe fn array_u32_decode(array: *const u32, len: PtrLength<u32>) ->
 
 pub(super) unsafe fn array_u32_encode(
 	array: &JsArray<u32>,
-	ptr: *mut u32,
+	ptr: PtrMut<u32>,
 	len: PtrLength<u32>,
 ) -> bool {
 	js_bindgen::unsafe_embed_asm! {
@@ -394,20 +394,20 @@ pub(super) unsafe fn array_u32_encode(
 		"{}",
 		")",
 		interpolate r#macro::asm_input_import_type::<&JsArray<u32>>(),
-		interpolate r#macro::asm_input_import_type::<*mut u32>(),
+		interpolate r#macro::asm_input_import_type::<PtrMut<u32>>(),
 		interpolate r#macro::asm_input_import_type::<PtrLength<u32>>(),
 		interpolate r#macro::asm_output_import_type::<bool>(),
 		interpolate r#macro::asm_input_import::<&JsArray<u32>>(),
-		interpolate r#macro::asm_input_import::<*mut u32>(),
+		interpolate r#macro::asm_input_import::<PtrMut<u32>>(),
 		interpolate r#macro::asm_input_import::<PtrLength<u32>>(),
 		interpolate r#macro::asm_output_import::<bool>(),
 		interpolate r#macro::asm_indirect!(bool),
 		interpolate <&JsArray<u32> as Input>::ASM_TYPE,
-		interpolate <*mut u32 as Input>::ASM_TYPE,
+		interpolate <PtrMut<u32> as Input>::ASM_TYPE,
 		interpolate <PtrLength<u32> as Input>::ASM_TYPE,
 		interpolate r#macro::asm_direct::<bool>(),
 		interpolate r#macro::asm_input!("0", "1", &JsArray<u32>, bool),
-		interpolate r#macro::asm_input!("1", "2", *mut u32, bool),
+		interpolate r#macro::asm_input!("1", "2", PtrMut<u32>, bool),
 		interpolate r#macro::asm_input!("2", "3", PtrLength<u32>, bool),
 		interpolate r#macro::asm_output!(bool),
 	}
@@ -418,7 +418,7 @@ pub(super) unsafe fn array_u32_encode(
 		required_embeds = [
 			("js_sys", "array.u32.encode"),
 			r#macro::js_input_embed::<&JsArray<u32>>(),
-			r#macro::js_input_embed::<*mut u32>(),
+			r#macro::js_input_embed::<PtrMut<u32>>(),
 			r#macro::js_input_embed::<PtrLength<u32>>(),
 			r#macro::js_output_embed::<bool>(),
 		],
@@ -426,11 +426,11 @@ pub(super) unsafe fn array_u32_encode(
 		interpolate r#macro::js_select!(
 			"",
 			"(array, ptr, len) => {\n",
-			(&JsArray<u32>, *mut u32, PtrLength<u32>),
+			(&JsArray<u32>, PtrMut<u32>, PtrLength<u32>),
 			bool,
 		),
 		interpolate r#macro::js_parameter!("array", &JsArray<u32>),
-		interpolate r#macro::js_parameter!("ptr", *mut u32),
+		interpolate r#macro::js_parameter!("ptr", PtrMut<u32>),
 		interpolate r#macro::js_parameter!("len", PtrLength<u32>),
 		interpolate r#macro::js_output!(
 			"\treturn ",
@@ -438,7 +438,7 @@ pub(super) unsafe fn array_u32_encode(
 			"this.#jsEmbed.js_sys['array.u32.encode'](array, ptr, len)",
 			bool,
 			&JsArray<u32>,
-			*mut u32,
+			PtrMut<u32>,
 			PtrLength<u32>,
 		),
 	}
@@ -447,7 +447,7 @@ pub(super) unsafe fn array_u32_encode(
 		#[link_name = "js_sys.array_u32_encode"]
 		fn array_u32_encode(
 			array: <&JsArray<u32> as Input>::Type,
-			ptr: <*mut u32 as Input>::Type,
+			ptr: <PtrMut<u32> as Input>::Type,
 			len: <PtrLength<u32> as Input>::Type,
 		) -> <bool as Output>::Type;
 	}

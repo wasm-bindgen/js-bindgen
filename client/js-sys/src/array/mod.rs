@@ -11,7 +11,7 @@ pub use self::array::JsArray;
 use crate::JsValue;
 use crate::externref::ExternrefTable;
 use crate::hazard::{Input, InputAsmConv, InputJsConv};
-use crate::util::{ExternSlice, PtrLength};
+use crate::util::{ExternSlice, PtrConst, PtrLength, PtrMut};
 
 impl<T> JsArray<T> {
 	#[must_use]
@@ -71,7 +71,7 @@ impl JsArray {
 		let result = unsafe {
 			array::array_js_value_encode(
 				self,
-				slice.as_mut_ptr(),
+				PtrMut::new(slice),
 				PtrLength::new(slice),
 				externref.ptr,
 				externref.len,
@@ -96,7 +96,7 @@ impl JsArray {
 		let result = unsafe {
 			array::array_js_value_encode(
 				self,
-				slice.as_mut_ptr().cast(),
+				PtrMut::from_uninit_slice(slice),
 				PtrLength::from_uninit_slice(slice),
 				externref.ptr,
 				externref.len,
@@ -120,7 +120,7 @@ impl JsArray {
 		let result = unsafe {
 			array::array_js_value_encode(
 				self,
-				array.as_mut_ptr().cast(),
+				PtrMut::from_uninit_array(&mut array),
 				PtrLength::from_uninit_array(&array),
 				externref.ptr,
 				externref.len,
@@ -190,7 +190,7 @@ impl From<&[JsValue]> for JsArray {
 		);
 
 		// SAFETY: Parameters are correct.
-		unsafe { array::array_js_value_decode(value.as_ptr(), PtrLength::new(value)) }
+		unsafe { array::array_js_value_decode(PtrConst::new(value), PtrLength::new(value)) }
 	}
 }
 
@@ -228,7 +228,7 @@ impl JsArray<u32> {
 	pub fn to_slice(&self, slice: &mut [u32]) -> Result<(), TryFromJsArrayError> {
 		// SAFETY: Parameters are correct.
 		let result =
-			unsafe { array::array_u32_encode(self, slice.as_mut_ptr(), PtrLength::new(slice)) };
+			unsafe { array::array_u32_encode(self, PtrMut::new(slice), PtrLength::new(slice)) };
 
 		if result {
 			Ok(())
@@ -245,7 +245,7 @@ impl JsArray<u32> {
 		let result = unsafe {
 			array::array_u32_encode(
 				self,
-				slice.as_mut_ptr().cast(),
+				PtrMut::from_uninit_slice(slice),
 				PtrLength::from_uninit_slice(slice),
 			)
 		};
@@ -266,7 +266,7 @@ impl JsArray<u32> {
 		let result = unsafe {
 			array::array_u32_encode(
 				self,
-				array.as_mut_ptr().cast(),
+				PtrMut::from_uninit_array(&mut array),
 				PtrLength::from_uninit_array(&array),
 			)
 		};
@@ -295,7 +295,7 @@ js_bindgen::embed_js!(
 impl From<&[u32]> for JsArray<u32> {
 	fn from(value: &[u32]) -> Self {
 		// SAFETY: Parameters are correct.
-		unsafe { array::array_u32_decode(value.as_ptr(), PtrLength::new(value)) }
+		unsafe { array::array_u32_decode(PtrConst::new(value), PtrLength::new(value)) }
 	}
 }
 

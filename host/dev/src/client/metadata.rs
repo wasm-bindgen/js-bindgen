@@ -9,14 +9,21 @@ use crate::command::{self, CargoCommand};
 use crate::features;
 use crate::features::Features;
 
-pub fn run(client_args: ClientArgs, commands: &[CargoCommand], verbose: bool) -> Result<Duration> {
+pub fn run(
+	client_args: ClientArgs,
+	commands: &[CargoCommand],
+	linker: bool,
+	verbose: bool,
+) -> Result<Duration> {
 	let targets = Target::from_targets(client_args.targets)?;
 	let target_features = TargetFeature::from_target_features(client_args.target_features)?;
 	let metadata = MetadataCommand::new().current_dir("../client").exec()?;
 
 	let start = Instant::now();
 
-	util::build_linker(verbose)?;
+	if linker {
+		util::build_linker(verbose)?;
+	}
 
 	for CargoTarget {
 		kind,
