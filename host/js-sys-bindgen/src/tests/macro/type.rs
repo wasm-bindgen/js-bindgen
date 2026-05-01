@@ -38,6 +38,8 @@ fn basic() {
 				}
 			}
 
+			unsafe impl ::js_sys::hazard::JsCast for JsString {}
+
 			unsafe impl ::js_sys::hazard::Output for JsString {
 				const ASM_TYPE: &::core::primitive::str =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
@@ -50,13 +52,6 @@ fn basic() {
 
 				fn from_raw(raw: Self::Type) -> Self {
 					Self(::js_sys::hazard::Output::from_raw(raw))
-				}
-			}
-
-			impl JsString {
-				#[must_use]
-				pub fn unchecked_from(value: ::js_sys::JsValue) -> Self {
-					Self(value)
 				}
 			}
 		},
@@ -108,6 +103,8 @@ fn generic() {
 				}
 			}
 
+			unsafe impl<T> ::js_sys::hazard::JsCast for JsString<T> {}
+
 			unsafe impl<T> ::js_sys::hazard::Output for JsString<T> {
 				const ASM_TYPE: &::core::primitive::str =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
@@ -121,16 +118,6 @@ fn generic() {
 				fn from_raw(raw: Self::Type) -> Self {
 					Self {
 						value: ::js_sys::hazard::Output::from_raw(raw),
-						_type: ::core::marker::PhantomData,
-					}
-				}
-			}
-
-			impl<T> JsString<T> {
-				#[must_use]
-				pub fn unchecked_from(value: ::js_sys::JsValue) -> Self {
-					Self {
-						value,
 						_type: ::core::marker::PhantomData,
 					}
 				}
@@ -184,6 +171,8 @@ fn default() {
 				}
 			}
 
+			unsafe impl<T> ::js_sys::hazard::JsCast for JsString<T> {}
+
 			unsafe impl<T> ::js_sys::hazard::Output for JsString<T> {
 				const ASM_TYPE: &::core::primitive::str =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
@@ -197,16 +186,6 @@ fn default() {
 				fn from_raw(raw: Self::Type) -> Self {
 					Self {
 						value: ::js_sys::hazard::Output::from_raw(raw),
-						_type: ::core::marker::PhantomData,
-					}
-				}
-			}
-
-			impl<T> JsString<T> {
-				#[must_use]
-				pub fn unchecked_from(value: ::js_sys::JsValue) -> Self {
-					Self {
-						value,
 						_type: ::core::marker::PhantomData,
 					}
 				}
@@ -260,6 +239,8 @@ fn r#trait() {
 				}
 			}
 
+			unsafe impl<T: Sized> ::js_sys::hazard::JsCast for JsString<T> {}
+
 			unsafe impl<T: Sized> ::js_sys::hazard::Output for JsString<T> {
 				const ASM_TYPE: &::core::primitive::str =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
@@ -273,16 +254,6 @@ fn r#trait() {
 				fn from_raw(raw: Self::Type) -> Self {
 					Self {
 						value: ::js_sys::hazard::Output::from_raw(raw),
-						_type: ::core::marker::PhantomData,
-					}
-				}
-			}
-
-			impl<T: Sized> JsString<T> {
-				#[must_use]
-				pub fn unchecked_from(value: ::js_sys::JsValue) -> Self {
-					Self {
-						value,
 						_type: ::core::marker::PhantomData,
 					}
 				}

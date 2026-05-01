@@ -3,7 +3,7 @@
 #![allow(warnings)]
 
 use crate::JsValue;
-use crate::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
+use crate::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, JsCast, OutputJsConv};
 
 #[repr(transparent)]
 pub struct JsBigInt(JsValue);
@@ -32,6 +32,8 @@ unsafe impl Input for &JsBigInt {
 	}
 }
 
+unsafe impl JsCast for JsBigInt {}
+
 unsafe impl Output for JsBigInt {
 	const ASM_TYPE: &str = <JsValue as Output>::ASM_TYPE;
 	const ASM_CONV: Option<OutputAsmConv> = <JsValue as Output>::ASM_CONV;
@@ -41,12 +43,5 @@ unsafe impl Output for JsBigInt {
 
 	fn from_raw(raw: Self::Type) -> Self {
 		Self(Output::from_raw(raw))
-	}
-}
-
-impl JsBigInt {
-	#[must_use]
-	pub fn unchecked_from(value: JsValue) -> Self {
-		Self(value)
 	}
 }

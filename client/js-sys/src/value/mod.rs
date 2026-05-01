@@ -3,9 +3,11 @@
 mod value;
 
 use core::marker::PhantomData;
+use core::mem::MaybeUninit;
+use core::slice;
 
 use crate::externref::EXTERNREF_TABLE;
-use crate::hazard::{Input, InputAsmConv, Output, OutputAsmConv};
+use crate::hazard::{Input, InputAsmConv, JsCast, Output, OutputAsmConv};
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -23,6 +25,36 @@ impl JsValue {
 			index,
 			_local: PhantomData,
 		}
+	}
+
+	pub fn from_slice<T: JsCast>(slice: &[T]) -> &[Self] {
+		let ptr: *const Self = slice.as_ptr().cast();
+		// SAFETY: `JsCast` assumes that `T` is `#[transparent]` over a `JsValue`.
+		unsafe { slice::from_raw_parts(ptr, slice.len()) }
+	}
+
+	pub fn from_slice_mut<T: JsCast>(slice: &mut [T]) -> &mut [Self] {
+		let ptr: *mut Self = slice.as_mut_ptr().cast();
+		// SAFETY: `JsCast` assumes that `T` is `#[transparent]` over a `JsValue`.
+		unsafe { slice::from_raw_parts_mut(ptr, slice.len()) }
+	}
+
+	pub fn from_uninit_slice_mut<T: JsCast>(
+		slice: &mut [MaybeUninit<T>],
+	) -> &mut [MaybeUninit<Self>] {
+		let ptr: *mut MaybeUninit<Self> = slice.as_mut_ptr().cast();
+		// SAFETY: `JsCast` assumes that `T` is `#[transparent]` over a `JsValue`.
+		unsafe { slice::from_raw_parts_mut(ptr, slice.len()) }
+	}
+
+	// MSRV: This functionality will be removed in v1.95 when the standard library
+	// has more convenient functions to cast `MaybeUninit` arrays.
+	pub(crate) fn from_mut_uninit_array<T: JsCast, const N: usize>(
+		array: &mut MaybeUninit<[T; N]>,
+	) -> &mut MaybeUninit<[Self; N]> {
+		let ptr: *mut MaybeUninit<[Self; N]> = array.as_mut_ptr().cast();
+		// SAFETY: `JsCast` assumes that `T` is `#[transparent]` over a `JsValue`.
+		unsafe { ptr.as_mut() }.unwrap()
 	}
 }
 
@@ -75,6 +107,9 @@ unsafe impl Input for &JsValue {
 		self.index
 	}
 }
+
+// SAFETY: The OG type.
+unsafe impl JsCast for JsValue {}
 
 // SAFETY: Implementation for all `JsValue`s.
 unsafe impl Output for JsValue {

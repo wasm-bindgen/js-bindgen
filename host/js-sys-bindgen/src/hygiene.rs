@@ -15,8 +15,8 @@ impl Hygiene<'_> {
 	pub(crate) fn js_value(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {
-				imports.js_sys_push(attrs, parse_quote_spanned!(span=>JsValue));
-				parse_quote_spanned!(span=>JsValue)
+				imports.js_sys_push(attrs, parse_quote_spanned!(span=> JsValue));
+				parse_quote_spanned!(span=> JsValue)
 			}
 			Hygiene::Hygiene { js_sys } => Self::with_js_sys(*js_sys, &quote!(JsValue), span),
 		}
@@ -25,7 +25,7 @@ impl Hygiene<'_> {
 	pub(crate) fn js_bindgen(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {
-				imports.js_sys_push(attrs, parse_quote_spanned! {span=>js_bindgen});
+				imports.js_sys_push(attrs, parse_quote_spanned!(span=> js_bindgen));
 				parse_quote_spanned!(span=> js_bindgen)
 			}
 			Hygiene::Hygiene { js_sys } => Self::with_js_sys(*js_sys, &quote!(js_bindgen), span),
@@ -35,7 +35,7 @@ impl Hygiene<'_> {
 	pub(crate) fn input(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned! {span=>Input});
+				imports.hazard_push(attrs, parse_quote_spanned!(span=> Input));
 				parse_quote_spanned!(span=> Input)
 			}
 			Hygiene::Hygiene { js_sys } => Self::with_js_sys(*js_sys, &quote!(hazard::Input), span),
@@ -45,7 +45,7 @@ impl Hygiene<'_> {
 	pub(crate) fn input_asm_conv(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned! {span=>InputAsmConv});
+				imports.hazard_push(attrs, parse_quote_spanned!(span=> InputAsmConv));
 				parse_quote_spanned!(span=> InputAsmConv)
 			}
 			Hygiene::Hygiene { js_sys } => {
@@ -57,7 +57,7 @@ impl Hygiene<'_> {
 	pub(crate) fn input_js_conv(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned! {span=>InputJsConv});
+				imports.hazard_push(attrs, parse_quote_spanned!(span=> InputJsConv));
 				parse_quote_spanned!(span=> InputJsConv)
 			}
 			Hygiene::Hygiene { js_sys } => {
@@ -66,10 +66,22 @@ impl Hygiene<'_> {
 		}
 	}
 
+	pub(crate) fn js_cast(&mut self, attrs: &[Attribute], span: Span) -> Path {
+		match self {
+			Hygiene::Imports(imports) => {
+				imports.hazard_push(attrs, parse_quote_spanned!(span=> JsCast));
+				parse_quote_spanned!(span=> JsCast)
+			}
+			Hygiene::Hygiene { js_sys } => {
+				Self::with_js_sys(*js_sys, &quote!(hazard::JsCast), span)
+			}
+		}
+	}
+
 	pub(crate) fn output(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned! {span=>Output});
+				imports.hazard_push(attrs, parse_quote_spanned!(span=> Output));
 				parse_quote_spanned!(span=> Output)
 			}
 			Hygiene::Hygiene { js_sys } => {
@@ -81,7 +93,7 @@ impl Hygiene<'_> {
 	pub(crate) fn output_asm_conv(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned! {span=>OutputAsmConv});
+				imports.hazard_push(attrs, parse_quote_spanned!(span=> OutputAsmConv));
 				parse_quote_spanned!(span=> OutputAsmConv)
 			}
 			Hygiene::Hygiene { js_sys } => {
@@ -93,7 +105,7 @@ impl Hygiene<'_> {
 	pub(crate) fn output_js_conv(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned! {span=>OutputJsConv});
+				imports.hazard_push(attrs, parse_quote_spanned!(span=> OutputJsConv));
 				parse_quote_spanned!(span=> OutputJsConv)
 			}
 			Hygiene::Hygiene { js_sys } => {
@@ -105,7 +117,7 @@ impl Hygiene<'_> {
 	pub(crate) fn r#macro(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {
-				imports.js_sys_push(attrs, parse_quote_spanned! {span=>r#macro});
+				imports.js_sys_push(attrs, parse_quote_spanned!(span=> r#macro));
 				parse_quote_spanned!(span=> r#macro)
 			}
 			Hygiene::Hygiene { js_sys } => Self::with_js_sys(*js_sys, &quote!(r#macro), span),

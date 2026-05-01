@@ -1,3 +1,8 @@
+use core::mem::ManuallyDrop;
+use core::ptr;
+
+use crate::JsValue;
+
 /// # Safety
 ///
 /// This directly interacts with the assembly generator and therefor all
@@ -49,4 +54,36 @@ pub struct OutputJsConv {
 	pub embed: Option<(&'static str, &'static str)>,
 	pub pre: &'static str,
 	pub post: &'static str,
+}
+
+/// # Safety
+///
+/// This MUST only be implemented on types that are `#[transparent]` over a
+/// [`JsValue`]. (TODO)
+pub unsafe trait JsCast: Sized {
+	#[must_use]
+	fn unchecked_from(value: JsValue) -> Self {
+		// This seems to be the only way to transmute between two owned types without
+		// copying when the size is unknown. In this case the size is unknown because
+		// `Self` is a generic.
+
+		union Transmute<A, B> {
+			from: ManuallyDrop<A>,
+			to: ManuallyDrop<B>,
+		}
+
+		let transmute = Transmute {
+			from: ManuallyDrop::new(value),
+		};
+		// SAFETY: The trait assumes that `Self` is `#[transparent]` over a `JsValue`.
+		let result = unsafe { transmute.to };
+		ManuallyDrop::into_inner(result)
+	}
+
+	#[must_use]
+	fn unchecked_from_ref(value: &JsValue) -> &Self {
+		let ptr: *const Self = ptr::from_ref(value).cast();
+		// SAFETY: The trait assumes that `Self` is `#[transparent]` over a `JsValue`.
+		unsafe { &*ptr }
+	}
 }

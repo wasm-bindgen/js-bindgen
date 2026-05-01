@@ -3,7 +3,7 @@
 #![allow(warnings)]
 
 use crate::{js_bindgen, r#macro, JsValue};
-use crate::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
+use crate::hazard::{InputJsConv, OutputJsConv, Input, OutputAsmConv, InputAsmConv, Output, JsCast};
 use crate::util::{PtrConst, PtrLength, PtrMut};
 
 #[derive(Clone, Debug)]
@@ -34,6 +34,8 @@ unsafe impl Input for &JsString {
 	}
 }
 
+unsafe impl JsCast for JsString {}
+
 unsafe impl Output for JsString {
 	const ASM_TYPE: &str = <JsValue as Output>::ASM_TYPE;
 	const ASM_CONV: Option<OutputAsmConv> = <JsValue as Output>::ASM_CONV;
@@ -43,13 +45,6 @@ unsafe impl Output for JsString {
 
 	fn from_raw(raw: Self::Type) -> Self {
 		Self(Output::from_raw(raw))
-	}
-}
-
-impl JsString {
-	#[must_use]
-	pub fn unchecked_from(value: JsValue) -> Self {
-		Self(value)
 	}
 }
 

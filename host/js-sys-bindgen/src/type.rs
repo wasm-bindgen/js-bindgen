@@ -33,6 +33,7 @@ impl Type {
 		let input = hygiene.input(&cfgs, span);
 		let input_asm_conv = hygiene.input_asm_conv(&cfgs, span);
 		let input_js_conv = hygiene.input_js_conv(&cfgs, span);
+		let js_cast = hygiene.js_cast(&cfgs, span);
 		let output = hygiene.output(&cfgs, span);
 		let output_asm_conv = hygiene.output_asm_conv(&cfgs, span);
 		let output_js_conv = hygiene.output_js_conv(&cfgs, span);
@@ -43,13 +44,12 @@ impl Type {
 
 		let (gen_impl, gen_type, gen_where) = generics.split_for_impl();
 
-		let (fields, semi_token, value, from_raw, constructor) = if generics.params.is_empty() {
+		let (fields, semi_token, value, from_raw) = if generics.params.is_empty() {
 			(
 				Fields::Unnamed(parse_quote_spanned! {span=>(#js_value)}),
 				Some(Token![;](span)),
 				quote_spanned! {span=>0},
 				quote_spanned! {span=>Self(#output::from_raw(raw))},
-				quote_spanned! {span=>Self(value)},
 			)
 		} else {
 			let phantom_data = hygiene.phantom_data(&cfgs, span);
@@ -66,12 +66,6 @@ impl Type {
 				quote_spanned! {span=>
 					Self {
 						value: #output::from_raw(raw),
-						_type: #phantom_data,
-					}
-				},
-				quote_spanned! {span=>
-					Self {
-						value,
 						_type: #phantom_data,
 					}
 				},
@@ -111,6 +105,10 @@ impl Type {
 			},
 			parse_quote_spanned! {span=>
 				#(#cfgs)*
+				unsafe impl #gen_impl #js_cast for #ident #gen_type #gen_where {}
+			},
+			parse_quote_spanned! {span=>
+				#(#cfgs)*
 				unsafe impl #gen_impl #output for #ident #gen_type #gen_where {
 					const ASM_TYPE: &#str = <#js_value as #output>::ASM_TYPE;
 					const ASM_CONV: #option<#output_asm_conv> = <#js_value as #output>::ASM_CONV;
@@ -120,15 +118,6 @@ impl Type {
 
 					fn from_raw(raw: Self::Type) -> Self {
 						#from_raw
-					}
-				}
-			},
-			parse_quote_spanned! {span=>
-				#(#cfgs)*
-				impl #gen_impl #ident #gen_type #gen_where {
-					#[must_use]
-					#vis fn unchecked_from(value: #js_value) -> Self {
-						#constructor
 					}
 				}
 			},

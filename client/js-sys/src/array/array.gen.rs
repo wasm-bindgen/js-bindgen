@@ -4,7 +4,7 @@
 
 use core::marker::PhantomData;
 use crate::{js_bindgen, r#macro, JsValue};
-use crate::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
+use crate::hazard::{InputJsConv, OutputJsConv, Input, OutputAsmConv, InputAsmConv, Output, JsCast};
 use crate::util::{PtrConst, PtrLength, PtrMut};
 
 #[repr(transparent)]
@@ -37,6 +37,8 @@ unsafe impl<T> Input for &JsArray<T> {
 	}
 }
 
+unsafe impl<T> JsCast for JsArray<T> {}
+
 unsafe impl<T> Output for JsArray<T> {
 	const ASM_TYPE: &str = <JsValue as Output>::ASM_TYPE;
 	const ASM_CONV: Option<OutputAsmConv> = <JsValue as Output>::ASM_CONV;
@@ -49,13 +51,6 @@ unsafe impl<T> Output for JsArray<T> {
 			value: Output::from_raw(raw),
 			_type: PhantomData,
 		}
-	}
-}
-
-impl<T> JsArray<T> {
-	#[must_use]
-	pub fn unchecked_from(value: JsValue) -> Self {
-		Self { value, _type: PhantomData }
 	}
 }
 

@@ -4,7 +4,7 @@
 
 use core::marker::PhantomData;
 use crate::JsValue;
-use crate::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
+use crate::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, JsCast, OutputJsConv};
 
 #[repr(transparent)]
 pub struct JsNumber<T = f64> {
@@ -36,6 +36,8 @@ unsafe impl<T> Input for &JsNumber<T> {
 	}
 }
 
+unsafe impl<T> JsCast for JsNumber<T> {}
+
 unsafe impl<T> Output for JsNumber<T> {
 	const ASM_TYPE: &str = <JsValue as Output>::ASM_TYPE;
 	const ASM_CONV: Option<OutputAsmConv> = <JsValue as Output>::ASM_CONV;
@@ -48,12 +50,5 @@ unsafe impl<T> Output for JsNumber<T> {
 			value: Output::from_raw(raw),
 			_type: PhantomData,
 		}
-	}
-}
-
-impl<T> JsNumber<T> {
-	#[must_use]
-	pub fn unchecked_from(value: JsValue) -> Self {
-		Self { value, _type: PhantomData }
 	}
 }

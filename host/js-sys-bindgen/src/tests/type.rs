@@ -20,7 +20,7 @@ fn basic() {
 		},
 		{
 			use js_sys::JsValue;
-			use js_sys::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
+			use js_sys::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, JsCast, OutputJsConv};
 
 			#[repr(transparent)]
 			struct Test(JsValue);
@@ -49,6 +49,8 @@ fn basic() {
 				}
 			}
 
+			unsafe impl JsCast for Test {}
+
 			unsafe impl Output for Test {
 				const ASM_TYPE: &str = <JsValue as Output>::ASM_TYPE;
 				const ASM_CONV: Option<OutputAsmConv> = <JsValue as Output>::ASM_CONV;
@@ -58,13 +60,6 @@ fn basic() {
 
 				fn from_raw(raw: Self::Type) -> Self {
 					Self(Output::from_raw(raw))
-				}
-			}
-
-			impl Test {
-				#[must_use]
-				fn unchecked_from(value: JsValue) -> Self {
-					Self(value)
 				}
 			}
 		},
@@ -90,7 +85,7 @@ fn generic() {
 		{
 			use core::marker::PhantomData;
 			use js_sys::JsValue;
-			use js_sys::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, OutputJsConv};
+			use js_sys::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, JsCast, OutputJsConv};
 
 			#[repr(transparent)]
 			struct Test<T = JsValue> {
@@ -122,6 +117,8 @@ fn generic() {
 				}
 			}
 
+			unsafe impl<T> JsCast for Test<T> {}
+
 			unsafe impl<T> Output for Test<T> {
 				const ASM_TYPE: &str = <JsValue as Output>::ASM_TYPE;
 				const ASM_CONV: Option<OutputAsmConv> = <JsValue as Output>::ASM_CONV;
@@ -134,13 +131,6 @@ fn generic() {
 						value: Output::from_raw(raw),
 						_type: PhantomData,
 					}
-				}
-			}
-
-			impl<T> Test<T> {
-				#[must_use]
-				fn unchecked_from(value: JsValue) -> Self {
-					Self { value, _type: PhantomData }
 				}
 			}
 		},
