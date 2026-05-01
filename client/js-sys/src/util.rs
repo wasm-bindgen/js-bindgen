@@ -120,9 +120,18 @@ impl<T> PtrLength<T> {
 	}
 
 	fn internal(len: usize) -> Self {
-		#[cfg(target_arch = "wasm64")]
-		#[expect(clippy::cast_precision_loss, reason = "checked")]
-		let len = len as f64;
+		#[cfg_attr(
+			target_arch = "wasm32",
+			expect(clippy::cast_possible_truncation, reason = "32-bit")
+		)]
+		#[cfg_attr(
+			target_arch = "wasm64",
+			expect(
+				clippy::cast_precision_loss,
+				reason = "can't be larger than `MAX_SAFE_INTEGER`"
+			)
+		)]
+		let len = len as <Self as Input>::Type;
 
 		Self {
 			len,
@@ -137,7 +146,7 @@ unsafe impl<T> Input for PtrLength<T> {
 	const JS_CONV: Option<InputJsConv> = Self::Type::JS_CONV;
 
 	#[cfg(target_arch = "wasm32")]
-	type Type = usize;
+	type Type = u32;
 	#[cfg(target_arch = "wasm64")]
 	type Type = f64;
 

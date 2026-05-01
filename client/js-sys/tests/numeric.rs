@@ -78,11 +78,9 @@ macro_rules! internal {
 
 unsigned!(JsNumber, u8, u16, u32);
 unsigned!(JsBigInt, u64, u128);
-unsigned!(JsUsize, usize);
 
 signed!(JsNumber, i8, i16, i32);
 signed!(JsBigInt, i64, i128);
-unsigned!(JsUsize, isize);
 
 #[cfg(target_arch = "wasm32")]
 const MAX_SAFE_PTR: usize = usize::MAX;

@@ -87,17 +87,9 @@ output!("i32", bool);
 input_output!("i32", u8, u16);
 output!("i32", u32);
 output!("i64", u64);
-#[cfg(target_arch = "wasm32")]
-delegate!(u32, usize);
-#[cfg(target_arch = "wasm64")]
-delegate!(u64, usize);
 
 input_output!("i32", i8, i16, i32);
 input_output!("i64", i64);
-#[cfg(target_arch = "wasm32")]
-input_output!("i32", isize);
-#[cfg(target_arch = "wasm64")]
-input_output!("i64", isize);
 
 input_output!("f32", f32);
 input_output!("f64", f64);
