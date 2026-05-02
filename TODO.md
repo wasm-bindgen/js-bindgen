@@ -126,6 +126,7 @@ This is a list of upstream issues that could make our lives significantly easier
   tests in `js-sys`. [`rust-lang/rust#145616`]
 - Currently `cargo metadata` doesn't list `build-std` dependencies. This is an issue for caching in
   the CI, significantly increasing our build and test times. [`rust-lang/wg-cargo-std-aware#20`]
+- Ask LLVM to remove the requirement for a `__linear_memory` declaration on Wasm64.
 
 [`llvm/llvm-project#136594`]: https://github.com/llvm/llvm-project/issues/136594
 [`rust-lang/rust#136382`]: https://github.com/rust-lang/rust/issues/136382
