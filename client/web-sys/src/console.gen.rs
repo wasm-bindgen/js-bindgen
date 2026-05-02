@@ -17,8 +17,8 @@ use js_sys::hazard::JsCast;
 
 pub fn log0() {
 	js_bindgen::unsafe_embed_asm! {
-		"(import \"web_sys\" \"console.log0\" (func $web_sys.import.console.log0 (@sym (name \"web_sys.import.console.log0\")) (param ) (result )))",
-		"(func $web_sys.console.log0 (@sym) (param  ) (result )",
+		"(import \"web_sys\" \"console.log0\" (func $web_sys.import.console.log0 (@sym (name \"web_sys.import.console.log0\"))))",
+		"(func $web_sys.console.log0 (@sym)",
 		"  call $web_sys.import.console.log0 (@reloc)",
 		")",
 	}
@@ -35,8 +35,8 @@ pub fn log0() {
 
 pub fn log<T: JsCast>(data: &[T]) {
 	js_bindgen::unsafe_embed_asm! {
-		"(import \"web_sys\" \"console.log\" (func $web_sys.import.console.log (@sym (name \"web_sys.import.console.log\")) (param {}) (result ))){}",
-		"(func $web_sys.console.log (@sym) (param  {}) (result )",
+		"(import \"web_sys\" \"console.log\" (func $web_sys.import.console.log (@sym (name \"web_sys.import.console.log\")) (param {}))){}",
+		"(func $web_sys.console.log (@sym) (param {})",
 		"  local.get {}",
 		"  call $web_sys.import.console.log (@reloc)",
 		")",
@@ -70,8 +70,8 @@ pub fn log<T: JsCast>(data: &[T]) {
 
 pub fn log2(data1: &JsValue, data2: &JsValue) {
 	js_bindgen::unsafe_embed_asm! {
-		"(import \"web_sys\" \"console.log2\" (func $web_sys.import.console.log2 (@sym (name \"web_sys.import.console.log2\")) (param {} {}) (result ))){}",
-		"(func $web_sys.console.log2 (@sym) (param  {} {}) (result )",
+		"(import \"web_sys\" \"console.log2\" (func $web_sys.import.console.log2 (@sym (name \"web_sys.import.console.log2\")) (param {} {}))){}",
+		"(func $web_sys.console.log2 (@sym) (param {} {})",
 		"  local.get {}",
 		"  local.get {}",
 		"  call $web_sys.import.console.log2 (@reloc)",
@@ -110,8 +110,8 @@ pub fn log2(data1: &JsValue, data2: &JsValue) {
 
 pub fn error(data: &JsValue) {
 	js_bindgen::unsafe_embed_asm! {
-		"(import \"web_sys\" \"console.error\" (func $web_sys.import.console.error (@sym (name \"web_sys.import.console.error\")) (param {}) (result ))){}",
-		"(func $web_sys.console.error (@sym) (param  {}) (result )",
+		"(import \"web_sys\" \"console.error\" (func $web_sys.import.console.error (@sym (name \"web_sys.import.console.error\")) (param {}))){}",
+		"(func $web_sys.console.error (@sym) (param {})",
 		"  local.get {}",
 		"  call $web_sys.import.console.error (@reloc)",
 		")",

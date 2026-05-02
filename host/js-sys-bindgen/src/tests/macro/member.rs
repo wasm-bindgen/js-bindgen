@@ -11,13 +11,13 @@ fn method() {
 			impl JsTest {
 				pub fn test(self: &JsTest) {
 					::js_sys::js_bindgen::unsafe_embed_asm! {
-						"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param {}) (result ))){}",
-						"(func $test_crate.test (@sym) (param  {}) (result )",
+						"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param {}))){}",
+						"(func $test_crate.test (@sym) (param {})",
 						"  local.get {}",
 						"  call $test_crate.import.test (@reloc)",
 						")",
 						interpolate ::js_sys::r#macro::asm_input_import_type::<&::js_sys::JsValue>(),
-						interpolate ::js_sys::r#macro::asm_imports!((& ::js_sys::JsValue),),
+						interpolate ::js_sys::r#macro::asm_imports!((&::js_sys::JsValue)),
 						interpolate <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
 						interpolate ::js_sys::r#macro::asm_input!("0", &::js_sys::JsValue),
 					}
@@ -51,10 +51,10 @@ fn method() {
 		},
 		indoc::indoc!(
 			"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \
-			 \"test_crate.import.test\")) (param externref) (result )))
+			 \"test_crate.import.test\")) (param externref)))
 			(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result \
 			 externref)))
-			(func $test_crate.test (@sym) (param  i32) (result )
+			(func $test_crate.test (@sym) (param i32)
 			  local.get 0
 			  call $js_sys.externref.get (@reloc)
 			  call $test_crate.import.test (@reloc)
@@ -77,8 +77,8 @@ fn method_par() {
 			impl JsTest {
 				pub fn test(self: &JsTest, par1: &JsValue, par2: &JsValue) {
 					::js_sys::js_bindgen::unsafe_embed_asm! {
-						"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param {} {} {}) (result ))){}",
-						"(func $test_crate.test (@sym) (param  {} {} {}) (result )",
+						"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param {} {} {}))){}",
+						"(func $test_crate.test (@sym) (param {} {} {})",
 						"  local.get {}",
 						"  local.get {}",
 						"  local.get {}",
@@ -87,7 +87,7 @@ fn method_par() {
 						interpolate ::js_sys::r#macro::asm_input_import_type::<&::js_sys::JsValue>(),
 						interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 						interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
-						interpolate ::js_sys::r#macro::asm_imports!((& ::js_sys::JsValue, & JsValue),),
+						interpolate ::js_sys::r#macro::asm_imports!((&::js_sys::JsValue, &JsValue)),
 						interpolate <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
 						interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
 						interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
@@ -140,10 +140,10 @@ fn method_par() {
 		},
 		indoc::indoc!(
 			"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \
-			 \"test_crate.import.test\")) (param externref externref externref) (result )))
+			 \"test_crate.import.test\")) (param externref externref externref)))
 			(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result \
 			 externref)))
-			(func $test_crate.test (@sym) (param  i32 i32 i32) (result )
+			(func $test_crate.test (@sym) (param i32 i32 i32)
 			  local.get 0
 			  call $js_sys.externref.get (@reloc)
 			  local.get 1
@@ -257,15 +257,15 @@ fn setter() {
 			impl JsTest {
 				pub fn test(self: &JsTest, value: &JsValue) {
 					::js_sys::js_bindgen::unsafe_embed_asm! {
-						"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param {} {}) (result ))){}",
-						"(func $test_crate.test (@sym) (param  {} {}) (result )",
+						"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param {} {}))){}",
+						"(func $test_crate.test (@sym) (param {} {})",
 						"  local.get {}",
 						"  local.get {}",
 						"  call $test_crate.import.test (@reloc)",
 						")",
 						interpolate ::js_sys::r#macro::asm_input_import_type::<&::js_sys::JsValue>(),
 						interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
-						interpolate ::js_sys::r#macro::asm_imports!((& ::js_sys::JsValue, & JsValue),),
+						interpolate ::js_sys::r#macro::asm_imports!((&::js_sys::JsValue, &JsValue)),
 						interpolate <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
 						interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
 						interpolate ::js_sys::r#macro::asm_input!("0", &::js_sys::JsValue),
@@ -313,10 +313,10 @@ fn setter() {
 		},
 		indoc::indoc!(
 			"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \
-			 \"test_crate.import.test\")) (param externref externref) (result )))
+			 \"test_crate.import.test\")) (param externref externref)))
 			(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result \
 			 externref)))
-			(func $test_crate.test (@sym) (param  i32 i32) (result )
+			(func $test_crate.test (@sym) (param i32 i32)
 			  local.get 0
 			  call $js_sys.externref.get (@reloc)
 			  local.get 1

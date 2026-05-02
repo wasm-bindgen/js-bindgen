@@ -273,8 +273,8 @@ pub(super) fn string_utf8_length(string: &JsString) -> f64 {
 
 pub(super) unsafe fn string_encode(string: &JsString, array: PtrMut<u8>, len: PtrLength<u8>) {
 	js_bindgen::unsafe_embed_asm! {
-		"(import \"js_sys\" \"string_encode\" (func $js_sys.import.string_encode (@sym (name \"js_sys.import.string_encode\")) (param {} {} {}) (result ))){}",
-		"(func $js_sys.string_encode (@sym) (param  {} {} {}) (result )",
+		"(import \"js_sys\" \"string_encode\" (func $js_sys.import.string_encode (@sym (name \"js_sys.import.string_encode\")) (param {} {} {}))){}",
+		"(func $js_sys.string_encode (@sym) (param {} {} {})",
 		"  local.get {}",
 		"  local.get {}",
 		"  local.get {}",
