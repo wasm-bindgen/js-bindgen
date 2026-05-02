@@ -8,24 +8,18 @@ use super::JsValue;
 use crate::util::PtrLength;
 
 pub(super) fn js_value_partial_eq(value1: &JsValue, value2: &JsValue) -> bool {
-	js_bindgen::unsafe_embed_asm! {
+	js_bindgen::unsafe_global_wat! {
 		"(import \"js_sys\" \"js_value_partial_eq\" (func $js_sys.import.js_value_partial_eq (@sym (name \"js_sys.import.js_value_partial_eq\")) (param {} {}) (result {}))){}",
 		"(func $js_sys.js_value_partial_eq (@sym) (param {}) (param $value1 {}) (param $value2 {}) (result {})",
-		"  local.get $value1{}",
-		"  local.get $value2{}",
-		"  call $js_sys.import.js_value_partial_eq (@reloc){}",
-		")",
-		interpolate r#macro::asm_input_import_type::<&JsValue>(),
-		interpolate r#macro::asm_input_import_type::<&JsValue>(),
-		interpolate r#macro::asm_output_import_type::<bool>(),
-		interpolate r#macro::asm_imports!((&JsValue), bool),
-		interpolate r#macro::asm_indirect!(bool),
-		interpolate <&JsValue as Input>::ASM_TYPE,
-		interpolate <&JsValue as Input>::ASM_TYPE,
-		interpolate r#macro::asm_direct::<bool>(),
-		interpolate r#macro::asm_input!(&JsValue),
-		interpolate r#macro::asm_input!(&JsValue),
-		interpolate r#macro::asm_output!(bool),
+		"  local.get $value1{}", "  local.get $value2{}",
+		"  call $js_sys.import.js_value_partial_eq (@reloc){}", ")", interpolate
+		r#macro::wat_input_import_type:: < & JsValue > (), interpolate
+		r#macro::wat_input_import_type:: < & JsValue > (), interpolate
+		r#macro::wat_output_import_type:: < bool > (), interpolate r#macro::wat_imports!((&
+		JsValue), bool), interpolate r#macro::wat_indirect!(bool), interpolate < & JsValue as Input
+		> ::WAT_TYPE, interpolate < & JsValue as Input > ::WAT_TYPE, interpolate
+		r#macro::wat_direct:: < bool > (), interpolate r#macro::wat_input!(& JsValue), interpolate
+		r#macro::wat_input!(& JsValue), interpolate r#macro::wat_output!(bool),
 	}
 
 	js_bindgen::import_js! {

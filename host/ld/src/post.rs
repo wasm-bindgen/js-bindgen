@@ -74,7 +74,7 @@ pub fn processing(
 				import_section.append_to(&mut wasm_output);
 			}
 			// Don't write back our own custom sections.
-			Payload::CustomSection(c) if c.name() == "js_bindgen.assembly" => (),
+			Payload::CustomSection(c) if c.name() == "js_bindgen.wat" => (),
 			Payload::CustomSection(c) if c.name() == "js_bindgen.import" => (),
 			Payload::CustomSection(c) if c.name() == "js_bindgen.embed" => (),
 			// Register ourselves in the producer section.

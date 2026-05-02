@@ -31,11 +31,11 @@ impl Type {
 
 		let js_value = hygiene.js_value(&cfgs, span);
 		let input = hygiene.input(&cfgs, span);
-		let input_asm_conv = hygiene.input_asm_conv(&cfgs, span);
+		let input_wat_conv = hygiene.input_wat_conv(&cfgs, span);
 		let input_js_conv = hygiene.input_js_conv(&cfgs, span);
 		let js_cast = hygiene.js_cast(&cfgs, span);
 		let output = hygiene.output(&cfgs, span);
-		let output_asm_conv = hygiene.output_asm_conv(&cfgs, span);
+		let output_wat_conv = hygiene.output_wat_conv(&cfgs, span);
 		let output_js_conv = hygiene.output_js_conv(&cfgs, span);
 		let as_ref = hygiene.as_ref(span);
 		let str = hygiene.str(span);
@@ -92,8 +92,8 @@ impl Type {
 			parse_quote_spanned! {span=>
 				#(#cfgs)*
 				unsafe impl #gen_impl #input for &#ident #gen_type #gen_where {
-					const ASM_TYPE: &'static #str = <&#js_value as #input>::ASM_TYPE;
-					const ASM_CONV: #option<#input_asm_conv> = <&#js_value as #input>::ASM_CONV;
+					const WAT_TYPE: &'static #str = <&#js_value as #input>::WAT_TYPE;
+					const WAT_CONV: #option<#input_wat_conv> = <&#js_value as #input>::WAT_CONV;
 					const JS_CONV: #option<#input_js_conv> = <&#js_value as #input>::JS_CONV;
 
 					type Type = <&'static #js_value as #input>::Type;
@@ -110,8 +110,8 @@ impl Type {
 			parse_quote_spanned! {span=>
 				#(#cfgs)*
 				unsafe impl #gen_impl #output for #ident #gen_type #gen_where {
-					const ASM_TYPE: &#str = <#js_value as #output>::ASM_TYPE;
-					const ASM_CONV: #option<#output_asm_conv> = <#js_value as #output>::ASM_CONV;
+					const WAT_TYPE: &#str = <#js_value as #output>::WAT_TYPE;
+					const WAT_CONV: #option<#output_wat_conv> = <#js_value as #output>::WAT_CONV;
 					const JS_CONV: #option<#output_js_conv> = <#js_value as #output>::JS_CONV;
 
 					type Type = <#js_value as #output>::Type;

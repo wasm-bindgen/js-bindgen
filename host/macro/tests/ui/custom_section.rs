@@ -1,12 +1,12 @@
-js_bindgen::unsafe_embed_asm!("{}", interpolate Foo);
+js_bindgen::unsafe_global_wat!("{}", interpolate Foo);
 //~^ ERROR: cannot find value `Foo` in this scope
 
 struct Bar;
 
-js_bindgen::unsafe_embed_asm!("{}", interpolate Bar);
+js_bindgen::unsafe_global_wat!("{}", interpolate Bar);
 //~^ E0308
 
-js_bindgen::unsafe_embed_asm!("{}", interpolate 42);
+js_bindgen::unsafe_global_wat!("{}", interpolate 42);
 //~^ E0308
 
 js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = [42], "");

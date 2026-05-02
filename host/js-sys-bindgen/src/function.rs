@@ -109,7 +109,7 @@ impl Function {
 		let mut state = State::parse(
 			crate_, js_output, namespace, hygiene, &attrs, &mut sig, span,
 		)?;
-		let asm = state.asm();
+		let wat = state.wat();
 		let js = state.js();
 		let State {
 			input,
@@ -136,7 +136,7 @@ impl Function {
 		let item_fn = parse_quote_spanned! {span=>
 			#(#attrs)*
 			#vis #sig {
-				#asm
+				#wat
 
 				#js
 
@@ -419,7 +419,7 @@ impl<'a> State<'a> {
 		}
 	}
 
-	fn asm(&self) -> Stmt {
+	fn wat(&self) -> Stmt {
 		let Self {
 			crate_,
 			js_bindgen,
@@ -454,12 +454,12 @@ impl<'a> State<'a> {
 			params.push_str(" {})");
 		}
 
-		let mut asm_param_gets = String::new();
+		let mut wat_param_gets = String::new();
 
 		for name in intern_input_names {
-			asm_param_gets.push_str(r#""  local.get $"#);
-			asm_param_gets.push_str(&name.to_string());
-			asm_param_gets.push_str(r#"{}","#);
+			wat_param_gets.push_str(r#""  local.get $"#);
+			wat_param_gets.push_str(&name.to_string());
+			wat_param_gets.push_str(r#"{}","#);
 		}
 
 		let params_placeholder = iter::repeat_n("{}", input_tys.len()).join(" ");
@@ -478,36 +478,36 @@ impl<'a> State<'a> {
 		} else {
 			"{}"
 		};
-		let asm_ret_conv: String = iter::repeat_n("{}", output_ty.len()).collect();
+		let wat_ret_conv: String = iter::repeat_n("{}", output_ty.len()).collect();
 
-		let asm = TokenStream::from_str(&format!(
+		let wat = TokenStream::from_str(&format!(
 			r#""(import \"{crate_}\" \"{import_name}\" (func ${crate_}.import.{import_name} (@sym (name \"{crate_}.import.{import_name}\")){import_params}{result})){import_funcs_placeholder}",
             "(func ${foreign_name} (@sym){params}{result}",
-            {asm_param_gets}
-            "  call ${crate_}.import.{import_name} (@reloc){asm_ret_conv}",
+            {wat_param_gets}
+            "  call ${crate_}.import.{import_name} (@reloc){wat_ret_conv}",
             ")","#
 		))
 		.unwrap();
 
-		let asm_imports = if input_imports.is_empty() && output_ty.is_empty() {
+		let wat_imports = if input_imports.is_empty() && output_ty.is_empty() {
 			TokenStream::new()
 		} else {
 			quote_spanned! {*span=>
-				interpolate #r#macro::asm_imports!((#(#input_imports),*), #(#output_ty)*),
+				interpolate #r#macro::wat_imports!((#(#input_imports),*), #(#output_ty)*),
 			}
 		};
 
 		parse_quote_spanned! {*span=>
-			#js_bindgen::unsafe_embed_asm! {
-				#asm
-				#(interpolate #r#macro::asm_input_import_type::<#input_tys>(),)*
-				#(interpolate #r#macro::asm_output_import_type::<#output_ty>(),)*
-				#asm_imports
-				#(interpolate #r#macro::asm_indirect!(#output_ty),)*
-				#(interpolate <#input_tys as #input>::ASM_TYPE,)*
-				#(interpolate #r#macro::asm_direct::<#output_ty>(),)*
-				#(interpolate #r#macro::asm_input!(#input_tys),)*
-				#(interpolate #r#macro::asm_output!(#output_ty),)*
+			#js_bindgen::unsafe_global_wat! {
+				#wat
+				#(interpolate #r#macro::wat_input_import_type::<#input_tys>(),)*
+				#(interpolate #r#macro::wat_output_import_type::<#output_ty>(),)*
+				#wat_imports
+				#(interpolate #r#macro::wat_indirect!(#output_ty),)*
+				#(interpolate <#input_tys as #input>::WAT_TYPE,)*
+				#(interpolate #r#macro::wat_direct::<#output_ty>(),)*
+				#(interpolate #r#macro::wat_input!(#input_tys),)*
+				#(interpolate #r#macro::wat_output!(#output_ty),)*
 			}
 		}
 	}

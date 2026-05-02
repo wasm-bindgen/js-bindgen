@@ -10,16 +10,14 @@ fn method() {
 		{
 			impl JsTest {
 				pub fn test(self: &JsTest) {
-					::js_sys::js_bindgen::unsafe_embed_asm! {
+					::js_sys::js_bindgen::unsafe_global_wat! {
 						"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param {}))){}",
-						"(func $test_crate.test (@sym) (param $self {})",
-						"  local.get $self{}",
-						"  call $test_crate.import.test (@reloc)",
-						")",
-						interpolate ::js_sys::r#macro::asm_input_import_type::<&::js_sys::JsValue>(),
-						interpolate ::js_sys::r#macro::asm_imports!((&::js_sys::JsValue)),
-						interpolate <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
-						interpolate ::js_sys::r#macro::asm_input!(&::js_sys::JsValue),
+						"(func $test_crate.test (@sym) (param $self {})", "  local.get $self{}",
+						"  call $test_crate.import.test (@reloc)", ")",
+						interpolate::js_sys::r#macro::wat_input_import_type:: < & ::js_sys::JsValue > (),
+						interpolate::js_sys::r#macro::wat_imports!((& ::js_sys::JsValue),), interpolate < &
+						::js_sys::JsValue as ::js_sys::hazard::Input > ::WAT_TYPE,
+						interpolate::js_sys::r#macro::wat_input!(& ::js_sys::JsValue),
 					}
 
 					::js_sys::js_bindgen::import_js! {
@@ -74,24 +72,20 @@ fn method_par() {
 		{
 			impl JsTest {
 				pub fn test(self: &JsTest, par1: &JsValue, par2: &JsValue) {
-					::js_sys::js_bindgen::unsafe_embed_asm! {
+					::js_sys::js_bindgen::unsafe_global_wat! {
 						"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param {} {} {}))){}",
 						"(func $test_crate.test (@sym) (param $self {}) (param $par1 {}) (param $par2 {})",
-						"  local.get $self{}",
-						"  local.get $par1{}",
-						"  local.get $par2{}",
-						"  call $test_crate.import.test (@reloc)",
-						")",
-						interpolate ::js_sys::r#macro::asm_input_import_type::<&::js_sys::JsValue>(),
-						interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
-						interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
-						interpolate ::js_sys::r#macro::asm_imports!((&::js_sys::JsValue, &JsValue)),
-						interpolate <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
-						interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
-						interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
-						interpolate ::js_sys::r#macro::asm_input!(&::js_sys::JsValue),
-						interpolate ::js_sys::r#macro::asm_input!(&JsValue),
-						interpolate ::js_sys::r#macro::asm_input!(&JsValue),
+						"  local.get $self{}", "  local.get $par1{}", "  local.get $par2{}",
+						"  call $test_crate.import.test (@reloc)", ")",
+						interpolate::js_sys::r#macro::wat_input_import_type:: < & ::js_sys::JsValue > (),
+						interpolate::js_sys::r#macro::wat_input_import_type:: < & JsValue > (),
+						interpolate::js_sys::r#macro::wat_input_import_type:: < & JsValue > (),
+						interpolate::js_sys::r#macro::wat_imports!((& ::js_sys::JsValue, & JsValue),),
+						interpolate < & ::js_sys::JsValue as ::js_sys::hazard::Input > ::WAT_TYPE, interpolate <
+						& JsValue as ::js_sys::hazard::Input > ::WAT_TYPE, interpolate < & JsValue as
+						::js_sys::hazard::Input > ::WAT_TYPE, interpolate::js_sys::r#macro::wat_input!(&
+						::js_sys::JsValue), interpolate::js_sys::r#macro::wat_input!(& JsValue),
+						interpolate::js_sys::r#macro::wat_input!(& JsValue),
 					}
 
 					::js_sys::js_bindgen::import_js! {
@@ -166,20 +160,17 @@ fn getter() {
 		{
 			impl JsTest {
 				pub fn test(self: &JsTest) -> JsValue {
-					::js_sys::js_bindgen::unsafe_embed_asm! {
+					::js_sys::js_bindgen::unsafe_global_wat! {
 						"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param {}) (result {}))){}",
 						"(func $test_crate.test (@sym) (param {}) (param $self {}) (result {})",
-						"  local.get $self{}",
-						"  call $test_crate.import.test (@reloc){}",
-						")",
-						interpolate ::js_sys::r#macro::asm_input_import_type::<&::js_sys::JsValue>(),
-						interpolate ::js_sys::r#macro::asm_output_import_type::<JsValue>(),
-						interpolate ::js_sys::r#macro::asm_imports!((&::js_sys::JsValue), JsValue),
-						interpolate ::js_sys::r#macro::asm_indirect!(JsValue),
-						interpolate <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
-						interpolate ::js_sys::r#macro::asm_direct::<JsValue>(),
-						interpolate ::js_sys::r#macro::asm_input!(&::js_sys::JsValue),
-						interpolate ::js_sys::r#macro::asm_output!(JsValue),
+						"  local.get $self{}", "  call $test_crate.import.test (@reloc){}", ")",
+						interpolate::js_sys::r#macro::wat_input_import_type:: < & ::js_sys::JsValue > (),
+						interpolate::js_sys::r#macro::wat_output_import_type:: < JsValue > (),
+						interpolate::js_sys::r#macro::wat_imports!((& ::js_sys::JsValue), JsValue),
+						interpolate::js_sys::r#macro::wat_indirect!(JsValue), interpolate < & ::js_sys::JsValue
+						as ::js_sys::hazard::Input > ::WAT_TYPE, interpolate::js_sys::r#macro::wat_direct:: <
+						JsValue > (), interpolate::js_sys::r#macro::wat_input!(& ::js_sys::JsValue),
+						interpolate::js_sys::r#macro::wat_output!(JsValue),
 					}
 
 					::js_sys::js_bindgen::import_js! {
@@ -248,20 +239,18 @@ fn setter() {
 		{
 			impl JsTest {
 				pub fn test(self: &JsTest, value: &JsValue) {
-					::js_sys::js_bindgen::unsafe_embed_asm! {
+					::js_sys::js_bindgen::unsafe_global_wat! {
 						"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param {} {}))){}",
 						"(func $test_crate.test (@sym) (param $self {}) (param $value {})",
-						"  local.get $self{}",
-						"  local.get $value{}",
-						"  call $test_crate.import.test (@reloc)",
-						")",
-						interpolate ::js_sys::r#macro::asm_input_import_type::<&::js_sys::JsValue>(),
-						interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
-						interpolate ::js_sys::r#macro::asm_imports!((&::js_sys::JsValue, &JsValue)),
-						interpolate <&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
-						interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
-						interpolate ::js_sys::r#macro::asm_input!(&::js_sys::JsValue),
-						interpolate ::js_sys::r#macro::asm_input!(&JsValue),
+						"  local.get $self{}", "  local.get $value{}",
+						"  call $test_crate.import.test (@reloc)", ")",
+						interpolate::js_sys::r#macro::wat_input_import_type:: < & ::js_sys::JsValue > (),
+						interpolate::js_sys::r#macro::wat_input_import_type:: < & JsValue > (),
+						interpolate::js_sys::r#macro::wat_imports!((& ::js_sys::JsValue, & JsValue),),
+						interpolate < & ::js_sys::JsValue as ::js_sys::hazard::Input > ::WAT_TYPE, interpolate <
+						& JsValue as ::js_sys::hazard::Input > ::WAT_TYPE,
+						interpolate::js_sys::r#macro::wat_input!(& ::js_sys::JsValue),
+						interpolate::js_sys::r#macro::wat_input!(& JsValue),
 					}
 
 					::js_sys::js_bindgen::import_js! {

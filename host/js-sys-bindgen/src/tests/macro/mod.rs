@@ -6,7 +6,7 @@ use std::{env, fs};
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use cargo_metadata::{Artifact, CompilerMessage, Message, Target};
 use itertools::Itertools;
-use js_bindgen_ld_shared::{JsBindgenAssemblySectionParser, JsBindgenJsSectionParser};
+use js_bindgen_ld_shared::{JsBindgenJsSectionParser, JsBindgenWatSectionParser};
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::parse_quote;
@@ -15,13 +15,13 @@ use wasmparser::{Parser, Payload};
 use crate::r#macro;
 
 macro_rules! test {
-	($attr:tt, $input:tt, $expected:tt, $assembly:literal, $js_import:expr $(,)?) => {
-		test!($attr, $input, $expected, wat: $assembly, js: $js_import)
+	($attr:tt, $input:tt, $expected:tt, $wat:literal, $js_import:expr $(,)?) => {
+		test!($attr, $input, $expected, wat: $wat, js: $js_import)
 	};
 	($attr:tt, $input:tt, $expected:tt, None, $js_import:expr $(,)?) => {
 		test!($attr, $input, $expected, js: $js_import)
 	};
-	($attr:tt, $input:tt, $expected:tt, $(wat: $assembly:literal,)? js: $js_import:expr) => {{
+	($attr:tt, $input:tt, $expected:tt, $(wat: $wat:literal,)? js: $js_import:expr) => {{
 		use inline_snap::inline_snap;
 		use quote::quote;
 		use syn::File;
@@ -43,19 +43,19 @@ macro_rules! test {
 		inline_snap!(output.clone(), $expected);
 
 		let dir = tempfile::tempdir().unwrap();
-		let (assembly_output, js_import_output) =
+		let (wat_output, js_import_output) =
 			crate::tests::r#macro::inner(dir.path(), &output).unwrap();
 
 		#[allow(clippy::allow_attributes, unused_assignments, unused_mut, reason = "depends on the input")]
-		let mut assembly: Option<&str> = None;
-		$(assembly = Some($assembly);)?
-		match (assembly, assembly_output) {
-			$((Some(_), Some(assembly_output)) => {
-				inline_snap!(assembly_output, $assembly);
+		let mut wat: Option<&str> = None;
+		$(wat = Some($wat);)?
+		match (wat, wat_output) {
+			$((Some(_), Some(wat_output)) => {
+				inline_snap!(wat_output, $wat);
 			})?
 			(None, None) => (),
-			(assembly, assembly_output) => {
-				similar_asserts::assert_eq!(assembly, assembly_output.as_deref());
+			(wat, wat_output) => {
+				similar_asserts::assert_eq!(wat, wat_output.as_deref());
 			}
 		}
 
@@ -186,7 +186,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 
 	let reader = Cursor::new(output.stdout);
 
-	let mut assembly_output = None;
+	let mut wat_output = None;
 	let mut js_import_output = None;
 
 	for message in Message::parse_stream(reader) {
@@ -203,20 +203,17 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 						let payload = payload?;
 
 						match payload {
-							Payload::CustomSection(c) if c.name() == "js_bindgen.assembly" => {
-								let wat = JsBindgenAssemblySectionParser::new(&c)
+							Payload::CustomSection(c) if c.name() == "js_bindgen.wat" => {
+								let wat = JsBindgenWatSectionParser::new(&c)
 									.exactly_one()
-									.map_err(|asms| {
+									.map_err(|wats| {
 										anyhow!(
-											"found multiple assembly outputs in a single section: \
-											 {asms:?}"
+											"found multiple WAT outputs in a single section: \
+											 {wats:?}"
 										)
 									})?;
-								ensure!(
-									assembly_output.is_none(),
-									"found multiple assembly outputs"
-								);
-								assembly_output = Some(wat.to_owned());
+								ensure!(wat_output.is_none(), "found multiple WAT outputs");
+								wat_output = Some(wat.to_owned());
 								js_bindgen_ld_shared::wat_to_object(false, wat).unwrap();
 							}
 							Payload::CustomSection(c) if c.name() == "js_bindgen.import" => {
@@ -246,5 +243,5 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 		}
 	}
 
-	Ok((assembly_output, js_import_output))
+	Ok((wat_output, js_import_output))
 }

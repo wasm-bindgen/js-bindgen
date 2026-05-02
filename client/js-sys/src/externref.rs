@@ -4,7 +4,7 @@ use core::cell::RefCell;
 use crate::panic::panic;
 use crate::util::PtrConst;
 
-js_bindgen::unsafe_embed_asm!(
+js_bindgen::unsafe_global_wat!(
 	"(import \"js_sys\" \"externref.table\" (table $js_sys.import.externref.table (@sym (name \
 	 \"js_sys.import.externref.table\")) 1 externref))",
 	"(import \"env\" \"js_sys.externref.next\" (func $js_sys.externref.next (@sym) (result i32)))",

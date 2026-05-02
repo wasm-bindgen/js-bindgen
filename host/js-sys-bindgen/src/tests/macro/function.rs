@@ -9,16 +9,13 @@ fn basic() {
 		},
 		{
 			pub fn log(data: &JsValue) {
-				::js_sys::js_bindgen::unsafe_embed_asm! {
+				::js_sys::js_bindgen::unsafe_global_wat! {
 					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {}))){}",
-					"(func $test_crate.log (@sym) (param $data {})",
-					"  local.get $data{}",
-					"  call $test_crate.import.log (@reloc)",
-					")",
-					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
-					interpolate ::js_sys::r#macro::asm_imports!((&JsValue)),
-					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
-					interpolate ::js_sys::r#macro::asm_input!(&JsValue),
+					"(func $test_crate.log (@sym) (param $data {})", "  local.get $data{}",
+					"  call $test_crate.import.log (@reloc)", ")",
+					interpolate::js_sys::r#macro::wat_input_import_type:: < & JsValue > (),
+					interpolate::js_sys::r#macro::wat_imports!((& JsValue),), interpolate < & JsValue as
+					::js_sys::hazard::Input > ::WAT_TYPE, interpolate::js_sys::r#macro::wat_input!(& JsValue),
 				}
 
 				::js_sys::js_bindgen::import_js! {
@@ -67,16 +64,13 @@ fn namespace() {
 		},
 		{
 			pub fn log(data: &JsValue) {
-				::js_sys::js_bindgen::unsafe_embed_asm! {
+				::js_sys::js_bindgen::unsafe_global_wat! {
 					"(import \"test_crate\" \"console.log\" (func $test_crate.import.console.log (@sym (name \"test_crate.import.console.log\")) (param {}))){}",
-					"(func $test_crate.console.log (@sym) (param $data {})",
-					"  local.get $data{}",
-					"  call $test_crate.import.console.log (@reloc)",
-					")",
-					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
-					interpolate ::js_sys::r#macro::asm_imports!((&JsValue)),
-					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
-					interpolate ::js_sys::r#macro::asm_input!(&JsValue),
+					"(func $test_crate.console.log (@sym) (param $data {})", "  local.get $data{}",
+					"  call $test_crate.import.console.log (@reloc)", ")",
+					interpolate::js_sys::r#macro::wat_input_import_type:: < & JsValue > (),
+					interpolate::js_sys::r#macro::wat_imports!((& JsValue),), interpolate < & JsValue as
+					::js_sys::hazard::Input > ::WAT_TYPE, interpolate::js_sys::r#macro::wat_input!(& JsValue),
 				}
 
 				::js_sys::js_bindgen::import_js! {
@@ -125,16 +119,13 @@ fn js_sys() {
 		},
 		{
 			pub fn log(data: &JsValue) {
-				js_sys::js_bindgen::unsafe_embed_asm! {
+				js_sys::js_bindgen::unsafe_global_wat! {
 					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {}))){}",
-					"(func $test_crate.log (@sym) (param $data {})",
-					"  local.get $data{}",
-					"  call $test_crate.import.log (@reloc)",
-					")",
-					interpolate js_sys::r#macro::asm_input_import_type::<&JsValue>(),
-					interpolate js_sys::r#macro::asm_imports!((&JsValue)),
-					interpolate <&JsValue as js_sys::hazard::Input>::ASM_TYPE,
-					interpolate js_sys::r#macro::asm_input!(&JsValue),
+					"(func $test_crate.log (@sym) (param $data {})", "  local.get $data{}",
+					"  call $test_crate.import.log (@reloc)", ")", interpolate
+					js_sys::r#macro::wat_input_import_type:: < & JsValue > (), interpolate
+					js_sys::r#macro::wat_imports!((& JsValue),), interpolate < & JsValue as
+					js_sys::hazard::Input > ::WAT_TYPE, interpolate js_sys::r#macro::wat_input!(& JsValue),
 				}
 
 				js_sys::js_bindgen::import_js! {
@@ -183,20 +174,16 @@ fn two_parameters() {
 		},
 		{
 			pub fn log(data1: &JsValue, data2: &JsValue) {
-				::js_sys::js_bindgen::unsafe_embed_asm! {
+				::js_sys::js_bindgen::unsafe_global_wat! {
 					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {} {}))){}",
-					"(func $test_crate.log (@sym) (param $data1 {}) (param $data2 {})",
-					"  local.get $data1{}",
-					"  local.get $data2{}",
-					"  call $test_crate.import.log (@reloc)",
-					")",
-					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
-					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
-					interpolate ::js_sys::r#macro::asm_imports!((&JsValue)),
-					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
-					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
-					interpolate ::js_sys::r#macro::asm_input!(&JsValue),
-					interpolate ::js_sys::r#macro::asm_input!(&JsValue),
+					"(func $test_crate.log (@sym) (param $data1 {}) (param $data2 {})", "  local.get $data1{}",
+					"  local.get $data2{}", "  call $test_crate.import.log (@reloc)", ")",
+					interpolate::js_sys::r#macro::wat_input_import_type:: < & JsValue > (),
+					interpolate::js_sys::r#macro::wat_input_import_type:: < & JsValue > (),
+					interpolate::js_sys::r#macro::wat_imports!((& JsValue),), interpolate < & JsValue as
+					::js_sys::hazard::Input > ::WAT_TYPE, interpolate < & JsValue as ::js_sys::hazard::Input >
+					::WAT_TYPE, interpolate::js_sys::r#macro::wat_input!(& JsValue),
+					interpolate::js_sys::r#macro::wat_input!(& JsValue),
 				}
 
 				::js_sys::js_bindgen::import_js! {
@@ -256,11 +243,9 @@ fn empty() {
 		},
 		{
 			pub fn log() {
-				::js_sys::js_bindgen::unsafe_embed_asm! {
+				::js_sys::js_bindgen::unsafe_global_wat! {
 					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\"))))",
-					"(func $test_crate.log (@sym)",
-					"  call $test_crate.import.log (@reloc)",
-					")",
+					"(func $test_crate.log (@sym)", "  call $test_crate.import.log (@reloc)", ")",
 				}
 
 				::js_sys::js_bindgen::import_js!(
@@ -298,16 +283,13 @@ fn js_name() {
 		},
 		{
 			pub fn logx(data: &JsValue) {
-				::js_sys::js_bindgen::unsafe_embed_asm! {
+				::js_sys::js_bindgen::unsafe_global_wat! {
 					"(import \"test_crate\" \"logx\" (func $test_crate.import.logx (@sym (name \"test_crate.import.logx\")) (param {}))){}",
-					"(func $test_crate.logx (@sym) (param $data {})",
-					"  local.get $data{}",
-					"  call $test_crate.import.logx (@reloc)",
-					")",
-					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
-					interpolate ::js_sys::r#macro::asm_imports!((&JsValue)),
-					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
-					interpolate ::js_sys::r#macro::asm_input!(&JsValue),
+					"(func $test_crate.logx (@sym) (param $data {})", "  local.get $data{}",
+					"  call $test_crate.import.logx (@reloc)", ")",
+					interpolate::js_sys::r#macro::wat_input_import_type:: < & JsValue > (),
+					interpolate::js_sys::r#macro::wat_imports!((& JsValue),), interpolate < & JsValue as
+					::js_sys::hazard::Input > ::WAT_TYPE, interpolate::js_sys::r#macro::wat_input!(& JsValue),
 				}
 
 				::js_sys::js_bindgen::import_js! {
@@ -357,16 +339,13 @@ fn js_import() {
 		},
 		{
 			pub fn log(data: &JsValue) {
-				::js_sys::js_bindgen::unsafe_embed_asm! {
+				::js_sys::js_bindgen::unsafe_global_wat! {
 					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {}))){}",
-					"(func $test_crate.log (@sym) (param $data {})",
-					"  local.get $data{}",
-					"  call $test_crate.import.log (@reloc)",
-					")",
-					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
-					interpolate ::js_sys::r#macro::asm_imports!((&JsValue)),
-					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
-					interpolate ::js_sys::r#macro::asm_input!(&JsValue),
+					"(func $test_crate.log (@sym) (param $data {})", "  local.get $data{}",
+					"  call $test_crate.import.log (@reloc)", ")",
+					interpolate::js_sys::r#macro::wat_input_import_type:: < & JsValue > (),
+					interpolate::js_sys::r#macro::wat_imports!((& JsValue),), interpolate < & JsValue as
+					::js_sys::hazard::Input > ::WAT_TYPE, interpolate::js_sys::r#macro::wat_input!(& JsValue),
 				}
 
 				unsafe extern "C" {
@@ -402,16 +381,13 @@ fn js_embed() {
 		},
 		{
 			pub fn log(data: &JsValue) {
-				::js_sys::js_bindgen::unsafe_embed_asm! {
+				::js_sys::js_bindgen::unsafe_global_wat! {
 					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {}))){}",
-					"(func $test_crate.log (@sym) (param $data {})",
-					"  local.get $data{}",
-					"  call $test_crate.import.log (@reloc)",
-					")",
-					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
-					interpolate ::js_sys::r#macro::asm_imports!((&JsValue)),
-					interpolate <&JsValue as ::js_sys::hazard::Input>::ASM_TYPE,
-					interpolate ::js_sys::r#macro::asm_input!(&JsValue),
+					"(func $test_crate.log (@sym) (param $data {})", "  local.get $data{}",
+					"  call $test_crate.import.log (@reloc)", ")",
+					interpolate::js_sys::r#macro::wat_input_import_type:: < & JsValue > (),
+					interpolate::js_sys::r#macro::wat_imports!((& JsValue),), interpolate < & JsValue as
+					::js_sys::hazard::Input > ::WAT_TYPE, interpolate::js_sys::r#macro::wat_input!(& JsValue),
 				}
 
 				::js_sys::js_bindgen::import_js! {
@@ -463,16 +439,15 @@ fn r#return() {
 		},
 		{
 			pub fn is_nan() -> JsValue {
-				::js_sys::js_bindgen::unsafe_embed_asm! {
+				::js_sys::js_bindgen::unsafe_global_wat! {
 					"(import \"test_crate\" \"is_nan\" (func $test_crate.import.is_nan (@sym (name \"test_crate.import.is_nan\")) (result {}))){}",
 					"(func $test_crate.is_nan (@sym) (param {}) (result {})",
-					"  call $test_crate.import.is_nan (@reloc){}",
-					")",
-					interpolate ::js_sys::r#macro::asm_output_import_type::<JsValue>(),
-					interpolate ::js_sys::r#macro::asm_imports!((), JsValue),
-					interpolate ::js_sys::r#macro::asm_indirect!(JsValue),
-					interpolate ::js_sys::r#macro::asm_direct::<JsValue>(),
-					interpolate ::js_sys::r#macro::asm_output!(JsValue),
+					"  call $test_crate.import.is_nan (@reloc){}", ")",
+					interpolate::js_sys::r#macro::wat_output_import_type:: < JsValue > (),
+					interpolate::js_sys::r#macro::wat_imports!((), JsValue),
+					interpolate::js_sys::r#macro::wat_indirect!(JsValue),
+					interpolate::js_sys::r#macro::wat_direct:: < JsValue > (),
+					interpolate::js_sys::r#macro::wat_output!(JsValue),
 				}
 
 				::js_sys::js_bindgen::import_js! {
@@ -522,11 +497,9 @@ fn cfg() {
 		{
 			#[cfg(all())]
 			pub fn log() {
-				::js_sys::js_bindgen::unsafe_embed_asm! {
+				::js_sys::js_bindgen::unsafe_global_wat! {
 					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\"))))",
-					"(func $test_crate.log (@sym)",
-					"  call $test_crate.import.log (@reloc)",
-					")",
+					"(func $test_crate.log (@sym)", "  call $test_crate.import.log (@reloc)", ")",
 				}
 
 				::js_sys::js_bindgen::import_js!(

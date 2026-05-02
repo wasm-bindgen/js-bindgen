@@ -8,7 +8,7 @@ use core::fmt::{self, Display, Formatter};
 
 pub use self::string::JsString;
 use crate::JsValue;
-use crate::hazard::{Input, InputAsmConv, InputJsConv};
+use crate::hazard::{Input, InputJsConv, InputWatConv};
 use crate::util::{ExternSlice, PtrConst, PtrLength, PtrMut};
 
 impl JsString {
@@ -186,8 +186,8 @@ js_bindgen::embed_js!(
 
 // SAFETY: Implementation.
 unsafe impl Input for &str {
-	const ASM_TYPE: &'static str = Self::Type::ASM_TYPE;
-	const ASM_CONV: Option<InputAsmConv> = Self::Type::ASM_CONV;
+	const WAT_TYPE: &'static str = Self::Type::WAT_TYPE;
+	const WAT_CONV: Option<InputWatConv> = Self::Type::WAT_CONV;
 	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
 		embed: Some(("js_sys", "string.rust.decode")),
 		pre: " = this.#jsEmbed.js_sys['string.rust.decode'](",

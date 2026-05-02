@@ -61,7 +61,7 @@
 - Version all names to make packages compatible with other versions of itself.
 - Embed crate version to make linker capable of detecting unsupported versions.
 - We still need to look into what happens with old files. We might need to delete them ourselves.
-- Evaluate the output directory of our ASM object files. Some ideas:
+- Evaluate the output directory of our Wasm object files. Some ideas:
   - Store them next to the output file.
   - Pass an environment variable from a `build.rs` pointing to the target directory and go from
     there. This seems to have failed. No build script instruction can reach the linker on Wasm.
@@ -80,7 +80,7 @@
 # Medium Priority
 
 - Find a way to link to imports directly if no wrapper function is needed. This happens when no
-  conversions on the ASM level are necessary.
+  conversions on the WAT level are necessary.
 - Provide an absolutely minimal allocator.
 
 # Low Priority

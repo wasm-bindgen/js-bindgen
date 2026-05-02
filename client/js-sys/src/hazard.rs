@@ -5,11 +5,10 @@ use crate::JsValue;
 
 /// # Safety
 ///
-/// This directly interacts with the assembly generator and therefor all
-/// bets are off! (TODO)
+/// This directly manipulates Wasm output and therefor all bets are off! (TODO)
 pub unsafe trait Input {
-	const ASM_TYPE: &str;
-	const ASM_CONV: Option<InputAsmConv> = None;
+	const WAT_TYPE: &str;
+	const WAT_CONV: Option<InputWatConv> = None;
 	const JS_CONV: Option<InputJsConv> = None;
 
 	type Type;
@@ -17,7 +16,7 @@ pub unsafe trait Input {
 	fn into_raw(self) -> Self::Type;
 }
 
-pub struct InputAsmConv {
+pub struct InputWatConv {
 	pub import: Option<&'static str>,
 	pub conv: &'static str,
 	pub r#type: &'static str,
@@ -31,11 +30,10 @@ pub struct InputJsConv {
 
 /// # Safety
 ///
-/// This directly interacts with the assembly generator and therefor all
-/// bets are off! (TODO)
+/// This directly manipulates Wasm output and therefor all bets are off! (TODO)
 pub unsafe trait Output {
-	const ASM_TYPE: &str;
-	const ASM_CONV: Option<OutputAsmConv> = None;
+	const WAT_TYPE: &str;
+	const WAT_CONV: Option<OutputWatConv> = None;
 	const JS_CONV: Option<OutputJsConv> = None;
 
 	type Type;
@@ -43,7 +41,7 @@ pub unsafe trait Output {
 	fn from_raw(raw: Self::Type) -> Self;
 }
 
-pub struct OutputAsmConv {
+pub struct OutputWatConv {
 	pub import: Option<&'static str>,
 	pub direct: bool,
 	pub conv: &'static str,

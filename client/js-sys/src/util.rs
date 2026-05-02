@@ -2,7 +2,7 @@ use core::marker::PhantomData;
 use core::mem;
 use core::mem::MaybeUninit;
 
-use crate::hazard::{Input, InputAsmConv, InputJsConv};
+use crate::hazard::{Input, InputJsConv, InputWatConv};
 
 macro_rules! thread_local {
 	($($vis:vis static $name:ident: $ty:ty = $value:expr;)*) => {
@@ -38,11 +38,11 @@ impl<T> LocalKey<T> {
 pub struct ExternValue<T>(T);
 
 impl<T> ExternValue<T> {
-	pub(crate) const ASM_TYPE: &str = ASM_PTR_TYPE;
+	pub(crate) const WAT_TYPE: &str = WAT_PTR_TYPE;
 	#[cfg(target_arch = "wasm32")]
-	pub(crate) const ASM_CONV: Option<InputAsmConv> = None;
+	pub(crate) const WAT_CONV: Option<InputWatConv> = None;
 	#[cfg(target_arch = "wasm64")]
-	pub(crate) const ASM_CONV: Option<InputAsmConv> = Some(InputAsmConv {
+	pub(crate) const WAT_CONV: Option<InputWatConv> = Some(InputWatConv {
 		import: None,
 		conv: "f64.convert_i64_u",
 		r#type: "f64",
@@ -61,8 +61,8 @@ pub struct ExternSlice<T> {
 
 #[expect(dead_code, reason = "custom sections are considered dead-code")]
 impl<T> ExternSlice<T> {
-	pub(crate) const ASM_TYPE: &str = ExternValue::<()>::ASM_TYPE;
-	pub(crate) const ASM_CONV: Option<InputAsmConv> = ExternValue::<()>::ASM_CONV;
+	pub(crate) const WAT_TYPE: &str = ExternValue::<()>::WAT_TYPE;
+	pub(crate) const WAT_CONV: Option<InputWatConv> = ExternValue::<()>::WAT_CONV;
 
 	#[cfg(target_arch = "wasm32")]
 	const VIEW_FN: &str = "view.getUint32";
@@ -96,14 +96,14 @@ js_bindgen::embed_js!(
 );
 
 #[cfg(target_arch = "wasm32")]
-type AsmUsizeType = u32;
+type WatUsizeType = u32;
 #[cfg(target_arch = "wasm64")]
-type AsmUsizeType = f64;
+type WatUsizeType = f64;
 
 #[cfg(target_arch = "wasm32")]
-pub(crate) const ASM_PTR_TYPE: &str = "i32";
+pub(crate) const WAT_PTR_TYPE: &str = "i32";
 #[cfg(target_arch = "wasm64")]
-pub(crate) const ASM_PTR_TYPE: &str = "i64";
+pub(crate) const WAT_PTR_TYPE: &str = "i64";
 
 #[repr(transparent)]
 pub(crate) struct PtrConst<T> {
@@ -131,9 +131,9 @@ impl<T> PtrConst<T> {
 
 // SAFETY: Delegated to already implemented types.
 unsafe impl<T> Input for PtrConst<T> {
-	const ASM_TYPE: &str = AsmUsizeType::ASM_TYPE;
-	const ASM_CONV: Option<InputAsmConv> = AsmUsizeType::ASM_CONV;
-	const JS_CONV: Option<InputJsConv> = AsmUsizeType::JS_CONV;
+	const WAT_TYPE: &str = WatUsizeType::WAT_TYPE;
+	const WAT_CONV: Option<InputWatConv> = WatUsizeType::WAT_CONV;
+	const JS_CONV: Option<InputJsConv> = WatUsizeType::JS_CONV;
 
 	#[cfg(target_arch = "wasm32")]
 	type Type = *const T;
@@ -181,9 +181,9 @@ impl<T> PtrMut<T> {
 
 // SAFETY: Delegated to already implemented types.
 unsafe impl<T> Input for PtrMut<T> {
-	const ASM_TYPE: &str = AsmUsizeType::ASM_TYPE;
-	const ASM_CONV: Option<InputAsmConv> = AsmUsizeType::ASM_CONV;
-	const JS_CONV: Option<InputJsConv> = AsmUsizeType::JS_CONV;
+	const WAT_TYPE: &str = WatUsizeType::WAT_TYPE;
+	const WAT_CONV: Option<InputWatConv> = WatUsizeType::WAT_CONV;
+	const JS_CONV: Option<InputJsConv> = WatUsizeType::JS_CONV;
 
 	#[cfg(target_arch = "wasm32")]
 	type Type = *mut T;
@@ -231,9 +231,9 @@ impl<T> PtrLength<T> {
 
 // SAFETY: Delegated to already implemented types.
 unsafe impl<T> Input for PtrLength<T> {
-	const ASM_TYPE: &str = AsmUsizeType::ASM_TYPE;
-	const ASM_CONV: Option<InputAsmConv> = AsmUsizeType::ASM_CONV;
-	const JS_CONV: Option<InputJsConv> = AsmUsizeType::JS_CONV;
+	const WAT_TYPE: &str = WatUsizeType::WAT_TYPE;
+	const WAT_CONV: Option<InputWatConv> = WatUsizeType::WAT_CONV;
+	const JS_CONV: Option<InputJsConv> = WatUsizeType::JS_CONV;
 
 	#[cfg(target_arch = "wasm32")]
 	type Type = usize;

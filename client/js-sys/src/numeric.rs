@@ -1,14 +1,14 @@
 use core::mem;
 
-use crate::hazard::{Input, InputAsmConv, InputJsConv, Output, OutputAsmConv, OutputJsConv};
+use crate::hazard::{Input, InputJsConv, InputWatConv, Output, OutputJsConv, OutputWatConv};
 use crate::r#macro::const_concat;
-use crate::util::{ASM_PTR_TYPE, ExternValue};
+use crate::util::{ExternValue, WAT_PTR_TYPE};
 
 macro_rules! input_output {
 	($wasm:literal, $($ty:ty),*) => {$(
 		// SAFETY: Implementation.
 		unsafe impl Input for $ty {
-			const ASM_TYPE: &str = $wasm;
+			const WAT_TYPE: &str = $wasm;
 
 			type Type = Self;
 
@@ -25,7 +25,7 @@ macro_rules! output {
 	($wasm:literal, $($ty:ty),*) => {$(
 		// SAFETY: Implementation.
 		unsafe impl Output for $ty {
-			const ASM_TYPE: &str = $wasm;
+			const WAT_TYPE: &str = $wasm;
 
 			type Type = Self;
 
@@ -50,7 +50,7 @@ input_output!("f64", f64);
 
 // SAFETY: Implementation.
 unsafe impl Input for bool {
-	const ASM_TYPE: &str = "i32";
+	const WAT_TYPE: &str = "i32";
 	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
 		embed: None,
 		pre: " = !!",
@@ -66,7 +66,7 @@ unsafe impl Input for bool {
 
 // SAFETY: Implementation.
 unsafe impl Input for u32 {
-	const ASM_TYPE: &str = "i32";
+	const WAT_TYPE: &str = "i32";
 	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
 		embed: None,
 		pre: " >>>= 0",
@@ -82,7 +82,7 @@ unsafe impl Input for u32 {
 
 // SAFETY: Implementation.
 unsafe impl Input for u64 {
-	const ASM_TYPE: &str = "i64";
+	const WAT_TYPE: &str = "i64";
 	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
 		embed: None,
 		pre: " = BigInt.asUintN(64, ",
@@ -98,8 +98,8 @@ unsafe impl Input for u64 {
 
 // SAFETY: Implementation.
 unsafe impl Input for u128 {
-	const ASM_TYPE: &str = Self::Type::ASM_TYPE;
-	const ASM_CONV: Option<InputAsmConv> = Self::Type::ASM_CONV;
+	const WAT_TYPE: &str = Self::Type::WAT_TYPE;
+	const WAT_CONV: Option<InputWatConv> = Self::Type::WAT_CONV;
 	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
 		embed: Some(("js_sys", "numeric.u128.decode")),
 		pre: " = this.#jsEmbed.js_sys['numeric.u128.decode'](",
@@ -125,12 +125,12 @@ unsafe impl Input for u128 {
 
 // SAFETY: Implementation.
 unsafe impl Output for u128 {
-	const ASM_TYPE: &str = ASM_PTR_TYPE;
-	const ASM_CONV: Option<OutputAsmConv> = Some(OutputAsmConv {
+	const WAT_TYPE: &str = WAT_PTR_TYPE;
+	const WAT_CONV: Option<OutputWatConv> = Some(OutputWatConv {
 		import: Some(const_concat!(
 			"(import \"env\" \"js_sys.numeric.128\" (func $js_sys.numeric.128 (@sym) (param i32 \
 			 i32 i32 i32 ",
-			ASM_PTR_TYPE,
+			WAT_PTR_TYPE,
 			")))"
 		)),
 		direct: false,
@@ -152,8 +152,8 @@ unsafe impl Output for u128 {
 
 // SAFETY: Implementation.
 unsafe impl Input for i128 {
-	const ASM_TYPE: &str = Self::Type::ASM_TYPE;
-	const ASM_CONV: Option<InputAsmConv> = Self::Type::ASM_CONV;
+	const WAT_TYPE: &str = Self::Type::WAT_TYPE;
+	const WAT_CONV: Option<InputWatConv> = Self::Type::WAT_CONV;
 	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
 		embed: Some(("js_sys", "numeric.i128.decode")),
 		pre: " = this.#jsEmbed.js_sys['numeric.i128.decode'](",
@@ -183,12 +183,12 @@ unsafe impl Input for i128 {
 
 // SAFETY: Implementation.
 unsafe impl Output for i128 {
-	const ASM_TYPE: &str = ASM_PTR_TYPE;
-	const ASM_CONV: Option<OutputAsmConv> = Some(OutputAsmConv {
+	const WAT_TYPE: &str = WAT_PTR_TYPE;
+	const WAT_CONV: Option<OutputWatConv> = Some(OutputWatConv {
 		import: Some(const_concat!(
 			"(import \"env\" \"js_sys.numeric.128\" (func $js_sys.numeric.128 (@sym) (param i32 \
 			 i32 i32 i32 ",
-			ASM_PTR_TYPE,
+			WAT_PTR_TYPE,
 			")))"
 		)),
 		direct: false,
@@ -227,7 +227,7 @@ js_bindgen::embed_js!(
 	"}}",
 );
 
-js_bindgen::unsafe_embed_asm!(
+js_bindgen::unsafe_global_wat!(
 	"(func $js_sys.numeric.128 (@sym) (param i32 i32 i32 i32 {})",
 	"  local.get 4",
 	"  local.get 0",
@@ -242,5 +242,5 @@ js_bindgen::unsafe_embed_asm!(
 	"  local.get 3",
 	"  i32.store offset=12",
 	")",
-	interpolate ASM_PTR_TYPE,
+	interpolate WAT_PTR_TYPE,
 );

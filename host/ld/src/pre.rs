@@ -4,7 +4,7 @@ use std::path::Path;
 use std::time::SystemTime;
 
 use anyhow::Result;
-use js_bindgen_ld_shared::JsBindgenAssemblySectionParser;
+use js_bindgen_ld_shared::JsBindgenWatSectionParser;
 use wasmparser::{Parser, Payload};
 
 use crate::js::JsStore;
@@ -67,7 +67,7 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 
 	let mut js_store = JsStore::default();
 
-	// Extract embedded assembly from object files.
+	// Extract embedded WAT from object files.
 	for input in wasm_ld_args.inputs() {
 		js_bindgen_ld_shared::ld_input_parser(input, |path, data, object_mtime| {
 			process_object(
@@ -91,8 +91,8 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 	}
 }
 
-/// Extracts any assembly instructions from `js-bindgen`, builds object files
-/// from them and passes them to the linker.
+/// Extracts any WAT instructions from `js-bindgen`, builds object files from
+/// them and passes them to the linker.
 fn process_object(
 	js_store: &mut JsStore,
 	wasm64: bool,
@@ -115,8 +115,8 @@ fn process_object(
 
 		// We are only interested in reading custom sections with our name.
 		match &payload {
-			Payload::CustomSection(c) if c.name() == "js_bindgen.assembly" => {
-				for wat in JsBindgenAssemblySectionParser::new(c) {
+			Payload::CustomSection(c) if c.name() == "js_bindgen.wat" => {
+				for wat in JsBindgenWatSectionParser::new(c) {
 					file_counter += 1;
 					let wasm_path =
 						archive_path.with_added_extension(format!("wasm.{file_counter}.o"));
@@ -132,8 +132,8 @@ fn process_object(
 							.zip(object_mtime)
 							.is_none_or(|(t1, t2)| t1 < t2)
 					} {
-						let asm = js_bindgen_ld_shared::wat_to_object(wasm64, wat)?;
-						fs::write(&wasm_path, asm)?;
+						let wasm = js_bindgen_ld_shared::wat_to_object(wasm64, wat)?;
+						fs::write(&wasm_path, wasm)?;
 					}
 
 					add_args.push(wasm_path.into());

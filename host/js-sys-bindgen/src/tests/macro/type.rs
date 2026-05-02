@@ -24,10 +24,10 @@ fn basic() {
 			}
 
 			unsafe impl ::js_sys::hazard::Input for &JsString {
-				const ASM_TYPE: &'static ::core::primitive::str =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<::js_sys::hazard::InputAsmConv> =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
+				const WAT_TYPE: &'static ::core::primitive::str =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_TYPE;
+				const WAT_CONV: ::core::option::Option<::js_sys::hazard::InputWatConv> =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_CONV;
 				const JS_CONV: ::core::option::Option<::js_sys::hazard::InputJsConv> =
 					<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
 
@@ -41,10 +41,10 @@ fn basic() {
 			unsafe impl ::js_sys::hazard::JsCast for JsString {}
 
 			unsafe impl ::js_sys::hazard::Output for JsString {
-				const ASM_TYPE: &::core::primitive::str =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<::js_sys::hazard::OutputAsmConv> =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
+				const WAT_TYPE: &::core::primitive::str =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_TYPE;
+				const WAT_CONV: ::core::option::Option<::js_sys::hazard::OutputWatConv> =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_CONV;
 				const JS_CONV: ::core::option::Option<::js_sys::hazard::OutputJsConv> =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::JS_CONV;
 
@@ -89,10 +89,10 @@ fn generic() {
 			}
 
 			unsafe impl<T> ::js_sys::hazard::Input for &JsString<T> {
-				const ASM_TYPE: &'static ::core::primitive::str =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<::js_sys::hazard::InputAsmConv> =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
+				const WAT_TYPE: &'static ::core::primitive::str =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_TYPE;
+				const WAT_CONV: ::core::option::Option<::js_sys::hazard::InputWatConv> =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_CONV;
 				const JS_CONV: ::core::option::Option<::js_sys::hazard::InputJsConv> =
 					<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
 
@@ -106,10 +106,10 @@ fn generic() {
 			unsafe impl<T> ::js_sys::hazard::JsCast for JsString<T> {}
 
 			unsafe impl<T> ::js_sys::hazard::Output for JsString<T> {
-				const ASM_TYPE: &::core::primitive::str =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<::js_sys::hazard::OutputAsmConv> =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
+				const WAT_TYPE: &::core::primitive::str =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_TYPE;
+				const WAT_CONV: ::core::option::Option<::js_sys::hazard::OutputWatConv> =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_CONV;
 				const JS_CONV: ::core::option::Option<::js_sys::hazard::OutputJsConv> =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::JS_CONV;
 
@@ -157,10 +157,10 @@ fn default() {
 			}
 
 			unsafe impl<T> ::js_sys::hazard::Input for &JsString<T> {
-				const ASM_TYPE: &'static ::core::primitive::str =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<::js_sys::hazard::InputAsmConv> =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
+				const WAT_TYPE: &'static ::core::primitive::str =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_TYPE;
+				const WAT_CONV: ::core::option::Option<::js_sys::hazard::InputWatConv> =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_CONV;
 				const JS_CONV: ::core::option::Option<::js_sys::hazard::InputJsConv> =
 					<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
 
@@ -174,10 +174,10 @@ fn default() {
 			unsafe impl<T> ::js_sys::hazard::JsCast for JsString<T> {}
 
 			unsafe impl<T> ::js_sys::hazard::Output for JsString<T> {
-				const ASM_TYPE: &::core::primitive::str =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<::js_sys::hazard::OutputAsmConv> =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
+				const WAT_TYPE: &::core::primitive::str =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_TYPE;
+				const WAT_CONV: ::core::option::Option<::js_sys::hazard::OutputWatConv> =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_CONV;
 				const JS_CONV: ::core::option::Option<::js_sys::hazard::OutputJsConv> =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::JS_CONV;
 
@@ -225,10 +225,10 @@ fn r#trait() {
 			}
 
 			unsafe impl<T: Sized> ::js_sys::hazard::Input for &JsString<T> {
-				const ASM_TYPE: &'static ::core::primitive::str =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<::js_sys::hazard::InputAsmConv> =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::ASM_CONV;
+				const WAT_TYPE: &'static ::core::primitive::str =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_TYPE;
+				const WAT_CONV: ::core::option::Option<::js_sys::hazard::InputWatConv> =
+					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_CONV;
 				const JS_CONV: ::core::option::Option<::js_sys::hazard::InputJsConv> =
 					<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
 
@@ -242,10 +242,10 @@ fn r#trait() {
 			unsafe impl<T: Sized> ::js_sys::hazard::JsCast for JsString<T> {}
 
 			unsafe impl<T: Sized> ::js_sys::hazard::Output for JsString<T> {
-				const ASM_TYPE: &::core::primitive::str =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_TYPE;
-				const ASM_CONV: ::core::option::Option<::js_sys::hazard::OutputAsmConv> =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::ASM_CONV;
+				const WAT_TYPE: &::core::primitive::str =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_TYPE;
+				const WAT_CONV: ::core::option::Option<::js_sys::hazard::OutputWatConv> =
+					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_CONV;
 				const JS_CONV: ::core::option::Option<::js_sys::hazard::OutputJsConv> =
 					<::js_sys::JsValue as ::js_sys::hazard::Output>::JS_CONV;
 

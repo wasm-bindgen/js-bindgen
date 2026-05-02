@@ -1,8 +1,8 @@
 error[E0425]: cannot find value `Foo` in this scope
- --> tests/ui/custom_section.rs:1:49
+ --> tests/ui/custom_section.rs:1:50
   |
-1 | js_bindgen::unsafe_embed_asm!("{}", interpolate Foo);
-  |                                                 ^^^ not found in this scope
+1 | js_bindgen::unsafe_global_wat!("{}", interpolate Foo);
+  |                                                  ^^^ not found in this scope
 
 warning: unnecessary parentheses around assigned value
   --> tests/ui/custom_section.rs:24:21
@@ -18,16 +18,16 @@ help: remove these parentheses
    |
 
 error[E0308]: mismatched types
- --> tests/ui/custom_section.rs:6:49
+ --> tests/ui/custom_section.rs:6:50
   |
-6 | js_bindgen::unsafe_embed_asm!("{}", interpolate Bar);
-  |                                                 ^^^ expected `&str`, found `Bar`
+6 | js_bindgen::unsafe_global_wat!("{}", interpolate Bar);
+  |                                                  ^^^ expected `&str`, found `Bar`
 
 error[E0308]: mismatched types
- --> tests/ui/custom_section.rs:9:49
+ --> tests/ui/custom_section.rs:9:50
   |
-9 | js_bindgen::unsafe_embed_asm!("{}", interpolate 42);
-  |                                                 ^^ expected `&str`, found integer
+9 | js_bindgen::unsafe_global_wat!("{}", interpolate 42);
+  |                                                  ^^ expected `&str`, found integer
 
 error[E0308]: mismatched types
   --> tests/ui/custom_section.rs:12:73

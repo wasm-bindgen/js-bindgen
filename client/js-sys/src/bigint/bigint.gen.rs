@@ -3,7 +3,7 @@
 #![allow(warnings)]
 
 use crate::JsValue;
-use crate::hazard::{Input, InputJsConv, InputAsmConv, OutputAsmConv, Output, JsCast, OutputJsConv};
+use crate::hazard::{Input, InputWatConv, InputJsConv, OutputJsConv, Output, JsCast, OutputWatConv};
 
 #[repr(transparent)]
 pub struct JsBigInt(JsValue);
@@ -21,8 +21,8 @@ impl From<JsBigInt> for JsValue {
 }
 
 unsafe impl Input for &JsBigInt {
-	const ASM_TYPE: &'static str = <&JsValue as Input>::ASM_TYPE;
-	const ASM_CONV: Option<InputAsmConv> = <&JsValue as Input>::ASM_CONV;
+	const WAT_TYPE: &'static str = <&JsValue as Input>::WAT_TYPE;
+	const WAT_CONV: Option<InputWatConv> = <&JsValue as Input>::WAT_CONV;
 	const JS_CONV: Option<InputJsConv> = <&JsValue as Input>::JS_CONV;
 
 	type Type = <&'static JsValue as Input>::Type;
@@ -35,8 +35,8 @@ unsafe impl Input for &JsBigInt {
 unsafe impl JsCast for JsBigInt {}
 
 unsafe impl Output for JsBigInt {
-	const ASM_TYPE: &str = <JsValue as Output>::ASM_TYPE;
-	const ASM_CONV: Option<OutputAsmConv> = <JsValue as Output>::ASM_CONV;
+	const WAT_TYPE: &str = <JsValue as Output>::WAT_TYPE;
+	const WAT_CONV: Option<OutputWatConv> = <JsValue as Output>::WAT_CONV;
 	const JS_CONV: Option<OutputJsConv> = <JsValue as Output>::JS_CONV;
 
 	type Type = <JsValue as Output>::Type;

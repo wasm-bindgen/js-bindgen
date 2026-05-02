@@ -2,7 +2,7 @@ use quote::quote;
 
 #[test]
 fn basic() {
-	let output = crate::embed_asm_internal(quote! { "foo", "bar" }).unwrap();
+	let output = crate::global_wat_internal(quote! { "foo", "bar" }).unwrap();
 
 	test!(output, {
 		const _: () = {
@@ -16,7 +16,7 @@ fn basic() {
 			#[repr(C)]
 			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; 7]);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 		};
 	});
@@ -24,7 +24,7 @@ fn basic() {
 
 #[test]
 fn minimum() {
-	let output = crate::embed_asm_internal(quote! { "" }).unwrap();
+	let output = crate::global_wat_internal(quote! { "" }).unwrap();
 
 	test!(output, {
 		const _: () = {
@@ -35,7 +35,7 @@ fn minimum() {
 			#[repr(C)]
 			struct Layout([::core::primitive::u8; 4]);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN));
 		};
 	});
@@ -43,7 +43,7 @@ fn minimum() {
 
 #[test]
 fn no_newline() {
-	let output = crate::embed_asm_internal(quote! { "foo" }).unwrap();
+	let output = crate::global_wat_internal(quote! { "foo" }).unwrap();
 
 	test!(output, {
 		const _: () = {
@@ -57,7 +57,7 @@ fn no_newline() {
 			#[repr(C)]
 			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; 3]);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 		};
 	});
@@ -65,7 +65,7 @@ fn no_newline() {
 
 #[test]
 fn merge_strings() {
-	let output = crate::embed_asm_internal(quote! {
+	let output = crate::global_wat_internal(quote! {
 		"foo",
 		"bar",
 		"baz",
@@ -102,7 +102,7 @@ fn merge_strings() {
 				[::core::primitive::u8; 17],
 			);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
@@ -116,7 +116,7 @@ fn merge_strings() {
 
 #[test]
 fn merge_edge_1() {
-	let output = crate::embed_asm_internal(quote! {
+	let output = crate::global_wat_internal(quote! {
 		"",
 		#[cfg(test)]
 		"",
@@ -157,7 +157,7 @@ fn merge_edge_1() {
 				[::core::primitive::u8; LEN_3],
 			);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
@@ -172,7 +172,7 @@ fn merge_edge_1() {
 
 #[test]
 fn merge_edge_2() {
-	let output = crate::embed_asm_internal(quote! {
+	let output = crate::global_wat_internal(quote! {
 		#[cfg(test)]
 		"",
 		#[cfg(test)]
@@ -199,7 +199,7 @@ fn merge_edge_2() {
 				#[cfg(test)] [::core::primitive::u8; 1],
 			);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
 				::core::primitive::u32::to_le_bytes(LEN),
 				#[cfg(test)]
@@ -211,7 +211,7 @@ fn merge_edge_2() {
 
 #[test]
 fn cfg() {
-	let output = crate::embed_asm_internal(quote! {
+	let output = crate::global_wat_internal(quote! {
 	   "test1",
 	   #[cfg(test)]
 	   "test2",
@@ -244,7 +244,7 @@ fn cfg() {
 				[::core::primitive::u8; 5],
 			);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
@@ -258,7 +258,7 @@ fn cfg() {
 
 #[test]
 fn escape() {
-	let output = crate::embed_asm_internal(quote! { "\n\t\"\\{{}}" }).unwrap();
+	let output = crate::global_wat_internal(quote! { "\n\t\"\\{{}}" }).unwrap();
 
 	test!(output, {
 		const _: () = {
@@ -272,7 +272,7 @@ fn escape() {
 			#[repr(C)]
 			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; 6]);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 		};
 	});
@@ -280,7 +280,7 @@ fn escape() {
 
 #[test]
 fn escape_newline() {
-	let output = crate::embed_asm_internal(quote! { "foo \
+	let output = crate::global_wat_internal(quote! { "foo \
 	bar" })
 	.unwrap();
 
@@ -296,7 +296,7 @@ fn escape_newline() {
 			#[repr(C)]
 			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; 8]);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 		};
 	});
@@ -304,7 +304,7 @@ fn escape_newline() {
 
 #[test]
 fn interpolate() {
-	let output = crate::embed_asm_internal(quote! { "{}", interpolate "test" }).unwrap();
+	let output = crate::global_wat_internal(quote! { "{}", interpolate "test" }).unwrap();
 
 	test!(output, {
 		const _: () = {
@@ -321,7 +321,7 @@ fn interpolate() {
 			#[repr(C)]
 			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; LEN_0]);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 		};
 	});
@@ -329,7 +329,7 @@ fn interpolate() {
 
 #[test]
 fn r#const() {
-	let output = crate::embed_asm_internal(quote! { "{}", const 42 }).unwrap();
+	let output = crate::global_wat_internal(quote! { "{}", const 42 }).unwrap();
 
 	test!(output, {
 		const _: () = {
@@ -346,7 +346,7 @@ fn r#const() {
 			#[repr(C)]
 			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; LEN_0]);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 		};
 	});
@@ -354,7 +354,7 @@ fn r#const() {
 
 #[test]
 fn interpolate_macro() {
-	let output = crate::embed_asm_internal(quote! {
+	let output = crate::global_wat_internal(quote! {
 		"{}",
 		"{}",
 		interpolate foo!(),
@@ -389,7 +389,7 @@ fn interpolate_macro() {
 				[::core::primitive::u8; LEN_2],
 			);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
@@ -402,7 +402,7 @@ fn interpolate_macro() {
 
 #[test]
 fn named_const() {
-	let output = crate::embed_asm_internal(quote! { "{par}", par = const 42 }).unwrap();
+	let output = crate::global_wat_internal(quote! { "{par}", par = const 42 }).unwrap();
 
 	test!(output, {
 		const _: () = {
@@ -419,7 +419,7 @@ fn named_const() {
 			#[repr(C)]
 			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; LEN_par]);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout =
 				Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_par);
 		};
@@ -428,7 +428,7 @@ fn named_const() {
 
 #[test]
 fn named_cfg() {
-	let output = crate::embed_asm_internal(quote! {
+	let output = crate::global_wat_internal(quote! {
 		"{par}",
 		#[cfg(test)]
 		par = interpolate "test",
@@ -460,7 +460,7 @@ fn named_cfg() {
 				#[cfg(test)] [::core::primitive::u8; LEN_par],
 			);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
 				::core::primitive::u32::to_le_bytes(LEN),
 				#[cfg(test)]
@@ -472,7 +472,7 @@ fn named_cfg() {
 
 #[test]
 fn named_cfg_2() {
-	let output = crate::embed_asm_internal(quote! {
+	let output = crate::global_wat_internal(quote! {
 		"{par_1}",
 		"{par_2}",
 		par_1 = interpolate "test",
@@ -519,7 +519,7 @@ fn named_cfg_2() {
 				#[cfg(test)] [::core::primitive::u8; LEN_par_2],
 			);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_par_1,
@@ -533,7 +533,7 @@ fn named_cfg_2() {
 
 #[test]
 fn named_cfg_same() {
-	let output = crate::embed_asm_internal(quote! {
+	let output = crate::global_wat_internal(quote! {
 		"{par}",
 		#[cfg(test)]
 		par = interpolate "test",
@@ -580,7 +580,7 @@ fn named_cfg_same() {
 				#[cfg(not(test))] [::core::primitive::u8; LEN_par],
 			);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
 				::core::primitive::u32::to_le_bytes(LEN),
 				#[cfg(test)]
@@ -594,7 +594,7 @@ fn named_cfg_same() {
 
 #[test]
 fn named_const_cfg_same() {
-	let output = crate::embed_asm_internal(quote! {
+	let output = crate::global_wat_internal(quote! {
 		"{par}",
 		#[cfg(test)]
 		par = const 43,
@@ -637,7 +637,7 @@ fn named_const_cfg_same() {
 				#[cfg(not(test))] [::core::primitive::u8; LEN_par],
 			);
 
-			#[unsafe(link_section = "js_bindgen.assembly")]
+			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
 				::core::primitive::u32::to_le_bytes(LEN),
 				#[cfg(test)]

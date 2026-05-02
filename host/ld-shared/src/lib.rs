@@ -111,26 +111,26 @@ pub fn ld_input_parser<E>(
 }
 
 #[derive(Clone)]
-pub struct JsBindgenAssemblySectionParser<'cs>(CustomSectionParser<'cs>);
+pub struct JsBindgenWatSectionParser<'cs>(CustomSectionParser<'cs>);
 
-impl<'cs> JsBindgenAssemblySectionParser<'cs> {
+impl<'cs> JsBindgenWatSectionParser<'cs> {
 	#[must_use]
 	pub fn new(custom_section: &CustomSectionReader<'cs>) -> Self {
 		Self(CustomSectionParser::new(custom_section))
 	}
 }
 
-impl Debug for JsBindgenAssemblySectionParser<'_> {
+impl Debug for JsBindgenWatSectionParser<'_> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		let rest: Vec<_> = self.clone().collect();
 
-		f.debug_tuple("JsBindgenAssemblySectionParser")
+		f.debug_tuple("JsBindgenWatSectionParser")
 			.field(&rest.as_slice())
 			.finish()
 	}
 }
 
-impl<'cs> Iterator for JsBindgenAssemblySectionParser<'cs> {
+impl<'cs> Iterator for JsBindgenWatSectionParser<'cs> {
 	type Item = &'cs str;
 
 	fn next(&mut self) -> Option<Self::Item> {
@@ -138,12 +138,7 @@ impl<'cs> Iterator for JsBindgenAssemblySectionParser<'cs> {
 			.next()
 			.map(str::from_utf8)
 			.transpose()
-			.unwrap_or_else(|error| {
-				panic!(
-					"found invalid JS assembly encoding `{}`: {error}",
-					self.0.name
-				)
-			})
+			.unwrap_or_else(|error| panic!("found invalid WAT encoding `{}`: {error}", self.0.name))
 	}
 }
 

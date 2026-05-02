@@ -15,22 +15,22 @@ use util::*;
 use crate::custom_section::CustomSection;
 
 #[proc_macro]
-pub fn unsafe_embed_asm(input: ::proc_macro::TokenStream) -> ::proc_macro::TokenStream {
+pub fn unsafe_global_wat(input: ::proc_macro::TokenStream) -> ::proc_macro::TokenStream {
 	#[cfg_attr(
 		not(test),
 		expect(clippy::useless_conversion, reason = "`proc-macro2` compatibility")
 	)]
-	embed_asm_internal(input.into())
+	global_wat_internal(input.into())
 		.unwrap_or_else(|e| e)
 		.into()
 }
 
-fn embed_asm_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
+fn global_wat_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	let mut input = input.into_iter().peekable();
 	let mut custom_section = CustomSection::new();
 	parse_string_arguments(&mut input, Span::mixed_site(), &mut custom_section)?;
 
-	Ok(custom_section.output("js_bindgen.assembly"))
+	Ok(custom_section.output("js_bindgen.wat"))
 }
 
 #[proc_macro]

@@ -42,14 +42,14 @@ impl Hygiene<'_> {
 		}
 	}
 
-	pub(crate) fn input_asm_conv(&mut self, attrs: &[Attribute], span: Span) -> Path {
+	pub(crate) fn input_wat_conv(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned!(span=> InputAsmConv));
-				parse_quote_spanned!(span=> InputAsmConv)
+				imports.hazard_push(attrs, parse_quote_spanned!(span=> InputWatConv));
+				parse_quote_spanned!(span=> InputWatConv)
 			}
 			Hygiene::Hygiene { js_sys } => {
-				Self::with_js_sys(*js_sys, &quote!(hazard::InputAsmConv), span)
+				Self::with_js_sys(*js_sys, &quote!(hazard::InputWatConv), span)
 			}
 		}
 	}
@@ -90,14 +90,14 @@ impl Hygiene<'_> {
 		}
 	}
 
-	pub(crate) fn output_asm_conv(&mut self, attrs: &[Attribute], span: Span) -> Path {
+	pub(crate) fn output_wat_conv(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned!(span=> OutputAsmConv));
-				parse_quote_spanned!(span=> OutputAsmConv)
+				imports.hazard_push(attrs, parse_quote_spanned!(span=> OutputWatConv));
+				parse_quote_spanned!(span=> OutputWatConv)
 			}
 			Hygiene::Hygiene { js_sys } => {
-				Self::with_js_sys(*js_sys, &quote!(hazard::OutputAsmConv), span)
+				Self::with_js_sys(*js_sys, &quote!(hazard::OutputWatConv), span)
 			}
 		}
 	}

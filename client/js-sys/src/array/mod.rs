@@ -10,7 +10,7 @@ use core::ptr;
 pub use self::array::JsArray;
 use crate::JsValue;
 use crate::externref::ExternrefTable;
-use crate::hazard::{Input, InputAsmConv, InputJsConv, JsCast};
+use crate::hazard::{Input, InputJsConv, InputWatConv, JsCast};
 use crate::util::{ExternSlice, PtrConst, PtrLength, PtrMut};
 
 impl<T> JsArray<T> {
@@ -39,8 +39,8 @@ unsafe impl<'a, T, const N: usize> Input for &'a [T; N]
 where
 	&'a [T]: Input,
 {
-	const ASM_TYPE: &'static str = <&[T] as Input>::ASM_TYPE;
-	const ASM_CONV: Option<InputAsmConv> = <&[T] as Input>::ASM_CONV;
+	const WAT_TYPE: &'static str = <&[T] as Input>::WAT_TYPE;
+	const WAT_CONV: Option<InputWatConv> = <&[T] as Input>::WAT_CONV;
 	const JS_CONV: Option<InputJsConv> = <&[T] as Input>::JS_CONV;
 
 	type Type = <&'a [T] as Input>::Type;
@@ -202,8 +202,8 @@ impl<T: JsCast> From<&[T]> for JsArray<T> {
 
 // SAFETY: Implementation.
 unsafe impl<T: JsCast> Input for &[T] {
-	const ASM_TYPE: &'static str = Self::Type::ASM_TYPE;
-	const ASM_CONV: Option<InputAsmConv> = Self::Type::ASM_CONV;
+	const WAT_TYPE: &'static str = Self::Type::WAT_TYPE;
+	const WAT_CONV: Option<InputWatConv> = Self::Type::WAT_CONV;
 	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
 		embed: Some(("js_sys", "array.rust.js_value")),
 		pre: " = this.#jsEmbed.js_sys['array.rust.js_value'](",
@@ -307,8 +307,8 @@ impl From<&[u32]> for JsArray<u32> {
 
 // SAFETY: Implementation.
 unsafe impl Input for &[u32] {
-	const ASM_TYPE: &'static str = Self::Type::ASM_TYPE;
-	const ASM_CONV: Option<InputAsmConv> = Self::Type::ASM_CONV;
+	const WAT_TYPE: &'static str = Self::Type::WAT_TYPE;
+	const WAT_CONV: Option<InputWatConv> = Self::Type::WAT_CONV;
 	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
 		embed: Some(("js_sys", "array.rust.u32")),
 		pre: " = this.#jsEmbed.js_sys['array.rust.u32'](",

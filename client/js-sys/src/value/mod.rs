@@ -7,7 +7,7 @@ use core::mem::MaybeUninit;
 use core::slice;
 
 use crate::externref::EXTERNREF_TABLE;
-use crate::hazard::{Input, InputAsmConv, JsCast, Output, OutputAsmConv};
+use crate::hazard::{Input, InputWatConv, JsCast, Output, OutputWatConv};
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -60,7 +60,7 @@ impl JsValue {
 
 impl Clone for JsValue {
 	fn clone(&self) -> Self {
-		js_bindgen::unsafe_embed_asm!(
+		js_bindgen::unsafe_global_wat!(
 			"(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param \
 			 i32) (result externref)))",
 			"(import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) \
@@ -91,8 +91,8 @@ impl Drop for JsValue {
 
 // SAFETY: Implementation for all `JsValue`s.
 unsafe impl Input for &JsValue {
-	const ASM_TYPE: &'static str = "i32";
-	const ASM_CONV: Option<InputAsmConv> = Some(InputAsmConv {
+	const WAT_TYPE: &'static str = "i32";
+	const WAT_CONV: Option<InputWatConv> = Some(InputWatConv {
 		import: Some(
 			"(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param \
 			 i32) (result externref)))",
@@ -113,8 +113,8 @@ unsafe impl JsCast for JsValue {}
 
 // SAFETY: Implementation for all `JsValue`s.
 unsafe impl Output for JsValue {
-	const ASM_TYPE: &str = "i32";
-	const ASM_CONV: Option<OutputAsmConv> = Some(OutputAsmConv {
+	const WAT_TYPE: &str = "i32";
+	const WAT_CONV: Option<OutputWatConv> = Some(OutputWatConv {
 		import: Some(
 			"(import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) \
 			 (param externref) (result i32)))",

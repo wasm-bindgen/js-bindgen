@@ -7,6 +7,6 @@ macro_rules! test {
 	};
 }
 
-mod embed_asm;
 mod embed_js;
+mod global_wat;
 mod import_js;

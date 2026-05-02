@@ -1,17 +1,17 @@
 #[doc(hidden)]
 #[macro_export]
-macro_rules! asm_imports {
+macro_rules! wat_imports {
 	(($($input:ty),*) $(, $output:ty)? $(,)?) => {{
 		const VALUES: &[&str] = &[
-			$($crate::r#macro::asm_input_import::<$input>(),)*
-			$($crate::r#macro::asm_output_import::<$output>(),)?
+			$($crate::r#macro::wat_input_import::<$input>(),)*
+			$($crate::r#macro::wat_output_import::<$output>(),)?
 		];
 		const SIZE: usize = {
 			let mut size = 0;
 			let mut index = 0;
 
 			while index < VALUES.len() {
-				if let Some(value) = $crate::r#macro::asm_import_iter(VALUES, index) {
+				if let Some(value) = $crate::r#macro::wat_import_iter(VALUES, index) {
 					size += 1 + value.len();
 				}
 
@@ -27,7 +27,7 @@ macro_rules! asm_imports {
 			let mut value_index = 0;
 
 			while value_index < VALUES.len() {
-				if let Some(value) = $crate::r#macro::asm_import_iter(VALUES, value_index) {
+				if let Some(value) = $crate::r#macro::wat_import_iter(VALUES, value_index) {
 					imports[byte_index] = b'\n';
 					byte_index += 1;
 
@@ -55,28 +55,28 @@ macro_rules! asm_imports {
 	}};
 }
 
-pub use asm_imports;
+pub use wat_imports;
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! asm_indirect {
+macro_rules! wat_indirect {
 	($ty:ty) => {
 		if $crate::r#macro::direct::<$ty>() {
 			""
 		} else {
-			$crate::r#macro::const_concat!(<$ty as $crate::hazard::Output>::ASM_TYPE, " ")
+			$crate::r#macro::const_concat!(<$ty as $crate::hazard::Output>::WAT_TYPE, " ")
 		}
 	};
 }
 
-pub use asm_indirect;
+pub use wat_indirect;
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! asm_input {
+macro_rules! wat_input {
 	($ty:ty) => {
-		if ::core::option::Option::is_some(&<$ty as $crate::hazard::Input>::ASM_CONV) {
-			const CONV: &::core::primitive::str = $crate::r#macro::asm_input_conv::<$ty>();
+		if ::core::option::Option::is_some(&<$ty as $crate::hazard::Input>::WAT_CONV) {
+			const CONV: &::core::primitive::str = $crate::r#macro::wat_input_conv::<$ty>();
 
 			$crate::r#macro::const_concat!("\n  ", CONV)
 		} else {
@@ -85,14 +85,14 @@ macro_rules! asm_input {
 	};
 }
 
-pub use asm_input;
+pub use wat_input;
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! asm_output {
+macro_rules! wat_output {
 	($ty:ty) => {
-		if ::core::option::Option::is_some(&<$ty as $crate::hazard::Output>::ASM_CONV) {
-			const CONV: &::core::primitive::str = $crate::r#macro::asm_output_conv::<$ty>();
+		if ::core::option::Option::is_some(&<$ty as $crate::hazard::Output>::WAT_CONV) {
+			const CONV: &::core::primitive::str = $crate::r#macro::wat_output_conv::<$ty>();
 
 			if $crate::r#macro::direct::<$ty>() {
 				$crate::r#macro::const_concat!("\n  ", CONV)
@@ -105,7 +105,7 @@ macro_rules! asm_output {
 	};
 }
 
-pub use asm_output;
+pub use wat_output;
 
 #[doc(hidden)]
 #[macro_export]
@@ -215,15 +215,15 @@ macro_rules! const_concat {
 
 pub use const_concat;
 
-use crate::hazard::{Input, InputAsmConv, InputJsConv, Output, OutputAsmConv, OutputJsConv};
+use crate::hazard::{Input, InputJsConv, InputWatConv, Output, OutputJsConv, OutputWatConv};
 
 #[must_use]
-pub const fn asm_direct<T: Output>() -> &'static str {
-	if direct::<T>() { T::ASM_TYPE } else { "" }
+pub const fn wat_direct<T: Output>() -> &'static str {
+	if direct::<T>() { T::WAT_TYPE } else { "" }
 }
 
 #[must_use]
-pub const fn asm_import_iter<'a>(values: &[&'a str], index: usize) -> Option<&'a str> {
+pub const fn wat_import_iter<'a>(values: &[&'a str], index: usize) -> Option<&'a str> {
 	let value = values[index];
 
 	if value.is_empty() {
@@ -260,11 +260,11 @@ pub const fn asm_import_iter<'a>(values: &[&'a str], index: usize) -> Option<&'a
 }
 
 #[must_use]
-pub const fn asm_input_import<T: Input>() -> &'static str {
-	if let Some(InputAsmConv {
+pub const fn wat_input_import<T: Input>() -> &'static str {
+	if let Some(InputWatConv {
 		import: Some(import),
 		..
-	}) = T::ASM_CONV
+	}) = T::WAT_CONV
 	{
 		import
 	} else {
@@ -273,17 +273,17 @@ pub const fn asm_input_import<T: Input>() -> &'static str {
 }
 
 #[must_use]
-pub const fn asm_input_import_type<T: Input>() -> &'static str {
-	if let Some(InputAsmConv { r#type, .. }) = T::ASM_CONV {
+pub const fn wat_input_import_type<T: Input>() -> &'static str {
+	if let Some(InputWatConv { r#type, .. }) = T::WAT_CONV {
 		r#type
 	} else {
-		T::ASM_TYPE
+		T::WAT_TYPE
 	}
 }
 
 #[must_use]
-pub const fn asm_input_conv<T: Input>() -> &'static str {
-	if let Some(InputAsmConv { conv, .. }) = T::ASM_CONV {
+pub const fn wat_input_conv<T: Input>() -> &'static str {
+	if let Some(InputWatConv { conv, .. }) = T::WAT_CONV {
 		conv
 	} else {
 		""
@@ -291,11 +291,11 @@ pub const fn asm_input_conv<T: Input>() -> &'static str {
 }
 
 #[must_use]
-pub const fn asm_output_import<T: Output>() -> &'static str {
-	if let Some(OutputAsmConv {
+pub const fn wat_output_import<T: Output>() -> &'static str {
+	if let Some(OutputWatConv {
 		import: Some(import),
 		..
-	}) = T::ASM_CONV
+	}) = T::WAT_CONV
 	{
 		import
 	} else {
@@ -304,17 +304,17 @@ pub const fn asm_output_import<T: Output>() -> &'static str {
 }
 
 #[must_use]
-pub const fn asm_output_import_type<T: Output>() -> &'static str {
-	if let Some(OutputAsmConv { r#type, .. }) = T::ASM_CONV {
+pub const fn wat_output_import_type<T: Output>() -> &'static str {
+	if let Some(OutputWatConv { r#type, .. }) = T::WAT_CONV {
 		r#type
 	} else {
-		T::ASM_TYPE
+		T::WAT_TYPE
 	}
 }
 
 #[must_use]
-pub const fn asm_output_conv<T: Output>() -> &'static str {
-	if let Some(OutputAsmConv { conv, .. }) = T::ASM_CONV {
+pub const fn wat_output_conv<T: Output>() -> &'static str {
+	if let Some(OutputWatConv { conv, .. }) = T::WAT_CONV {
 		conv
 	} else {
 		""
@@ -323,7 +323,7 @@ pub const fn asm_output_conv<T: Output>() -> &'static str {
 
 #[must_use]
 pub const fn direct<T: Output>() -> bool {
-	if let Some(OutputAsmConv { direct, .. }) = T::ASM_CONV {
+	if let Some(OutputWatConv { direct, .. }) = T::WAT_CONV {
 		direct
 	} else {
 		true

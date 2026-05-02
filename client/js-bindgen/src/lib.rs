@@ -3,4 +3,4 @@
 #[doc(hidden)]
 pub mod r#macro;
 
-pub use js_bindgen_macro::{embed_js, import_js, unsafe_embed_asm};
+pub use js_bindgen_macro::{embed_js, import_js, unsafe_global_wat};
