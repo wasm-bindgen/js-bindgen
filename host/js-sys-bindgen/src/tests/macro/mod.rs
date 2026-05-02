@@ -209,7 +209,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 									"found multiple assembly outputs"
 								);
 								assembly_output = Some(wat.to_owned());
-								let _ = js_bindgen_ld_shared::wat_to_object(false, wat);
+								js_bindgen_ld_shared::wat_to_object(false, wat).unwrap();
 							}
 							Payload::CustomSection(c) if c.name() == "js_bindgen.import" => {
 								let mut parser = JsBindgenJsSectionParser::new(&c);
