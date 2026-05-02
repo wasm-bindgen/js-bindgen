@@ -74,28 +74,13 @@ pub use asm_indirect;
 #[doc(hidden)]
 #[macro_export]
 macro_rules! asm_input {
-	($local:literal, $ty:ty) => {
+	($ty:ty) => {
 		if ::core::option::Option::is_some(&<$ty as $crate::hazard::Input>::ASM_CONV) {
 			const CONV: &::core::primitive::str = $crate::r#macro::asm_input_conv::<$ty>();
 
-			$crate::r#macro::const_concat!($local, "\n  ", CONV)
+			$crate::r#macro::const_concat!("\n  ", CONV)
 		} else {
-			$local
-		}
-	};
-	($direct_local:literal, $indirect_local:literal, $ty:ty, $output:ty) => {
-		if ::core::option::Option::is_some(&<$ty as $crate::hazard::Input>::ASM_CONV) {
-			const CONV: &::core::primitive::str = $crate::r#macro::asm_input_conv::<$ty>();
-
-			if $crate::r#macro::direct::<$output>() {
-				$crate::r#macro::const_concat!($direct_local, "\n  ", CONV)
-			} else {
-				$crate::r#macro::const_concat!($indirect_local, "\n  ", CONV)
-			}
-		} else if $crate::r#macro::direct::<$output>() {
-			$direct_local
-		} else {
-			$indirect_local
+			""
 		}
 	};
 }

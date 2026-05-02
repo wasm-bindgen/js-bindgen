@@ -15,7 +15,13 @@ use wasmparser::{Parser, Payload};
 use crate::r#macro;
 
 macro_rules! test {
-	($attr:tt, $input:tt, $expected:tt, $assembly:expr, $js_import:expr $(,)?) => {{
+	($attr:tt, $input:tt, $expected:tt, $assembly:literal, $js_import:expr $(,)?) => {
+		test!($attr, $input, $expected, wat: $assembly, js: $js_import)
+	};
+	($attr:tt, $input:tt, $expected:tt, None, $js_import:expr $(,)?) => {
+		test!($attr, $input, $expected, js: $js_import)
+	};
+	($attr:tt, $input:tt, $expected:tt, $(wat: $assembly:literal,)? js: $js_import:expr) => {{
 		use inline_snap::inline_snap;
 		use quote::quote;
 		use syn::File;
@@ -40,11 +46,13 @@ macro_rules! test {
 		let (assembly_output, js_import_output) =
 			crate::tests::r#macro::inner(dir.path(), &output).unwrap();
 
-		let assembly = Option::from($assembly);
+		#[allow(clippy::allow_attributes, unused_assignments, unused_mut, reason = "depends on the input")]
+		let mut assembly: Option<&str> = None;
+		$(assembly = Some($assembly);)?
 		match (assembly, assembly_output) {
-			(Some(assembly), Some(assembly_output)) => {
-				similar_asserts::assert_eq!(assembly, assembly_output);
-			}
+			$((Some(_), Some(assembly_output)) => {
+				inline_snap!(assembly_output, $assembly);
+			})?
 			(None, None) => (),
 			(assembly, assembly_output) => {
 				similar_asserts::assert_eq!(assembly, assembly_output.as_deref());

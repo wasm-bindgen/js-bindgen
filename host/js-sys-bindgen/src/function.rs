@@ -429,6 +429,7 @@ impl<'a> State<'a> {
 			foreign_name,
 			input_tys,
 			output_ty,
+			intern_input_names,
 			span,
 			..
 		} = self;
@@ -441,13 +442,32 @@ impl<'a> State<'a> {
 			}
 		}
 
+		let mut params = String::new();
+
+		if !output_ty.is_empty() {
+			params.push_str(" (param {})");
+		}
+
+		for name in intern_input_names {
+			params.push_str(" (param $");
+			params.push_str(&name.to_string());
+			params.push_str(" {})");
+		}
+
+		let mut asm_param_gets = String::new();
+
+		for name in intern_input_names {
+			asm_param_gets.push_str(r#""  local.get $"#);
+			asm_param_gets.push_str(&name.to_string());
+			asm_param_gets.push_str(r#"{}","#);
+		}
+
 		let params_placeholder = iter::repeat_n("{}", input_tys.len()).join(" ");
 		let import_params = if input_tys.is_empty() {
 			String::new()
 		} else {
 			format!(" (param {params_placeholder})")
 		};
-		let ret_placeholder = if output_ty.is_empty() { "" } else { "{}" };
 		let result = if output_ty.is_empty() {
 			""
 		} else {
@@ -458,41 +478,16 @@ impl<'a> State<'a> {
 		} else {
 			"{}"
 		};
-		let params = if output_ty.is_empty() && params_placeholder.is_empty() {
-			String::new()
-		} else {
-			let placeholders = [ret_placeholder, &params_placeholder].join(" ");
-			let placeholders = placeholders.trim();
-			format!(" (param {placeholders})")
-		};
-		let asm_param_gets: String =
-			iter::repeat_n(r#""  local.get {}","#, input_tys.len()).collect();
-		let asm_ret_conv: String = iter::repeat_n(r#""{}","#, output_ty.len()).collect();
+		let asm_ret_conv: String = iter::repeat_n("{}", output_ty.len()).collect();
 
 		let asm = TokenStream::from_str(&format!(
 			r#""(import \"{crate_}\" \"{import_name}\" (func ${crate_}.import.{import_name} (@sym (name \"{crate_}.import.{import_name}\")){import_params}{result})){import_funcs_placeholder}",
             "(func ${foreign_name} (@sym){params}{result}",
             {asm_param_gets}
-            "  call ${crate_}.import.{import_name} (@reloc)",
-            {asm_ret_conv}
+            "  call ${crate_}.import.{import_name} (@reloc){asm_ret_conv}",
             ")","#
 		))
 		.unwrap();
-
-		let inputs = input_tys.iter().enumerate().map(|(index, ty)| {
-			let direct = index.to_string();
-
-			if let [output_ty] = output_ty.as_slice() {
-				let indirect = (index + 1).to_string();
-				quote_spanned! {*span=>
-					interpolate #r#macro::asm_input!(#direct, #indirect, #ty, #output_ty),
-				}
-			} else {
-				quote_spanned! {*span=>
-					interpolate #r#macro::asm_input!(#direct, #ty),
-				}
-			}
-		});
 
 		let asm_imports = if input_imports.is_empty() && output_ty.is_empty() {
 			TokenStream::new()
@@ -511,7 +506,7 @@ impl<'a> State<'a> {
 				#(interpolate #r#macro::asm_indirect!(#output_ty),)*
 				#(interpolate <#input_tys as #input>::ASM_TYPE,)*
 				#(interpolate #r#macro::asm_direct::<#output_ty>(),)*
-				#(#inputs)*
+				#(interpolate #r#macro::asm_input!(#input_tys),)*
 				#(interpolate #r#macro::asm_output!(#output_ty),)*
 			}
 		}

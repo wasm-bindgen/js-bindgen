@@ -28,6 +28,7 @@ struct TestFile {
 }
 
 struct TestUpdate {
+	r#type: Type,
 	output: String,
 	start_line: usize,
 	start_col: usize,
@@ -35,12 +36,18 @@ struct TestUpdate {
 	end_col: usize,
 }
 
+#[derive(Clone, Copy)]
+enum Type {
+	Tokens,
+	String,
+}
+
 impl TestUpdates {
 	fn new() -> Self {
 		Self(Mutex::new(HashMap::new()))
 	}
 
-	pub fn add(
+	pub fn add_tokens(
 		&self,
 		path: &'static str,
 		size: usize,
@@ -51,6 +58,29 @@ impl TestUpdates {
 	) {
 		let file = TestFile { path, size, hash };
 		let update = TestUpdate {
+			r#type: Type::Tokens,
+			output,
+			start_line,
+			start_col,
+			end_line,
+			end_col,
+		};
+
+		self.0.lock().unwrap().entry(file).or_default().push(update);
+	}
+
+	pub fn add_string(
+		&self,
+		path: &'static str,
+		size: usize,
+		hash: u64,
+		output: String,
+		(start_line, start_col): (usize, usize),
+		(end_line, end_col): (usize, usize),
+	) {
+		let file = TestFile { path, size, hash };
+		let update = TestUpdate {
+			r#type: Type::String,
 			output,
 			start_line,
 			start_col,
@@ -86,6 +116,7 @@ fn run_test_updates() {
 		);
 
 		for TestUpdate {
+			r#type,
 			output,
 			start_line,
 			start_col,
@@ -96,7 +127,7 @@ fn run_test_updates() {
 			let start = line_col_to_byte_offset(&src, start_line, start_col);
 			let end = line_col_to_byte_offset(&src, end_line, end_col);
 
-			let output = normalize_output(&output, start_col);
+			let output = normalize_output(r#type, &output, start_col);
 			src.replace_range(start..end, &output);
 		}
 
@@ -143,10 +174,19 @@ fn line_col_to_byte_offset(file: &str, line: usize, col: usize) -> usize {
 	file.len()
 }
 
-fn normalize_output(input: &str, level: usize) -> String {
+fn normalize_output(r#type: Type, input: &str, level: usize) -> String {
 	let tabs: String = "\t".repeat(level);
-	let extra = tabs.len() * input.lines().count().saturating_sub(1);
+	let mut extra = tabs.len() * input.lines().count().saturating_sub(1);
+
+	if let Type::String = r#type {
+		extra += 2;
+	}
+
 	let mut out = String::with_capacity(input.len() + extra);
+
+	if let Type::String = r#type {
+		out.push('"');
+	}
 
 	for (position, mut line) in input.split_inclusive('\n').with_position() {
 		if let Position::Middle | Position::Last = position
@@ -159,7 +199,34 @@ fn normalize_output(input: &str, level: usize) -> String {
 			line = line.trim_end();
 		}
 
-		out.push_str(line);
+		match r#type {
+			Type::Tokens => out.push_str(line),
+			Type::String => {
+				for c in line.chars() {
+					match c {
+						'"' => out.push_str("\\\""),
+						'\\' => out.push_str("\\\\"),
+						c => out.push(c),
+					}
+				}
+			}
+		}
+	}
+
+	if let Type::String = r#type {
+		out.push('"');
+	}
+
+	out
+}
+
+#[doc(hidden)]
+#[must_use]
+pub fn normalize_wat_input(wat: &str) -> String {
+	let mut out = String::with_capacity(wat.len());
+
+	for line in wat.split_inclusive('\n') {
+		out.push_str(line.trim_start_matches('\t'));
 	}
 
 	out

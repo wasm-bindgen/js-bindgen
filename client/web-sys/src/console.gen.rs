@@ -36,14 +36,14 @@ pub fn log0() {
 pub fn log<T: JsCast>(data: &[T]) {
 	js_bindgen::unsafe_embed_asm! {
 		"(import \"web_sys\" \"console.log\" (func $web_sys.import.console.log (@sym (name \"web_sys.import.console.log\")) (param {}))){}",
-		"(func $web_sys.console.log (@sym) (param {})",
-		"  local.get {}",
+		"(func $web_sys.console.log (@sym) (param $data {})",
+		"  local.get $data{}",
 		"  call $web_sys.import.console.log (@reloc)",
 		")",
 		interpolate r#macro::asm_input_import_type::<&[JsValue]>(),
 		interpolate r#macro::asm_imports!((&[JsValue])),
 		interpolate <&[JsValue] as Input>::ASM_TYPE,
-		interpolate r#macro::asm_input!("0", &[JsValue]),
+		interpolate r#macro::asm_input!(&[JsValue]),
 	}
 
 	js_bindgen::import_js! {
@@ -71,9 +71,9 @@ pub fn log<T: JsCast>(data: &[T]) {
 pub fn log2(data1: &JsValue, data2: &JsValue) {
 	js_bindgen::unsafe_embed_asm! {
 		"(import \"web_sys\" \"console.log2\" (func $web_sys.import.console.log2 (@sym (name \"web_sys.import.console.log2\")) (param {} {}))){}",
-		"(func $web_sys.console.log2 (@sym) (param {} {})",
-		"  local.get {}",
-		"  local.get {}",
+		"(func $web_sys.console.log2 (@sym) (param $data1 {}) (param $data2 {})",
+		"  local.get $data1{}",
+		"  local.get $data2{}",
 		"  call $web_sys.import.console.log2 (@reloc)",
 		")",
 		interpolate r#macro::asm_input_import_type::<&JsValue>(),
@@ -81,8 +81,8 @@ pub fn log2(data1: &JsValue, data2: &JsValue) {
 		interpolate r#macro::asm_imports!((&JsValue)),
 		interpolate <&JsValue as Input>::ASM_TYPE,
 		interpolate <&JsValue as Input>::ASM_TYPE,
-		interpolate r#macro::asm_input!("0", &JsValue),
-		interpolate r#macro::asm_input!("1", &JsValue),
+		interpolate r#macro::asm_input!(&JsValue),
+		interpolate r#macro::asm_input!(&JsValue),
 	}
 
 	js_bindgen::import_js! {
@@ -111,14 +111,14 @@ pub fn log2(data1: &JsValue, data2: &JsValue) {
 pub fn error(data: &JsValue) {
 	js_bindgen::unsafe_embed_asm! {
 		"(import \"web_sys\" \"console.error\" (func $web_sys.import.console.error (@sym (name \"web_sys.import.console.error\")) (param {}))){}",
-		"(func $web_sys.console.error (@sym) (param {})",
-		"  local.get {}",
+		"(func $web_sys.console.error (@sym) (param $data {})",
+		"  local.get $data{}",
 		"  call $web_sys.import.console.error (@reloc)",
 		")",
 		interpolate r#macro::asm_input_import_type::<&JsValue>(),
 		interpolate r#macro::asm_imports!((&JsValue)),
 		interpolate <&JsValue as Input>::ASM_TYPE,
-		interpolate r#macro::asm_input!("0", &JsValue),
+		interpolate r#macro::asm_input!(&JsValue),
 	}
 
 	js_bindgen::import_js! {
