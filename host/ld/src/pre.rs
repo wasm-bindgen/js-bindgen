@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use js_bindgen_ld_shared::JsBindgenAssemblySectionParser;
 use wasmparser::{Parser, Payload};
 
@@ -132,9 +132,8 @@ fn process_object(
 							.zip(object_mtime)
 							.is_none_or(|(t1, t2)| t1 < t2)
 					} {
-						let asm = js_bindgen_ld_shared::wat_to_object(wasm64, wat)
-							.context("failed to parse wat")?;
-						fs::write(&wasm_path, asm).unwrap();
+						let asm = js_bindgen_ld_shared::wat_to_object(wasm64, wat)?;
+						fs::write(&wasm_path, asm)?;
 					}
 
 					add_args.push(wasm_path.into());
