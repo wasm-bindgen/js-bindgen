@@ -79,18 +79,28 @@ impl Check {
 					metadata::run(self.args.clone(), &commands, false, verbose)?;
 				}
 				Tool::Client(ClientTool::CargoJsSys) => {
-					let tools_installed =
-						env::var_os("JBG_DEV_TOOLS").is_some_and(|value| value == "1");
+					let mut command =
+						if env::var_os("JBG_DEV_TOOLS").is_some_and(|value| value == "1") {
+							Command::new("cargo-js-sys")
+						} else {
+							let mut command = Command::new("cargo");
+							command.arg("build").args(["-p", "cargo-js-sys"]);
 
-					if !tools_installed {
-						let mut command = Command::new("cargo");
-						command.arg("build").args(["-p", "cargo-js-sys"]);
+							command::run("Build `cargo-js-sys`", command, verbose)?;
 
-						command::run("Build `cargo-js-sys`", command, verbose)?;
-					}
+							let mut command = Command::new("cargo");
+							command.arg("run").args(["-p", "cargo-js-sys"]).arg("--");
+							command
+						};
 
-					Self::cargo_js_sys("js-sys", tools_installed, verbose)?;
-					Self::cargo_js_sys("web-sys", tools_installed, verbose)?;
+					command
+						.arg("js-sys")
+						.args(["--manifest-path", "../client/Cargo.toml"])
+						.arg("--workspace")
+						.arg("-c")
+						.arg("-v");
+
+					command::run("Check `cargo-js-sys`", command, verbose)?;
 				}
 				Tool::Shared(CheckTool::RustSec) => {
 					let mut command = Command::new("cargo");
@@ -121,29 +131,6 @@ impl Check {
 
 		println!("-------------------------");
 		println!("Total Time: {:.2}s", start.elapsed().as_secs_f32());
-
-		Ok(())
-	}
-
-	fn cargo_js_sys(pkg: &str, tools_installed: bool, verbose: bool) -> Result<()> {
-		let mut command = if tools_installed {
-			Command::new("cargo-js-sys")
-		} else {
-			let mut command = Command::new("cargo");
-			command.arg("run").args(["-p", "cargo-js-sys"]).arg("--");
-			command
-		};
-
-		command
-			.arg("js-sys")
-			.args(["--manifest-path", &format!("../client/{pkg}/Cargo.toml")])
-			.arg("-c");
-
-		if verbose {
-			command.arg("-v");
-		}
-
-		command::run(&format!("Check `cargo-js-sys` - `{pkg}`"), command, verbose)?;
 
 		Ok(())
 	}

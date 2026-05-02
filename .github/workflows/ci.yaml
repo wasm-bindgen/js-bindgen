@@ -520,20 +520,13 @@ jobs:
         run: js-bindgen-dev host test -v
 
   cargo-js-sys:
-    name: Check `cargo-js-sys` - `${{ matrix.package.name }}`
+    name: Check `cargo-js-sys`
 
     needs: host-tools
 
     runs-on: ubuntu-latest
 
     timeout-minutes: 20
-
-    strategy:
-      fail-fast: false
-      matrix:
-        package:
-          - { name: js-sys, path: client/js-sys }
-          - { name: web-sys, path: client/web-sys }
 
     env:
       JBG_DEV_TOOLS: 1
@@ -553,5 +546,5 @@ jobs:
           chmod +x ${{ runner.temp }}/host-tools/*
           echo "${{ runner.temp }}/host-tools" >> $GITHUB_PATH
       - name: Check
-        working-directory: ${{ matrix.package.path }}
-        run: cargo-js-sys js-sys -c -v
+        working-directory: client
+        run: cargo-js-sys js-sys -c --workspace -v

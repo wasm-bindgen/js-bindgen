@@ -35,6 +35,7 @@ impl JsSys {
 		let metadata = self.manifest.metadata();
 		let metadata = metadata.exec()?;
 		let (packages, _) = self.workspace.partition_packages(&metadata);
+		let num_packages = packages.len();
 
 		for package in packages {
 			let js_sys: Option<syn::Path> =
@@ -74,11 +75,15 @@ impl JsSys {
 
 			let crate_ = package.name.replace('-', "_");
 
-			let base = package
-				.manifest_path
-				.parent()
-				.expect("package manifest should be in a directory")
-				.as_std_path();
+			let base = if num_packages > 1 {
+				metadata.workspace_root.as_std_path()
+			} else {
+				package
+					.manifest_path
+					.parent()
+					.expect("package manifest should be in a directory")
+					.as_std_path()
+			};
 
 			for target in package
 				.targets
