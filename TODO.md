@@ -1,13 +1,10 @@
 # Critical Priority
 
-- Replace `clang` with `wasm-tools`. See [`bytecodealliance/wasm-tools#2405`].
 - Compatibility with `wasm-bindgen`.
 - Do we agree with the new name `js-bindgen`? Maybe `web-bindgen` is the most accurate?
 - `#[js_sys]` is probably also not the ideal name.
 - Stub implementation for non-supported targets.
 - Add ourselves to the tool-conventions tool list.
-
-[`bytecodealliance/wasm-tools#2405`]: https://github.com/bytecodealliance/wasm-tools/issues/2405
 
 # High Priority
 
@@ -129,6 +126,7 @@ This is a list of upstream issues that could make our lives significantly easier
   tests in `js-sys`. [`rust-lang/rust#145616`]
 - Currently `cargo metadata` doesn't list `build-std` dependencies. This is an issue for caching in
   the CI, significantly increasing our build and test times. [`rust-lang/wg-cargo-std-aware#20`]
+- Ask LLVM to remove the requirement for a `__linear_memory` declaration on Wasm64.
 
 [`llvm/llvm-project#136594`]: https://github.com/llvm/llvm-project/issues/136594
 [`rust-lang/rust#136382`]: https://github.com/rust-lang/rust/issues/136382

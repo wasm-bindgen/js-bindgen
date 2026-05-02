@@ -5,7 +5,7 @@ macro_rules! asm_indirect {
 		if $crate::r#macro::direct::<$ty>() {
 			""
 		} else {
-			$crate::r#macro::const_concat!(<$ty as $crate::hazard::Output>::ASM_TYPE, ", ")
+			$crate::r#macro::const_concat!(<$ty as $crate::hazard::Output>::ASM_TYPE, " ")
 		}
 	};
 }
@@ -19,7 +19,7 @@ macro_rules! asm_input {
 		if ::core::option::Option::is_some(&<$ty as $crate::hazard::Input>::ASM_CONV) {
 			const CONV: &::core::primitive::str = $crate::r#macro::asm_input_conv::<$ty>();
 
-			$crate::r#macro::const_concat!($local, "\n\t", CONV)
+			$crate::r#macro::const_concat!($local, "\n  ", CONV)
 		} else {
 			$local
 		}
@@ -29,9 +29,9 @@ macro_rules! asm_input {
 			const CONV: &::core::primitive::str = $crate::r#macro::asm_input_conv::<$ty>();
 
 			if $crate::r#macro::direct::<$output>() {
-				$crate::r#macro::const_concat!($direct_local, "\n\t", CONV)
+				$crate::r#macro::const_concat!($direct_local, "\n  ", CONV)
 			} else {
-				$crate::r#macro::const_concat!($indirect_local, "\n\t", CONV)
+				$crate::r#macro::const_concat!($indirect_local, "\n  ", CONV)
 			}
 		} else if $crate::r#macro::direct::<$output>() {
 			$direct_local
@@ -51,9 +51,9 @@ macro_rules! asm_output {
 			const CONV: &::core::primitive::str = $crate::r#macro::asm_output_conv::<$ty>();
 
 			if $crate::r#macro::direct::<$ty>() {
-				$crate::r#macro::const_concat!("\n\t", CONV)
+				$crate::r#macro::const_concat!("\n  ", CONV)
 			} else {
-				$crate::r#macro::const_concat!("\n\tlocal.get 0\n\t", CONV)
+				$crate::r#macro::const_concat!("\n  local.get 0\n  ", CONV)
 			}
 		} else {
 			""

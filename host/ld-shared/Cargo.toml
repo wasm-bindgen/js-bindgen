@@ -14,6 +14,7 @@ test = false
 [dependencies]
 js-bindgen-shared = { workspace = true, features = ["memmap"] }
 object = { workspace = true }
+rwat = { workspace = true }
 wasmparser = { workspace = true }
 
 [lints]

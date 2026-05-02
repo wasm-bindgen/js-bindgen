@@ -29,16 +29,15 @@ impl JsValue {
 impl Clone for JsValue {
 	fn clone(&self) -> Self {
 		js_bindgen::unsafe_embed_asm!(
-			".functype js_sys.externref.get (i32) -> (externref)",
-			".functype js_sys.externref.insert (externref) -> (i32)",
-			"",
-			".globl js_sys.js_value.clone",
-			"js_sys.js_value.clone:",
-			"	.functype js_sys.js_value.clone (i32) -> (i32)",
-			"	local.get 0",
-			"	call js_sys.externref.get",
-			"	call js_sys.externref.insert",
-			"	end_function",
+			"(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param \
+			 i32) (result externref)))",
+			"(import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) \
+			 (param externref) (result i32)))",
+			"(func $js_sys.js_value.clone (@sym) (param i32) (result i32)",
+			"  local.get 0",
+			"  call $js_sys.externref.get (@reloc)",
+			"  call $js_sys.externref.insert (@reloc)",
+			")",
 		);
 
 		unsafe extern "C" {
@@ -62,8 +61,11 @@ impl Drop for JsValue {
 unsafe impl Input for &JsValue {
 	const ASM_TYPE: &'static str = "i32";
 	const ASM_CONV: Option<InputAsmConv> = Some(InputAsmConv {
-		import: Some(".functype js_sys.externref.get (i32) -> (externref)"),
-		conv: "call js_sys.externref.get",
+		import: Some(
+			"(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param \
+			 i32) (result externref)))",
+		),
+		conv: "call $js_sys.externref.get (@reloc)",
 		r#type: "externref",
 	});
 
@@ -78,9 +80,12 @@ unsafe impl Input for &JsValue {
 unsafe impl Output for JsValue {
 	const ASM_TYPE: &str = "i32";
 	const ASM_CONV: Option<OutputAsmConv> = Some(OutputAsmConv {
-		import: Some(".functype js_sys.externref.insert (externref) -> (i32)"),
+		import: Some(
+			"(import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) \
+			 (param externref) (result i32)))",
+		),
 		direct: true,
-		conv: "call js_sys.externref.insert",
+		conv: "call $js_sys.externref.insert (@reloc)",
 		r#type: "externref",
 	});
 

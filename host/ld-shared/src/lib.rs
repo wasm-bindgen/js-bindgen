@@ -1,74 +1,24 @@
 use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
-use std::io::{Error, Write};
+use std::io::Error;
 use std::path::Path;
-use std::process::{Command, Stdio};
 use std::time::SystemTime;
 
 use js_bindgen_shared::ReadFile;
 use object::read::archive::ArchiveFile;
 use wasmparser::CustomSectionReader;
 
-/// Currently this simply passes the LLVM s-format assembly to `clang` to
-/// convert to an object file the linker can consume.
-pub fn assembly_to_object(arch_str: &str, assembly: &str) -> Result<Vec<u8>, Error> {
-	let mut child = Command::new("clang")
-		.arg("-xassembler")
-		.arg(format!("--target={arch_str}"))
-		// In the future we will switch to something supporting auto-detection.
-		.arg("-mreference-types")
-		.arg("-mcall-indirect-overlong")
-		.arg("-c")
-		// from Stdin
-		.arg("-")
-		.arg("-o")
-		// to Stdout
-		.arg("-")
-		.stdout(Stdio::piped())
-		.stderr(Stdio::piped())
-		.stdin(Stdio::piped())
-		.spawn()?;
-
-	let stdin = child
-		.stdin
-		.as_mut()
-		.ok_or_else(|| Error::other("`clang` process should have `stdin`"))?;
-	stdin.write_all(assembly.as_bytes())?;
-
-	let output = child.wait_with_output()?;
-
-	if output.status.success() {
-		Ok(output.stdout)
+/// Creates a relocatable Wasm object from the WAT input.
+pub fn wat_to_object(wasm64: bool, wat: &str) -> rwat::Result<Vec<u8>> {
+	// `wasm-ld` requires a `(memory i64)` in every object file if the requested
+	// architecture is Wasm64.
+	let workaround = if wasm64 {
+		"(import \"env\" \"__linear_memory\" (memory i64 0))"
 	} else {
-		eprintln!("------ clang input -------\n{assembly}");
-
-		if !output.stdout.is_empty() {
-			eprintln!(
-				"------ clang stdout ------\n{}",
-				String::from_utf8_lossy(&output.stdout)
-			);
-
-			if !output.stdout.ends_with(b"\n") {
-				eprintln!();
-			}
-		}
-
-		if !output.stderr.is_empty() {
-			eprintln!(
-				"------ clang stderr ------\n{}",
-				String::from_utf8_lossy(&output.stderr)
-			);
-
-			if !output.stderr.ends_with(b"\n") {
-				eprintln!();
-			}
-		}
-
-		Err(Error::other(format!(
-			"`clang` process failed with status: {}",
-			output.status
-		)))
-	}
+		""
+	};
+	let wat = format!("(module (@rwat) {workaround} {wat})");
+	rwat::parse_rwat(&wat)
 }
 
 pub fn ld_input_parser<E>(

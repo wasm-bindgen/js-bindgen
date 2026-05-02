@@ -378,6 +378,7 @@ pub fn parse_inner_string(
 				'\\' => string.push('\\'),
 				'n' => string.push('\n'),
 				't' => string.push('\t'),
+				'\n' => (),
 				c => {
 					return Err(compile_error(
 						previous_span,

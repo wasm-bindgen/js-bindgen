@@ -16,15 +16,10 @@ use js_sys::JsValue;
 
 pub fn log0() {
 	js_bindgen::unsafe_embed_asm! {
-		".import_module web_sys.import.console.log0, web_sys",
-		".import_name web_sys.import.console.log0, console.log0",
-		".functype web_sys.import.console.log0 () -> ()",
-		"",
-		".globl web_sys.console.log0",
-		"web_sys.console.log0:",
-		"\t.functype web_sys.console.log0 () -> ()",
-		"\tcall web_sys.import.console.log0",
-		"\tend_function",
+		"(import \"web_sys\" \"console.log0\" (func $web_sys.import.console.log0 (@sym (name \"web_sys.import.console.log0\")) (param ) (result )))",
+		"(func $web_sys.console.log0 (@sym) (param  ) (result )",
+		"  call $web_sys.import.console.log0 (@reloc)",
+		")",
 	}
 
 	js_bindgen::import_js! (module = "web_sys", name = "console.log0", "globalThis.console.log");
@@ -39,18 +34,13 @@ pub fn log0() {
 
 pub fn log(data: &JsValue) {
 	js_bindgen::unsafe_embed_asm! {
-		".import_module web_sys.import.console.log, web_sys",
-		".import_name web_sys.import.console.log, console.log",
-		".functype web_sys.import.console.log ({}) -> ()",
-		"",
+		"(import \"web_sys\" \"console.log\" (func $web_sys.import.console.log (@sym (name \"web_sys.import.console.log\")) (param {}) (result )))",
 		"{}",
 		"",
-		".globl web_sys.console.log",
-		"web_sys.console.log:",
-		"\t.functype web_sys.console.log ({}) -> ()",
-		"\tlocal.get {}",
-		"\tcall web_sys.import.console.log",
-		"\tend_function",
+		"(func $web_sys.console.log (@sym) (param  {}) (result )",
+		"  local.get {}",
+		"  call $web_sys.import.console.log (@reloc)",
+		")",
 		interpolate r#macro::asm_input_import_type::<&JsValue>(),
 		interpolate r#macro::asm_input_import::<&JsValue>(),
 		interpolate <&JsValue as Input>::ASM_TYPE,
@@ -81,19 +71,14 @@ pub fn log(data: &JsValue) {
 
 pub fn log2(data1: &JsValue, data2: &JsValue) {
 	js_bindgen::unsafe_embed_asm! {
-		".import_module web_sys.import.console.log2, web_sys",
-		".import_name web_sys.import.console.log2, console.log2",
-		".functype web_sys.import.console.log2 ({}, {}) -> ()",
-		"",
+		"(import \"web_sys\" \"console.log2\" (func $web_sys.import.console.log2 (@sym (name \"web_sys.import.console.log2\")) (param {} {}) (result )))",
 		"{}",
 		"",
-		".globl web_sys.console.log2",
-		"web_sys.console.log2:",
-		"\t.functype web_sys.console.log2 ({}, {}) -> ()",
-		"\tlocal.get {}",
-		"\tlocal.get {}",
-		"\tcall web_sys.import.console.log2",
-		"\tend_function",
+		"(func $web_sys.console.log2 (@sym) (param  {} {}) (result )",
+		"  local.get {}",
+		"  local.get {}",
+		"  call $web_sys.import.console.log2 (@reloc)",
+		")",
 		interpolate r#macro::asm_input_import_type::<&JsValue>(),
 		interpolate r#macro::asm_input_import_type::<&JsValue>(),
 		interpolate r#macro::asm_input_import::<&JsValue>(),
@@ -128,18 +113,13 @@ pub fn log2(data1: &JsValue, data2: &JsValue) {
 
 pub fn error(data: &JsValue) {
 	js_bindgen::unsafe_embed_asm! {
-		".import_module web_sys.import.console.error, web_sys",
-		".import_name web_sys.import.console.error, console.error",
-		".functype web_sys.import.console.error ({}) -> ()",
-		"",
+		"(import \"web_sys\" \"console.error\" (func $web_sys.import.console.error (@sym (name \"web_sys.import.console.error\")) (param {}) (result )))",
 		"{}",
 		"",
-		".globl web_sys.console.error",
-		"web_sys.console.error:",
-		"\t.functype web_sys.console.error ({}) -> ()",
-		"\tlocal.get {}",
-		"\tcall web_sys.import.console.error",
-		"\tend_function",
+		"(func $web_sys.console.error (@sym) (param  {}) (result )",
+		"  local.get {}",
+		"  call $web_sys.import.console.error (@reloc)",
+		")",
 		interpolate r#macro::asm_input_import_type::<&JsValue>(),
 		interpolate r#macro::asm_input_import::<&JsValue>(),
 		interpolate <&JsValue as Input>::ASM_TYPE,
