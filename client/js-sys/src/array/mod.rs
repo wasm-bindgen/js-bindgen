@@ -210,7 +210,7 @@ unsafe impl<T: JsCast> Input for &[T] {
 		post: Some(")"),
 	});
 
-	type Type = ExternSlice<T>;
+	type Type = ExternSlice<JsValue>;
 
 	fn into_raw(self) -> Self::Type {
 		js_bindgen::embed_js!(
@@ -226,7 +226,7 @@ unsafe impl<T: JsCast> Input for &[T] {
 			"}}",
 		);
 
-		ExternSlice::new(self)
+		ExternSlice::new(JsValue::from_slice(self))
 	}
 }
 

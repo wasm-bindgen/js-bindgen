@@ -6,13 +6,14 @@
 //! # #[js_bindgen_test::test]
 //! # fn doctest() {
 //! let log = js_sys::JsString::from("hello world");
-//! web_sys::console::log(log.as_ref());
+//! web_sys::console::log(&[log]);
 //! # }
 //! ````
 
 use js_sys::{js_bindgen, r#macro};
 use js_sys::hazard::{Input, Output};
 use js_sys::JsValue;
+use js_sys::hazard::JsCast;
 
 pub fn log0() {
 	js_bindgen::unsafe_embed_asm! {
@@ -32,7 +33,7 @@ pub fn log0() {
 	unsafe { log0() };
 }
 
-pub fn log(data: &JsValue) {
+pub fn log<T: JsCast>(data: &[T]) {
 	js_bindgen::unsafe_embed_asm! {
 		"(import \"web_sys\" \"console.log\" (func $web_sys.import.console.log (@sym (name \"web_sys.import.console.log\")) (param {}) (result )))",
 		"{}",
@@ -41,29 +42,29 @@ pub fn log(data: &JsValue) {
 		"  local.get {}",
 		"  call $web_sys.import.console.log (@reloc)",
 		")",
-		interpolate r#macro::asm_input_import_type::<&JsValue>(),
-		interpolate r#macro::asm_input_import::<&JsValue>(),
-		interpolate <&JsValue as Input>::ASM_TYPE,
-		interpolate r#macro::asm_input!("0", &JsValue),
+		interpolate r#macro::asm_input_import_type::<&[JsValue]>(),
+		interpolate r#macro::asm_input_import::<&[JsValue]>(),
+		interpolate <&[JsValue] as Input>::ASM_TYPE,
+		interpolate r#macro::asm_input!("0", &[JsValue]),
 	}
 
 	js_bindgen::import_js! {
 		module = "web_sys",
 		name = "console.log",
-		required_embeds = [r#macro::js_input_embed::<&JsValue>()],
+		required_embeds = [r#macro::js_input_embed::<&[JsValue]>()],
 		"{}{}{}",
-		interpolate r#macro::js_select!("", "(data) => {\n", (&JsValue)),
-		interpolate r#macro::js_parameter!("data", &JsValue),
+		interpolate r#macro::js_select!("", "(data) => {\n", (&[JsValue])),
+		interpolate r#macro::js_parameter!("data", &[JsValue]),
 		interpolate r#macro::js_select!(
 			"globalThis.console.log",
 			"globalThis.console.log(data)\n}",
-			(&JsValue),
+			(&[JsValue]),
 		),
 	}
 
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.log"]
-		fn log(data: <&JsValue as Input>::Type);
+		fn log(data: <&[JsValue] as Input>::Type);
 	}
 
 	unsafe { log(Input::into_raw(data)) };

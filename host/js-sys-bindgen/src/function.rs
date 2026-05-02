@@ -1,18 +1,17 @@
 use std::borrow::Cow;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
 use std::string::ToString;
-use std::{iter, mem, slice};
+use std::{iter, mem};
 
 use itertools::Itertools;
 use proc_macro2::{Span, TokenStream};
 use quote::{ToTokens, quote, quote_spanned};
-use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
 	Attribute, Error, FnArg, ForeignItemFn, GenericArgument, GenericParam, Generics, Ident, Item,
 	ItemFn, ItemImpl, Pat, PatIdent, PatType, Path, PathArguments, Receiver, Result, ReturnType,
-	Stmt, Token, Type, TypePath, TypeReference, parse_quote, parse_quote_spanned,
+	Signature, Stmt, Token, Type, TypePath, TypeReference, parse_quote, parse_quote_spanned,
 };
 
 use crate::Hygiene;
@@ -41,26 +40,26 @@ struct State<'a> {
 	output: Path,
 	import_name: String,
 	foreign_name: String,
-	input_tys: Vec<Cow<'a, Box<Type>>>,
-	output_ty: &'a [Type],
-	extern_input_names: Vec<Cow<'a, Ident>>,
-	intern_input_names: Vec<Cow<'a, Ident>>,
+	input_tys: Vec<Type>,
+	output_ty: Vec<Type>,
+	extern_input_names: Vec<Ident>,
+	intern_input_names: Vec<Ident>,
 	impl_generic_params: TokenStream,
-	r#type: OutputType<'a>,
+	r#type: OutputType,
 	span: Span,
 }
 
-enum OutputType<'p> {
+enum OutputType {
 	Generate {
 		js_name: Option<String>,
-		member: Option<Member<'p>>,
+		member: Option<Member>,
 	},
 	Embed(String),
 	Import,
 }
 
-struct Member<'p> {
-	self_ty: &'p Path,
+struct Member {
+	self_ty: Path,
 	r#type: MemberType,
 }
 
@@ -108,16 +107,7 @@ impl Function {
 		} = item;
 
 		let mut state = State::parse(
-			crate_,
-			js_output,
-			namespace,
-			hygiene,
-			&attrs,
-			&mut sig.generics,
-			&sig.ident,
-			&sig.inputs,
-			&sig.output,
-			span,
+			crate_, js_output, namespace, hygiene, &attrs, &mut sig, span,
 		)?;
 		let asm = state.asm();
 		let js = state.js();
@@ -199,42 +189,64 @@ impl Default for FunctionJsOutput {
 }
 
 impl<'a> State<'a> {
-	#[expect(clippy::too_many_arguments, reason = "TODO")]
 	fn parse(
 		crate_: &'a str,
 		js_output: FunctionJsOutput,
 		namespace: Option<&'a str>,
 		hygiene: &'a mut Hygiene<'_>,
 		outer_attrs: &'a [Attribute],
-		generics: &mut Generics,
-		ident: &Ident,
-		inputs: &'a Punctuated<FnArg, Token![,]>,
-		output: &'a ReturnType,
+		sig: &mut Signature,
 		span: Span,
 	) -> Result<Self> {
 		let import_name = if let Some(namespace) = namespace {
-			format!("{namespace}.{ident}")
+			format!("{namespace}.{}", sig.ident)
 		} else {
-			ident.to_string()
+			sig.ident.to_string()
 		};
 		let foreign_name = format!("{crate_}.{import_name}");
 
 		let mut self_ty = None;
 
-		let input_tys = inputs
-			.iter()
+		let input_tys = sig
+			.inputs
+			.iter_mut()
 			.map(|arg| {
-				if let FnArg::Typed(PatType { pat, ty, .. }) = arg
+				if let FnArg::Typed(PatType { attrs, pat, ty, .. }) = arg
 					&& let Pat::Ident(PatIdent {
-						attrs,
+						attrs: inner_attrs,
 						by_ref: None,
 						mutability: None,
 						ident: _,
 						subpat: None,
-					}) = pat.deref()
-					&& attrs.is_empty()
+					}) = pat.deref_mut()
+					&& inner_attrs.is_empty()
 				{
-					Ok(Cow::Borrowed(ty))
+					let mut r#type = None;
+
+					if let Some(attr) = attrs
+						.extract_if(.., |attr| attr.path().is_ident("js_sys"))
+						.next()
+					{
+						attr.parse_nested_meta(|meta| {
+							if meta.path.is_ident("type") {
+								meta.input.parse::<Token![=]>()?;
+
+								if r#type.replace(meta.input.parse::<Type>()?).is_some() {
+									Err(meta.error("duplicate attribute"))
+								} else {
+									Ok(())
+								}
+							} else {
+								Err(meta.error("unsupported attribute"))
+							}
+						})?;
+					}
+
+					if let Some(r#type) = r#type {
+						Ok(r#type)
+					} else {
+						Ok(*ty.clone())
+					}
 				} else if let FnArg::Receiver(Receiver {
 					attrs,
 					reference: None,
@@ -248,8 +260,8 @@ impl<'a> State<'a> {
 						lifetime: None,
 						mutability: None,
 						elem,
-					}) = ty.deref() && let Type::Path(TypePath { qself: None, path }) =
-					elem.deref()
+					}) = ty.deref_mut()
+					&& let Type::Path(TypePath { qself: None, path }) = elem.deref_mut()
 				{
 					if !matches!(js_output, FunctionJsOutput::Generate { .. }) {
 						return Err(Error::new_spanned(
@@ -258,9 +270,9 @@ impl<'a> State<'a> {
 						));
 					}
 
-					self_ty = Some(path);
+					self_ty = Some(path.clone());
 					let js_value = hygiene.js_value(outer_attrs, span);
-					Ok(Cow::Owned(parse_quote! { #and_token #js_value }))
+					Ok(parse_quote! { #and_token #js_value })
 				} else {
 					Err(Error::new_spanned(arg, "unsupported arguments found"))
 				}
@@ -271,7 +283,7 @@ impl<'a> State<'a> {
 			FunctionJsOutput::Generate { js_name, property } => {
 				let member = if let Some(self_ty) = self_ty {
 					let r#type = if property {
-						match (inputs.len(), &output) {
+						match (sig.inputs.len(), &sig.output) {
 							(1, ReturnType::Type(..)) => MemberType::Getter,
 							(2, ReturnType::Default) => MemberType::Setter,
 							_ => {
@@ -300,30 +312,28 @@ impl<'a> State<'a> {
 			FunctionJsOutput::Import => OutputType::Import,
 		};
 
-		let output_ty = match &output {
-			ReturnType::Default => &[],
-			ReturnType::Type(_, ty) => slice::from_ref(ty.deref()),
+		let output_ty = match &sig.output {
+			ReturnType::Default => Vec::new(),
+			ReturnType::Type(_, ty) => vec![*ty.clone()],
 		};
 
-		let (extern_input_names, intern_input_names): (Vec<_>, Vec<_>) = inputs
+		let (extern_input_names, intern_input_names): (Vec<_>, Vec<_>) = sig
+			.inputs
 			.iter()
 			.map(|arg| {
 				if let FnArg::Typed(PatType { pat, .. }) = arg
 					&& let Pat::Ident(PatIdent { ident, .. }) = pat.deref()
 				{
-					(Cow::Borrowed(ident), Cow::Borrowed(ident))
+					(ident.clone(), ident.clone())
 				} else if let FnArg::Receiver(Receiver { self_token, .. }) = arg {
-					(
-						Cow::Owned(Ident::new("this", Span::mixed_site())),
-						Cow::Owned((*self_token).into()),
-					)
+					(Ident::new("this", Span::mixed_site()), (*self_token).into())
 				} else {
 					unreachable!()
 				}
 			})
 			.collect();
 
-		let impl_generic_params = Self::impl_generic_params(&r#type, generics);
+		let impl_generic_params = Self::impl_generic_params(&r#type, &mut sig.generics);
 
 		let js_bindgen = hygiene.js_bindgen(outer_attrs, span);
 		let r#macro = if !input_tys.is_empty() || !output_ty.is_empty() {
@@ -425,7 +435,7 @@ impl<'a> State<'a> {
 
 		let mut input_imports = Vec::new();
 
-		for ty in input_tys.iter().map(|ty| ty.deref().deref()) {
+		for ty in input_tys {
 			if !input_imports.contains(&ty) {
 				input_imports.push(ty);
 			}
@@ -453,7 +463,7 @@ impl<'a> State<'a> {
 		let inputs = input_tys.iter().enumerate().map(|(index, ty)| {
 			let direct = index.to_string();
 
-			if let [output_ty] = output_ty {
+			if let [output_ty] = output_ty.as_slice() {
 				let indirect = (index + 1).to_string();
 				quote_spanned! {*span=>
 					interpolate #r#macro::asm_input!(#direct, #indirect, #ty, #output_ty),
@@ -521,7 +531,7 @@ impl<'a> State<'a> {
 
 		let mut unique_inputs = Vec::new();
 
-		for ty in input_tys.iter().map(|ty| ty.deref().deref()) {
+		for ty in input_tys.iter() {
 			if !unique_inputs.contains(&ty) {
 				unique_inputs.push(ty);
 			}
@@ -537,7 +547,7 @@ impl<'a> State<'a> {
 			required_embeds.push(quote_spanned!(*span=> #r#macro::js_input_embed::<#ty>()));
 		}
 
-		for ty in *output_ty {
+		for ty in output_ty.iter() {
 			required_embeds.push(quote_spanned!(*span=> #r#macro::js_output_embed::<#ty>()));
 		}
 
@@ -646,8 +656,8 @@ impl<'a> State<'a> {
 	}
 }
 
-impl OutputType<'_> {
-	fn member(&self) -> Option<&Member<'_>> {
+impl OutputType {
+	fn member(&self) -> Option<&Member> {
 		if let Self::Generate { member, .. } = self {
 			member.as_ref()
 		} else {
