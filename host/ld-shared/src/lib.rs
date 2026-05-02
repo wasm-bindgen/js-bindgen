@@ -11,8 +11,17 @@ use wasmparser::CustomSectionReader;
 /// Currently this simply passes the WAT to `rwat` to
 /// convert to an object file the linker can consume.
 #[must_use]
-pub fn wat_to_object(wat: &str) -> Vec<u8> {
-	rwat::parse_rwat(wat).expect("failed to parse rwat")
+pub fn wat_to_object(wasm64: bool, wat: &str) -> Vec<u8> {
+	// `wasm-ld` really does check for the exist of `(memory i64)`
+	// and uses that for determining whether an object is `wasm64`.
+	// So we have to add it.
+	let workaround = if wasm64 {
+		"(import \"env\" \"__linear_memory\" (memory i64 0))"
+	} else {
+		""
+	};
+	let wat = format!("(module (@rwat) {workaround} {wat})");
+	rwat::parse_rwat(&wat).expect("failed to parse rwat")
 }
 
 pub fn ld_input_parser<E>(

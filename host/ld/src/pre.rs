@@ -70,7 +70,14 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 	// Extract embedded assembly from object files.
 	for input in wasm_ld_args.inputs() {
 		js_bindgen_ld_shared::ld_input_parser(input, |path, data, object_mtime| {
-			process_object(&mut js_store, &mut add_args, path, data, object_mtime)
+			process_object(
+				&mut js_store,
+				matches!(arch, Arch::Wasm64),
+				&mut add_args,
+				path,
+				data,
+				object_mtime,
+			)
 		})
 		.unwrap()
 		.unwrap();
@@ -88,6 +95,7 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 /// from them and passes them to the linker.
 fn process_object(
 	js_store: &mut JsStore,
+	wasm64: bool,
 	add_args: &mut Vec<OsString>,
 	archive_path: &Path,
 	object: &[u8],
@@ -124,7 +132,7 @@ fn process_object(
 							.zip(object_mtime)
 							.is_none_or(|(t1, t2)| t1 < t2)
 					} {
-						let asm = js_bindgen_ld_shared::wat_to_object(wat);
+						let asm = js_bindgen_ld_shared::wat_to_object(wasm64, wat);
 						fs::write(&wasm_path, asm).unwrap();
 					}
 

@@ -10,17 +10,13 @@ fn basic() {
 		{
 			pub fn log(data: &JsValue) {
 				::js_sys::js_bindgen::unsafe_embed_asm! {
-					"(module (@rwat)",
-					#[cfg(target_arch = "wasm64")]
-					"  (import \"env\" \"__linear_memory\" (memory i64 0))",
-					"  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {}) (result )))",
-					"  {}",
+					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {}) (result )))",
+					"{}",
 					"",
-					"  (func $test_crate.log (@sym) (param  {}) (result )",
-					"    local.get {}",
-					"    call $test_crate.import.log (@reloc)",
-					"    ",
-					"  )",
+					"(func $test_crate.log (@sym) (param  {}) (result )",
+					"  local.get {}",
+					"  call $test_crate.import.log (@reloc)",
+					"",
 					")",
 					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 					interpolate ::js_sys::r#macro::asm_input_import::<&JsValue>(),
@@ -51,18 +47,16 @@ fn basic() {
 			}
 		},
 		indoc::indoc!(
-			"(module (@rwat)
-			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
+			"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
 			 \"test_crate.import.log\")) (param externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
-			 (result externref)))
+			(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result \
+			 externref)))
 
-			  (func $test_crate.log (@sym) (param  i32) (result )
-			    local.get 0
-				call $js_sys.externref.get (@reloc)
-			    call $test_crate.import.log (@reloc)
-			    
-			  )
+			(func $test_crate.log (@sym) (param  i32) (result )
+			  local.get 0
+			  call $js_sys.externref.get (@reloc)
+			  call $test_crate.import.log (@reloc)
+
 			)"
 		),
 		"globalThis.log",
@@ -81,17 +75,13 @@ fn namespace() {
 		{
 			pub fn log(data: &JsValue) {
 				::js_sys::js_bindgen::unsafe_embed_asm! {
-					"(module (@rwat)",
-					#[cfg(target_arch = "wasm64")]
-					"  (import \"env\" \"__linear_memory\" (memory i64 0))",
-					"  (import \"test_crate\" \"console.log\" (func $test_crate.import.console.log (@sym (name \"test_crate.import.console.log\")) (param {}) (result )))",
-					"  {}",
+					"(import \"test_crate\" \"console.log\" (func $test_crate.import.console.log (@sym (name \"test_crate.import.console.log\")) (param {}) (result )))",
+					"{}",
 					"",
-					"  (func $test_crate.console.log (@sym) (param  {}) (result )",
-					"    local.get {}",
-					"    call $test_crate.import.console.log (@reloc)",
-					"    ",
-					"  )",
+					"(func $test_crate.console.log (@sym) (param  {}) (result )",
+					"  local.get {}",
+					"  call $test_crate.import.console.log (@reloc)",
+					"",
 					")",
 					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 					interpolate ::js_sys::r#macro::asm_input_import::<&JsValue>(),
@@ -122,18 +112,16 @@ fn namespace() {
 			}
 		},
 		indoc::indoc!(
-			"(module (@rwat)
-			  (import \"test_crate\" \"console.log\" (func $test_crate.import.console.log (@sym (name \
-			 \"test_crate.import.console.log\")) (param externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
-			 (result externref)))
+			"(import \"test_crate\" \"console.log\" (func $test_crate.import.console.log (@sym \
+			 (name \"test_crate.import.console.log\")) (param externref) (result )))
+			(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result \
+			 externref)))
 
-			  (func $test_crate.console.log (@sym) (param  i32) (result )
-			    local.get 0
-				call $js_sys.externref.get (@reloc)
-			    call $test_crate.import.console.log (@reloc)
-			    
-			  )
+			(func $test_crate.console.log (@sym) (param  i32) (result )
+			  local.get 0
+			  call $js_sys.externref.get (@reloc)
+			  call $test_crate.import.console.log (@reloc)
+
 			)"
 		),
 		"globalThis.console.log",
@@ -152,17 +140,13 @@ fn js_sys() {
 		{
 			pub fn log(data: &JsValue) {
 				js_sys::js_bindgen::unsafe_embed_asm! {
-					"(module (@rwat)",
-					#[cfg(target_arch = "wasm64")]
-					"  (import \"env\" \"__linear_memory\" (memory i64 0))",
-					"  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {}) (result )))",
-					"  {}",
+					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {}) (result )))",
+					"{}",
 					"",
-					"  (func $test_crate.log (@sym) (param  {}) (result )",
-					"    local.get {}",
-					"    call $test_crate.import.log (@reloc)",
-					"    ",
-					"  )",
+					"(func $test_crate.log (@sym) (param  {}) (result )",
+					"  local.get {}",
+					"  call $test_crate.import.log (@reloc)",
+					"",
 					")",
 					interpolate js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 					interpolate js_sys::r#macro::asm_input_import::<&JsValue>(),
@@ -193,18 +177,16 @@ fn js_sys() {
 			}
 		},
 		indoc::indoc!(
-			"(module (@rwat)
-			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
+			"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
 			 \"test_crate.import.log\")) (param externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
-			 (result externref)))
+			(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result \
+			 externref)))
 
-			  (func $test_crate.log (@sym) (param  i32) (result )
-			    local.get 0
-				call $js_sys.externref.get (@reloc)
-			    call $test_crate.import.log (@reloc)
-			    
-			  )
+			(func $test_crate.log (@sym) (param  i32) (result )
+			  local.get 0
+			  call $js_sys.externref.get (@reloc)
+			  call $test_crate.import.log (@reloc)
+
 			)"
 		),
 		"globalThis.log",
@@ -223,18 +205,14 @@ fn two_parameters() {
 		{
 			pub fn log(data1: &JsValue, data2: &JsValue) {
 				::js_sys::js_bindgen::unsafe_embed_asm! {
-					"(module (@rwat)",
-					#[cfg(target_arch = "wasm64")]
-					"  (import \"env\" \"__linear_memory\" (memory i64 0))",
-					"  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {} {}) (result )))",
-					"  {}",
+					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {} {}) (result )))",
+					"{}",
 					"",
-					"  (func $test_crate.log (@sym) (param  {} {}) (result )",
-					"    local.get {}",
-					"    local.get {}",
-					"    call $test_crate.import.log (@reloc)",
-					"    ",
-					"  )",
+					"(func $test_crate.log (@sym) (param  {} {}) (result )",
+					"  local.get {}",
+					"  local.get {}",
+					"  call $test_crate.import.log (@reloc)",
+					"",
 					")",
 					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
@@ -277,20 +255,18 @@ fn two_parameters() {
 			}
 		},
 		indoc::indoc!(
-			"(module (@rwat)
-			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
+			"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
 			 \"test_crate.import.log\")) (param externref externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
-			 (result externref)))
+			(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result \
+			 externref)))
 
-			  (func $test_crate.log (@sym) (param  i32 i32) (result )
-			    local.get 0
-				call $js_sys.externref.get (@reloc)
-			    local.get 1
-				call $js_sys.externref.get (@reloc)
-			    call $test_crate.import.log (@reloc)
-			    
-			  )
+			(func $test_crate.log (@sym) (param  i32 i32) (result )
+			  local.get 0
+			  call $js_sys.externref.get (@reloc)
+			  local.get 1
+			  call $js_sys.externref.get (@reloc)
+			  call $test_crate.import.log (@reloc)
+
 			)"
 		),
 		"globalThis.log",
@@ -309,14 +285,10 @@ fn empty() {
 		{
 			pub fn log() {
 				::js_sys::js_bindgen::unsafe_embed_asm! {
-					"(module (@rwat)",
-					#[cfg(target_arch = "wasm64")]
-					"  (import \"env\" \"__linear_memory\" (memory i64 0))",
-					"  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param ) (result )))",
-					"  (func $test_crate.log (@sym) (param  ) (result )",
-					"    call $test_crate.import.log (@reloc)",
-					"    ",
-					"  )",
+					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param ) (result )))",
+					"(func $test_crate.log (@sym) (param  ) (result )",
+					"  call $test_crate.import.log (@reloc)",
+					"",
 					")",
 				}
 
@@ -335,13 +307,11 @@ fn empty() {
 			}
 		},
 		indoc::indoc!(
-			"(module (@rwat)
-			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
+			"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
 			 \"test_crate.import.log\")) (param ) (result )))
-			  (func $test_crate.log (@sym) (param  ) (result )
-			    call $test_crate.import.log (@reloc)
-			    
-			  )
+			(func $test_crate.log (@sym) (param  ) (result )
+			  call $test_crate.import.log (@reloc)
+
 			)"
 		),
 		"globalThis.log",
@@ -361,17 +331,13 @@ fn js_name() {
 		{
 			pub fn logx(data: &JsValue) {
 				::js_sys::js_bindgen::unsafe_embed_asm! {
-					"(module (@rwat)",
-					#[cfg(target_arch = "wasm64")]
-					"  (import \"env\" \"__linear_memory\" (memory i64 0))",
-					"  (import \"test_crate\" \"logx\" (func $test_crate.import.logx (@sym (name \"test_crate.import.logx\")) (param {}) (result )))",
-					"  {}",
+					"(import \"test_crate\" \"logx\" (func $test_crate.import.logx (@sym (name \"test_crate.import.logx\")) (param {}) (result )))",
+					"{}",
 					"",
-					"  (func $test_crate.logx (@sym) (param  {}) (result )",
-					"    local.get {}",
-					"    call $test_crate.import.logx (@reloc)",
-					"    ",
-					"  )",
+					"(func $test_crate.logx (@sym) (param  {}) (result )",
+					"  local.get {}",
+					"  call $test_crate.import.logx (@reloc)",
+					"",
 					")",
 					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 					interpolate ::js_sys::r#macro::asm_input_import::<&JsValue>(),
@@ -402,18 +368,16 @@ fn js_name() {
 			}
 		},
 		indoc::indoc!(
-			"(module (@rwat)
-			  (import \"test_crate\" \"logx\" (func $test_crate.import.logx (@sym (name \
+			"(import \"test_crate\" \"logx\" (func $test_crate.import.logx (@sym (name \
 			 \"test_crate.import.logx\")) (param externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
-			 (result externref)))
+			(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result \
+			 externref)))
 
-			  (func $test_crate.logx (@sym) (param  i32) (result )
-			    local.get 0
-				call $js_sys.externref.get (@reloc)
-			    call $test_crate.import.logx (@reloc)
-			    
-			  )
+			(func $test_crate.logx (@sym) (param  i32) (result )
+			  local.get 0
+			  call $js_sys.externref.get (@reloc)
+			  call $test_crate.import.logx (@reloc)
+
 			)"
 		),
 		"globalThis.log",
@@ -433,17 +397,13 @@ fn js_import() {
 		{
 			pub fn log(data: &JsValue) {
 				::js_sys::js_bindgen::unsafe_embed_asm! {
-					"(module (@rwat)",
-					#[cfg(target_arch = "wasm64")]
-					"  (import \"env\" \"__linear_memory\" (memory i64 0))",
-					"  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {}) (result )))",
-					"  {}",
+					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {}) (result )))",
+					"{}",
 					"",
-					"  (func $test_crate.log (@sym) (param  {}) (result )",
-					"    local.get {}",
-					"    call $test_crate.import.log (@reloc)",
-					"    ",
-					"  )",
+					"(func $test_crate.log (@sym) (param  {}) (result )",
+					"  local.get {}",
+					"  call $test_crate.import.log (@reloc)",
+					"",
 					")",
 					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 					interpolate ::js_sys::r#macro::asm_input_import::<&JsValue>(),
@@ -460,18 +420,16 @@ fn js_import() {
 			}
 		},
 		indoc::indoc!(
-			"(module (@rwat)
-			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
+			"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
 			 \"test_crate.import.log\")) (param externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
-			 (result externref)))
+			(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result \
+			 externref)))
 
-			  (func $test_crate.log (@sym) (param  i32) (result )
-			    local.get 0
-				call $js_sys.externref.get (@reloc)
-			    call $test_crate.import.log (@reloc)
-			    
-			  )
+			(func $test_crate.log (@sym) (param  i32) (result )
+			  local.get 0
+			  call $js_sys.externref.get (@reloc)
+			  call $test_crate.import.log (@reloc)
+
 			)"
 		),
 		None,
@@ -491,17 +449,13 @@ fn js_embed() {
 		{
 			pub fn log(data: &JsValue) {
 				::js_sys::js_bindgen::unsafe_embed_asm! {
-					"(module (@rwat)",
-					#[cfg(target_arch = "wasm64")]
-					"  (import \"env\" \"__linear_memory\" (memory i64 0))",
-					"  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {}) (result )))",
-					"  {}",
+					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param {}) (result )))",
+					"{}",
 					"",
-					"  (func $test_crate.log (@sym) (param  {}) (result )",
-					"    local.get {}",
-					"    call $test_crate.import.log (@reloc)",
-					"    ",
-					"  )",
+					"(func $test_crate.log (@sym) (param  {}) (result )",
+					"  local.get {}",
+					"  call $test_crate.import.log (@reloc)",
+					"",
 					")",
 					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 					interpolate ::js_sys::r#macro::asm_input_import::<&JsValue>(),
@@ -535,18 +489,16 @@ fn js_embed() {
 			}
 		},
 		indoc::indoc!(
-			"(module (@rwat)
-			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
+			"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
 			 \"test_crate.import.log\")) (param externref) (result )))
-			  (import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) \
-			 (result externref)))
+			(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result \
+			 externref)))
 
-			  (func $test_crate.log (@sym) (param  i32) (result )
-			    local.get 0
-				call $js_sys.externref.get (@reloc)
-			    call $test_crate.import.log (@reloc)
-			    
-			  )
+			(func $test_crate.log (@sym) (param  i32) (result )
+			  local.get 0
+			  call $js_sys.externref.get (@reloc)
+			  call $test_crate.import.log (@reloc)
+
 			)"
 		),
 		"this.#jsEmbed.test_crate['embed']",
@@ -565,16 +517,12 @@ fn r#return() {
 		{
 			pub fn is_nan() -> JsValue {
 				::js_sys::js_bindgen::unsafe_embed_asm! {
-					"(module (@rwat)",
-					#[cfg(target_arch = "wasm64")]
-					"  (import \"env\" \"__linear_memory\" (memory i64 0))",
-					"  (import \"test_crate\" \"is_nan\" (func $test_crate.import.is_nan (@sym (name \"test_crate.import.is_nan\")) (param ) (result {})))",
-					"  {}",
+					"(import \"test_crate\" \"is_nan\" (func $test_crate.import.is_nan (@sym (name \"test_crate.import.is_nan\")) (param ) (result {})))",
+					"{}",
 					"",
-					"  (func $test_crate.is_nan (@sym) (param {} ) (result {})",
-					"    call $test_crate.import.is_nan (@reloc)",
-					"    {}",
-					"  )",
+					"(func $test_crate.is_nan (@sym) (param {} ) (result {})",
+					"  call $test_crate.import.is_nan (@reloc)",
+					"{}",
 					")",
 					interpolate ::js_sys::r#macro::asm_output_import_type::<JsValue>(),
 					interpolate ::js_sys::r#macro::asm_output_import::<JsValue>(),
@@ -606,17 +554,15 @@ fn r#return() {
 			}
 		},
 		indoc::indoc!(
-			"(module (@rwat)
-			  (import \"test_crate\" \"is_nan\" (func $test_crate.import.is_nan (@sym (name \
+			"(import \"test_crate\" \"is_nan\" (func $test_crate.import.is_nan (@sym (name \
 			 \"test_crate.import.is_nan\")) (param ) (result externref)))
-			  (import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) (param \
+			(import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) (param \
 			 externref) (result i32)))
 
-			  (func $test_crate.is_nan (@sym) (param  ) (result i32)
-			    call $test_crate.import.is_nan (@reloc)
-			    
-				call $js_sys.externref.insert (@reloc)
-			  )
+			(func $test_crate.is_nan (@sym) (param  ) (result i32)
+			  call $test_crate.import.is_nan (@reloc)
+
+			  call $js_sys.externref.insert (@reloc)
 			)"
 		),
 		"globalThis.is_nan",
@@ -635,19 +581,15 @@ fn pointer() {
 		{
 			fn array(ptr: *const u8) -> JsString {
 				::js_sys::js_bindgen::unsafe_embed_asm! {
-					"(module (@rwat)",
-					#[cfg(target_arch = "wasm64")]
-					"  (import \"env\" \"__linear_memory\" (memory i64 0))",
-					"  (import \"test_crate\" \"array\" (func $test_crate.import.array (@sym (name \"test_crate.import.array\")) (param {}) (result {})))",
-					"  {}",
+					"(import \"test_crate\" \"array\" (func $test_crate.import.array (@sym (name \"test_crate.import.array\")) (param {}) (result {})))",
+					"{}",
 					"",
-					"  {}",
+					"{}",
 					"",
-					"  (func $test_crate.array (@sym) (param {} {}) (result {})",
-					"    local.get {}",
-					"    call $test_crate.import.array (@reloc)",
-					"    {}",
-					"  )",
+					"(func $test_crate.array (@sym) (param {} {}) (result {})",
+					"  local.get {}",
+					"  call $test_crate.import.array (@reloc)",
+					"{}",
 					")",
 					interpolate ::js_sys::r#macro::asm_input_import_type::<*const u8>(),
 					interpolate ::js_sys::r#macro::asm_output_import_type::<JsString>(),
@@ -692,20 +634,18 @@ fn pointer() {
 			}
 		},
 		indoc::indoc!(
-			"(module (@rwat)
-			  (import \"test_crate\" \"array\" (func $test_crate.import.array (@sym (name \
+			"(import \"test_crate\" \"array\" (func $test_crate.import.array (@sym (name \
 			 \"test_crate.import.array\")) (param i32) (result externref)))
-			  
 
-			  (import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) (param \
+
+			(import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) (param \
 			 externref) (result i32)))
 
-			  (func $test_crate.array (@sym) (param  i32) (result i32)
-			    local.get 0
-			    call $test_crate.import.array (@reloc)
-			    
-				call $js_sys.externref.insert (@reloc)
-			  )
+			(func $test_crate.array (@sym) (param  i32) (result i32)
+			  local.get 0
+			  call $test_crate.import.array (@reloc)
+
+			  call $js_sys.externref.insert (@reloc)
 			)"
 		),
 		indoc::indoc!(
@@ -731,14 +671,10 @@ fn cfg() {
 			#[cfg(all())]
 			pub fn log() {
 				::js_sys::js_bindgen::unsafe_embed_asm! {
-					"(module (@rwat)",
-					#[cfg(target_arch = "wasm64")]
-					"  (import \"env\" \"__linear_memory\" (memory i64 0))",
-					"  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param ) (result )))",
-					"  (func $test_crate.log (@sym) (param  ) (result )",
-					"    call $test_crate.import.log (@reloc)",
-					"    ",
-					"  )",
+					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param ) (result )))",
+					"(func $test_crate.log (@sym) (param  ) (result )",
+					"  call $test_crate.import.log (@reloc)",
+					"",
 					")",
 				}
 
@@ -757,13 +693,11 @@ fn cfg() {
 			}
 		},
 		indoc::indoc!(
-			"(module (@rwat)
-			  (import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
+			"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
 			 \"test_crate.import.log\")) (param ) (result )))
-			  (func $test_crate.log (@sym) (param  ) (result )
-			    call $test_crate.import.log (@reloc)
-			    
-			  )
+			(func $test_crate.log (@sym) (param  ) (result )
+			  call $test_crate.import.log (@reloc)
+
 			)"
 		),
 		"globalThis.log",
