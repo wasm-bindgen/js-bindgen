@@ -5,6 +5,7 @@
 - `#[js_sys]` is probably also not the ideal name.
 - Stub implementation for non-supported targets.
 - Add ourselves to the tool-conventions tool list.
+- Move `rwat` and the `prettyplease` fork to the `wasm-bindgen` ORG.
 
 # High Priority
 

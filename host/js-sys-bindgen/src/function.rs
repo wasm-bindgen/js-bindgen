@@ -443,15 +443,17 @@ impl<'a> State<'a> {
 
 		let params_placeholder = iter::repeat_n("{}", input_tys.len()).join(" ");
 		let ret_placeholder = if output_ty.is_empty() { "" } else { "{}" };
-		let import_funcs_placeholder: String =
-			iter::repeat_n(r#""{}","","#, input_imports.len() + output_ty.len()).collect();
+		let import_funcs_placeholder = if input_imports.is_empty() && output_ty.is_empty() {
+			""
+		} else {
+			"{}"
+		};
 		let asm_param_gets: String =
 			iter::repeat_n(r#""  local.get {}","#, input_tys.len()).collect();
 		let asm_ret_conv: String = iter::repeat_n(r#""{}","#, output_ty.len()).collect();
 
 		let asm = TokenStream::from_str(&format!(
-			r#""(import \"{crate_}\" \"{import_name}\" (func ${crate_}.import.{import_name} (@sym (name \"{crate_}.import.{import_name}\")) (param {params_placeholder}) (result {ret_placeholder})))",
-			{import_funcs_placeholder}
+			r#""(import \"{crate_}\" \"{import_name}\" (func ${crate_}.import.{import_name} (@sym (name \"{crate_}.import.{import_name}\")) (param {params_placeholder}) (result {ret_placeholder}))){import_funcs_placeholder}",
             "(func ${foreign_name} (@sym) (param {ret_placeholder} {params_placeholder}) (result {ret_placeholder})",
             {asm_param_gets}
             "  call ${crate_}.import.{import_name} (@reloc)",
@@ -475,13 +477,20 @@ impl<'a> State<'a> {
 			}
 		});
 
+		let asm_imports = if input_imports.is_empty() && output_ty.is_empty() {
+			TokenStream::new()
+		} else {
+			quote_spanned! {*span=>
+				interpolate #r#macro::asm_imports!((#(#input_imports),*), #(#output_ty)*),
+			}
+		};
+
 		parse_quote_spanned! {*span=>
 			#js_bindgen::unsafe_embed_asm! {
 				#asm
 				#(interpolate #r#macro::asm_input_import_type::<#input_tys>(),)*
 				#(interpolate #r#macro::asm_output_import_type::<#output_ty>(),)*
-				#(interpolate #r#macro::asm_input_import::<#input_imports>(),)*
-				#(interpolate #r#macro::asm_output_import::<#output_ty>(),)*
+				#asm_imports
 				#(interpolate #r#macro::asm_indirect!(#output_ty),)*
 				#(interpolate <#input_tys as #input>::ASM_TYPE,)*
 				#(interpolate #r#macro::asm_direct::<#output_ty>(),)*

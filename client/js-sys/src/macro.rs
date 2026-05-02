@@ -1,5 +1,64 @@
 #[doc(hidden)]
 #[macro_export]
+macro_rules! asm_imports {
+	(($($input:ty),*) $(, $output:ty)? $(,)?) => {{
+		const VALUES: &[&str] = &[
+			$($crate::r#macro::asm_input_import::<$input>(),)*
+			$($crate::r#macro::asm_output_import::<$output>(),)?
+		];
+		const SIZE: usize = {
+			let mut size = 0;
+			let mut index = 0;
+
+			while index < VALUES.len() {
+				if let Some(value) = $crate::r#macro::asm_import_iter(VALUES, index) {
+					size += 1 + value.len();
+				}
+
+				index += 1;
+			}
+
+			size
+		};
+
+		const IMPORTS: [u8; SIZE] = {
+			let mut imports = [0; SIZE];
+			let mut byte_index = 0;
+			let mut value_index = 0;
+
+			while value_index < VALUES.len() {
+				if let Some(value) = $crate::r#macro::asm_import_iter(VALUES, value_index) {
+					imports[byte_index] = b'\n';
+					byte_index += 1;
+
+					let value = value.as_bytes();
+					let mut index = 0;
+
+					while index < value.len() {
+						imports[byte_index] = value[index];
+						byte_index += 1;
+						index += 1;
+					}
+				}
+
+				value_index += 1;
+			}
+
+			imports
+		};
+
+		if let ::core::result::Result::Ok(value) = ::core::str::from_utf8(&IMPORTS) {
+			value
+		} else {
+			::core::panic!()
+		}
+	}};
+}
+
+pub use asm_imports;
+
+#[doc(hidden)]
+#[macro_export]
 macro_rules! asm_indirect {
 	($ty:ty) => {
 		if $crate::r#macro::direct::<$ty>() {
@@ -176,6 +235,43 @@ use crate::hazard::{Input, InputAsmConv, InputJsConv, Output, OutputAsmConv, Out
 #[must_use]
 pub const fn asm_direct<T: Output>() -> &'static str {
 	if direct::<T>() { T::ASM_TYPE } else { "" }
+}
+
+#[must_use]
+pub const fn asm_import_iter<'a>(values: &[&'a str], index: usize) -> Option<&'a str> {
+	let value = values[index];
+
+	if value.is_empty() {
+		return None;
+	}
+
+	let mut c_index = 0;
+
+	while c_index < index {
+		let c_value = values[c_index];
+
+		if value.len() == c_value.len() {
+			let mut l_index = 0;
+			let mut equal = true;
+
+			while l_index < value.len() {
+				if value.as_bytes()[l_index] != c_value.as_bytes()[l_index] {
+					equal = false;
+					break;
+				}
+
+				l_index += 1;
+			}
+
+			if equal {
+				return None;
+			}
+		}
+
+		c_index += 1;
+	}
+
+	Some(value)
 }
 
 #[must_use]
