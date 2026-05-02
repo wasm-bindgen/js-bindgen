@@ -16,7 +16,6 @@ fn basic() {
 					"(func $test_crate.log (@sym) (param  {}) (result )",
 					"  local.get {}",
 					"  call $test_crate.import.log (@reloc)",
-					"",
 					")",
 					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 					interpolate ::js_sys::r#macro::asm_input_import::<&JsValue>(),
@@ -56,7 +55,6 @@ fn basic() {
 			  local.get 0
 			  call $js_sys.externref.get (@reloc)
 			  call $test_crate.import.log (@reloc)
-
 			)"
 		),
 		"globalThis.log",
@@ -81,7 +79,6 @@ fn namespace() {
 					"(func $test_crate.console.log (@sym) (param  {}) (result )",
 					"  local.get {}",
 					"  call $test_crate.import.console.log (@reloc)",
-					"",
 					")",
 					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 					interpolate ::js_sys::r#macro::asm_input_import::<&JsValue>(),
@@ -121,7 +118,6 @@ fn namespace() {
 			  local.get 0
 			  call $js_sys.externref.get (@reloc)
 			  call $test_crate.import.console.log (@reloc)
-
 			)"
 		),
 		"globalThis.console.log",
@@ -146,7 +142,6 @@ fn js_sys() {
 					"(func $test_crate.log (@sym) (param  {}) (result )",
 					"  local.get {}",
 					"  call $test_crate.import.log (@reloc)",
-					"",
 					")",
 					interpolate js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 					interpolate js_sys::r#macro::asm_input_import::<&JsValue>(),
@@ -186,7 +181,6 @@ fn js_sys() {
 			  local.get 0
 			  call $js_sys.externref.get (@reloc)
 			  call $test_crate.import.log (@reloc)
-
 			)"
 		),
 		"globalThis.log",
@@ -212,7 +206,6 @@ fn two_parameters() {
 					"  local.get {}",
 					"  local.get {}",
 					"  call $test_crate.import.log (@reloc)",
-					"",
 					")",
 					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
@@ -266,7 +259,6 @@ fn two_parameters() {
 			  local.get 1
 			  call $js_sys.externref.get (@reloc)
 			  call $test_crate.import.log (@reloc)
-
 			)"
 		),
 		"globalThis.log",
@@ -288,7 +280,6 @@ fn empty() {
 					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param ) (result )))",
 					"(func $test_crate.log (@sym) (param  ) (result )",
 					"  call $test_crate.import.log (@reloc)",
-					"",
 					")",
 				}
 
@@ -311,7 +302,6 @@ fn empty() {
 			 \"test_crate.import.log\")) (param ) (result )))
 			(func $test_crate.log (@sym) (param  ) (result )
 			  call $test_crate.import.log (@reloc)
-
 			)"
 		),
 		"globalThis.log",
@@ -337,7 +327,6 @@ fn js_name() {
 					"(func $test_crate.logx (@sym) (param  {}) (result )",
 					"  local.get {}",
 					"  call $test_crate.import.logx (@reloc)",
-					"",
 					")",
 					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 					interpolate ::js_sys::r#macro::asm_input_import::<&JsValue>(),
@@ -377,7 +366,6 @@ fn js_name() {
 			  local.get 0
 			  call $js_sys.externref.get (@reloc)
 			  call $test_crate.import.logx (@reloc)
-
 			)"
 		),
 		"globalThis.log",
@@ -403,7 +391,6 @@ fn js_import() {
 					"(func $test_crate.log (@sym) (param  {}) (result )",
 					"  local.get {}",
 					"  call $test_crate.import.log (@reloc)",
-					"",
 					")",
 					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 					interpolate ::js_sys::r#macro::asm_input_import::<&JsValue>(),
@@ -429,7 +416,6 @@ fn js_import() {
 			  local.get 0
 			  call $js_sys.externref.get (@reloc)
 			  call $test_crate.import.log (@reloc)
-
 			)"
 		),
 		None,
@@ -455,7 +441,6 @@ fn js_embed() {
 					"(func $test_crate.log (@sym) (param  {}) (result )",
 					"  local.get {}",
 					"  call $test_crate.import.log (@reloc)",
-					"",
 					")",
 					interpolate ::js_sys::r#macro::asm_input_import_type::<&JsValue>(),
 					interpolate ::js_sys::r#macro::asm_input_import::<&JsValue>(),
@@ -498,7 +483,6 @@ fn js_embed() {
 			  local.get 0
 			  call $js_sys.externref.get (@reloc)
 			  call $test_crate.import.log (@reloc)
-
 			)"
 		),
 		"this.#jsEmbed.test_crate['embed']",
@@ -674,7 +658,6 @@ fn cfg() {
 					"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \"test_crate.import.log\")) (param ) (result )))",
 					"(func $test_crate.log (@sym) (param  ) (result )",
 					"  call $test_crate.import.log (@reloc)",
-					"",
 					")",
 				}
 
@@ -688,7 +671,6 @@ fn cfg() {
 					#[link_name = "test_crate.log"]
 					fn log();
 				}
-
 				unsafe { log() };
 			}
 		},
@@ -697,7 +679,6 @@ fn cfg() {
 			 \"test_crate.import.log\")) (param ) (result )))
 			(func $test_crate.log (@sym) (param  ) (result )
 			  call $test_crate.import.log (@reloc)
-
 			)"
 		),
 		"globalThis.log",

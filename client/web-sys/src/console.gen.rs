@@ -19,7 +19,6 @@ pub fn log0() {
 		"(import \"web_sys\" \"console.log0\" (func $web_sys.import.console.log0 (@sym (name \"web_sys.import.console.log0\")) (param ) (result )))",
 		"(func $web_sys.console.log0 (@sym) (param  ) (result )",
 		"  call $web_sys.import.console.log0 (@reloc)",
-		"",
 		")",
 	}
 
@@ -41,7 +40,6 @@ pub fn log(data: &JsValue) {
 		"(func $web_sys.console.log (@sym) (param  {}) (result )",
 		"  local.get {}",
 		"  call $web_sys.import.console.log (@reloc)",
-		"",
 		")",
 		interpolate r#macro::asm_input_import_type::<&JsValue>(),
 		interpolate r#macro::asm_input_import::<&JsValue>(),
@@ -80,7 +78,6 @@ pub fn log2(data1: &JsValue, data2: &JsValue) {
 		"  local.get {}",
 		"  local.get {}",
 		"  call $web_sys.import.console.log2 (@reloc)",
-		"",
 		")",
 		interpolate r#macro::asm_input_import_type::<&JsValue>(),
 		interpolate r#macro::asm_input_import_type::<&JsValue>(),
@@ -122,7 +119,6 @@ pub fn error(data: &JsValue) {
 		"(func $web_sys.console.error (@sym) (param  {}) (result )",
 		"  local.get {}",
 		"  call $web_sys.import.console.error (@reloc)",
-		"",
 		")",
 		interpolate r#macro::asm_input_import_type::<&JsValue>(),
 		interpolate r#macro::asm_input_import::<&JsValue>(),

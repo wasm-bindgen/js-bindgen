@@ -17,7 +17,6 @@ fn method() {
 						"(func $test_crate.test (@sym) (param  {}) (result )",
 						"  local.get {}",
 						"  call $test_crate.import.test (@reloc)",
-						"",
 						")",
 						interpolate ::js_sys::r#macro::asm_input_import_type::<&::js_sys::JsValue>(),
 						interpolate ::js_sys::r#macro::asm_input_import::<&::js_sys::JsValue>(),
@@ -62,7 +61,6 @@ fn method() {
 			  local.get 0
 			  call $js_sys.externref.get (@reloc)
 			  call $test_crate.import.test (@reloc)
-
 			)"
 		),
 		"(self) => self.test()",

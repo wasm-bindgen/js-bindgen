@@ -322,7 +322,6 @@ pub(super) unsafe fn string_encode(string: &JsString, array: *mut u8, len: PtrLe
 		"  local.get {}",
 		"  local.get {}",
 		"  call $js_sys.import.string_encode (@reloc)",
-		"",
 		")",
 		interpolate r#macro::asm_input_import_type::<&JsString>(),
 		interpolate r#macro::asm_input_import_type::<*mut u8>(),

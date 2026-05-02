@@ -437,7 +437,7 @@ impl<'a> State<'a> {
 			iter::repeat_n(r#""{}","","#, input_imports.len() + output_ty.len()).collect();
 		let asm_param_gets: String =
 			iter::repeat_n(r#""  local.get {}","#, input_tys.len()).collect();
-		let asm_ret_conv = if output_ty.is_empty() { "" } else { "{}" };
+		let asm_ret_conv: String = iter::repeat_n(r#""{}","#, output_ty.len()).collect();
 
 		let asm = TokenStream::from_str(&format!(
 			r#""(import \"{crate_}\" \"{import_name}\" (func ${crate_}.import.{import_name} (@sym (name \"{crate_}.import.{import_name}\")) (param {params_placeholder}) (result {ret_placeholder})))",
@@ -445,7 +445,7 @@ impl<'a> State<'a> {
             "(func ${foreign_name} (@sym) (param {ret_placeholder} {params_placeholder}) (result {ret_placeholder})",
             {asm_param_gets}
             "  call ${crate_}.import.{import_name} (@reloc)",
-            "{asm_ret_conv}",
+            {asm_ret_conv}
             ")","#
 		))
 		.unwrap();
