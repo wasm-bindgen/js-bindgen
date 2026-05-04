@@ -42,7 +42,7 @@ axum = { version = "0.8", default-features = false, features = ["http1", "http2"
 cargo_metadata = "0.23"
 clap = { version = "4", features = ["derive"] }
 clap-cargo = { version = "0.18", features = ["cargo_metadata"] }
-dtor = { version = "0.12", default-features = false, features = ["proc_macro"] }
+dtor = { version = "0.13", default-features = false, features = ["proc_macro"] }
 fantoccini = { version = "0.22.0", default-features = false, features = ["rustls-tls"] }
 foldhash = { version = "0.2", default-features = false }
 futures-util = { version = "0.3", default-features = false }
