@@ -21,7 +21,7 @@ fn js_value() {
 	assert_eq!(rust_array.len(), ffi_array.length().try_into().unwrap());
 
 	let returned_array: [JsValue; 42] = js_array.to_array().unwrap();
-	assert!(rust_array == returned_array);
+	assert_eq!(rust_array, returned_array);
 
 	let returned_array: [JsValue; 42] = ffi_array.to_array().unwrap();
 	assert_eq!(rust_array, returned_array);
