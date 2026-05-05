@@ -40,17 +40,7 @@ pub fn processing(
 				let mut import_section = ImportSection::new();
 
 				for i in i.into_imports() {
-					let mut import = i.context("import should be parsable")?;
-
-					// This is `llvm-mc` workaround for 32-bit tables when compiling to Wasm64.
-					// See https://github.com/llvm/llvm-project/issues/172907.
-					// TODO: This linker is supposed to be agnostic towards `js-sys`.
-					if let TypeRef::Table(t) = &mut import.ty
-						&& t.table64 && import.module == "js_sys"
-						&& import.name == "externref.table"
-					{
-						t.table64 = false;
-					}
+					let import = i.context("import should be parsable")?;
 
 					import_section.import(
 						import.module,
