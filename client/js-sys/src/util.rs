@@ -290,6 +290,7 @@ macro_rules! buffer {
 			"(ptr, count) => {{",
 			#[cfg(debug_assertions)]
 			"	if (ptr % {size} !== 0)",
+			#[cfg(debug_assertions)]
 			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
 			"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
@@ -329,6 +330,7 @@ macro_rules! buffer {
 			"(ptr, count) => {{",
 			#[cfg(debug_assertions)]
 			"	if (ptr % {size} !== 0)",
+			#[cfg(debug_assertions)]
 			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
 			#[cfg(js_sys_target_feature = "unstable-rab")]
@@ -354,6 +356,7 @@ macro_rules! buffer {
 			"(ptr, count) => {{",
 			#[cfg(debug_assertions)]
 			"	if (ptr % {size} !== 0)",
+			#[cfg(debug_assertions)]
 			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
 			"	const out = new Array(count)",
@@ -385,6 +388,7 @@ macro_rules! buffer {
 			"(ptr, array) => {{",
 			#[cfg(debug_assertions)]
 			"	if (ptr % {size} !== 0)",
+			#[cfg(debug_assertions)]
 			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
 			"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
@@ -419,6 +423,7 @@ macro_rules! buffer {
 			"(ptr, array) => {{",
 			#[cfg(debug_assertions)]
 			"	if (ptr % {size} !== 0)",
+			#[cfg(debug_assertions)]
 			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
 			"	{buffer}.set(array, ptr / {size})",
@@ -441,6 +446,7 @@ macro_rules! buffer {
 			"(ptr, array) => {{",
 			#[cfg(debug_assertions)]
 			"	if (ptr % {size} !== 0)",
+			#[cfg(debug_assertions)]
 			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
 			"	const view = {data}",
