@@ -10,6 +10,7 @@ use clap::builder::PossibleValue;
 use clap::{Args, ValueEnum};
 use strum::{EnumIter, IntoEnumIterator};
 
+use super::permutation::Profile;
 use super::{ClientArgs, metadata};
 use crate::check::CheckTool;
 use crate::command::{self, CargoCommand};
@@ -76,7 +77,7 @@ impl Check {
 							envs: &[("RUSTDOCFLAGS", "-D warnings")],
 						},
 					];
-					metadata::run(self.args.clone(), &commands, false, verbose)?;
+					metadata::run(self.args.clone(), &commands, Profile::Dev, verbose)?;
 				}
 				Tool::Client(ClientTool::CargoJsSys) => {
 					let mut command =

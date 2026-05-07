@@ -15,7 +15,7 @@ use strum::EnumIter;
 use self::check::{Check, Tools};
 pub use self::check::{ClientTool, Tool};
 use self::fmt::Fmt;
-use self::permutation::Toolchain;
+use self::permutation::{Profile, Toolchain};
 use self::test::Test;
 use self::util::ToolchainParser;
 use crate::FmtTools;
@@ -117,7 +117,7 @@ impl Client {
 					args: &[],
 					envs: &[],
 				};
-				let duration = metadata::run(args, &[command], true, verbose)?;
+				let duration = metadata::run(args, &[command], Profile::Dev, verbose)?;
 
 				println!("-------------------------");
 				println!("Total Time: {:.2}s", duration.as_secs_f32());
