@@ -10,7 +10,7 @@ use clap::builder::{ArgPredicate, PossibleValue};
 use clap::{Args, ValueEnum};
 use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
-use super::permutation::{JsSysTargetFeature, Permutation};
+use super::permutation::{JsSysTargetFeature, Permutation, Profile};
 use super::process::ChildWrapper;
 use super::{ClientArgs, Target, TargetFeature, util};
 use crate::command;
@@ -121,7 +121,7 @@ impl Test {
 			build_time += command::run("Build Runner", command, verbose)?;
 		}
 
-		for permutation in Permutation::iter(&targets, &target_features, true) {
+		for permutation in Permutation::iter(&targets, Profile::Test, &target_features, true) {
 			let mut built = false;
 
 			for test_run in TestRun::from_permutation(&permutation, &runners) {

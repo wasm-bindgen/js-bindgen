@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, Package, TargetKind};
 
-use super::permutation::Permutation;
+use super::permutation::{Permutation, Profile};
 use super::{ClientArgs, Target, TargetFeature, util};
 use crate::command::{self, CargoCommand};
 use crate::features;
@@ -12,7 +12,7 @@ use crate::features::Features;
 pub fn run(
 	client_args: ClientArgs,
 	commands: &[CargoCommand],
-	linker: bool,
+	profile: Profile,
 	verbose: bool,
 ) -> Result<Duration> {
 	let targets = Target::from_targets(client_args.targets)?;
@@ -21,7 +21,7 @@ pub fn run(
 
 	let start = Instant::now();
 
-	if linker {
+	if let Profile::Test = profile {
 		util::build_linker(verbose)?;
 	}
 
@@ -32,7 +32,7 @@ pub fn run(
 		js_sys,
 	} in CargoTarget::from_metadata(&metadata)
 	{
-		for permutation in Permutation::iter(&targets, &target_features, js_sys) {
+		for permutation in Permutation::iter(&targets, profile, &target_features, js_sys) {
 			for CargoCommand {
 				title,
 				sub_command,

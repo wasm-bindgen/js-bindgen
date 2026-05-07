@@ -8,9 +8,16 @@ use super::{Target, TargetFeature};
 
 pub struct Permutation {
 	target: Target,
+	profile: Profile,
 	target_feature: TargetFeature,
 	js_sys_target_feature: Option<JsSysTargetFeature>,
 	rustflags: Option<Rustflags>,
+}
+
+#[derive(Clone, Copy)]
+pub enum Profile {
+	Dev,
+	Test,
 }
 
 #[derive(Clone, Default)]
@@ -22,6 +29,7 @@ struct Rustflags {
 impl Permutation {
 	pub fn iter(
 		targets: &[Target],
+		profile: Profile,
 		target_features: &[TargetFeature],
 		js_sys: bool,
 	) -> impl Iterator<Item = Self> {
@@ -71,6 +79,7 @@ impl Permutation {
 
 						Self {
 							target,
+							profile,
 							target_feature,
 							js_sys_target_feature,
 							rustflags,
@@ -80,12 +89,25 @@ impl Permutation {
 	}
 
 	pub fn envs(&self) -> impl Iterator<Item = (&str, &OsStr)> {
-		self.rustflags.iter().flat_map(|rustflags| {
-			[
-				(self.target.rustflags_env(), rustflags.rust.as_ref()),
-				(self.target.rustdocflags_env(), rustflags.doc.as_ref()),
-			]
-		})
+		self.rustflags
+			.iter()
+			.flat_map(|rustflags| {
+				[
+					(self.target.rustflags_env(), rustflags.rust.as_ref()),
+					(self.target.rustdocflags_env(), rustflags.doc.as_ref()),
+				]
+			})
+			.chain(
+				self.js_sys_target_feature
+					.is_some_and(JsSysTargetFeature::no_debug_assertions)
+					.then(|| {
+						let key = match self.profile {
+							Profile::Dev => "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS",
+							Profile::Test => "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS",
+						};
+						(key, OsStr::new("false"))
+					}),
+			)
 	}
 
 	pub fn toolchain(&self) -> Toolchain {
@@ -141,9 +163,12 @@ impl Display for Permutation {
 
 #[derive(Clone, Copy, EnumIter)]
 pub enum JsSysTargetFeature {
+	NoDebug,
 	NoSharedMemory,
 	SmallEndian,
+	SmallEndianNoDebug,
 	BigEndian,
+	BigEndianNoDebug,
 	Sab,
 	NoSharedMemorySab,
 	Rab,
@@ -153,11 +178,28 @@ pub enum JsSysTargetFeature {
 }
 
 impl JsSysTargetFeature {
+	fn no_debug_assertions(self) -> bool {
+		match self {
+			Self::NoSharedMemory
+			| Self::SmallEndian
+			| Self::BigEndian
+			| Self::Sab
+			| Self::NoSharedMemorySab
+			| Self::Rab
+			| Self::SmallEndianRab
+			| Self::BigEndianRab
+			| Self::AllFeatures => false,
+			Self::NoDebug | Self::SmallEndianNoDebug | Self::BigEndianNoDebug => true,
+		}
+	}
+
 	fn flags(self) -> Option<&'static str> {
 		Some(match self {
-			Self::NoSharedMemory => return None,
-			Self::SmallEndian => "--cfg js_sys_assume_endianness=\"little\"",
-			Self::BigEndian => "--cfg js_sys_assume_endianness=\"big\"",
+			Self::NoDebug | Self::NoSharedMemory => return None,
+			Self::SmallEndian | Self::SmallEndianNoDebug => {
+				"--cfg js_sys_assume_endianness=\"little\""
+			}
+			Self::BigEndian | Self::BigEndianNoDebug => "--cfg js_sys_assume_endianness=\"big\"",
 			Self::Sab | Self::NoSharedMemorySab => "--cfg js_sys_target_feature=\"sab\"",
 			Self::Rab => "--cfg js_sys_target_feature=\"unstable-rab\"",
 			Self::SmallEndianRab => {
@@ -176,8 +218,11 @@ impl JsSysTargetFeature {
 
 	fn shared_memory(self) -> bool {
 		match self {
-			Self::SmallEndian
+			Self::NoDebug
+			| Self::SmallEndian
+			| Self::SmallEndianNoDebug
 			| Self::BigEndian
+			| Self::BigEndianNoDebug
 			| Self::Sab
 			| Self::Rab
 			| Self::SmallEndianRab
@@ -189,9 +234,12 @@ impl JsSysTargetFeature {
 
 	pub fn requires_rab(self) -> bool {
 		match self {
-			Self::NoSharedMemory
+			Self::NoDebug
+			| Self::NoSharedMemory
 			| Self::SmallEndian
+			| Self::SmallEndianNoDebug
 			| Self::BigEndian
+			| Self::BigEndianNoDebug
 			| Self::Sab
 			| Self::NoSharedMemorySab => false,
 			Self::Rab | Self::SmallEndianRab | Self::BigEndianRab | Self::AllFeatures => true,
@@ -200,9 +248,12 @@ impl JsSysTargetFeature {
 
 	pub fn requires_sab(self) -> bool {
 		match self {
-			Self::NoSharedMemory
+			Self::NoDebug
+			| Self::NoSharedMemory
 			| Self::SmallEndian
+			| Self::SmallEndianNoDebug
 			| Self::BigEndian
+			| Self::BigEndianNoDebug
 			| Self::Rab
 			| Self::NoSharedMemorySab
 			| Self::SmallEndianRab
@@ -213,8 +264,11 @@ impl JsSysTargetFeature {
 
 	fn requires_atomic(self) -> bool {
 		match self {
-			Self::SmallEndian
+			Self::NoDebug
+			| Self::SmallEndian
+			| Self::SmallEndianNoDebug
 			| Self::BigEndian
+			| Self::BigEndianNoDebug
 			| Self::Rab
 			| Self::SmallEndianRab
 			| Self::BigEndianRab => false,
@@ -226,9 +280,12 @@ impl JsSysTargetFeature {
 impl Display for JsSysTargetFeature {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		let name = match self {
+			Self::NoDebug => "No Debug Assertions",
 			Self::NoSharedMemory => "No SM",
 			Self::SmallEndian => "Small Endian",
+			Self::SmallEndianNoDebug => "Small Endian No Debug Assertions",
 			Self::BigEndian => "Big Endian",
+			Self::BigEndianNoDebug => "Big Endian No Debug Assertions",
 			Self::Sab => "SAB",
 			Self::NoSharedMemorySab => "SAB + No SM",
 			Self::Rab => "RAB",
