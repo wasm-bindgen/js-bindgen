@@ -11,7 +11,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
 use js_bindgen_shared::ReadFile;
 
-use crate::run_data::{RunData, has_main_export};
+use crate::run_data::{RunData, main_export};
 use crate::runner::Runner;
 use crate::test::{TestData, TestEntry};
 
@@ -123,11 +123,12 @@ fn main() -> Result<()> {
 			tests,
 		}
 	} else {
-		if !has_main_export(&wasm_bytes)? {
-			anyhow::bail!("binary requires an exported `main` function");
-		}
+		let main =
+			main_export(&wasm_bytes)?.context("binary requires an exported `main` function")?;
 
-		RunData::Binary
+		RunData::Binary {
+			wasm64: main.wasm64,
+		}
 	};
 
 	// The JS file has the same name, just a different file extension.

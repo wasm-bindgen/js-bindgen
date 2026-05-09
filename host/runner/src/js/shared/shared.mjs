@@ -55,8 +55,14 @@ export async function run(module, jsBindgenCtor, report) {
         interceptFlag = true;
         let status;
         try {
-            const main = state.instance.exports["main"];
-            status = main(0, 0);
+            if (runData.wasm64) {
+                const main = state.instance.exports["main"];
+                status = main(0, 0n);
+            }
+            else {
+                const main = state.instance.exports["main"];
+                status = main(0, 0);
+            }
         }
         catch (error) {
             const message = state.panicMessage ?? error.message;

@@ -16,13 +16,16 @@ pub enum RunData {
 		filtered_count: usize,
 		tests: Vec<TestEntry>,
 	},
-	Binary,
+	Binary {
+		wasm64: bool,
+	},
 }
 
-pub fn has_main_export(wasm_bytes: &[u8]) -> Result<bool> {
+pub fn main_export(wasm_bytes: &[u8]) -> Result<Option<MainExport>> {
 	let mut types = Vec::new();
 	let mut imported_functions = 0;
 	let mut defined_function_types = Vec::new();
+	let mut wasm64 = false;
 
 	for payload in Parser::new(0).parse_all(wasm_bytes) {
 		match payload? {
@@ -35,14 +38,21 @@ pub fn has_main_export(wasm_bytes: &[u8]) -> Result<bool> {
 				for import in section.into_imports() {
 					let import = import?;
 
-					if matches!(import.ty, TypeRef::Func(_) | TypeRef::FuncExact(_)) {
-						imported_functions += 1;
+					match import.ty {
+						TypeRef::Func(_) | TypeRef::FuncExact(_) => imported_functions += 1,
+						TypeRef::Memory(memory) => wasm64 |= memory.memory64,
+						_ => {}
 					}
 				}
 			}
 			Payload::FunctionSection(section) => {
 				for ty in section {
 					defined_function_types.push(ty?);
+				}
+			}
+			Payload::MemorySection(section) => {
+				for memory in section {
+					wasm64 |= memory?.memory64;
 				}
 			}
 			Payload::ExportSection(exports) => {
@@ -56,7 +66,7 @@ pub fn has_main_export(wasm_bytes: &[u8]) -> Result<bool> {
 							defined_function_types.get(function_index as usize)
 						&& let Some(ty) = types.get(*type_index as usize)
 					{
-						return Ok(is_main_type(ty));
+						return Ok(is_main_type(ty, wasm64).then_some(MainExport { wasm64 }));
 					}
 				}
 
@@ -66,11 +76,17 @@ pub fn has_main_export(wasm_bytes: &[u8]) -> Result<bool> {
 		}
 	}
 
-	Ok(false)
+	Ok(None)
 }
 
-/// Rust's standard `main` export takes `argc/argv` pointers and returns a
-/// process status code.
-fn is_main_type(ty: &FuncType) -> bool {
-	ty.params() == [ValType::I32, ValType::I32] && ty.results() == [ValType::I32]
+pub struct MainExport {
+	pub wasm64: bool,
+}
+
+/// Rust's standard `main` export takes `argc`, `argv`, and returns a process
+/// status code. The `argv` pointer follows the module's memory width.
+fn is_main_type(ty: &FuncType, wasm64: bool) -> bool {
+	let ptr_type = if wasm64 { ValType::I64 } else { ValType::I32 };
+
+	ty.params() == [ValType::I32, ptr_type] && ty.results() == [ValType::I32]
 }

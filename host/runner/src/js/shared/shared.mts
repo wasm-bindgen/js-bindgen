@@ -90,8 +90,13 @@ export async function run(
 		let status: number
 
 		try {
-			const main = state.instance.exports["main"] as (x: number, y: number) => number
-			status = main(0, 0)
+			if (runData.wasm64) {
+				const main = state.instance.exports["main"] as (argc: number, argv: bigint) => number
+				status = main(0, 0n)
+			} else {
+				const main = state.instance.exports["main"] as (argc: number, argv: number) => number
+				status = main(0, 0)
+			}
 		} catch (error) {
 			const message = state.panicMessage ?? (error as Error).message
 			const stack = (error as Error).stack!
