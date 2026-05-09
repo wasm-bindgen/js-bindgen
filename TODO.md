@@ -9,8 +9,6 @@
 
 # High Priority
 
-- Binary Runner:
-  - Consider how to run tests with `harness = false`.
 - Test Runner:
   - Consider moving environment variables to CLI arguments.
   - Lint and format TS files and minimize JS files.
@@ -81,6 +79,8 @@
 
 # Medium Priority
 
+- Binary Runner:
+  - Consider how to run tests with `harness = false`.
 - Find a way to link to imports directly if no wrapper function is needed. This happens when no
   conversions on the WAT level are necessary.
 - Provide an absolutely minimal allocator.
