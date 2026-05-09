@@ -3,5 +3,5 @@
 	"compilerOptions": {
 		"lib": ["ESNext", "WebWorker"]
 	},
-	"include": ["**/*", "../imports.d.mts", "../test-data.d.json.ts"]
+	"include": ["**/*", "../imports.d.mts", "../run-data.d.json.ts"]
 }

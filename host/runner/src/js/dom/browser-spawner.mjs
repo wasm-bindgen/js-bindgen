@@ -25,7 +25,7 @@ switch (workerKind) {
             }).finally(() => fetch("../finished", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: 2 /* Status.Abnormal */, messages: 1 }),
+                body: JSON.stringify({ status: 1 /* Status.Abnormal */, messages: 1 }),
             }));
         });
 }

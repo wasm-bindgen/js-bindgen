@@ -1,5 +1,5 @@
 import { open } from "node:fs/promises"
-import { Stream, Status, runTests } from "../shared/shared.mjs"
+import { Stream, run } from "../shared/shared.mjs"
 import { colorText } from "../shared/shared-terminal.mjs"
 import { JsBindgen } from "../imports.mts"
 
@@ -13,7 +13,7 @@ const wasmResponse = new Response(
 )
 const module = await WebAssembly.compileStreaming(wasmResponse)
 
-const success = await runTests(module, JsBindgen, (stream, text) => {
+const status = await run(module, JsBindgen, (stream, text) => {
 	const output = colorText(text)
 
 	switch (stream) {
@@ -25,4 +25,4 @@ const success = await runTests(module, JsBindgen, (stream, text) => {
 	}
 })
 
-process.exit(success === Status.Ok ? 0 : 101)
+process.exit(status)

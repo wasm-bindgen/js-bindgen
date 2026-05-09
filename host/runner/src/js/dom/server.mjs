@@ -1,4 +1,4 @@
-import { runTests } from "../shared/shared.mjs";
+import { run } from "../shared/shared.mjs";
 import { toOutput } from "./shared-server.mjs";
 import { importJsBindgen } from "../shared/shared-import.mjs";
 const module = await WebAssembly.compileStreaming(fetch("../wasm.wasm"));
@@ -7,7 +7,7 @@ if (jsBindgenCtor instanceof Error) {
     toOutput([{ text: jsBindgenCtor.message + "\n", color: 0 /* Color.Default */ }]);
 }
 else {
-    await runTests(module, jsBindgenCtor, (_, text) => {
+    await run(module, jsBindgenCtor, (_, text) => {
         toOutput(text);
     });
 }

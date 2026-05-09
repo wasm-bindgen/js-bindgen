@@ -1,8 +1,16 @@
-type TestData = {
+type RunData = TestRunData | BinaryRunData
+
+type TestRunData = {
+	kind: "test"
 	worker: WorkerKind
 	noCapture: boolean
 	filteredCount: number
 	tests: TestEntry[]
+}
+
+type BinaryRunData = {
+	kind: "binary"
+	worker: WorkerKind
 }
 
 declare const enum WorkerKind {
@@ -18,6 +26,6 @@ type TestEntry = {
 	shouldPanic: boolean | string
 }
 
-declare const config: TestData
+declare const config: RunData
 
 export default config

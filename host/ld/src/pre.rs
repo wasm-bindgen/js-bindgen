@@ -1,4 +1,4 @@
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
@@ -15,6 +15,7 @@ pub struct PreOutput<'args> {
 	pub output_path: &'args Path,
 	pub main_memory: MainMemory<'args>,
 	pub js_store: JsStore,
+	pub is_test: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -66,9 +67,12 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 	let main_memory = main_memory(arch, &wasm_ld_args, &mut add_args);
 
 	let mut js_store = JsStore::default();
+	let mut is_test = false;
 
 	// Extract embedded WAT from object files.
 	for input in wasm_ld_args.inputs() {
+		is_test |= is_libtest(input);
+
 		js_bindgen_ld_shared::ld_input_parser(input, |path, data, object_mtime| {
 			process_object(
 				&mut js_store,
@@ -88,7 +92,15 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 		output_path,
 		main_memory,
 		js_store,
+		is_test,
 	}
+}
+
+fn is_libtest(input: &OsStr) -> bool {
+	Path::new(input)
+		.file_name()
+		.and_then(OsStr::to_str)
+		.is_some_and(|name| name.starts_with("libtest-"))
 }
 
 /// Extracts any WAT instructions from `js-bindgen`, builds object files from

@@ -3,8 +3,10 @@ use std::str;
 
 use anyhow::{Context, Result, bail};
 use itertools::{Itertools, Position};
+use js_bindgen_shared::IS_TEST_SECTION;
 use wasm_encoder::{
-	EntityType, ImportSection, Module, ProducersField, ProducersSection, RawSection, Section,
+	CustomSection, EntityType, ImportSection, Module, ProducersField, ProducersSection, RawSection,
+	Section,
 };
 use wasmparser::{Encoding, KnownCustom, Parser, Payload, TypeRef};
 
@@ -19,6 +21,7 @@ pub fn processing(
 	mut js_output: impl Write,
 	main_memory: MainMemory<'_>,
 	mut js_store: JsStore,
+	is_test: bool,
 ) -> Result<Vec<u8>> {
 	// Start building final Wasm and JS.
 	let mut wasm_output = Vec::new();
@@ -105,6 +108,14 @@ pub fn processing(
 				.append_to(&mut wasm_output);
 			}
 		}
+	}
+
+	if is_test {
+		CustomSection {
+			name: IS_TEST_SECTION.into(),
+			data: (&[]).into(),
+		}
+		.append_to(&mut wasm_output);
 	}
 
 	let memory = memory.context("main memory should be present")?;

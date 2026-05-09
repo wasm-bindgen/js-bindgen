@@ -4,9 +4,9 @@ use std::net::{Ipv4Addr, SocketAddr};
 use std::ops::DerefMut;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicI32, Ordering};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use axum::body::Body;
 use axum::extract::State;
 use axum::http::HeaderValue;
@@ -50,13 +50,13 @@ struct ServerState {
 	reports: Mutex<ReportState>,
 	wasm_bytes: ReadFile,
 	import_js: ReadFile,
-	test_data_json: String,
+	run_data_json: String,
 }
 
 #[derive(Default)]
 struct Signals {
 	shutdown: AtomicFlag,
-	status: AtomicU8,
+	status: AtomicI32,
 }
 
 #[derive(Default)]
@@ -73,7 +73,7 @@ impl HttpServer {
 		worker: Option<WorkerKind>,
 		wasm_bytes: ReadFile,
 		imports_path: &Path,
-		test_data_json: String,
+		run_data_json: String,
 	) -> Result<Self> {
 		let listener = Self::bind_address(address).await?;
 		let local_addr = listener.local_addr()?;
@@ -88,7 +88,7 @@ impl HttpServer {
 		let state = Arc::new(ServerState {
 			wasm_bytes,
 			import_js: ReadFile::new(imports_path)?,
-			test_data_json,
+			run_data_json,
 			signals: Signals::default(),
 			reports: Mutex::new(ReportState::default()),
 		});
@@ -109,10 +109,9 @@ impl HttpServer {
 		self.server.await.unwrap().unwrap();
 	}
 
-	pub async fn wait(self) -> Status {
+	pub async fn wait(self) -> i32 {
 		self.server.await.unwrap().unwrap();
-		let status = self.state.signals.status.load(Ordering::Relaxed);
-		Status::from_repr(status).unwrap()
+		self.state.signals.status.load(Ordering::Relaxed)
 	}
 
 	fn router(state: Arc<ServerState>, headless: bool, worker: Option<WorkerKind>) -> Router {
@@ -144,9 +143,9 @@ impl HttpServer {
 				get(async || response("application/javascript", SHARED_IMPORT_JS)),
 			)
 			.route(
-				"/test-data.json",
+				"/run-data.json",
 				get(async |State(state): State<Arc<ServerState>>| {
-					response("application/json", state.test_data_json.clone())
+					response("application/json", state.run_data_json.clone())
 				}),
 			)
 			.route(
@@ -235,7 +234,7 @@ impl HttpServer {
 							state
 								.signals
 								.status
-								.store(finished.status.to_repr(), Ordering::Relaxed);
+								.store(finished.status, Ordering::Relaxed);
 
 							let mut report_state = state.reports.lock().await;
 
@@ -334,36 +333,8 @@ impl Report {
 
 #[derive(Clone, Copy, Deserialize)]
 struct Finished {
-	status: Status,
+	status: i32,
 	messages: usize,
-}
-
-#[derive(Clone, Copy, Deserialize_repr)]
-#[repr(u8)]
-pub enum Status {
-	Ok,
-	Failed,
-	Abnormal,
-}
-
-impl Status {
-	fn to_repr(self) -> u8 {
-		match self {
-			Self::Ok => 0,
-			Self::Failed => 1,
-			Self::Abnormal => 2,
-		}
-	}
-
-	#[track_caller]
-	fn from_repr(value: u8) -> Result<Self> {
-		match value {
-			0 => Ok(Self::Ok),
-			1 => Ok(Self::Failed),
-			2 => Ok(Self::Abnormal),
-			_ => bail!("unexpected value for `Status`: {value}"),
-		}
-	}
 }
 
 fn response(content_type: &'static str, body: impl Into<Body>) -> Response {

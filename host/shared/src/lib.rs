@@ -3,6 +3,8 @@ mod memmap;
 #[cfg(feature = "web-driver")]
 mod web_driver;
 
+pub const IS_TEST_SECTION: &str = "js_bindgen.is_test";
+
 #[cfg(feature = "memmap")]
 pub use crate::memmap::{ReadFile, mtime};
 #[cfg(feature = "web-driver")]

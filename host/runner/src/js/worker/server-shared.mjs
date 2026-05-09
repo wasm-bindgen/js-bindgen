@@ -1,4 +1,4 @@
-import { runTests } from "../shared/shared.mjs";
+import { run } from "../shared/shared.mjs";
 import { importJsBindgen } from "../shared/shared-import.mjs";
 self.addEventListener("connect", async (event) => {
     const module = await WebAssembly.compileStreaming(fetch("../wasm.wasm"));
@@ -8,7 +8,7 @@ self.addEventListener("connect", async (event) => {
         port.postMessage(jsBindgenCtor.message + "\n");
     }
     else {
-        await runTests(module, jsBindgenCtor, (_, text) => {
+        await run(module, jsBindgenCtor, (_, text) => {
             port.postMessage(text);
         });
     }

@@ -1,7 +1,10 @@
-import testData from "../test-data.json" with { type: "json" };
-export async function runTests(module, jsBindgenCtor, report) {
+import runData from "../run-data.json" with { type: "json" };
+export async function run(module, jsBindgenCtor, report) {
     let interceptFlag = false;
     const interceptStore = [];
+    const newLineText = { text: "\n", color: 0 /* Color.Default */ };
+    const failedText = { text: "FAILED", color: 3 /* Color.Red */ };
+    const okText = { text: "ok", color: 1 /* Color.Green */ };
     const CONSOLE_METHODS = ["debug", "log", "info", "warn", "error"];
     CONSOLE_METHODS.forEach(level => {
         const origin = console[level].bind(console);
@@ -11,7 +14,7 @@ export async function runTests(module, jsBindgenCtor, report) {
                 if (interceptFlag) {
                     const stream = level === "error" || level === "warn" ? 1 /* Stream.Stderr */ : 0 /* Stream.Stdout */;
                     const text = data.join(" ") + "\n";
-                    if (testData.noCapture) {
+                    if (runData.kind === "binary" || runData.noCapture) {
                         report(stream, [{ text, color: 0 /* Color.Default */ }]);
                     }
                     else {
@@ -24,20 +27,7 @@ export async function runTests(module, jsBindgenCtor, report) {
                 }
             }).bind(console);
     });
-    const startTime = performance.now();
-    report(0 /* Stream.Stdout */, [
-        {
-            text: `\nrunning ${testData.tests.length} tests\n`,
-            color: 0 /* Color.Default */,
-        },
-    ]);
-    const failures = [];
-    let ignored = 0;
-    const newLineText = { text: "\n", color: 0 /* Color.Default */ };
-    const failedText = { text: "FAILED", color: 3 /* Color.Red */ };
-    const okText = { text: "ok", color: 1 /* Color.Green */ };
-    for (const test of testData.tests) {
-        interceptStore.length = 0;
+    async function instantiate() {
         let panicMessage;
         let panicPayload;
         let jsBindgen;
@@ -46,7 +36,7 @@ export async function runTests(module, jsBindgenCtor, report) {
         }
         catch (error) {
             report(1 /* Stream.Stderr */, [{ text: error.message, color: 0 /* Color.Default */ }, newLineText]);
-            return 2 /* Status.Abnormal */;
+            return;
         }
         jsBindgen.extendImportObject({
             js_bindgen_test: {
@@ -55,6 +45,45 @@ export async function runTests(module, jsBindgenCtor, report) {
             },
         });
         const instance = await jsBindgen.instantiate();
+        return { instance, panicMessage, panicPayload };
+    }
+    if (runData.kind === "binary") {
+        const state = await instantiate();
+        if (!state) {
+            return 1 /* Status.Abnormal */;
+        }
+        interceptFlag = true;
+        let status;
+        try {
+            const main = state.instance.exports["main"];
+            status = main(0, 0);
+        }
+        catch (error) {
+            const message = state.panicMessage ?? error.message;
+            const stack = error.stack;
+            report(1 /* Stream.Stderr */, [{ text: message + "\n" + stack + "\n", color: 0 /* Color.Default */ }]);
+            status = 101 /* Status.Failed */;
+        }
+        finally {
+            interceptFlag = false;
+        }
+        return status;
+    }
+    const startTime = performance.now();
+    report(0 /* Stream.Stdout */, [
+        {
+            text: `\nrunning ${runData.tests.length} tests\n`,
+            color: 0 /* Color.Default */,
+        },
+    ]);
+    const failures = [];
+    let ignored = 0;
+    for (const test of runData.tests) {
+        interceptStore.length = 0;
+        const state = await instantiate();
+        if (!state) {
+            return 1 /* Status.Abnormal */;
+        }
         const testText = { text: `test ${test.name} ... `, color: 0 /* Color.Default */ };
         if (test.ignore) {
             ignored += 1;
@@ -70,7 +99,7 @@ export async function runTests(module, jsBindgenCtor, report) {
             }
             continue;
         }
-        const testFn = instance.exports[test.importName];
+        const testFn = state.instance.exports[test.importName];
         let result;
         if (test.shouldPanic) {
             report(0 /* Stream.Stdout */, [
@@ -86,7 +115,11 @@ export async function runTests(module, jsBindgenCtor, report) {
             result = { success: true };
         }
         catch (error) {
-            result = { success: false, stack: error.stack, message: panicMessage };
+            result = {
+                success: false,
+                stack: error.stack,
+                message: state.panicMessage ?? error.message,
+            };
         }
         interceptFlag = false;
         if (test.shouldPanic) {
@@ -97,8 +130,8 @@ export async function runTests(module, jsBindgenCtor, report) {
                 continue;
             }
             if (typeof test.shouldPanic === "string" &&
-                typeof panicPayload === "string" &&
-                !panicPayload.includes(test.shouldPanic)) {
+                typeof state.panicPayload === "string" &&
+                !state.panicPayload.includes(test.shouldPanic)) {
                 report(0 /* Stream.Stdout */, [failedText, newLineText]);
                 let stdout = interceptStore.join("");
                 if (stdout.length !== 0) {
@@ -112,7 +145,7 @@ export async function runTests(module, jsBindgenCtor, report) {
                         result.stack +
                         "\n" +
                         "note: panic did not contain expected string\n" +
-                        `      panic message: "${panicPayload}"\n` +
+                        `      panic message: "${state.panicPayload}"\n` +
                         ` expected substring: "${test.shouldPanic}"`,
                 });
                 continue;
@@ -147,17 +180,17 @@ export async function runTests(module, jsBindgenCtor, report) {
         }
         output1 += "\n";
     }
-    const success = failures.length === 0 ? 0 /* Status.Ok */ : 1 /* Status.Failed */;
-    const result = success === 0 /* Status.Ok */ ? okText : failedText;
-    const passed = testData.tests.length - failures.length - ignored;
+    const status = failures.length === 0 ? 0 /* Status.Ok */ : 101 /* Status.Failed */;
+    const result = status === 0 /* Status.Ok */ ? okText : failedText;
+    const passed = runData.tests.length - failures.length - ignored;
     const durationMs = performance.now() - startTime;
     const durationSecs = (durationMs / 1000).toFixed(2);
     output1 += "test result: ";
-    const output2 = `. ${passed} passed; ${failures.length} failed; ${ignored} ignored; 0 measured; ${testData.filteredCount} filtered out; finished in ${durationSecs}s\n\n`;
+    const output2 = `. ${passed} passed; ${failures.length} failed; ${ignored} ignored; 0 measured; ${runData.filteredCount} filtered out; finished in ${durationSecs}s\n\n`;
     report(0 /* Stream.Stdout */, [
         { text: output1, color: 0 /* Color.Default */ },
         result,
         { text: output2, color: 0 /* Color.Default */ },
     ]);
-    return success;
+    return status;
 }

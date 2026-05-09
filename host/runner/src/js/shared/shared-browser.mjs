@@ -1,4 +1,4 @@
-import { runTests } from "./shared.mjs";
+import { run } from "./shared.mjs";
 import { colorText } from "./shared-terminal.mjs";
 export async function runBrowser(jsBindgenCtor) {
     let fetchOrder = 0;
@@ -35,12 +35,12 @@ export async function runBrowser(jsBindgenCtor) {
     let status;
     if (jsBindgenCtor instanceof Error) {
         report(1 /* Stream.Stderr */, jsBindgenCtor.message + "\n");
-        status = 2 /* Status.Abnormal */;
+        status = 1 /* Status.Abnormal */;
     }
     else {
-        status = await WebAssembly.compileStreaming(fetch("../wasm.wasm")).then(module => runTests(module, jsBindgenCtor, (stream, text) => report(stream, colorText(text))), (error) => {
+        status = await WebAssembly.compileStreaming(fetch("../wasm.wasm")).then(module => run(module, jsBindgenCtor, (stream, text) => report(stream, colorText(text))), (error) => {
             report(1 /* Stream.Stderr */, error.message + "\n");
-            return 2 /* Status.Abnormal */;
+            return 1 /* Status.Abnormal */;
         });
     }
     if (fetchRunning !== 0) {
@@ -50,7 +50,7 @@ export async function runBrowser(jsBindgenCtor) {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (fetchError) {
         fetchOrder = 0;
-        status = 2 /* Status.Abnormal */;
+        status = 1 /* Status.Abnormal */;
     }
     await fetch("../finished", {
         method: "POST",
