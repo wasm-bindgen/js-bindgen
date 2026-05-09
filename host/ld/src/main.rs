@@ -22,6 +22,7 @@ fn main() {
 		output_path,
 		main_memory,
 		js_store,
+		is_test,
 	} = pre::processing(&args);
 
 	let status = Command::new("rust-lld")
@@ -43,7 +44,7 @@ fn main() {
 		);
 
 		let wasm_output =
-			post::processing(&wasm_input, &mut js_output, main_memory, js_store).unwrap();
+			post::processing(&wasm_input, &mut js_output, main_memory, js_store, is_test).unwrap();
 		drop(wasm_input);
 
 		// We could write into the file directly, but `wasm-encoder` doesn't support

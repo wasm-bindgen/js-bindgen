@@ -1,4 +1,4 @@
-import testData from "../test-data.json" with { type: "json" }
+import runData from "../run-data.json" with { type: "json" }
 import type { JsBindgen } from "../imports.mts"
 
 export const enum Stream {
@@ -16,18 +16,22 @@ export const enum Color {
 }
 
 export const enum Status {
-	Ok,
-	Failed,
-	Abnormal,
+	Ok = 0,
+	// See https://github.com/rust-lang/cargo/blob/0.95.0/src/cargo/ops/cargo_test.rs#L421.
+	Failed = 101,
+	Abnormal = 1,
 }
 
-export async function runTests(
+export async function run(
 	module: WebAssembly.Module,
 	jsBindgenCtor: typeof JsBindgen,
 	report: (stream: Stream, text: StyledText[]) => void
-): Promise<Status> {
+): Promise<number> {
 	let interceptFlag = false
 	const interceptStore: string[] = []
+	const newLineText = { text: "\n", color: Color.Default }
+	const failedText = { text: "FAILED", color: Color.Red }
+	const okText = { text: "ok", color: Color.Green }
 
 	const CONSOLE_METHODS = ["debug", "log", "info", "warn", "error"] as const
 	CONSOLE_METHODS.forEach(level => {
@@ -40,7 +44,7 @@ export async function runTests(
 					const stream = level === "error" || level === "warn" ? Stream.Stderr : Stream.Stdout
 					const text = data.join(" ") + "\n"
 
-					if (testData.noCapture) {
+					if (runData.kind === "binary" || runData.noCapture) {
 						report(stream, [{ text, color: Color.Default }])
 					} else {
 						interceptStore.push(text)
@@ -52,33 +56,18 @@ export async function runTests(
 			}).bind(console)
 	})
 
-	const startTime = performance.now()
-	report(Stream.Stdout, [
-		{
-			text: `\nrunning ${testData.tests.length} tests\n`,
-			color: Color.Default,
-		},
-	])
-
-	const failures: { name: string; error: string }[] = []
-	let ignored = 0
-
-	const newLineText = { text: "\n", color: Color.Default }
-	const failedText = { text: "FAILED", color: Color.Red }
-	const okText = { text: "ok", color: Color.Green }
-
-	for (const test of testData.tests) {
-		interceptStore.length = 0
+	async function instantiate() {
 		let panicMessage: string | undefined
 		let panicPayload: string | undefined
-
 		let jsBindgen
+
 		try {
 			jsBindgen = new jsBindgenCtor(module)
 		} catch (error) {
 			report(Stream.Stderr, [{ text: (error as Error).message, color: Color.Default }, newLineText])
-			return Status.Abnormal
+			return
 		}
+
 		jsBindgen.extendImportObject({
 			js_bindgen_test: {
 				set_message: (message: string) => (panicMessage = message),
@@ -86,6 +75,59 @@ export async function runTests(
 			},
 		})
 		const instance = await jsBindgen.instantiate()
+
+		return { instance, panicMessage, panicPayload }
+	}
+
+	if (runData.kind === "binary") {
+		const state = await instantiate()
+
+		if (!state) {
+			return Status.Abnormal
+		}
+
+		interceptFlag = true
+		let status: number
+
+		try {
+			if (runData.wasm64) {
+				const main = state.instance.exports["main"] as (argc: number, argv: bigint) => number
+				status = main(0, 0n)
+			} else {
+				const main = state.instance.exports["main"] as (argc: number, argv: number) => number
+				status = main(0, 0)
+			}
+		} catch (error) {
+			const message = state.panicMessage ?? (error as Error).message
+			const stack = (error as Error).stack!
+			report(Stream.Stderr, [{ text: message + "\n" + stack + "\n", color: Color.Default }])
+
+			status = Status.Failed
+		} finally {
+			interceptFlag = false
+		}
+
+		return status
+	}
+
+	const startTime = performance.now()
+	report(Stream.Stdout, [
+		{
+			text: `\nrunning ${runData.tests.length} tests\n`,
+			color: Color.Default,
+		},
+	])
+
+	const failures: { name: string; error: string }[] = []
+	let ignored = 0
+
+	for (const test of runData.tests) {
+		interceptStore.length = 0
+		const state = await instantiate()
+
+		if (!state) {
+			return Status.Abnormal
+		}
 
 		const testText = { text: `test ${test.name} ... `, color: Color.Default }
 
@@ -105,7 +147,7 @@ export async function runTests(
 			continue
 		}
 
-		const testFn = instance.exports[test.importName] as () => void
+		const testFn = state.instance.exports[test.importName] as () => void
 		let result: { success: true } | { success: false; stack: string; message: string }
 
 		if (test.shouldPanic) {
@@ -122,7 +164,11 @@ export async function runTests(
 			testFn()
 			result = { success: true }
 		} catch (error) {
-			result = { success: false, stack: (error as Error).stack!, message: panicMessage! }
+			result = {
+				success: false,
+				stack: (error as Error).stack!,
+				message: state.panicMessage ?? (error as Error).message,
+			}
 		}
 
 		interceptFlag = false
@@ -138,8 +184,8 @@ export async function runTests(
 
 			if (
 				typeof test.shouldPanic === "string" &&
-				typeof panicPayload === "string" &&
-				!panicPayload.includes(test.shouldPanic)
+				typeof state.panicPayload === "string" &&
+				!state.panicPayload.includes(test.shouldPanic)
 			) {
 				report(Stream.Stdout, [failedText, newLineText])
 				let stdout = interceptStore.join("")
@@ -157,7 +203,7 @@ export async function runTests(
 						result.stack +
 						"\n" +
 						"note: panic did not contain expected string\n" +
-						`      panic message: "${panicPayload}"\n` +
+						`      panic message: "${state.panicPayload}"\n` +
 						` expected substring: "${test.shouldPanic}"`,
 				})
 				continue
@@ -200,18 +246,18 @@ export async function runTests(
 		output1 += "\n"
 	}
 
-	const success = failures.length === 0 ? Status.Ok : Status.Failed
-	const result = success === Status.Ok ? okText : failedText
-	const passed = testData.tests.length - failures.length - ignored
+	const status = failures.length === 0 ? Status.Ok : Status.Failed
+	const result = status === Status.Ok ? okText : failedText
+	const passed = runData.tests.length - failures.length - ignored
 	const durationMs = performance.now() - startTime
 	const durationSecs = (durationMs / 1000).toFixed(2)
 	output1 += "test result: "
-	const output2 = `. ${passed} passed; ${failures.length} failed; ${ignored} ignored; 0 measured; ${testData.filteredCount} filtered out; finished in ${durationSecs}s\n\n`
+	const output2 = `. ${passed} passed; ${failures.length} failed; ${ignored} ignored; 0 measured; ${runData.filteredCount} filtered out; finished in ${durationSecs}s\n\n`
 	report(Stream.Stdout, [
 		{ text: output1, color: Color.Default },
 		result,
 		{ text: output2, color: Color.Default },
 	])
 
-	return success
+	return status
 }

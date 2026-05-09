@@ -13,8 +13,8 @@ use tokio::runtime::Runtime;
 use tokio::signal;
 
 use crate::config::{EngineKind, RunnerConfig, WorkerKind};
-use crate::server::{HttpServer, Status};
-use crate::test::TestData;
+use crate::run_data::RunData;
+use crate::server::HttpServer;
 
 const DENO_JS: &str = include_str!("js/deno/deno.mjs");
 const NODE_JS_JS: &str = include_str!("js/node-js/node-js.mjs");
@@ -25,7 +25,7 @@ pub struct Runner {
 	wasm_path: PathBuf,
 	wasm_bytes: ReadFile,
 	imports_path: PathBuf,
-	test_data: String,
+	run_data: String,
 }
 
 impl Runner {
@@ -33,13 +33,13 @@ impl Runner {
 		wasm_path: PathBuf,
 		wasm_bytes: ReadFile,
 		imports_path: PathBuf,
-		test_data: &TestData,
+		run_data: &RunData,
 	) -> Self {
 		Self {
 			wasm_path,
 			wasm_bytes,
 			imports_path,
-			test_data: serde_json::to_string(&test_data).unwrap(),
+			run_data: serde_json::to_string(&run_data).unwrap(),
 		}
 	}
 
@@ -66,7 +66,7 @@ impl Runner {
 		let script_path = dir.path().join("deno/script.mjs");
 		fs::write(&script_path, DENO_JS)?;
 
-		fs::write(dir.path().join("test-data.json"), self.test_data)?;
+		fs::write(dir.path().join("run-data.json"), self.run_data)?;
 		fs::copy(self.wasm_path, dir.path().join("wasm.wasm"))?;
 		fs::copy(self.imports_path, dir.path().join("imports.mjs"))?;
 		fs::create_dir(dir.path().join("shared"))?;
@@ -97,7 +97,7 @@ impl Runner {
 		let script_path: PathBuf = dir.path().join("node-js/script.mjs");
 		fs::write(&script_path, NODE_JS_JS)?;
 
-		fs::write(dir.path().join("test-data.json"), self.test_data)?;
+		fs::write(dir.path().join("run-data.json"), self.run_data)?;
 		fs::copy(self.wasm_path, dir.path().join("wasm.wasm"))?;
 		fs::copy(self.imports_path, dir.path().join("imports.mjs"))?;
 		fs::create_dir(dir.path().join("shared"))?;
@@ -126,7 +126,7 @@ impl Runner {
 			server: HttpServer,
 			driver: &WebDriver,
 			capabilities: Capabilities,
-		) -> Result<Status> {
+		) -> Result<i32> {
 			let client = ClientBuilder::rustls()?
 				.capabilities(capabilities)
 				.connect(driver.url().as_str())
@@ -147,11 +147,10 @@ impl Runner {
 			Ok(status) => {
 				driver.shutdown().await?;
 
-				match status {
-					Status::Ok => Ok(()),
-					// See https://github.com/rust-lang/cargo/blob/fa50b03244beda717b3fd2c7a647ba93c0d39e05/src/cargo/ops/cargo_test.rs#L418.
-					Status::Failed => process::exit(101),
-					Status::Abnormal => process::exit(1),
+				if status == 0 {
+					Ok(())
+				} else {
+					process::exit(status);
 				}
 			}
 			Err(error) => {
@@ -195,7 +194,7 @@ impl Runner {
 			worker,
 			self.wasm_bytes,
 			&self.imports_path,
-			self.test_data,
+			self.run_data,
 		)
 		.await
 	}

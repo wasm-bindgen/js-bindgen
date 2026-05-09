@@ -1,7 +1,7 @@
 // eslint-disable-next-line no-var
 declare var self: SharedWorkerGlobalScope
 
-import { runTests } from "../shared/shared.mjs"
+import { run } from "../shared/shared.mjs"
 import { importJsBindgen } from "../shared/shared-import.mjs"
 
 self.addEventListener("connect", async event => {
@@ -13,7 +13,7 @@ self.addEventListener("connect", async event => {
 	if (jsBindgenCtor instanceof Error) {
 		port.postMessage(jsBindgenCtor.message + "\n")
 	} else {
-		await runTests(module, jsBindgenCtor, (_, text) => {
+		await run(module, jsBindgenCtor, (_, text) => {
 			port.postMessage(text)
 		})
 	}

@@ -1,15 +1,17 @@
 mod config;
+mod run_data;
 mod runner;
 mod server;
 mod test;
 
 use std::path::PathBuf;
-use std::{env, iter, str};
+use std::{env, iter};
 
 use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
 use js_bindgen_shared::ReadFile;
 
+use crate::run_data::{RunData, main_export};
 use crate::runner::Runner;
 use crate::test::{TestData, TestEntry};
 
@@ -49,6 +51,15 @@ enum FormatSetting {
 }
 
 fn main() -> Result<()> {
+	// The Wasm path for `cargo run` is relative, unlike `test` and `bench`, where
+	// it is an absolute path. Our shim makes the current directory point to the
+	// `host` directory, so the run fails.
+	if env::var_os("JBG_DEV").is_some_and(|value| value == "1")
+		&& env::var_os("JBG_DEV_TOOLS").is_none_or(|value| value != "1")
+	{
+		env::set_current_dir("../../client")?;
+	}
+
 	let mut args = env::args_os();
 	let binary = args
 		.next()
@@ -66,8 +77,11 @@ fn main() -> Result<()> {
 	let wasm_bytes = ReadFile::new(&wasm_path)
 		.with_context(|| format!("failed to read Wasm file: {}", wasm_path.display()))?;
 
-	let (tests, filtered_count) =
-		TestEntry::read(&wasm_bytes, cli.filter.as_ref(), cli.ignored, cli.exact)?;
+	let TestData {
+		is_test,
+		filtered_count,
+		tests,
+	} = TestEntry::read(&wasm_bytes, cli.filter.as_ref(), cli.ignored, cli.exact)?;
 
 	if cli.list {
 		match cli.format {
@@ -87,28 +101,38 @@ fn main() -> Result<()> {
 		return Ok(());
 	}
 
-	if tests.is_empty() {
-		const GREEN: &str = "\u{001b}[32m";
-		const RESET: &str = "\u{001b}[0m";
+	let run_data = if is_test {
+		if tests.is_empty() {
+			const GREEN: &str = "\u{001b}[32m";
+			const RESET: &str = "\u{001b}[0m";
 
-		println!();
-		println!("running 0 tests");
-		println!();
-		println!(
-			"test result: {GREEN}ok{RESET}. 0 passed; 0 failed; 0 ignored; 0 measured; \
-			 {filtered_count} filtered out; finished in 0.00s"
-		);
-		println!();
-		return Ok(());
-	}
+			println!();
+			println!("running 0 tests");
+			println!();
+			println!(
+				"test result: {GREEN}ok{RESET}. 0 passed; 0 failed; 0 ignored; 0 measured; \
+				 {filtered_count} filtered out; finished in 0.00s"
+			);
+			println!();
+			return Ok(());
+		}
+
+		RunData::Test {
+			no_capture: cli.no_capture,
+			filtered_count,
+			tests,
+		}
+	} else {
+		let main =
+			main_export(&wasm_bytes)?.context("binary requires an exported `main` function")?;
+
+		RunData::Binary {
+			wasm64: main.wasm64,
+		}
+	};
 
 	// The JS file has the same name, just a different file extension.
 	let imports_path = wasm_path.with_extension("mjs");
-	let test_data = TestData {
-		no_capture: cli.no_capture,
-		filtered_count,
-		tests,
-	};
 
-	Runner::new(wasm_path, wasm_bytes, imports_path, &test_data).run()
+	Runner::new(wasm_path, wasm_bytes, imports_path, &run_data).run()
 }

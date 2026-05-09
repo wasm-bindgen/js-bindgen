@@ -1,4 +1,4 @@
-import { Stream, Status, runTests } from "./shared.mts"
+import { Stream, Status, run } from "./shared.mts"
 import { colorText } from "./shared-terminal.mts"
 import type { JsBindgen } from "../imports.mts"
 
@@ -45,7 +45,7 @@ export async function runBrowser(jsBindgenCtor: typeof JsBindgen | Error) {
 		status = Status.Abnormal
 	} else {
 		status = await WebAssembly.compileStreaming(fetch("../wasm.wasm")).then(
-			module => runTests(module, jsBindgenCtor, (stream, text) => report(stream, colorText(text))),
+			module => run(module, jsBindgenCtor, (stream, text) => report(stream, colorText(text))),
 			(error: unknown) => {
 				report(Stream.Stderr, (error as Error).message + "\n")
 

@@ -1,11 +1,10 @@
 use anyhow::{Context, Result, bail};
+use js_bindgen_shared::IS_TEST_SECTION;
 use serde::{Serialize, Serializer};
 use wasmparser::{Parser, Payload};
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct TestData {
-	pub no_capture: bool,
+	pub is_test: bool,
 	pub filtered_count: usize,
 	pub tests: Vec<TestEntry>,
 }
@@ -31,63 +30,75 @@ impl TestEntry {
 		filter: &[String],
 		ignored_only: bool,
 		exact: bool,
-	) -> Result<(Vec<Self>, usize)> {
+	) -> Result<TestData> {
+		let mut is_test = false;
 		let mut tests = Vec::new();
 		let mut total = 0;
 
 		for payload in Parser::new(0).parse_all(wasm_bytes) {
-			if let Payload::CustomSection(section) = payload?
-				&& section.name() == "js_bindgen.test"
-			{
-				let mut data = section.data();
+			let Payload::CustomSection(section) = payload? else {
+				continue;
+			};
 
-				while !data.is_empty() {
-					let len = u32::from_le_bytes(
-						data.split_off(..4)
-							.context("invalid test encoding")?
-							.try_into()?,
-					) as usize;
-					let mut data = data.split_off(..len).context("invalid test encoding")?;
+			if section.name() == IS_TEST_SECTION {
+				is_test = true;
+				continue;
+			}
 
-					let ignore = TestAttr::parse(&mut data)?;
-					let should_panic = TestAttr::parse(&mut data)?;
-					let import_name = str::from_utf8(data)?;
-					let name = import_name
-						.split_once("::")
-						.unwrap_or_else(|| panic!("unexpected test name: {import_name}"))
-						.1;
+			if section.name() != "js_bindgen.test" {
+				continue;
+			}
 
-					total += 1;
+			is_test = true;
+			let mut data = section.data();
 
-					let matches_ignore = !ignored_only || ignore.is_some();
-					let matches_filter = filter.is_empty()
-						|| filter.iter().any(|filter| {
-							if exact {
-								filter == name
-							} else {
-								name.contains(filter)
-							}
-						});
+			while !data.is_empty() {
+				let len = u32::from_le_bytes(
+					data.split_off(..4)
+						.context("invalid test encoding")?
+						.try_into()?,
+				) as usize;
+				let mut data = data.split_off(..len).context("invalid test encoding")?;
 
-					if matches_ignore && matches_filter {
-						tests.push(Self {
-							name: name.to_string(),
-							import_name: import_name.to_string(),
-							ignore,
-							should_panic,
-						});
-					}
+				let ignore = TestAttr::parse(&mut data)?;
+				let should_panic = TestAttr::parse(&mut data)?;
+				let import_name = str::from_utf8(data)?;
+				let name = import_name
+					.split_once("::")
+					.unwrap_or_else(|| panic!("unexpected test name: {import_name}"))
+					.1;
+
+				total += 1;
+
+				let matches_ignore = !ignored_only || ignore.is_some();
+				let matches_filter = filter.is_empty()
+					|| filter.iter().any(|filter| {
+						if exact {
+							filter == name
+						} else {
+							name.contains(filter)
+						}
+					});
+
+				if matches_ignore && matches_filter {
+					tests.push(Self {
+						name: name.to_string(),
+						import_name: import_name.to_string(),
+						ignore,
+						should_panic,
+					});
 				}
-
-				// Section with the same name can never appear again.
-				break;
 			}
 		}
 
 		tests.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 		let filtered_count = total - tests.len();
 
-		Ok((tests, filtered_count))
+		Ok(TestData {
+			is_test,
+			filtered_count,
+			tests,
+		})
 	}
 }
 
