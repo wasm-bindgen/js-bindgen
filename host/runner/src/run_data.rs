@@ -1,8 +1,13 @@
-use anyhow::Result;
+use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result};
+use js_bindgen_shared::ReadFile;
 use serde::Serialize;
 use wasmparser::{ExternalKind, FuncType, Parser, Payload, TypeRef, ValType};
 
 use crate::test::TestEntry;
+
+const BENCH_FILE_NAME: &str = "benchmark.json";
 
 #[derive(Serialize)]
 #[serde(
@@ -12,13 +17,47 @@ use crate::test::TestEntry;
 )]
 pub enum RunData {
 	Test {
+		ctx: Option<String>,
 		no_capture: bool,
 		filtered_count: usize,
 		tests: Vec<TestEntry>,
 	},
 	Binary {
+		ctx: Option<String>,
 		wasm64: bool,
 	},
+}
+
+#[derive(Serialize)]
+pub struct BenchCtx {
+	path: PathBuf,
+	baseline: Option<String>,
+}
+
+impl BenchCtx {
+	pub fn from_path(wasm_path: &Path) -> Result<Self> {
+		let target_dir = wasm_path
+			.ancestors()
+			.find(|path| path.file_name().is_some_and(|name| name == "target"))
+			.map(Path::to_path_buf)
+			.with_context(|| {
+				format!(
+					"failed to locate Cargo target directory from wasm path: {}",
+					wasm_path.display()
+				)
+			})?;
+
+		let path = target_dir.join(BENCH_FILE_NAME);
+		let baseline = match ReadFile::new(&path) {
+			Ok(data) => Ok(std::str::from_utf8(&data).map(ToString::to_string).ok()),
+			Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+			Err(error) => Err(error).with_context(|| {
+				format!("failed to read benchmark baseline file: {}", path.display())
+			}),
+		}?;
+
+		Ok(Self { path, baseline })
+	}
 }
 
 pub fn main_export(wasm_bytes: &[u8]) -> Result<Option<MainExport>> {

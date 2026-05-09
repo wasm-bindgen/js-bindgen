@@ -10,6 +10,10 @@ bench = false
 doctest = false
 test = false
 
+[[bench]]
+harness = false
+name = "conv"
+
 [dependencies]
 js-bindgen = { workspace = true }
 js-sys-macro = { workspace = true, optional = true }

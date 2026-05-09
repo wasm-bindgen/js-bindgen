@@ -11,7 +11,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
 use js_bindgen_shared::ReadFile;
 
-use crate::run_data::{RunData, main_export};
+use crate::run_data::{BenchCtx, RunData, main_export};
 use crate::runner::Runner;
 use crate::test::{TestData, TestEntry};
 
@@ -30,6 +30,9 @@ struct Cli {
 	/// List all tests and benchmarks.
 	#[arg(long)]
 	list: bool,
+	/// Run benchmarks
+	#[arg(long)]
+	bench: bool,
 	/// don't capture `console.*()` of each task, allow printing directly.
 	#[arg(long, alias = "nocapture")]
 	no_capture: bool,
@@ -118,6 +121,8 @@ fn main() -> Result<()> {
 		}
 
 		RunData::Test {
+			// support coverage later
+			ctx: None,
 			no_capture: cli.no_capture,
 			filtered_count,
 			tests,
@@ -126,7 +131,14 @@ fn main() -> Result<()> {
 		let main =
 			main_export(&wasm_bytes)?.context("binary requires an exported `main` function")?;
 
+		let ctx = if cli.bench {
+			Some(serde_json::to_string(&BenchCtx::from_path(&wasm_path)?).unwrap())
+		} else {
+			None
+		};
+
 		RunData::Binary {
+			ctx,
 			wasm64: main.wasm64,
 		}
 	};

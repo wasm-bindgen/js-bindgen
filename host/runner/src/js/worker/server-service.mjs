@@ -1,8 +1,10 @@
-import { run } from "../shared/shared.mjs";
+import { createBrowserFsBackend, run } from "../shared/shared.mjs";
 import { JsBindgen } from "../imports.mjs";
 self.addEventListener("message", async (event) => {
     const module = await WebAssembly.compileStreaming(fetch("../wasm.wasm"));
     const [port] = event.ports;
-    await run(module, JsBindgen, (_, text) => port.postMessage(text));
+    const fs = createBrowserFsBackend();
+    await run(module, JsBindgen, (_, text) => port.postMessage(text), fs);
+    await fs.flush();
     await self.registration.unregister();
 });

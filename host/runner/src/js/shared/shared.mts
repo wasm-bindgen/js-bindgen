@@ -22,16 +22,54 @@ export const enum Status {
 	Abnormal = 1,
 }
 
+export type FsBackend = {
+	writeFile(path: string, data: Uint8Array<ArrayBuffer>): void
+	flush?(): Promise<void>
+}
+
+export type FlushableFsBackend = FsBackend & {
+	flush(): Promise<void>
+}
+
+export function createBrowserFsBackend(): FlushableFsBackend {
+	const writes = new Map<string, Uint8Array<ArrayBuffer>>()
+
+	return {
+		writeFile(path, data) {
+			writes.set(path, data)
+		},
+		async flush() {
+			for (const [path, data] of writes) {
+				const result = await fetch("../fs/write", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/octet-stream",
+						"X-Js-Bindgen-Path": path,
+					},
+					body: data,
+				})
+
+				if (!result.ok) {
+					throw new Error(`fetch failed with status ${result.status}`)
+				}
+			}
+		},
+	}
+}
+
 export async function run(
 	module: WebAssembly.Module,
 	jsBindgenCtor: typeof JsBindgen,
-	report: (stream: Stream, text: StyledText[]) => void
+	report: (stream: Stream, text: StyledText[]) => void,
+	fs: FsBackend
 ): Promise<number> {
 	let interceptFlag = false
 	const interceptStore: string[] = []
 	const newLineText = { text: "\n", color: Color.Default }
 	const failedText = { text: "FAILED", color: Color.Red }
 	const okText = { text: "ok", color: Color.Green }
+	const encoder = new TextEncoder()
+	const ctx = runData.ctx ?? "{}"
 
 	const CONSOLE_METHODS = ["debug", "log", "info", "warn", "error"] as const
 	CONSOLE_METHODS.forEach(level => {
@@ -72,11 +110,24 @@ export async function run(
 			js_bindgen_test: {
 				set_message: (message: string) => (panicMessage = message),
 				set_payload: (payload: string) => (panicPayload = payload),
+				ctx: () => ctx,
+				// change data to `Unit8Array` later
+				write_file: (path: string, data: string) => {
+					fs.writeFile(path, encoder.encode(data))
+				},
 			},
 		})
 		const instance = await jsBindgen.instantiate()
 
-		return { instance, panicMessage, panicPayload }
+		return {
+			instance,
+			get panicMessage() {
+				return panicMessage
+			},
+			get panicPayload() {
+				return panicPayload
+			},
+		}
 	}
 
 	if (runData.kind === "binary") {
