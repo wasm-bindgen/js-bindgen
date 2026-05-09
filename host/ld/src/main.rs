@@ -43,14 +43,8 @@ fn main() {
 			File::create(&js_output_path).expect("output JS file should be writable"),
 		);
 
-		let wasm_output = post::processing(
-			&wasm_input,
-			&mut js_output,
-			main_memory,
-			js_store,
-			is_test,
-		)
-		.unwrap();
+		let wasm_output =
+			post::processing(&wasm_input, &mut js_output, main_memory, js_store, is_test).unwrap();
 		drop(wasm_input);
 
 		// We could write into the file directly, but `wasm-encoder` doesn't support

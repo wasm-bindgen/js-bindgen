@@ -87,6 +87,5 @@ pub struct MainExport {
 /// status code. The `argv` pointer follows the module's memory width.
 fn is_main_type(ty: &FuncType, wasm64: bool) -> bool {
 	let ptr_type = if wasm64 { ValType::I64 } else { ValType::I32 };
-
 	ty.params() == [ValType::I32, ptr_type] && ty.results() == [ValType::I32]
 }

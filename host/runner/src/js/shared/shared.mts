@@ -17,7 +17,7 @@ export const enum Color {
 
 export const enum Status {
 	Ok = 0,
-    // See https://github.com/rust-lang/cargo/blob/0.95.0/src/cargo/ops/cargo_test.rs#L421.
+	// See https://github.com/rust-lang/cargo/blob/0.95.0/src/cargo/ops/cargo_test.rs#L421.
 	Failed = 101,
 	Abnormal = 1,
 }
