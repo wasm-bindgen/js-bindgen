@@ -9,6 +9,8 @@
 
 # High Priority
 
+- Binary Runner:
+  - Consider how to run tests with `harness = false`.
 - Test Runner:
   - Consider moving environment variables to CLI arguments.
   - Lint and format TS files and minimize JS files.
