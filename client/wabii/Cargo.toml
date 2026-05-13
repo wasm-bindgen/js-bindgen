@@ -1,0 +1,23 @@
+[package]
+name = "wabii"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+include.workspace = true
+
+[dependencies]
+core = { version = "1.0.0", optional = true, package = "rustc-std-workspace-core" }
+js-bindgen = { workspace = true, optional = true }
+
+[dev-dependencies]
+js-bindgen-test = { workspace = true }
+
+[features]
+default = ["import", "impl"]
+import = []
+impl = ["js-bindgen"]
+rustc-dep-of-std = ["dep:core"]
+
+[lints]
+workspace = true

@@ -13,7 +13,7 @@ use js_bindgen_shared::ReadFile;
 
 use crate::run_data::{RunData, main_export};
 use crate::runner::Runner;
-use crate::test::{TestData, TestEntry};
+use crate::test::{TestData, TestEntry, is_wabi_test};
 
 #[derive(Parser)]
 #[command(name = "js-bindgen-runner", version, about, long_about = None)]
@@ -66,8 +66,6 @@ fn main() -> Result<()> {
 	// help page.
 	let file = args.next();
 
-	let cli = Cli::parse_from(iter::once(binary).chain(args));
-
 	// We delay actually parsing the file to support calling without a file, e.g.
 	// `--help`.
 	let file = file.context("expected a file to have been passed from `cargo run/test`")?;
@@ -75,31 +73,33 @@ fn main() -> Result<()> {
 	let wasm_bytes = ReadFile::new(&wasm_path)
 		.with_context(|| format!("failed to read Wasm file: {}", wasm_path.display()))?;
 
-	let TestData {
-		is_test,
-		filtered_count,
-		tests,
-	} = TestEntry::read(&wasm_bytes, cli.filter.as_ref(), cli.ignored, cli.exact)?;
+	// with `wabi-test` crate
+	let run_data = if is_wabi_test(&wasm_bytes)? {
+		let cli = Cli::parse_from(iter::once(binary).chain(args));
 
-	if cli.list {
-		match cli.format {
-			Some(FormatSetting::Terse) => {
-				for test in &tests {
-					println!("{}: test", test.name);
+		let TestData {
+			filtered_count,
+			tests,
+		} = TestEntry::read(&wasm_bytes, cli.filter.as_ref(), cli.ignored, cli.exact)?;
+
+		if cli.list {
+			match cli.format {
+				Some(FormatSetting::Terse) => {
+					for test in &tests {
+						println!("{}: test", test.name);
+					}
+				}
+				None => {
+					for test in &tests {
+						println!("{}: test", test.name);
+					}
+					println!();
+					println!("{} tests, 0 benchmarks", tests.len());
 				}
 			}
-			None => {
-				for test in &tests {
-					println!("{}: test", test.name);
-				}
-				println!();
-				println!("{} tests, 0 benchmarks", tests.len());
-			}
+			return Ok(());
 		}
-		return Ok(());
-	}
 
-	let run_data = if is_test {
 		if tests.is_empty() {
 			const GREEN: &str = "\u{001b}[32m";
 			const RESET: &str = "\u{001b}[0m";
@@ -114,7 +114,6 @@ fn main() -> Result<()> {
 			println!();
 			return Ok(());
 		}
-
 		RunData::Test {
 			no_capture: cli.no_capture,
 			filtered_count,
@@ -126,6 +125,10 @@ fn main() -> Result<()> {
 
 		RunData::Binary {
 			wasm64: main.wasm64,
+			args: env::args_os()
+				.skip(1)
+				.map(|s| s.into_string().unwrap())
+				.collect(),
 		}
 	};
 

@@ -3,3 +3,5 @@
 /host/target
 /host/Cargo.lock
 /rust-toolchain.toml
+/env/target
+/env/Cargo.lock

@@ -4,7 +4,6 @@ use serde::{Serialize, Serializer};
 use wasmparser::{Parser, Payload};
 
 pub struct TestData {
-	pub is_test: bool,
 	pub filtered_count: usize,
 	pub tests: Vec<TestEntry>,
 }
@@ -31,7 +30,6 @@ impl TestEntry {
 		ignored_only: bool,
 		exact: bool,
 	) -> Result<TestData> {
-		let mut is_test = false;
 		let mut tests = Vec::new();
 		let mut total = 0;
 
@@ -40,16 +38,10 @@ impl TestEntry {
 				continue;
 			};
 
-			if section.name() == IS_TEST_SECTION {
-				is_test = true;
-				continue;
-			}
-
 			if section.name() != "js_bindgen.test" {
 				continue;
 			}
 
-			is_test = true;
 			let mut data = section.data();
 
 			while !data.is_empty() {
@@ -95,11 +87,24 @@ impl TestEntry {
 		let filtered_count = total - tests.len();
 
 		Ok(TestData {
-			is_test,
 			filtered_count,
 			tests,
 		})
 	}
+}
+
+pub fn is_wabi_test(wasm_bytes: &[u8]) -> Result<bool> {
+	for payload in Parser::new(0).parse_all(wasm_bytes) {
+		let Payload::CustomSection(section) = payload? else {
+			continue;
+		};
+
+		if section.name() == IS_TEST_SECTION || section.name() == "js_bindgen.test" {
+			return Ok(true);
+		}
+	}
+
+	Ok(false)
 }
 
 impl Serialize for TestAttr {

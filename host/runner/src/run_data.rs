@@ -18,6 +18,7 @@ pub enum RunData {
 	},
 	Binary {
 		wasm64: bool,
+		args: Vec<String>,
 	},
 }
 

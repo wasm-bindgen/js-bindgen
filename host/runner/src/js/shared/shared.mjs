@@ -1,4 +1,47 @@
 import runData from "../run-data.json" with { type: "json" };
+const WASM_PAGE_SIZE = 64 * 1024;
+function mainMemory(importObject) {
+    const value = importObject["js_bindgen"]?.["memory"];
+    if (!(value instanceof WebAssembly.Memory)) {
+        throw new Error("missing `js_bindgen:memory` import");
+    }
+    return value;
+}
+function mainArgs(memory, values = [], wasm64 = false) {
+    if (!Array.isArray(values)) {
+        throw new TypeError("args must be an array");
+    }
+    const encoder = new TextEncoder();
+    const args = values.map(value => encoder.encode(String(value)));
+    const pointerSize = wasm64 ? 8 : 4;
+    const argvBytes = (args.length + 1) * pointerSize;
+    const stringBytes = args.reduce((total, arg) => total + arg.length + 1, 0);
+    const totalBytes = Math.ceil((argvBytes + stringBytes) / pointerSize) * pointerSize;
+    const pages = Math.ceil(totalBytes / WASM_PAGE_SIZE);
+    const ptr = memory.buffer.byteLength;
+    const grow = memory.grow;
+    grow.call(memory, wasm64 ? BigInt(pages) : pages);
+    const bytes = new Uint8Array(memory.buffer, ptr, totalBytes);
+    const dataView = new DataView(bytes.buffer, ptr, argvBytes);
+    let stringPtr = argvBytes;
+    for (const [index, arg] of args.entries()) {
+        const argPtr = ptr + stringPtr;
+        if (wasm64) {
+            dataView.setBigUint64(index * pointerSize, BigInt(argPtr), true);
+        }
+        else {
+            dataView.setUint32(index * pointerSize, argPtr, true);
+        }
+        bytes.set(arg, stringPtr);
+        stringPtr += arg.length + 1;
+    }
+    if (wasm64) {
+        return { argc: args.length, argv: BigInt(ptr) };
+    }
+    else {
+        return { argc: args.length, argv: ptr };
+    }
+}
 export async function run(module, jsBindgenCtor, report) {
     let interceptFlag = false;
     const interceptStore = [];
@@ -31,8 +74,10 @@ export async function run(module, jsBindgenCtor, report) {
         let panicMessage;
         let panicPayload;
         let jsBindgen;
+        let memory;
         try {
             jsBindgen = new jsBindgenCtor(module);
+            memory = mainMemory(jsBindgen.importObject);
         }
         catch (error) {
             report(1 /* Stream.Stderr */, [{ text: error.message, color: 0 /* Color.Default */ }, newLineText]);
@@ -45,7 +90,7 @@ export async function run(module, jsBindgenCtor, report) {
             },
         });
         const instance = await jsBindgen.instantiate();
-        return { instance, panicMessage, panicPayload };
+        return { instance, memory, panicMessage, panicPayload };
     }
     if (runData.kind === "binary") {
         const state = await instantiate();
@@ -56,12 +101,14 @@ export async function run(module, jsBindgenCtor, report) {
         let status;
         try {
             if (runData.wasm64) {
+                const { argc, argv } = mainArgs(state.memory, runData.args, true);
                 const main = state.instance.exports["main"];
-                status = main(0, 0n);
+                status = main(argc, argv);
             }
             else {
+                const { argc, argv } = mainArgs(state.memory, runData.args);
                 const main = state.instance.exports["main"];
-                status = main(0, 0);
+                status = main(argc, argv);
             }
         }
         catch (error) {

@@ -6,7 +6,7 @@ publish = false
 
 [workspace]
 resolver = "3"
-members = ["js-bindgen", "js-sys", "test", "web-sys"]
+members = ["js-bindgen", "js-sys", "test", "wabii", "web-sys"]
 
 [workspace.package]
 edition = "2024"

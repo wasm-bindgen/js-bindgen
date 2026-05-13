@@ -22,6 +22,71 @@ export const enum Status {
 	Abnormal = 1,
 }
 
+type MainArgs32 = { argc: number; argv: number }
+type MainArgs64 = { argc: number; argv: bigint }
+
+const WASM_PAGE_SIZE = 64 * 1024
+
+function mainMemory(importObject: WebAssembly.Imports): WebAssembly.Memory {
+	const value = importObject["js_bindgen"]?.["memory"]
+
+	if (!(value instanceof WebAssembly.Memory)) {
+		throw new Error("missing `js_bindgen:memory` import")
+	}
+
+	return value
+}
+
+function mainArgs(memory: WebAssembly.Memory, values?: unknown[], wasm64?: false): MainArgs32
+function mainArgs(memory: WebAssembly.Memory, values: unknown[], wasm64: true): MainArgs64
+function mainArgs(
+	memory: WebAssembly.Memory,
+	values: unknown[] = [],
+	wasm64 = false
+): MainArgs32 | MainArgs64 {
+	if (!Array.isArray(values)) {
+		throw new TypeError("args must be an array")
+	}
+
+	const encoder = new TextEncoder()
+	const args = values.map(value => encoder.encode(String(value)))
+	const pointerSize = wasm64 ? 8 : 4
+	const argvBytes = (args.length + 1) * pointerSize
+	const stringBytes = args.reduce((total, arg) => total + arg.length + 1, 0)
+	const totalBytes = Math.ceil((argvBytes + stringBytes) / pointerSize) * pointerSize
+	const pages = Math.ceil(totalBytes / WASM_PAGE_SIZE)
+	const ptr = memory.buffer.byteLength
+	const grow = memory.grow as (
+		this: WebAssembly.Memory,
+		delta: number | bigint
+	) => number | bigint
+
+	grow.call(memory, wasm64 ? BigInt(pages) : pages)
+
+	const bytes = new Uint8Array(memory.buffer, ptr, totalBytes)
+	const dataView = new DataView(bytes.buffer, ptr, argvBytes)
+	let stringPtr = argvBytes
+
+	for (const [index, arg] of args.entries()) {
+		const argPtr = ptr + stringPtr
+
+		if (wasm64) {
+			dataView.setBigUint64(index * pointerSize, BigInt(argPtr), true)
+		} else {
+			dataView.setUint32(index * pointerSize, argPtr, true)
+		}
+
+		bytes.set(arg, stringPtr)
+		stringPtr += arg.length + 1
+	}
+
+	if (wasm64) {
+		return { argc: args.length, argv: BigInt(ptr) }
+	} else {
+		return { argc: args.length, argv: ptr }
+	}
+}
+
 export async function run(
 	module: WebAssembly.Module,
 	jsBindgenCtor: typeof JsBindgen,
@@ -60,9 +125,11 @@ export async function run(
 		let panicMessage: string | undefined
 		let panicPayload: string | undefined
 		let jsBindgen
+		let memory: WebAssembly.Memory
 
 		try {
 			jsBindgen = new jsBindgenCtor(module)
+			memory = mainMemory(jsBindgen.importObject)
 		} catch (error) {
 			report(Stream.Stderr, [{ text: (error as Error).message, color: Color.Default }, newLineText])
 			return
@@ -76,7 +143,7 @@ export async function run(
 		})
 		const instance = await jsBindgen.instantiate()
 
-		return { instance, panicMessage, panicPayload }
+		return { instance, memory, panicMessage, panicPayload }
 	}
 
 	if (runData.kind === "binary") {
@@ -91,11 +158,13 @@ export async function run(
 
 		try {
 			if (runData.wasm64) {
+				const { argc, argv } = mainArgs(state.memory, runData.args, true)
 				const main = state.instance.exports["main"] as (argc: number, argv: bigint) => number
-				status = main(0, 0n)
+				status = main(argc, argv)
 			} else {
+				const { argc, argv } = mainArgs(state.memory, runData.args)
 				const main = state.instance.exports["main"] as (argc: number, argv: number) => number
-				status = main(0, 0)
+				status = main(argc, argv)
 			}
 		} catch (error) {
 			const message = state.panicMessage ?? (error as Error).message

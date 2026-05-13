@@ -1,6 +1,7 @@
 use std::ffi::{OsStr, OsString};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::time::SystemTime;
 
 use anyhow::Result;
@@ -30,21 +31,23 @@ enum Arch {
 	Wasm64,
 }
 
-pub fn processing(args: &[OsString]) -> PreOutput<'_> {
+fn all_web_sdk(path: &Path, arch: &Arch) -> Vec<OsString> {
+	let wabi = path
+		.join(match arch {
+			Arch::Wasm32 => "wasm32",
+			Arch::Wasm64 => "wasm64",
+		})
+		.join("libwabii.a");
+
+	assert!(wabi.exists(), "not found `libwabii.a` in SDK path");
+	vec![
+		wabi.as_os_str().to_os_string(),
+		// ...
+	]
+}
+
+pub fn processing(args: &[OsString], wab_env: bool) -> PreOutput<'_> {
 	let wasm_ld_args = WasmLdArguments::new(&args[1..]);
-
-	if wasm_ld_args
-		.arg_single("flavor")
-		.is_none_or(|v| v != "wasm")
-	{
-		panic!("the `js-bindgen-ld` should only be used when compiling to a Wasm target")
-	}
-
-	let output_path = Path::new(
-		wasm_ld_args
-			.arg_single("o")
-			.expect("output path argument should be present"),
-	);
 
 	// With Wasm32 no argument is passed, but Wasm64 requires `-mwasm64`.
 	let arch = if let Some(m) = wasm_ld_args.arg_single("m") {
@@ -59,6 +62,29 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 		Arch::Wasm32
 	};
 
+	let sdk = if wab_env {
+		if let Ok(path) = std::env::var("WABI_SDK") {
+			all_web_sdk(&PathBuf::from_str(&path).expect("invaild SDK path"), &arch)
+		} else {
+			panic!("`wasm32-web-wabi` target need set `WABI_SDK` env")
+		}
+	} else {
+		vec![]
+	};
+
+	if wasm_ld_args
+		.arg_single("flavor")
+		.is_none_or(|v| v != "wasm")
+	{
+		panic!("the `js-bindgen-ld` should only be used when compiling to a Wasm target")
+	}
+
+	let output_path = Path::new(
+		wasm_ld_args
+			.arg_single("o")
+			.expect("output path argument should be present"),
+	);
+
 	// Here we store additional arguments we want to pass to `wasm-ld`.
 	let mut add_args: Vec<OsString> = Vec::new();
 
@@ -70,7 +96,7 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 	let mut is_test = false;
 
 	// Extract embedded WAT from object files.
-	for input in wasm_ld_args.inputs() {
+	for input in wasm_ld_args.inputs().iter().copied().chain(sdk.iter()) {
 		is_test |= is_libtest(input);
 
 		js_bindgen_ld_shared::ld_input_parser(input, |path, data, object_mtime| {
@@ -100,7 +126,7 @@ fn is_libtest(input: &OsStr) -> bool {
 	Path::new(input)
 		.file_name()
 		.and_then(OsStr::to_str)
-		.is_some_and(|name| name.starts_with("libtest-"))
+		.is_some_and(|name| name.starts_with("js_bindgen_test-"))
 }
 
 /// Extracts any WAT instructions from `js-bindgen`, builds object files from

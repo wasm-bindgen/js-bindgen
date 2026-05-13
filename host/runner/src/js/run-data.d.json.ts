@@ -12,6 +12,7 @@ type BinaryRunData = {
 	kind: "binary"
 	worker: WorkerKind
 	wasm64: boolean
+	args: string[]
 }
 
 declare const enum WorkerKind {

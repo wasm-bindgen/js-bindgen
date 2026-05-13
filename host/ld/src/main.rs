@@ -14,8 +14,20 @@ use crate::pre::PreOutput;
 
 fn main() {
 	// Read arguments.
-	let args = argfile::expand_args_from(env::args_os(), argfile::parse_response, argfile::PREFIX)
-		.unwrap();
+	let origin_args =
+		argfile::expand_args_from(env::args_os(), argfile::parse_response, argfile::PREFIX)
+			.unwrap();
+
+	let mut args = Vec::with_capacity(origin_args.len());
+	let mut wabi_env = false;
+
+	for arg in origin_args {
+		if arg.as_encoded_bytes() == b"--wabi" {
+			wabi_env = true;
+		} else {
+			args.push(arg);
+		}
+	}
 
 	let PreOutput {
 		add_args,
@@ -23,7 +35,7 @@ fn main() {
 		main_memory,
 		js_store,
 		is_test,
-	} = pre::processing(&args);
+	} = pre::processing(&args, wabi_env);
 
 	let status = Command::new("rust-lld")
 		.args(args.iter().skip(1))
