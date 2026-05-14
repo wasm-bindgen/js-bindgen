@@ -65,8 +65,8 @@ impl Clone for JsValue {
 			 i32) (result externref)))",
 			"(import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) \
 			 (param externref) (result i32)))",
-			"(func $js_sys.js_value.clone (@sym) (param i32) (result i32)",
-			"  local.get 0",
+			"(func $js_sys.js_value.clone (@sym) (param $index i32) (result i32)",
+			"  local.get $index",
 			"  call $js_sys.externref.get (@reloc)",
 			"  call $js_sys.externref.insert (@reloc)",
 			")",

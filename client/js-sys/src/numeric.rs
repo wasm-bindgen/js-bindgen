@@ -228,19 +228,11 @@ js_bindgen::embed_js!(
 );
 
 js_bindgen::unsafe_global_wat!(
-	"(func $js_sys.numeric.128 (@sym) (param i32 i32 i32 i32 {})",
-	"  local.get 4",
-	"  local.get 0",
-	"  i32.store",
-	"  local.get 4",
-	"  local.get 1",
-	"  i32.store offset=4",
-	"  local.get 4",
-	"  local.get 2",
-	"  i32.store offset=8",
-	"  local.get 4",
-	"  local.get 3",
-	"  i32.store offset=12",
+	"(func $js_sys.numeric.128 (@sym) (param $a i32) (param $b i32) (param $c i32) (param $d i32) (param $out {})",
+	"  (i32.store offset=0  local.get $out local.get $a)",
+	"  (i32.store offset=4  local.get $out local.get $b)",
+	"  (i32.store offset=8  local.get $out local.get $c)",
+	"  (i32.store offset=12 local.get $out local.get $d)",
 	")",
 	interpolate WAT_PTR_TYPE,
 );
