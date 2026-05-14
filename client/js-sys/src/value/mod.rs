@@ -77,7 +77,11 @@ impl Clone for JsValue {
 			safe fn clone(size: i32) -> i32;
 		}
 
-		Self::new(clone(self.index))
+		if self.index > 1 {
+			Self::new(clone(self.index))
+		} else {
+			Self::new(self.index)
+		}
 	}
 }
 
