@@ -130,6 +130,7 @@ This is a list of upstream issues that could make our lives significantly easier
 - Currently `cargo metadata` doesn't list `build-std` dependencies. This is an issue for caching in
   the CI, significantly increasing our build and test times. [`rust-lang/wg-cargo-std-aware#20`]
 - Ask LLVM to remove the requirement for a `__linear_memory` declaration on Wasm64.
+- Ability to specify stable toolchain with nightly Rustfmt. [`rust-lang/rustup#4636`]
 
 [`llvm/llvm-project#136594`]: https://github.com/llvm/llvm-project/issues/136594
 [`rust-lang/rust#136382`]: https://github.com/rust-lang/rust/issues/136382
@@ -150,3 +151,4 @@ This is a list of upstream issues that could make our lives significantly easier
 [`rust-lang/cargo#4511`]: https://github.com/rust-lang/cargo/issues/4511
 [`rust-lang/rust#145616`]: https://github.com/rust-lang/rust/issues/145616
 [`rust-lang/wg-cargo-std-aware#20`]: https://github.com/rust-lang/wg-cargo-std-aware/issues/20
+[`rust-lang/rustup#4636`]: https://github.com/rust-lang/rustup/issues/4636

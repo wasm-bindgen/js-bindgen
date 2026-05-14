@@ -8,6 +8,7 @@ pub fn run(package: &str) {
 		let mut command = Command::new("cargo");
 		command
 			.current_dir("../host")
+			.env("JBG_DEV_CWD", env::current_dir().unwrap())
 			.arg("+stable")
 			.arg("run")
 			.arg("-q")

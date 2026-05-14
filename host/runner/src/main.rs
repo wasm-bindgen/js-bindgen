@@ -51,13 +51,11 @@ enum FormatSetting {
 }
 
 fn main() -> Result<()> {
-	// The Wasm path for `cargo run` is relative, unlike `test` and `bench`, where
-	// it is an absolute path. Our shim makes the current directory point to the
-	// `host` directory, so the run fails.
-	if env::var_os("JBG_DEV").is_some_and(|value| value == "1")
-		&& env::var_os("JBG_DEV_TOOLS").is_none_or(|value| value != "1")
-	{
-		env::set_current_dir("../../client")?;
+	// We change the current directory when going through the local development
+	// cargo shim. To work correctly with relative path, we reset to the original
+	// directory the runner was called from.
+	if let Some(path) = env::var_os("JBG_DEV_CWD") {
+		env::set_current_dir(path)?;
 	}
 
 	let mut args = env::args_os();

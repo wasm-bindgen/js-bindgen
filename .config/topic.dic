@@ -1,4 +1,4 @@
-47
+46
 allocator
 API
 APIs
@@ -25,6 +25,7 @@ parsers
 resizable
 rAF
 rfcs
+Rustfmt
 stacktraces
 startup
 Stdin
