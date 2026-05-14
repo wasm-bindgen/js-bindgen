@@ -1,19 +1,18 @@
-(module $basic-2ffef8752c24428d.wasm
+(module $basic-f334b522617b24bb.wasm
   (type (;0;) (func (param i32 i32) (result externref)))
-  (type (;1;) (func (param externref)))
+  (type (;1;) (func (param i32)))
   (type (;2;) (func))
   (type (;3;) (func (param externref externref)))
-  (type (;4;) (func (param i32)))
-  (type (;5;) (func (param i32 i32 i32 i32)))
-  (type (;6;) (func (result i32)))
-  (type (;7;) (func (param i32 i32) (result i32)))
-  (type (;8;) (func (param i32) (result i32)))
-  (type (;9;) (func (param externref) (result i32)))
-  (type (;10;) (func (param i32) (result externref)))
-  (type (;11;) (func (param i32 i32)))
+  (type (;4;) (func (param i32 i32 i32 i32)))
+  (type (;5;) (func (result i32)))
+  (type (;6;) (func (param i32 i32) (result i32)))
+  (type (;7;) (func (param i32) (result i32)))
+  (type (;8;) (func (param externref) (result i32)))
+  (type (;9;) (func (param i32) (result externref)))
+  (type (;10;) (func (param i32 i32)))
   (import "js_bindgen" "memory" (memory (;0;) 17 65536))
   (import "js_sys" "string_decode" (func $js_sys.import.string_decode (;0;) (type 0)))
-  (import "js_sys" "externref.table" (table (;0;) 0 externref))
+  (import "js_sys" "externref.table" (table (;0;) 2 externref))
   (import "web_sys" "console.log" (func $web_sys.import.console.log (;1;) (type 1)))
   (import "web_sys" "console.log0" (func $web_sys.import.console.log0 (;2;) (type 2)))
   (import "web_sys" "console.log2" (func $web_sys.import.console.log2 (;3;) (type 3)))
@@ -32,30 +31,52 @@
     memory.fill
   )
   (func $foo (;5;) (type 2)
-    (local i32 i32)
+    (local i32 i32 i32)
+    global.get $__stack_pointer
+    i32.const 16
+    i32.sub
+    local.tee 0
+    global.set $__stack_pointer
     call $web_sys.console.log0
+    local.get 0
     i32.const 1048576
     i32.const 13
     call $js_sys.string_decode
-    local.tee 0
+    i32.store offset=4
+    local.get 0
+    i32.const 1
+    i32.store offset=12
+    local.get 0
+    local.get 0
+    i32.const 4
+    i32.add
+    i32.store offset=8
+    local.get 0
+    i32.const 8
+    i32.add
     call $web_sys.console.log
     local.get 0
-    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hc3951152f18f4a84E
+    i32.load offset=4
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h3a13c04dfd5e7e8cE
     i32.const 1048589
     i32.const 5
     call $js_sys.string_decode
-    local.tee 0
+    local.tee 1
     i32.const 1048594
     i32.const 6
     call $js_sys.string_decode
-    local.tee 1
+    local.tee 2
     call $web_sys.console.log2
+    local.get 2
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h3a13c04dfd5e7e8cE
     local.get 1
-    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hc3951152f18f4a84E
+    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h3a13c04dfd5e7e8cE
     local.get 0
-    call $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hc3951152f18f4a84E
+    i32.const 16
+    i32.add
+    global.set $__stack_pointer
   )
-  (func $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17hc3951152f18f4a84E (;6;) (type 4) (param i32)
+  (func $_ZN64_$LT$js_sys..value..JsValue$u20$as$u20$core..ops..drop..Drop$GT$4drop17h3a13c04dfd5e7e8cE (;6;) (type 1) (param i32)
     (local i32 i32 i32 i32)
     global.get $__stack_pointer
     i32.const 16
@@ -101,9 +122,11 @@
             i32.gt_u
             select
             local.tee 4
-            call $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17ha5415cbafc609189E
+            call $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17h059a6caead92f8f8E
             local.get 1
             i32.load offset=4
+            i32.const 1
+            i32.eq
             br_if 2 (;@2;)
             i32.const 0
             local.get 1
@@ -142,91 +165,175 @@
         return
       end
       i32.const 22
-      call $_ZN4core6result13unwrap_failed17h0f3535ea1a218143E
+      call $_RNvNtCsgXGp5Oqx2Ny_4core6result13unwrap_failed
       unreachable
     end
     i32.const 43
-    call $_ZN4core6result13unwrap_failed17h0f3535ea1a218143E
+    call $_RNvNtCsgXGp5Oqx2Ny_4core6result13unwrap_failed
     unreachable
   )
-  (func $_ZN4core9panicking9panic_fmt17hb8badb9a939ccf7aE (;7;) (type 2)
+  (func $_RNvNtCsgXGp5Oqx2Ny_4core9panicking9panic_fmt (;7;) (type 2)
     unreachable
   )
-  (func $_ZN4core6result13unwrap_failed17h0f3535ea1a218143E (;8;) (type 4) (param i32)
-    call $_ZN4core9panicking9panic_fmt17hb8badb9a939ccf7aE
+  (func $_RNvNtCsgXGp5Oqx2Ny_4core6result13unwrap_failed (;8;) (type 1) (param i32)
+    call $_RNvNtCsgXGp5Oqx2Ny_4core9panicking9panic_fmt
     unreachable
   )
-  (func $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17ha5415cbafc609189E (;9;) (type 5) (param i32 i32 i32 i32)
+  (func $_ZN5alloc7raw_vec20RawVecInner$LT$A$GT$11finish_grow17h059a6caead92f8f8E (;9;) (type 4) (param i32 i32 i32 i32)
     (local i32 i32 i32 i32)
     block ;; label = @1
       block ;; label = @2
         block ;; label = @3
-          block ;; label = @4
-            local.get 3
-            i32.const 1073741823
-            i32.gt_u
-            br_if 0 (;@4;)
-            local.get 3
-            i32.const 2
-            i32.shl
-            local.tee 3
-            i32.const 2147483645
-            i32.lt_u
-            br_if 1 (;@3;)
-          end
-          local.get 0
-          i32.const 0
-          i32.store offset=4
-          br 1 (;@2;)
-        end
-        block ;; label = @3
+          local.get 3
+          i32.const 1073741823
+          i32.gt_u
+          br_if 0 (;@3;)
+          local.get 3
+          i32.const 2
+          i32.shl
+          local.tee 3
+          i32.const 2147483644
+          i32.gt_u
+          br_if 0 (;@3;)
           block ;; label = @4
             block ;; label = @5
-              local.get 1
-              i32.eqz
-              br_if 0 (;@5;)
+              block ;; label = @6
+                local.get 1
+                i32.eqz
+                br_if 0 (;@6;)
+                block ;; label = @7
+                  i32.const 0
+                  i32.load offset=1048616
+                  local.tee 4
+                  br_if 0 (;@7;)
+                  memory.size
+                  local.set 5
+                  i32.const 0
+                  i32.const 0
+                  i32.const 1048624
+                  i32.sub
+                  local.tee 4
+                  i32.store offset=1048616
+                  i32.const 0
+                  i32.const 1
+                  local.get 5
+                  i32.const 16
+                  i32.shl
+                  i32.sub
+                  i32.store offset=1048620
+                end
+                local.get 4
+                i32.const -4
+                i32.and
+                local.tee 4
+                local.get 3
+                i32.lt_u
+                br_if 1 (;@5;)
+                block ;; label = @7
+                  i32.const 0
+                  i32.load offset=1048620
+                  local.tee 6
+                  local.get 4
+                  local.get 3
+                  i32.sub
+                  local.tee 5
+                  i32.const 1
+                  i32.or
+                  i32.le_u
+                  br_if 0 (;@7;)
+                  local.get 6
+                  local.get 5
+                  i32.sub
+                  i32.const -2
+                  i32.add
+                  i32.const 16
+                  i32.shr_u
+                  i32.const 1
+                  i32.add
+                  local.tee 7
+                  memory.grow
+                  i32.const -1
+                  i32.eq
+                  br_if 2 (;@5;)
+                  i32.const 0
+                  local.get 6
+                  local.get 7
+                  i32.const 16
+                  i32.shl
+                  i32.sub
+                  i32.store offset=1048620
+                end
+                i32.const 0
+                local.get 5
+                i32.store offset=1048616
+                i32.const 0
+                local.get 4
+                i32.sub
+                local.set 4
+                block ;; label = @7
+                  local.get 1
+                  i32.const 2
+                  i32.shl
+                  local.tee 1
+                  i32.eqz
+                  br_if 0 (;@7;)
+                  local.get 4
+                  local.get 2
+                  local.get 1
+                  memory.copy
+                end
+                local.get 0
+                i32.const 8
+                i32.add
+                local.set 1
+                local.get 0
+                i32.const 4
+                i32.add
+                local.set 2
+                br 5 (;@1;)
+              end
               block ;; label = @6
                 i32.const 0
                 i32.load offset=1048616
-                local.tee 4
+                local.tee 1
                 br_if 0 (;@6;)
                 memory.size
-                local.set 5
+                local.set 2
                 i32.const 0
                 i32.const 0
                 i32.const 1048624
                 i32.sub
-                local.tee 4
+                local.tee 1
                 i32.store offset=1048616
                 i32.const 0
                 i32.const 1
-                local.get 5
+                local.get 2
                 i32.const 16
                 i32.shl
                 i32.sub
                 i32.store offset=1048620
               end
-              local.get 4
+              local.get 1
               i32.const -4
               i32.and
               local.tee 4
               local.get 3
               i32.lt_u
-              br_if 1 (;@4;)
+              br_if 0 (;@5;)
               block ;; label = @6
                 i32.const 0
                 i32.load offset=1048620
-                local.tee 6
+                local.tee 2
                 local.get 4
                 local.get 3
                 i32.sub
-                local.tee 5
+                local.tee 1
                 i32.const 1
                 i32.or
                 i32.le_u
                 br_if 0 (;@6;)
-                local.get 6
-                local.get 5
+                local.get 2
+                local.get 1
                 i32.sub
                 i32.const -2
                 i32.add
@@ -234,41 +341,22 @@
                 i32.shr_u
                 i32.const 1
                 i32.add
-                local.tee 7
+                local.tee 5
                 memory.grow
                 i32.const -1
                 i32.eq
-                br_if 2 (;@4;)
+                br_if 1 (;@5;)
                 i32.const 0
-                local.get 6
-                local.get 7
+                local.get 2
+                local.get 5
                 i32.const 16
                 i32.shl
                 i32.sub
                 i32.store offset=1048620
               end
               i32.const 0
-              local.get 5
+              local.get 1
               i32.store offset=1048616
-              local.get 4
-              i32.eqz
-              br_if 1 (;@4;)
-              i32.const 0
-              local.get 4
-              i32.sub
-              local.set 4
-              block ;; label = @6
-                local.get 1
-                i32.const 2
-                i32.shl
-                local.tee 1
-                i32.eqz
-                br_if 0 (;@6;)
-                local.get 4
-                local.get 2
-                local.get 1
-                memory.copy
-              end
               local.get 0
               i32.const 8
               i32.add
@@ -277,73 +365,15 @@
               i32.const 4
               i32.add
               local.set 2
-              br 4 (;@1;)
-            end
-            block ;; label = @5
-              i32.const 0
-              i32.load offset=1048616
-              local.tee 1
-              br_if 0 (;@5;)
-              memory.size
-              local.set 2
-              i32.const 0
-              i32.const 0
-              i32.const 1048624
-              i32.sub
-              local.tee 1
-              i32.store offset=1048616
-              i32.const 0
-              i32.const 1
-              local.get 2
-              i32.const 16
-              i32.shl
-              i32.sub
-              i32.store offset=1048620
-            end
-            local.get 1
-            i32.const -4
-            i32.and
-            local.tee 4
-            local.get 3
-            i32.lt_u
-            br_if 0 (;@4;)
-            block ;; label = @5
-              i32.const 0
-              i32.load offset=1048620
-              local.tee 2
               local.get 4
-              local.get 3
-              i32.sub
-              local.tee 1
-              i32.const 1
-              i32.or
-              i32.le_u
-              br_if 0 (;@5;)
-              local.get 2
-              local.get 1
-              i32.sub
-              i32.const -2
-              i32.add
-              i32.const 16
-              i32.shr_u
-              i32.const 1
-              i32.add
-              local.tee 5
-              memory.grow
-              i32.const -1
-              i32.eq
+              i32.eqz
               br_if 1 (;@4;)
               i32.const 0
-              local.get 2
-              local.get 5
-              i32.const 16
-              i32.shl
+              local.get 4
               i32.sub
-              i32.store offset=1048620
+              local.set 4
+              br 4 (;@1;)
             end
-            i32.const 0
-            local.get 1
-            i32.store offset=1048616
             local.get 0
             i32.const 8
             i32.add
@@ -352,30 +382,18 @@
             i32.const 4
             i32.add
             local.set 2
-            local.get 4
-            i32.eqz
-            br_if 1 (;@3;)
-            i32.const 0
-            local.get 4
-            i32.sub
-            local.set 4
-            br 3 (;@1;)
           end
-          local.get 0
-          i32.const 8
-          i32.add
-          local.set 1
-          local.get 0
+          local.get 1
+          local.get 3
+          i32.store
+          local.get 2
           i32.const 4
-          i32.add
-          local.set 2
+          i32.store
+          br 1 (;@2;)
         end
-        local.get 1
-        local.get 3
-        i32.store
-        local.get 2
-        i32.const 4
-        i32.store
+        local.get 0
+        i32.const 0
+        i32.store offset=4
       end
       local.get 0
       i32.const 1
@@ -392,7 +410,7 @@
     i32.const 0
     i32.store
   )
-  (func $js_sys.externref.next (;10;) (type 6) (result i32)
+  (func $js_sys.externref.next (;10;) (type 5) (result i32)
     (local i32 i32)
     block ;; label = @1
       block ;; label = @2
@@ -424,7 +442,7 @@
           unreachable
         end
         i32.const 43
-        call $_ZN4core6result13unwrap_failed17h0f3535ea1a218143E
+        call $_RNvNtCsgXGp5Oqx2Ny_4core6result13unwrap_failed
         unreachable
       end
       i32.const 0
@@ -449,18 +467,18 @@
     i32.store offset=1048604
     local.get 0
   )
-  (func $js_sys.string_decode (;11;) (type 7) (param i32 i32) (result i32)
+  (func $js_sys.string_decode (;11;) (type 6) (param i32 i32) (result i32)
     local.get 0
     local.get 1
     call $js_sys.import.string_decode
     call $js_sys.externref.insert
   )
-  (func $js_sys.externref.grow (;12;) (type 8) (param i32) (result i32)
+  (func $js_sys.externref.grow (;12;) (type 7) (param i32) (result i32)
     ref.null extern
     local.get 0
     table.grow 0
   )
-  (func $js_sys.externref.insert (;13;) (type 9) (param externref) (result i32)
+  (func $js_sys.externref.insert (;13;) (type 8) (param externref) (result i32)
     (local i32)
     call $js_sys.externref.next
     local.tee 1
@@ -468,24 +486,23 @@
     table.set 0
     local.get 1
   )
-  (func $js_sys.externref.get (;14;) (type 10) (param i32) (result externref)
+  (func $js_sys.externref.get (;14;) (type 9) (param i32) (result externref)
     local.get 0
     table.get 0
   )
-  (func $js_sys.externref.remove (;15;) (type 4) (param i32)
+  (func $js_sys.externref.remove (;15;) (type 1) (param i32)
     local.get 0
     ref.null extern
     table.set 0
   )
-  (func $web_sys.console.log (;16;) (type 4) (param i32)
+  (func $web_sys.console.log (;16;) (type 1) (param i32)
     local.get 0
-    call $js_sys.externref.get
     call $web_sys.import.console.log
   )
   (func $web_sys.console.log0 (;17;) (type 2)
     call $web_sys.import.console.log0
   )
-  (func $web_sys.console.log2 (;18;) (type 11) (param i32 i32)
+  (func $web_sys.console.log2 (;18;) (type 10) (param i32 i32)
     local.get 0
     call $js_sys.externref.get
     local.get 1
@@ -496,8 +513,8 @@
   (data $.data (;1;) (i32.const 1048600) "\04\00\00\00")
   (@producers
     (language "Rust" "")
-    (processed-by "rustc" "1.94.0 (4a4ef493e 2026-03-02)")
-    (processed-by "js-bindgen" "0.0.0")
+    (processed-by "rustc" "1.95.0 (59807616e 2026-04-14)")
+    (processed-by "js-bindgen" "0.1.0")
   )
   (@custom "target_features" (after data) "\08+\0bbulk-memory+\0fbulk-memory-opt+\16call-indirect-overlong+\0amultivalue+\0fmutable-globals+\13nontrapping-fptoint+\0freference-types+\08sign-ext")
 )
