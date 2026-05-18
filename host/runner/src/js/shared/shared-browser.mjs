@@ -1,4 +1,4 @@
-import { run } from "./shared.mjs";
+import { createBrowserFsBackend, run } from "./shared.mjs";
 import { colorText } from "./shared-terminal.mjs";
 export async function runBrowser(jsBindgenCtor) {
     let fetchOrder = 0;
@@ -38,10 +38,12 @@ export async function runBrowser(jsBindgenCtor) {
         status = 1 /* Status.Abnormal */;
     }
     else {
-        status = await WebAssembly.compileStreaming(fetch("../wasm.wasm")).then(module => run(module, jsBindgenCtor, (stream, text) => report(stream, colorText(text))), (error) => {
+        const fs = createBrowserFsBackend();
+        status = await WebAssembly.compileStreaming(fetch("../wasm.wasm")).then(module => run(module, jsBindgenCtor, (stream, text) => report(stream, colorText(text)), fs), (error) => {
             report(1 /* Stream.Stderr */, error.message + "\n");
             return 1 /* Status.Abnormal */;
         });
+        await fs.flush();
     }
     if (fetchRunning !== 0) {
         fetchWaiting = true;

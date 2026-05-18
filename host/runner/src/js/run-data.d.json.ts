@@ -2,6 +2,7 @@ type RunData = TestRunData | BinaryRunData
 
 type TestRunData = {
 	kind: "test"
+	ctx: string | null
 	worker: WorkerKind
 	noCapture: boolean
 	filteredCount: number
@@ -10,6 +11,7 @@ type TestRunData = {
 
 type BinaryRunData = {
 	kind: "binary"
+	ctx: string | null
 	worker: WorkerKind
 	wasm64: boolean
 }

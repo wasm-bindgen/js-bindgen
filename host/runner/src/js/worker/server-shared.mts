@@ -1,7 +1,7 @@
 // eslint-disable-next-line no-var
 declare var self: SharedWorkerGlobalScope
 
-import { run } from "../shared/shared.mjs"
+import { createBrowserFsBackend, run } from "../shared/shared.mjs"
 import { importJsBindgen } from "../shared/shared-import.mjs"
 
 self.addEventListener("connect", async event => {
@@ -13,9 +13,16 @@ self.addEventListener("connect", async event => {
 	if (jsBindgenCtor instanceof Error) {
 		port.postMessage(jsBindgenCtor.message + "\n")
 	} else {
-		await run(module, jsBindgenCtor, (_, text) => {
-			port.postMessage(text)
-		})
+		const fs = createBrowserFsBackend()
+		await run(
+			module,
+			jsBindgenCtor,
+			(_, text) => {
+				port.postMessage(text)
+			},
+			fs
+		)
+		await fs.flush()
 	}
 
 	self.close()
