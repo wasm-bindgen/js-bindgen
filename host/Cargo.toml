@@ -43,7 +43,7 @@ cargo_metadata = "0.23"
 clap = { version = "4", features = ["derive"] }
 clap-cargo = { version = "0.18", features = ["cargo_metadata"] }
 dtor = { version = "1", default-features = false, features = ["proc_macro"] }
-fantoccini = { version = "0.22.0", default-features = false, features = ["rustls-tls"] }
+fantoccini = { version = "0.22", default-features = false, features = ["rustls-tls"] }
 foldhash = { version = "0.2", default-features = false }
 futures-util = { version = "0.3", default-features = false }
 hashbrown = { version = "0.17", default-features = false, features = ["inline-more"] }
@@ -63,11 +63,11 @@ prettyplease = { version = "0.2", features = ["verbatim"] }
 proc-macro2 = { version = "1", default-features = false }
 quote = { version = "1", default-features = false }
 reqwest = { version = "0.13", default-features = false, features = ["http2"] }
-rwat = "0.1.1"
+rwat = "0.1"
 serde = { version = "1", default-features = false }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 serde_repr = "0.1"
-shlex = { version = "2.0.1", default-features = false }
+shlex = { version = "2", default-features = false }
 similar-asserts = "2"
 strum = { version = "0.28", default-features = false, features = ["derive"] }
 syn = { version = "2", default-features = false }
