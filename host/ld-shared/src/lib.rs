@@ -6,6 +6,7 @@ use std::time::SystemTime;
 
 use js_bindgen_shared::ReadFile;
 use object::read::archive::ArchiveFile;
+use rwat::ParseOptions;
 use wasmparser::CustomSectionReader;
 
 /// Creates a relocatable Wasm object from the WAT input.
@@ -18,7 +19,7 @@ pub fn wat_to_object(wasm64: bool, wat: &str) -> rwat::Result<Vec<u8>> {
 		""
 	};
 	let wat = format!("(module (@rwat) {workaround} {wat})");
-	rwat::parse_rwat(&wat)
+	rwat::parse_rwat_with(ParseOptions::new(&wat).omit_name_section(true))
 }
 
 pub fn ld_input_parser<E>(
