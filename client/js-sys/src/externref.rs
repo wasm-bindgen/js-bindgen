@@ -5,8 +5,10 @@ use crate::panic::panic;
 use crate::util::PtrConst;
 
 js_bindgen::unsafe_global_wat!(
+	// Imports need an explicit name.
+	// See https://github.com/llvm/llvm-project/issues/198509.
 	"(import \"js_sys\" \"externref.table\" (table $js_sys.import.externref.table (@sym (name \
-	 \"js_sys.import.externref.table\")) 2 externref))",
+	 \"js_sys.externref.table\")) 2 externref))",
 	"(import \"env\" \"js_sys.externref.next\" (func $js_sys.externref.next (@sym) (result i32)))",
 	"(func $js_sys.externref.grow (@sym) (param $size i32) (result i32)",
 	"  ref.null extern",

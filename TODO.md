@@ -102,17 +102,16 @@
 
 This is a list of upstream issues that could make our lives significantly easier:
 
-- LLVM v22 delivers support for the GC proposal, with which we can implement the `externref` table
-  much more efficiently.
-- LLVM has incomplete GC support for our needs: [`llvm/llvm-project#136594`].
+- GC proposal support in LLVM, with which we can implement the `externref` table much more
+  efficiently: [`llvm/llvm-project#136594`].
 - Stable `asm!` support for Wasm: [`rust-lang/rust#136382`].
 - `asm!` support with target features: [`rust-lang/rust#113221`]
 - Verbatim `asm!` parameters: [`rust-lang/rust#132083`].
+- LLVM is unable to handle imports without `WASM_SYM_EXPLICIT_NAME`: [`llvm/llvm-project#198509`].
 - Better stable proc-macro support:
   - `quote!`: [`rust-lang/rust#54722`].
   - Diagnostics: [`rust-lang/rust#54140`].
   - Execution in non-proc-macro crates: [`rust-lang/rust#130856`].
-- Elevate `wasm64-unknown-unknown` to tier 2: [`rust-lang/rust#146944`].
 - A way to flag proc-macros as `unsafe`: [`rust-lang/rfcs#3715`].
 - Link internal functions without exporting them: [`rust-lang/rust#29603`] or
   [`rust-lang/rfcs#3834`].
@@ -121,21 +120,23 @@ This is a list of upstream issues that could make our lives significantly easier
   - [Chrome Bug](https://issues.chromium.org/issues/40102463)
   - [Firefox Bug](https://bugzilla.mozilla.org/show_bug.cgi?id=1561594)
 - `TextDe/Encoder` could support resizable buffers: [`whatwg/encoding#344`].
-- `wasm-encoder` `io::Write` support: [`bytecodealliance/wasm-tools#778`]
-- Improved test coverage data merging: [`llvm/llvm-project#121194`]
+- `wasm-encoder` `io::Write` support: [`bytecodealliance/wasm-tools#778`].
+- Malformed test coverage data: [`llvm/llvm-project#192833`].
+- Improved test coverage data merging: [`llvm/llvm-project#121194`].
 - Cargo support for local development pre-processing: [`rust-lang/cargo#12552`] or
-  [`rust-lang/cargo#4511`]
+  [`rust-lang/cargo#4511`].
 - Rust has an issue with duplicate symbols during tests. E.g. this prevents us from having unit
   tests in `js-sys`. [`rust-lang/rust#145616`]
 - Currently `cargo metadata` doesn't list `build-std` dependencies. This is an issue for caching in
   the CI, significantly increasing our build and test times. [`rust-lang/wg-cargo-std-aware#20`]
 - Ask LLVM to remove the requirement for a `__linear_memory` declaration on Wasm64.
-- Ability to specify stable toolchain with nightly Rustfmt. [`rust-lang/rustup#4636`]
+- Ability to specify stable toolchain with nightly Rustfmt: [`rust-lang/rustup#4636`].
 
 [`llvm/llvm-project#136594`]: https://github.com/llvm/llvm-project/issues/136594
 [`rust-lang/rust#136382`]: https://github.com/rust-lang/rust/issues/136382
 [`rust-lang/rust#113221`]: https://github.com/rust-lang/rust/issues/113221
 [`rust-lang/rust#132083`]: https://github.com/rust-lang/rust/issues/132083
+[`llvm/llvm-project#198509`]: https://github.com/llvm/llvm-project/issues/198509
 [`rust-lang/rust#54722`]: https://github.com/rust-lang/rust/issues/54722
 [`rust-lang/rust#54140`]: https://github.com/rust-lang/rust/issues/54140
 [`rust-lang/rust#130856`]: https://github.com/rust-lang/rust/issues/130856
@@ -146,6 +147,7 @@ This is a list of upstream issues that could make our lives significantly easier
 [`rust-lang/rust#136096`]: https://github.com/rust-lang/rust/issues/136096
 [`whatwg/encoding#344`]: https://github.com/whatwg/encoding/issues/344
 [`bytecodealliance/wasm-tools#778`]: https://github.com/bytecodealliance/wasm-tools/issues/778
+[`llvm/llvm-project#192833`]: https://github.com/llvm/llvm-project/issues/192833
 [`llvm/llvm-project#121194`]: https://github.com/llvm/llvm-project/pull/121194
 [`rust-lang/cargo#12552`]: https://github.com/rust-lang/cargo/issues/12552
 [`rust-lang/cargo#4511`]: https://github.com/rust-lang/cargo/issues/4511
