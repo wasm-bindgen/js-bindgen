@@ -22,6 +22,74 @@ export const enum Status {
 	Abnormal = 1,
 }
 
+type MainArgs32 = { argc: number; argv: number }
+type MainArgs64 = { argc: number; argv: bigint }
+
+function mainMemory(
+	module: string,
+	name: string,
+	importObject: WebAssembly.Imports
+): WebAssembly.Memory {
+	const value = importObject[module]?.[name]
+
+	if (!(value instanceof WebAssembly.Memory)) {
+		throw new Error(`missing main memory \`"${module}" "${name}"\` import`)
+	}
+
+	return value
+}
+
+function mainArgs(memory: WebAssembly.Memory, values: string[], wasm64: false): MainArgs32
+function mainArgs(memory: WebAssembly.Memory, values: string[], wasm64: true): MainArgs64
+function mainArgs(
+	memory: WebAssembly.Memory,
+	values: string[],
+	wasm64: boolean
+): MainArgs32 | MainArgs64 {
+	const WASM_PAGE_SIZE = 64 * 1024
+
+	const encoder = new TextEncoder()
+	const args = values.map(value => encoder.encode(value))
+	const pointerSize = wasm64 ? 8 : 4
+	// The `argv` array must be terminated by a null pointer.
+	// Thus, in the new program, `argv[argc]` will be a null pointer.
+	const argvBytes = (args.length + 1) * pointerSize
+	// The `+ 1` is for the null byte after each string. This works because
+	// Wasm initializes the newly grown memory to zero by default.
+	const stringBytes = args.reduce((total, arg) => total + arg.length + 1, 0)
+	const totalBytes = Math.ceil((argvBytes + stringBytes) / pointerSize) * pointerSize
+	const pages = Math.ceil(totalBytes / WASM_PAGE_SIZE)
+	const ptr = memory.buffer.byteLength
+	// TODO: Remove this cast once TypeScript's DOM definitions support `bigint`
+	// values for `WebAssembly.Memory.grow`: microsoft/TypeScript-DOM-lib-generator#2485.
+	const grow = memory.grow.bind(memory) as (delta: number | bigint) => number | bigint
+
+	grow(wasm64 ? BigInt(pages) : pages)
+
+	const bytes = new Uint8Array(memory.buffer, ptr, totalBytes)
+	const dataView = new DataView(bytes.buffer, ptr, argvBytes)
+	let stringPtr = argvBytes
+
+	for (const [index, arg] of args.entries()) {
+		const argPtr = ptr + stringPtr
+
+		if (wasm64) {
+			dataView.setBigUint64(index * pointerSize, BigInt(argPtr), true)
+		} else {
+			dataView.setUint32(index * pointerSize, argPtr, true)
+		}
+
+		bytes.set(arg, stringPtr)
+		stringPtr += arg.length + 1
+	}
+
+	if (wasm64) {
+		return { argc: args.length, argv: BigInt(ptr) }
+	} else {
+		return { argc: args.length, argv: ptr }
+	}
+}
+
 export async function run(
 	module: WebAssembly.Module,
 	jsBindgenCtor: typeof JsBindgen,
@@ -74,9 +142,20 @@ export async function run(
 				set_payload: (payload: string) => (panicPayload = payload),
 			},
 		})
+
+		const importObject = jsBindgen.importObject
 		const instance = await jsBindgen.instantiate()
 
-		return { instance, panicMessage, panicPayload }
+		return {
+			importObject,
+			instance,
+			get panicMessage() {
+				return panicMessage
+			},
+			get panicPayload() {
+				return panicPayload
+			},
+		}
 	}
 
 	if (runData.kind === "binary") {
@@ -86,16 +165,20 @@ export async function run(
 			return Status.Abnormal
 		}
 
+		const memory = mainMemory(runData.memory.module, runData.memory.name, state.importObject)
+
 		interceptFlag = true
 		let status: number
 
 		try {
 			if (runData.wasm64) {
+				const { argc, argv } = mainArgs(memory, runData.args, true)
 				const main = state.instance.exports["main"] as (argc: number, argv: bigint) => number
-				status = main(0, 0n)
+				status = main(argc, argv)
 			} else {
+				const { argc, argv } = mainArgs(memory, runData.args, false)
 				const main = state.instance.exports["main"] as (argc: number, argv: number) => number
-				status = main(0, 0)
+				status = main(argc, argv)
 			}
 		} catch (error) {
 			const message = state.panicMessage ?? (error as Error).message

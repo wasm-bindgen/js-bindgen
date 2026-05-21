@@ -1,4 +1,6 @@
-use anyhow::Result;
+use std::ffi::OsString;
+
+use anyhow::{Context, Ok, Result};
 use serde::Serialize;
 use wasmparser::{ExternalKind, FuncType, Parser, Payload, TypeRef, ValType};
 
@@ -18,7 +20,15 @@ pub enum RunData {
 	},
 	Binary {
 		wasm64: bool,
+		memory: MainMemory,
+		args: Vec<OsString>,
 	},
+}
+
+#[derive(Serialize)]
+pub struct MainMemory {
+	module: String,
+	name: String,
 }
 
 pub fn main_export(wasm_bytes: &[u8]) -> Result<Option<MainExport>> {
@@ -26,6 +36,7 @@ pub fn main_export(wasm_bytes: &[u8]) -> Result<Option<MainExport>> {
 	let mut imported_functions = 0;
 	let mut defined_function_types = Vec::new();
 	let mut wasm64 = false;
+	let mut main_memory = None;
 
 	for payload in Parser::new(0).parse_all(wasm_bytes) {
 		match payload? {
@@ -40,7 +51,12 @@ pub fn main_export(wasm_bytes: &[u8]) -> Result<Option<MainExport>> {
 
 					match import.ty {
 						TypeRef::Func(_) | TypeRef::FuncExact(_) => imported_functions += 1,
-						TypeRef::Memory(memory) => wasm64 |= memory.memory64,
+						TypeRef::Memory(_) => {
+							main_memory = Some(MainMemory {
+								module: import.module.into(),
+								name: import.name.into(),
+							});
+						}
 						_ => {}
 					}
 				}
@@ -66,10 +82,18 @@ pub fn main_export(wasm_bytes: &[u8]) -> Result<Option<MainExport>> {
 							defined_function_types.get(function_index as usize)
 						&& let Some(ty) = types.get(*type_index as usize)
 					{
-						return Ok(is_main_type(ty, wasm64).then_some(MainExport { wasm64 }));
+						if !is_main_type(ty, wasm64) {
+							return Ok(None);
+						}
+
+						// Import sections are always processed before export sections.
+						let main_memory = main_memory.context("main memory should be present")?;
+						return Ok(Some(MainExport {
+							wasm64,
+							memory: main_memory,
+						}));
 					}
 				}
-
 				break;
 			}
 			_ => {}
@@ -81,6 +105,7 @@ pub fn main_export(wasm_bytes: &[u8]) -> Result<Option<MainExport>> {
 
 pub struct MainExport {
 	pub wasm64: bool,
+	pub memory: MainMemory,
 }
 
 /// Rust's standard `main` export takes `argc`, `argv`, and returns a process
