@@ -51,13 +51,10 @@ too_many_lines = "allow"
 
 [workspace.lints.rust]
 linker_messages = "deny"
-unexpected_cfgs = {
-	level = "allow",
-	check-cfg = [
-		'cfg(js_sys_target_feature, values("sab", "unstable-rab"))',
-		'cfg(js_sys_assume_endianness, values("big", "little"))',
-	]
-}
+unexpected_cfgs = { level = "allow", check-cfg = [
+	'cfg(js_sys_target_feature, values("sab", "unstable-rab"))',
+	'cfg(js_sys_assume_endianness, values("big", "little"))',
+] }
 
 [workspace.metadata.spellcheck]
 config = "../.config/spellcheck.toml"

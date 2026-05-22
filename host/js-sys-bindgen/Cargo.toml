@@ -16,16 +16,13 @@ hashbrown = { workspace = true }
 itertools = { workspace = true, features = ["use_alloc"] }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
-syn = {
-	workspace = true,
-	features = [
-		"clone-impls",
-		"extra-traits",
-		"full",
-		"parsing",
-		"printing",
-	]
-}
+syn = { workspace = true, features = [
+	"clone-impls",
+	"extra-traits",
+	"full",
+	"parsing",
+	"printing",
+] }
 weedle2 = { workspace = true, optional = true }
 
 [dev-dependencies]

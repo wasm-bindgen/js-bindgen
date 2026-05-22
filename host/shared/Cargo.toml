@@ -19,33 +19,25 @@ anyhow = { workspace = true, optional = true }
 futures-util = { workspace = true, optional = true }
 memmap2 = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
-tokio = {
-	workspace = true,
-	features = [
-		"io-util",
-		"macros",
-		"net",
-		"process",
-		"rt-multi-thread",
-		"sync",
-		"time",
-	],
-	optional = true
-}
+tokio = { workspace = true, features = [
+	"io-util",
+	"macros",
+	"net",
+	"process",
+	"rt-multi-thread",
+	"sync",
+	"time",
+], optional = true }
 url = { workspace = true, optional = true }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 nix = { workspace = true, features = ["signal"], optional = true }
 
 [target.'cfg(target_family = "windows")'.dependencies]
-windows-sys = {
-	workspace = true,
-	features = [
-		"Win32_System_Console",
-		"Win32_System_Threading",
-	],
-	optional = true
-}
+windows-sys = { workspace = true, features = [
+	"Win32_System_Console",
+	"Win32_System_Threading",
+], optional = true }
 
 [features]
 memmap = ["dep:memmap2"]
