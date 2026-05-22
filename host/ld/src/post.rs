@@ -189,7 +189,11 @@ pub fn processing(
 	js_output.write_all(js_import_object.as_bytes())?;
 
 	js_output.write_all(b"{\n")?;
-	js_output.write_all(b"\t\t\tjs_bindgen: { memory: this.#memory },\n")?;
+	writeln!(
+		js_output,
+		"\t\t\t{}: {{ {}: this.#memory }},\n",
+		main_memory.module, main_memory.name
+	)?;
 
 	for (module, names) in js_store
 		.js_import()

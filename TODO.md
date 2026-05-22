@@ -81,6 +81,8 @@
 
 - Binary Runner:
   - Consider how to run tests with `harness = false`.
+  - Encode the target in a custom section and only pass `argc`/`argv` to `main` for targets that
+    expect them.
 - Find a way to link to imports directly if no wrapper function is needed. This happens when no
   conversions on the WAT level are necessary.
 - Provide an absolutely minimal allocator.
@@ -120,6 +122,8 @@ This is a list of upstream issues that could make our lives significantly easier
   - [Chrome Bug](https://issues.chromium.org/issues/40102463)
   - [Firefox Bug](https://bugzilla.mozilla.org/show_bug.cgi?id=1561594)
 - `TextDe/Encoder` could support resizable buffers: [`whatwg/encoding#344`].
+- `WebAssembly.Memory.grow` could support `bigint` in `TypeScript` DOM definitions:
+  [`microsoft/TypeScript-DOM-lib-generator#2485`].
 - `wasm-encoder` `io::Write` support: [`bytecodealliance/wasm-tools#778`].
 - Malformed test coverage data: [`llvm/llvm-project#192833`].
 - Improved test coverage data merging: [`llvm/llvm-project#121194`].
@@ -146,6 +150,8 @@ This is a list of upstream issues that could make our lives significantly easier
 [`rust-lang/rfcs#3834`]: https://github.com/rust-lang/rfcs/pull/3834
 [`rust-lang/rust#136096`]: https://github.com/rust-lang/rust/issues/136096
 [`whatwg/encoding#344`]: https://github.com/whatwg/encoding/issues/344
+[`microsoft/TypeScript-DOM-lib-generator#2485`]:
+	https://github.com/microsoft/TypeScript-DOM-lib-generator/issues/2485
 [`bytecodealliance/wasm-tools#778`]: https://github.com/bytecodealliance/wasm-tools/issues/778
 [`llvm/llvm-project#192833`]: https://github.com/llvm/llvm-project/issues/192833
 [`llvm/llvm-project#121194`]: https://github.com/llvm/llvm-project/pull/121194

@@ -126,6 +126,8 @@ fn main() -> Result<()> {
 
 		RunData::Binary {
 			wasm64: main.wasm64,
+			memory: main.memory,
+			args: env::args_os().skip(1).collect(),
 		}
 	};
 

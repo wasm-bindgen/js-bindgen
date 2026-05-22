@@ -12,6 +12,8 @@ type BinaryRunData = {
 	kind: "binary"
 	worker: WorkerKind
 	wasm64: boolean
+	memory: MainMemory
+	args: string[]
 }
 
 declare const enum WorkerKind {
@@ -25,6 +27,11 @@ type TestEntry = {
 	importName: string
 	ignore: boolean | string
 	shouldPanic: boolean | string
+}
+
+type MainMemory = {
+	module: string
+	name: string
 }
 
 declare const config: RunData
