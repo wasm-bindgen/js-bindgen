@@ -66,6 +66,7 @@ prettyplease = { version = "0.2", features = ["verbatim"] }
 proc-macro2 = { version = "1", default-features = false }
 quote = { version = "1", default-features = false }
 reqwest = { version = "0.13", default-features = false, features = ["http2"] }
+ron = "0.12"
 rwat = "0.1"
 serde = { version = "1", default-features = false }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }

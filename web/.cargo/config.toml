@@ -1,0 +1,9 @@
+[build]
+target = "wasm32-web-wabi"
+
+[target.'cfg(all(target_family = "wasm", target_os = "web", target_env = "wabi"))']
+linker = "../host/cargo-shim/linker"
+runner = "../host/cargo-shim/runner"
+
+[env]
+JBG_DEV = "1"
