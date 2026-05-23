@@ -1,10 +1,9 @@
 use std::ffi::OsString;
 use std::net::{IpAddr, SocketAddr};
-use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
-use std::{env, fs, io, process};
+use std::{env, fs, process};
 
 use anyhow::{Context, Result};
 use fantoccini::ClientBuilder;
@@ -24,26 +23,21 @@ pub const SHARED_TERMINAL_JS: &str = include_str!("js/shared/shared-terminal.mjs
 pub struct Runner {
 	wasm_path: PathBuf,
 	wasm_bytes: ReadFile,
-	js_output: JsOutput,
+	js_file: Vec<u8>,
 	run_data: String,
-}
-
-pub enum JsOutput {
-	File { path: PathBuf, file: ReadFile },
-	Output(Vec<u8>),
 }
 
 impl Runner {
 	pub fn new(
 		wasm_path: PathBuf,
 		wasm_bytes: ReadFile,
-		js_output: JsOutput,
+		js_file: Vec<u8>,
 		run_data: String,
 	) -> Self {
 		Self {
 			wasm_path,
 			wasm_bytes,
-			js_output,
+			js_file,
 			run_data,
 		}
 	}
@@ -73,7 +67,7 @@ impl Runner {
 
 		fs::write(dir.path().join("run-data.json"), self.run_data)?;
 		fs::copy(self.wasm_path, dir.path().join("wasm.wasm"))?;
-		self.js_output.write(&dir.path().join("imports.mjs"))?;
+		fs::write(dir.path().join("imports.mjs"), self.js_file)?;
 		fs::create_dir(dir.path().join("shared"))?;
 		fs::write(dir.path().join("shared/shared.mjs"), SHARED_JS)?;
 		fs::write(
@@ -104,7 +98,7 @@ impl Runner {
 
 		fs::write(dir.path().join("run-data.json"), self.run_data)?;
 		fs::copy(self.wasm_path, dir.path().join("wasm.wasm"))?;
-		self.js_output.write(&dir.path().join("imports.mjs"))?;
+		fs::write(dir.path().join("imports.mjs"), self.js_file)?;
 		fs::create_dir(dir.path().join("shared"))?;
 		fs::write(dir.path().join("shared/shared.mjs"), SHARED_JS)?;
 		fs::write(
@@ -198,29 +192,9 @@ impl Runner {
 			headless,
 			worker,
 			self.wasm_bytes,
-			self.js_output,
+			self.js_file,
 			self.run_data,
 		)
 		.await
-	}
-}
-
-impl JsOutput {
-	fn write(&self, to: &Path) -> io::Result<()> {
-		match self {
-			Self::File { path, .. } => fs::copy(path, to).map(|_| ()),
-			Self::Output(js) => fs::write(to, js),
-		}
-	}
-}
-
-impl Deref for JsOutput {
-	type Target = [u8];
-
-	fn deref(&self) -> &Self::Target {
-		match self {
-			Self::File { file, .. } => file,
-			Self::Output(data) => data,
-		}
 	}
 }

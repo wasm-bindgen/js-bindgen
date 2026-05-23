@@ -1,8 +1,8 @@
 use std::ffi::OsString;
 
+use js_bindgen_cli_lib::MainMemory;
 use serde::Serialize;
 
-use crate::binary::MainMemory;
 use crate::test::TestEntry;
 
 #[derive(Serialize)]
@@ -19,7 +19,7 @@ pub enum RunData<'a> {
 	},
 	Binary {
 		wasm64: bool,
-		memory: MainMemory,
+		memory: MainMemory<'a>,
 		args: Vec<OsString>,
 	},
 }

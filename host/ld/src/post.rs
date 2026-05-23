@@ -1,26 +1,23 @@
 use anyhow::{Context, Result, bail};
-use js_bindgen_cli_lib::{JS_OUTPUT_SECTION, JsOutput, MainMemory};
+use js_bindgen_cli_lib::{JS_OUTPUT_SECTION, MainMemory};
 use js_bindgen_shared::IS_TEST_SECTION;
 use wasm_encoder::{
 	CustomSection, EntityType, ImportSection, Module, ProducersField, ProducersSection, RawSection,
 	Section,
 };
-use wasmparser::{Encoding, KnownCustom, MemoryType, Parser, Payload, TypeRef};
+use wasmparser::{Encoding, KnownCustom, Parser, Payload, TypeRef};
 
 use crate::js::JsStore;
 
 /// This removes our custom sections and generates the JS import file.
-pub fn processing<'a>(
+pub fn processing(
 	wasm_input: &[u8],
-	main_memory: MainMemory<'a>,
+	main_memory: MainMemory<'_>,
 	mut js_store: JsStore,
 	is_test: bool,
-	embed_js_output: bool,
-) -> Result<(Vec<u8>, MemoryType, JsOutput<'a, String>)> {
+) -> Result<Vec<u8>> {
 	// Start building final Wasm and JS.
 	let mut wasm_output = Vec::new();
-
-	let mut memory = None;
 
 	for payload in Parser::new(0).parse_all(wasm_input) {
 		let payload = payload.context("object file should be valid Wasm")?;
@@ -47,11 +44,10 @@ pub fn processing<'a>(
 					);
 
 					// The main memory has its own dedicated JS output handling.
-					if let TypeRef::Memory(m) = import.ty
+					if let TypeRef::Memory(_) = import.ty
 						&& import.module == main_memory.module
 						&& import.name == main_memory.name
 					{
-						memory = Some(m);
 						continue;
 					}
 
@@ -104,7 +100,6 @@ pub fn processing<'a>(
 		}
 	}
 
-	let memory = memory.context("main memory should be present")?;
 	js_store.assert_expected()?;
 
 	if is_test {
@@ -116,14 +111,13 @@ pub fn processing<'a>(
 	}
 
 	let output = js_store.into_output(main_memory);
+	let data = postcard::to_allocvec(&output)?;
 
-	if embed_js_output {
-		CustomSection {
-			name: JS_OUTPUT_SECTION.into(),
-			data: postcard::to_allocvec(&output)?.into(),
-		}
-		.append_to(&mut wasm_output);
+	CustomSection {
+		name: JS_OUTPUT_SECTION.into(),
+		data: data.into(),
 	}
+	.append_to(&mut wasm_output);
 
-	Ok((wasm_output, memory, output))
+	Ok(wasm_output)
 }

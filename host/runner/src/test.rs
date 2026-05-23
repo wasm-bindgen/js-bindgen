@@ -1,5 +1,4 @@
 use std::ffi::OsString;
-use std::ops::ControlFlow;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, ValueEnum};
@@ -64,33 +63,36 @@ enum TestAttr {
 	WithText(String),
 }
 
-#[derive(Default)]
-pub struct TestParser {
-	is_test: bool,
+pub enum TestParser<'a> {
+	Parsing { is_test: bool },
+	Found(Vec<TestEntry<'a>>),
 }
 
-impl TestParser {
-	pub fn parse<'p>(
-		mut self,
-		payload: &Payload<'p>,
-	) -> Result<ControlFlow<Vec<TestEntry<'p>>, Self>> {
-		if let Payload::End(_) = payload
-			&& self.is_test
-		{
-			return Ok(ControlFlow::Break(Vec::new()));
-		}
+impl<'a> TestParser<'a> {
+	pub fn new() -> Self {
+		Self::Parsing { is_test: false }
+	}
+
+	pub fn found(&self) -> bool {
+		matches!(self, Self::Found(_))
+	}
+
+	pub fn parse(&mut self, payload: &Payload<'a>) -> Result<()> {
+		let Self::Parsing { is_test } = self else {
+			return Ok(());
+		};
 
 		let Payload::CustomSection(section) = payload else {
-			return Ok(ControlFlow::Continue(self));
+			return Ok(());
 		};
 
 		if section.name() == IS_TEST_SECTION {
-			self.is_test = true;
-			return Ok(ControlFlow::Continue(self));
+			*is_test = true;
+			return Ok(());
 		}
 
 		if section.name() != "js_bindgen.test" {
-			return Ok(ControlFlow::Continue(self));
+			return Ok(());
 		}
 
 		let mut tests = Vec::new();
@@ -121,7 +123,16 @@ impl TestParser {
 			});
 		}
 
-		Ok(ControlFlow::Break(tests))
+		*self = Self::Found(tests);
+
+		Ok(())
+	}
+
+	pub fn into_tests(self) -> Option<Vec<TestEntry<'a>>> {
+		match self {
+			TestParser::Parsing { is_test } => is_test.then_some(Vec::new()),
+			TestParser::Found(tests) => Some(tests),
+		}
 	}
 }
 

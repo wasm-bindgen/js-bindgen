@@ -1,21 +1,19 @@
-mod binary;
 mod config;
 mod run_data;
 mod runner;
 mod server;
 mod test;
 
-use std::ops::ControlFlow;
 use std::path::PathBuf;
 use std::{env, iter};
 
 use anyhow::{Context, Result, bail};
+use js_bindgen_cli_lib::JsOutput;
 use js_bindgen_shared::ReadFile;
 use wasmparser::{MemoryType, Parser, Payload, TypeRef};
 
-use crate::binary::BinaryParser;
 use crate::run_data::RunData;
-use crate::runner::{JsOutput, Runner};
+use crate::runner::Runner;
 use crate::test::{TestCli, TestParser};
 
 fn main() -> Result<()> {
@@ -41,10 +39,7 @@ fn main() -> Result<()> {
 
 	let mut js_output = None;
 	let mut memories = Vec::new();
-	let mut binary_parser = Some(BinaryParser::default());
-	let mut binary_data = None;
-	let mut test_parser = Some(TestParser::default());
-	let mut test_data = None;
+	let mut test_parser = TestParser::new();
 
 	for payload in Parser::new(0).parse_all(&wasm_bytes) {
 		let payload = payload?;
@@ -66,67 +61,42 @@ fn main() -> Result<()> {
 		if let Payload::CustomSection(section) = &payload
 			&& section.name() == js_bindgen_cli_lib::JS_OUTPUT_SECTION
 		{
-			let raw: js_bindgen_cli_lib::JsOutput<&str> = postcard::from_bytes(section.data())?;
-			let mut output = Vec::new();
-
-			let Some(main_memory) = memories.iter().find(|memory| {
-				memory.module == raw.main_memory.module && memory.name == raw.main_memory.name
-			}) else {
-				bail!("unable to find main memory as encoded")
-			};
-
-			raw.js(&mut output, main_memory.data)?;
-			js_output = Some(output);
+			js_output = Some(postcard::from_bytes(section.data())?);
 		}
 
-		if let Some(parser) = test_parser.take() {
-			match parser.parse(&payload)? {
-				ControlFlow::Continue(parser) => test_parser = Some(parser),
-				ControlFlow::Break(data) => test_data = Some(data),
-			}
-		}
+		test_parser.parse(&payload)?;
 
-		if let Some(parser) = binary_parser.take() {
-			match parser.parse(&payload)? {
-				ControlFlow::Continue(parser) => binary_parser = Some(parser),
-				ControlFlow::Break(data) => binary_data = data,
-			}
-		}
-
-		if js_output.is_some()
-			&& (test_data.is_some() || (test_parser.is_none() && binary_parser.is_none()))
-		{
+		// We found everything we need.
+		if js_output.is_some() && test_parser.found() {
 			break;
 		}
 	}
 
-	let run_data = if let Some(tests) = test_data {
+	let js_output: JsOutput<&str> = js_output.context("unable to find JS output")?;
+	let Some(main_memory) = memories.iter().find(|memory| {
+		memory.module == js_output.main_memory.module && memory.name == js_output.main_memory.name
+	}) else {
+		bail!("unable to find main memory as encoded")
+	};
+
+	let run_data = if let Some(tests) = test_parser.into_tests() {
 		TestCli::run(iter::once(binary).chain(args), tests)
-	} else if let Some(main) = binary_data {
+	} else {
 		Some(RunData::Binary {
-			wasm64: main.wasm64,
-			memory: main.memory,
+			wasm64: main_memory.data.memory64,
+			memory: js_output.main_memory,
 			args: iter::once(file).chain(args).collect(),
 		})
-	} else {
-		bail!("no target found to run")
 	};
 
 	if let Some(run_data) = run_data {
-		let js_output = if let Some(js_output) = js_output {
-			JsOutput::Output(js_output)
-		} else {
-			// The JS file has the same name, just a different file extension.
-			let path = wasm_path.with_extension("mjs");
-			println!("{}", path.display());
-			JsOutput::File {
-				file: ReadFile::new(&path)?,
-				path,
-			}
-		};
+		let mut js_file = Vec::new();
+		js_output.js(&mut js_file, main_memory.data)?;
+		drop(js_output);
+
 		let run_data = serde_json::to_string(&run_data).unwrap();
 
-		Runner::new(wasm_path, wasm_bytes, js_output, run_data).run()?;
+		Runner::new(wasm_path, wasm_bytes, js_file, run_data).run()?;
 	}
 
 	Ok(())
