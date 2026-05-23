@@ -195,11 +195,7 @@ pub fn processing(
 		main_memory.module, main_memory.name
 	)?;
 
-	for (module, names) in js_store
-		.js_import()
-		.into_iter()
-		.filter(|(_, names)| !names.is_empty())
-	{
+	for (module, names) in js_store.js_import() {
 		writeln!(js_output, "\t\t\t{module}: {{")?;
 
 		for (name, js) in names {

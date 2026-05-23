@@ -1,18 +1,58 @@
+use std::ffi::OsString;
+use std::ops::ControlFlow;
+
 use anyhow::{Context, Result, bail};
+use clap::{Parser, ValueEnum};
 use js_bindgen_shared::IS_TEST_SECTION;
 use serde::{Serialize, Serializer};
-use wasmparser::{Parser, Payload};
+use wasmparser::Payload;
 
-pub struct TestData {
-	pub is_test: bool,
-	pub filtered_count: usize,
-	pub tests: Vec<TestEntry>,
+use crate::run_data::RunData;
+
+#[derive(Parser)]
+#[command(name = "js-bindgen-runner", version, about, long_about = None)]
+pub struct TestCli {
+	/// Run ignored and not ignored tests.
+	#[arg(long, conflicts_with = "ignored")]
+	include_ignored: bool,
+	/// Run only ignored tests.
+	#[arg(long, conflicts_with = "include_ignored")]
+	ignored: bool,
+	/// Exactly match filters rather than by substring.
+	#[arg(long)]
+	exact: bool,
+	/// List all tests and benchmarks.
+	#[arg(long)]
+	list: bool,
+	/// don't capture `console.*()` of each task, allow printing directly.
+	#[arg(long, alias = "nocapture")]
+	no_capture: bool,
+	/// Configure formatting of output.
+	#[arg(long, value_enum)]
+	format: Option<FormatSetting>,
+	/// The FILTER string is tested against the name of all tests, and only
+	/// those tests whose names contain the filter are run. Multiple filter
+	/// strings may be passed, which will run all tests matching any of the
+	/// filters.
+	filter: Vec<String>,
+}
+
+/// Possible values for the `--format` option.
+#[derive(Clone, Copy, ValueEnum)]
+enum FormatSetting {
+	/// Display one character per test
+	Terse,
+}
+
+struct TestEntries {
+	filtered_count: usize,
+	tests: Vec<TestEntry>,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TestEntry {
-	pub name: String,
+	name: String,
 	import_name: String,
 	ignore: TestAttr,
 	should_panic: TestAttr,
@@ -24,78 +64,136 @@ enum TestAttr {
 	WithText(String),
 }
 
-impl TestEntry {
-	pub fn read(
-		wasm_bytes: &[u8],
-		filter: &[String],
-		ignored_only: bool,
-		exact: bool,
-	) -> Result<TestData> {
-		let mut is_test = false;
-		let mut tests = Vec::new();
-		let mut total = 0;
+#[derive(Default)]
+pub struct TestParser {
+	is_test: bool,
+}
 
-		for payload in Parser::new(0).parse_all(wasm_bytes) {
-			let Payload::CustomSection(section) = payload? else {
-				continue;
-			};
-
-			if section.name() == IS_TEST_SECTION {
-				is_test = true;
-				continue;
-			}
-
-			if section.name() != "js_bindgen.test" {
-				continue;
-			}
-
-			is_test = true;
-			let mut data = section.data();
-
-			while !data.is_empty() {
-				let len = u32::from_le_bytes(
-					data.split_off(..4)
-						.context("invalid test encoding")?
-						.try_into()?,
-				) as usize;
-				let mut data = data.split_off(..len).context("invalid test encoding")?;
-
-				let ignore = TestAttr::parse(&mut data)?;
-				let should_panic = TestAttr::parse(&mut data)?;
-				let import_name = str::from_utf8(data)?;
-				let name = import_name
-					.split_once("::")
-					.unwrap_or_else(|| panic!("unexpected test name: {import_name}"))
-					.1;
-
-				total += 1;
-
-				let matches_ignore = !ignored_only || ignore.is_some();
-				let matches_filter = filter.is_empty()
-					|| filter.iter().any(|filter| {
-						if exact {
-							filter == name
-						} else {
-							name.contains(filter)
-						}
-					});
-
-				if matches_ignore && matches_filter {
-					tests.push(Self {
-						name: name.to_string(),
-						import_name: import_name.to_string(),
-						ignore,
-						should_panic,
-					});
-				}
-			}
+impl TestParser {
+	pub fn parse(mut self, payload: &Payload<'_>) -> Result<ControlFlow<Vec<TestEntry>, Self>> {
+		if let Payload::End(_) = payload
+			&& self.is_test
+		{
+			return Ok(ControlFlow::Break(Vec::new()));
 		}
+
+		let Payload::CustomSection(section) = payload else {
+			return Ok(ControlFlow::Continue(self));
+		};
+
+		if section.name() == IS_TEST_SECTION {
+			self.is_test = true;
+			return Ok(ControlFlow::Continue(self));
+		}
+
+		if section.name() != "js_bindgen.test" {
+			return Ok(ControlFlow::Continue(self));
+		}
+
+		let mut tests = Vec::new();
+		let mut section = section.data();
+
+		while !section.is_empty() {
+			let len = u32::from_le_bytes(
+				section
+					.split_off(..4)
+					.context("invalid test encoding")?
+					.try_into()?,
+			) as usize;
+			let mut section = section.split_off(..len).context("invalid test encoding")?;
+
+			let ignore = TestAttr::parse(&mut section)?;
+			let should_panic = TestAttr::parse(&mut section)?;
+			let import_name = str::from_utf8(section)?;
+			let name = import_name
+				.split_once("::")
+				.unwrap_or_else(|| panic!("unexpected test name: {import_name}"))
+				.1;
+
+			tests.push(TestEntry {
+				name: name.to_string(),
+				import_name: import_name.to_string(),
+				ignore,
+				should_panic,
+			});
+		}
+
+		Ok(ControlFlow::Break(tests))
+	}
+}
+
+impl TestEntries {
+	fn new(mut tests: Vec<TestEntry>, filter: &[String], ignored_only: bool, exact: bool) -> Self {
+		let total = tests.len();
+
+		tests.retain(|entry| {
+			let matches_ignore = !ignored_only || entry.ignore.is_some();
+			let matches_filter = filter.is_empty()
+				|| filter.iter().any(|filter| {
+					if exact {
+						filter == &entry.name
+					} else {
+						entry.name.contains(filter)
+					}
+				});
+
+			matches_ignore && matches_filter
+		});
 
 		tests.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 		let filtered_count = total - tests.len();
 
-		Ok(TestData {
-			is_test,
+		Self {
+			filtered_count,
+			tests,
+		}
+	}
+}
+
+impl TestCli {
+	pub fn run(args: impl Iterator<Item = OsString>, tests: Vec<TestEntry>) -> Option<RunData> {
+		let cli = Self::parse_from(args);
+
+		let TestEntries {
+			filtered_count,
+			tests,
+		} = TestEntries::new(tests, cli.filter.as_ref(), cli.ignored, cli.exact);
+
+		if cli.list {
+			match cli.format {
+				Some(FormatSetting::Terse) => {
+					for test in &tests {
+						println!("{}: test", test.name);
+					}
+				}
+				None => {
+					for test in &tests {
+						println!("{}: test", test.name);
+					}
+					println!();
+					println!("{} tests, 0 benchmarks", tests.len());
+				}
+			}
+			return None;
+		}
+
+		if tests.is_empty() {
+			const GREEN: &str = "\u{001b}[32m";
+			const RESET: &str = "\u{001b}[0m";
+
+			println!();
+			println!("running 0 tests");
+			println!();
+			println!(
+				"test result: {GREEN}ok{RESET}. 0 passed; 0 failed; 0 ignored; 0 measured; \
+				 {filtered_count} filtered out; finished in 0.00s"
+			);
+			println!();
+			return None;
+		}
+
+		Some(RunData::Test {
+			no_capture: cli.no_capture,
 			filtered_count,
 			tests,
 		})
