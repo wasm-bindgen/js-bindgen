@@ -6,7 +6,7 @@ publish = false
 
 [workspace]
 resolver = "3"
-members = ["js-bindgen", "js-sys", "test", "web-sys"]
+members = ["js-bindgen", "js-sys", "test", "wabii", "web-sys"]
 
 [workspace.package]
 edition = "2024"
@@ -18,11 +18,13 @@ include = [
 	"/Cargo.toml",
 	"/LICENSE-APACHE",
 	"/LICENSE-MIT",
+	"/*.ron",
 	"/src/**/*.rs",
+	"/src/**/*.wat",
 ]
 
 [workspace.dependencies]
-js-bindgen = { path = "js-bindgen" }
+js-bindgen = { path = "js-bindgen", default-features = false }
 js-bindgen-macro = { path = "../host/macro" }
 js-bindgen-test = { path = "test" }
 js-bindgen-test-macro = { path = "../host/test-macro" }
