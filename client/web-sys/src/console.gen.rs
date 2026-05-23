@@ -2,14 +2,6 @@
 
 #![allow(warnings)]
 
-//! ```rust
-//! # #[js_bindgen_test::test]
-//! # fn doctest() {
-//! let log = js_sys::JsString::from("hello world");
-//! web_sys::console::log(&[log]);
-//! # }
-//! ````
-
 use js_sys::{js_bindgen, r#macro};
 use js_sys::hazard::{Input, Output};
 use js_sys::JsValue;

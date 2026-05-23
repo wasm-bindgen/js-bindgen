@@ -146,6 +146,7 @@ fn test_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 	Ok(quote! {
 		#function
 
+		#[cfg(test)]
 		const _: () = {
 			const DATA: [::core::primitive::u8; #data_len] = *#data;
 
@@ -168,6 +169,7 @@ fn test_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 			static CUSTOM_SECTION: Layout = Layout(LEN_ARR, DATA, TEST_ARR);
 		};
 
+		#[cfg(test)]
 		const _: () = {
 			#[unsafe(export_name = #foreign_test)]
 			extern "C" fn __jbg_test() {

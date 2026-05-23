@@ -10,7 +10,7 @@ bench = false
 doctest = false
 test = false
 
-[dependencies]
+[target.'cfg(all(target_family = "wasm", any(target_os = "none", target_os = "unknown")))'.dependencies]
 js-bindgen-test-macro = { workspace = true }
 js-sys = { workspace = true, features = ["macro"] }
 

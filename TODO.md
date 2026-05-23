@@ -10,6 +10,7 @@
 # High Priority
 
 - Test Runner:
+  - Note that doctests don't work.
   - Consider moving environment variables to CLI arguments.
   - Lint and format TS files and minimize JS files.
   - Add support for `--test-threads` and multi-threaded tests where possible for `panic = "abort"`.
