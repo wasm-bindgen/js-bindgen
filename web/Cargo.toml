@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+members = ["playground"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+js-bindgen = { path = "../client/js-bindgen" }
+js-sys = { path = "../client/js-sys" }
+
+[workspace.lints.clippy]
+alloc_instead_of_core = "warn"
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+explicit_deref_methods = "allow"
+pedantic = { level = "warn", priority = -1 }
+struct_excessive_bools = "allow"
+tabs_in_doc_comments = "allow"
+undocumented_unsafe_blocks = "warn"
+use_self = "warn"
+wildcard_imports = "allow"
+
+# TODO: remove
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+too_many_lines = "allow"
+
+[workspace.lints.rust]
+linker_messages = "deny"

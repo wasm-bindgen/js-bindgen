@@ -1,0 +1,24 @@
+(
+	imports: [
+		(
+			module: "wabii",
+			name: "random.atomics_fill",
+			js: r#"(ptr, len) => {
+  ptr = Number(ptr)
+  len = Number(len)
+  const bytes = new Uint8Array(len)
+  globalThis.crypto.getRandomValues(bytes)
+  new Uint8Array(this.#memory.buffer, ptr, len).set(bytes)
+}"#,
+		),
+		(
+			module: "wabii",
+			name: "random.fill",
+			js: r#"(ptr, len) => {
+  ptr = Number(ptr)
+  len = Number(len)
+  globalThis.crypto.getRandomValues(new Uint8Array(this.#memory.buffer, ptr, len))
+}"#,
+		),
+	],
+)

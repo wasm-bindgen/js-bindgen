@@ -2,6 +2,7 @@
 mod util;
 mod check;
 mod client;
+mod codegen;
 mod command;
 mod features;
 mod host;
@@ -15,6 +16,7 @@ use strum::EnumIter;
 
 use self::check::Check;
 use self::client::Client;
+use self::codegen::Codegen;
 use self::host::Host;
 
 #[derive(Parser)]
@@ -52,6 +54,7 @@ enum CliCommand {
 		#[command(subcommand)]
 		host: Host,
 	},
+	Codegen(Codegen),
 }
 
 fn main() -> Result<()> {
@@ -141,6 +144,7 @@ impl CliCommand {
 			}
 			Self::Client { client } => client.execute(verbose),
 			Self::Host { host } => host.execute(verbose),
+			Self::Codegen(codegen) => codegen.execute(),
 		}
 	}
 }
