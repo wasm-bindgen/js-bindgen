@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::io::{self, ErrorKind, Write};
 use std::net::{Ipv4Addr, SocketAddr};
 use std::ops::DerefMut;
-use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 
@@ -22,7 +21,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
 use crate::config::WorkerKind;
-use crate::runner::{SHARED_JS, SHARED_TERMINAL_JS};
+use crate::runner::{JsOutput, SHARED_JS, SHARED_TERMINAL_JS};
 
 const INDEX_HTML: &str = include_str!("js/index.html");
 const BROWSER_JS: &str = include_str!("js/dom/browser.mjs");
@@ -49,7 +48,7 @@ struct ServerState {
 	signals: Signals,
 	reports: Mutex<ReportState>,
 	wasm_bytes: ReadFile,
-	import_js: ReadFile,
+	js_output: JsOutput,
 	run_data_json: String,
 }
 
@@ -72,7 +71,7 @@ impl HttpServer {
 		headless: bool,
 		worker: Option<WorkerKind>,
 		wasm_bytes: ReadFile,
-		imports_path: &Path,
+		js_output: JsOutput,
 		run_data_json: String,
 	) -> Result<Self> {
 		let listener = Self::bind_address(address).await?;
@@ -87,7 +86,7 @@ impl HttpServer {
 
 		let state = Arc::new(ServerState {
 			wasm_bytes,
-			import_js: ReadFile::new(imports_path)?,
+			js_output,
 			run_data_json,
 			signals: Signals::default(),
 			reports: Mutex::new(ReportState::default()),
@@ -157,7 +156,7 @@ impl HttpServer {
 			.route(
 				"/imports.mjs",
 				get(async |State(state): State<Arc<ServerState>>| {
-					response("application/javascript", state.import_js.to_owned())
+					response("application/javascript", state.js_output.to_owned())
 				}),
 			);
 

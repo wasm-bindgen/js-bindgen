@@ -65,7 +65,7 @@ fn main() -> Result<()> {
 
 	let output = quote! {
 		const OPT_KIND: [(&str, OptKind); #length] = [
-			// Relevant `rust-ld` arguments.
+			// Relevant `lld` arguments.
 			("flavor", OptKind::Separate),
 			// `wasm-ld` arguments.
 			#((#arg_name, OptKind::#arg_flag)),*

@@ -89,15 +89,15 @@ impl Check {
 					command::run("RustSec", command, verbose)?;
 				}
 				Tool::Host(HostTool::NpmAudit) => {
-					Self::npm_lock_file("js-bindgen-ld", "ld/src/js", verbose)?;
+					Self::npm_lock_file("js-bindgen-cli-lib", "cli-lib/src/js", verbose)?;
 					Self::npm_lock_file("js-bindgen-runner", "runner/src/js", verbose)?;
 				}
 				Tool::Host(HostTool::Tsc) => {
-					Self::tsc("js-bindgen-ld", "ld/src/js", verbose)?;
+					Self::tsc("js-bindgen-cli-lib", "cli-lib/src/js", verbose)?;
 					Self::tsc("js-bindgen-runner", "runner/src/js", verbose)?;
 				}
 				Tool::Host(HostTool::EsLint) => {
-					Self::eslint("js-bindgen-ld", "ld/src/js", verbose)?;
+					Self::eslint("js-bindgen-cli-lib", "cli-lib/src/js", verbose)?;
 					Self::eslint("js-bindgen-runner", "runner/src/js", verbose)?;
 				}
 				Tool::Shared(CheckTool::Tombi) => {

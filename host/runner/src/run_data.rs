@@ -11,11 +11,11 @@ use crate::test::TestEntry;
 	rename_all = "camelCase",
 	rename_all_fields = "camelCase"
 )]
-pub enum RunData {
+pub enum RunData<'a> {
 	Test {
 		no_capture: bool,
 		filtered_count: usize,
-		tests: Vec<TestEntry>,
+		tests: Vec<TestEntry<'a>>,
 	},
 	Binary {
 		wasm64: bool,

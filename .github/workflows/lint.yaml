@@ -106,7 +106,7 @@ jobs:
       fail-fast: false
       matrix:
         package:
-          - { name: js-bindgen-ld, path: host/ld/src/js }
+          - { name: js-bindgen-cli-lib, path: host/cli-lib/src/js }
           - { name: js-bindgen-runner, path: host/runner/src/js }
 
     defaults:
@@ -140,7 +140,7 @@ jobs:
       fail-fast: false
       matrix:
         package:
-          - { name: js-bindgen-ld, path: host/ld/src/js }
+          - { name: js-bindgen-cli-lib, path: host/cli-lib/src/js }
           - { name: js-bindgen-runner, path: host/runner/src/js }
 
     defaults:

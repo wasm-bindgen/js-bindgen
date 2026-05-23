@@ -1,5 +1,5 @@
 //! This file is not shipped to Crates.io, but it is present when depending on
-//! `js-bindgen-ld` via `git` or `path`.
+//! `js-bindgen-cli-lib` via `git` or `path`.
 
 use std::io::ErrorKind;
 use std::path::Path;

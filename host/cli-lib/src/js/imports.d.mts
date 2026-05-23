@@ -1,6 +1,6 @@
 export declare class JsBindgen {
     #private;
-    constructor(module: WebAssembly.Module);
+    constructor(module: WebAssembly.Module, memory?: WebAssembly.Memory);
     get importObject(): WebAssembly.Imports;
     extendImportObject(imports: WebAssembly.Imports): void;
     instantiate(): Promise<WebAssembly.Instance>;

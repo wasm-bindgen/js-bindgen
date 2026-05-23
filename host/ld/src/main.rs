@@ -32,19 +32,12 @@ fn main() {
 		.unwrap();
 
 	if status.success() {
-		// Unfortunately we don't receive the final output path adjustments Cargo makes.
-		// So for the JS file we just figure it out ourselves.
-		let package =
-			env::var_os("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` should be present");
 		let wasm_input = ReadFile::new(output_path).expect("output file should be readable");
 
-		let js_output_path = output_path.with_extension("mjs");
-		let mut js_output = BufWriter::new(
-			File::create(&js_output_path).expect("output JS file should be writable"),
-		);
+		let output_js = env::var_os("JBG_OUTPUT_JS").is_some_and(|value| value == "1");
 
-		let wasm_output =
-			post::processing(&wasm_input, &mut js_output, main_memory, js_store, is_test).unwrap();
+		let (wasm_output, main_memory, js_output) =
+			post::processing(&wasm_input, main_memory, js_store, is_test, !output_js).unwrap();
 		drop(wasm_input);
 
 		// We could write into the file directly, but `wasm-encoder` doesn't support
@@ -54,16 +47,16 @@ fn main() {
 		// we can keep parsing and writing at the same time without allocating memory.
 		fs::write(output_path, wasm_output).expect("output Wasm file should be writable");
 
-		js_output.into_inner().unwrap().sync_all().unwrap();
+		if output_js {
+			let js_output_path = output_path.with_extension("mjs");
+			let mut js_output_file = BufWriter::new(
+				File::create(&js_output_path).expect("output JS file should be writable"),
+			);
 
-		// After the linker is done, Cargo copies the final output to be the name of the
-		// package without the fingerprint. We do the same for the JS file. TODO: Skip
-		// when detecting test.
-		fs::copy(
-			js_output_path,
-			output_path.with_file_name(package).with_extension("mjs"),
-		)
-		.expect("copy JS file should be success");
+			js_output.js(&mut js_output_file, main_memory).unwrap();
+
+			js_output_file.into_inner().unwrap().sync_all().unwrap();
+		}
 	}
 
 	if !status.success() {

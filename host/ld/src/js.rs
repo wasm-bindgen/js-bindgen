@@ -1,6 +1,7 @@
 use anyhow::{Result, bail, ensure};
 use foldhash::fast::FixedState;
 use hashbrown::{HashMap, HashSet};
+use js_bindgen_cli_lib::{JsOutput, MainMemory};
 use js_bindgen_ld_shared::{JsBindgenJsSectionParser, JsRequiredEmbed};
 use wasmparser::{CustomSectionReader, Import};
 
@@ -140,8 +141,7 @@ impl JsStore {
 		if !self
 			.embed
 			.get(&embed.module)
-			.iter()
-			.any(|names| names.contains_key(&embed.name))
+			.is_some_and(|names| names.contains_key(&embed.name))
 		{
 			if let Some(js) = self
 				.provided_embed
@@ -175,12 +175,12 @@ impl JsStore {
 		Ok(())
 	}
 
-	pub fn js_import(&self) -> &FixedHashMap<String, FixedHashMap<String, String>> {
-		&self.import
-	}
-
-	pub fn js_embed(&self) -> &FixedHashMap<String, FixedHashMap<String, String>> {
-		&self.embed
+	pub fn into_output(self, main_memory: MainMemory<'_>) -> JsOutput<'_, String> {
+		JsOutput {
+			main_memory,
+			js_import: self.import,
+			js_embed: self.embed,
+		}
 	}
 }
 

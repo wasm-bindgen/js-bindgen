@@ -1,1 +1,1 @@
-../../../ld/src/js/imports.d.mts
+../../../cli-lib/src/js/imports.d.mts

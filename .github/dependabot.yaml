@@ -33,7 +33,7 @@ updates:
 
   - package-ecosystem: npm
     directories:
-      - /host/ld/src/js
+      - /host/cli-lib/src/js
       - /host/runner/src/js
     schedule:
       interval: daily

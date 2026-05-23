@@ -44,16 +44,16 @@ enum FormatSetting {
 	Terse,
 }
 
-struct TestEntries {
+struct TestEntries<'a> {
 	filtered_count: usize,
-	tests: Vec<TestEntry>,
+	tests: Vec<TestEntry<'a>>,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TestEntry {
-	name: String,
-	import_name: String,
+pub struct TestEntry<'a> {
+	name: &'a str,
+	import_name: &'a str,
 	ignore: TestAttr,
 	should_panic: TestAttr,
 }
@@ -70,7 +70,10 @@ pub struct TestParser {
 }
 
 impl TestParser {
-	pub fn parse(mut self, payload: &Payload<'_>) -> Result<ControlFlow<Vec<TestEntry>, Self>> {
+	pub fn parse<'p>(
+		mut self,
+		payload: &Payload<'p>,
+	) -> Result<ControlFlow<Vec<TestEntry<'p>>, Self>> {
 		if let Payload::End(_) = payload
 			&& self.is_test
 		{
@@ -111,8 +114,8 @@ impl TestParser {
 				.1;
 
 			tests.push(TestEntry {
-				name: name.to_string(),
-				import_name: import_name.to_string(),
+				name,
+				import_name,
 				ignore,
 				should_panic,
 			});
@@ -122,8 +125,13 @@ impl TestParser {
 	}
 }
 
-impl TestEntries {
-	fn new(mut tests: Vec<TestEntry>, filter: &[String], ignored_only: bool, exact: bool) -> Self {
+impl<'a> TestEntries<'a> {
+	fn new(
+		mut tests: Vec<TestEntry<'a>>,
+		filter: &[String],
+		ignored_only: bool,
+		exact: bool,
+	) -> Self {
 		let total = tests.len();
 
 		tests.retain(|entry| {
@@ -131,7 +139,7 @@ impl TestEntries {
 			let matches_filter = filter.is_empty()
 				|| filter.iter().any(|filter| {
 					if exact {
-						filter == &entry.name
+						filter == entry.name
 					} else {
 						entry.name.contains(filter)
 					}
@@ -140,7 +148,7 @@ impl TestEntries {
 			matches_ignore && matches_filter
 		});
 
-		tests.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+		tests.sort_unstable_by(|a, b| a.name.cmp(b.name));
 		let filtered_count = total - tests.len();
 
 		Self {

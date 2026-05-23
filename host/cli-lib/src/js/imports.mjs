@@ -6,10 +6,16 @@ export class JsBindgen {
     #jsEmbed;
     // @ts-expect-error: Used in placeholder.
     // eslint-disable-next-line no-unused-private-class-members
-    #memory = JBG_PLACEHOLDER_MEMORY;
+    #memory;
     #module;
-    constructor(module) {
+    constructor(module, memory) {
         this.#module = module;
+        if (memory) {
+            this.#memory = memory;
+        }
+        else {
+            this.#memory = JBG_PLACEHOLDER_MEMORY;
+        }
         this.#jsEmbed = JBG_PLACEHOLDER_JS_EMBED;
         this.#importObject = JBG_PLACEHOLDER_IMPORT_OBJECT;
     }
@@ -42,7 +48,7 @@ export class JsBindgen {
             Object.assign(this.#importObject[namespace], imports[namespace]);
         }
     }
-    instantiate() {
+    async instantiate() {
         if (this.#finished) {
             throw new Error("create a new `JsBindgen` class");
         }

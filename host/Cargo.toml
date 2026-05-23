@@ -3,6 +3,7 @@ resolver = "3"
 members = [
 	"cargo-js-sys",
 	"cargo-shim",
+	"cli-lib",
 	"dev",
 	"inline-snap",
 	"inline-snap-macro",
@@ -51,6 +52,7 @@ indoc = "2"
 inline-snap = { path = "inline-snap" }
 inline-snap-macro = { path = "inline-snap-macro" }
 itertools = { version = "0.14", default-features = false }
+js-bindgen-cli-lib = { path = "cli-lib" }
 js-bindgen-ld-shared = { path = "ld-shared" }
 js-bindgen-shared = { path = "shared" }
 js-sys-bindgen = { path = "js-sys-bindgen" }
@@ -59,6 +61,7 @@ mime = "0.3"
 nix = "0.31"
 object = { version = "0.39", default-features = false, features = ["archive", "read_core", "std"] }
 paste = "1"
+postcard = { version = "1", default-features = false }
 prettyplease = { version = "0.2", features = ["verbatim"] }
 proc-macro2 = { version = "1", default-features = false }
 quote = { version = "1", default-features = false }

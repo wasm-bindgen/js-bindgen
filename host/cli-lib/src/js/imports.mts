@@ -11,11 +11,18 @@ export class JsBindgen {
 	#jsEmbed: Record<string, Record<string, any>>
 	// @ts-expect-error: Used in placeholder.
 	// eslint-disable-next-line no-unused-private-class-members
-	#memory: WebAssembly.Memory = JBG_PLACEHOLDER_MEMORY
+	#memory: WebAssembly.Memory
 	#module: WebAssembly.Module
 
-	constructor(module: WebAssembly.Module) {
+	constructor(module: WebAssembly.Module, memory?: WebAssembly.Memory) {
 		this.#module = module
+
+		if (memory) {
+			this.#memory = memory
+		} else {
+			this.#memory = JBG_PLACEHOLDER_MEMORY
+		}
+
 		this.#jsEmbed = JBG_PLACEHOLDER_JS_EMBED
 		this.#importObject = JBG_PLACEHOLDER_IMPORT_OBJECT
 	}
@@ -54,7 +61,7 @@ export class JsBindgen {
 		}
 	}
 
-	instantiate(): Promise<WebAssembly.Instance> {
+	async instantiate(): Promise<WebAssembly.Instance> {
 		if (this.#finished) {
 			throw new Error("create a new `JsBindgen` class")
 		}

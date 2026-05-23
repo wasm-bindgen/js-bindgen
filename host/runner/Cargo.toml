@@ -17,7 +17,9 @@ axum = { workspace = true }
 clap = { workspace = true }
 fantoccini = { workspace = true }
 futures-util = { workspace = true }
+js-bindgen-cli-lib = { workspace = true }
 js-bindgen-shared = { workspace = true, features = ["memmap", "web-driver"] }
+postcard = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_repr = { workspace = true }

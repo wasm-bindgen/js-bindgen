@@ -16,9 +16,10 @@ anyhow = { workspace = true }
 argfile = { workspace = true }
 foldhash = { workspace = true }
 hashbrown = { workspace = true, features = ["default-hasher"] }
-itertools = { workspace = true }
+js-bindgen-cli-lib = { workspace = true }
 js-bindgen-ld-shared = { workspace = true }
 js-bindgen-shared = { workspace = true, features = ["memmap"] }
+postcard = { workspace = true, features = ["alloc"] }
 wasm-encoder = { workspace = true }
 wasmparser = { workspace = true }
 

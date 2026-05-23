@@ -4,6 +4,7 @@ use std::path::Path;
 use std::time::SystemTime;
 
 use anyhow::Result;
+use js_bindgen_cli_lib::MainMemory;
 use js_bindgen_ld_shared::JsBindgenWatSectionParser;
 use wasmparser::{Parser, Payload};
 
@@ -16,12 +17,6 @@ pub struct PreOutput<'args> {
 	pub main_memory: MainMemory<'args>,
 	pub js_store: JsStore,
 	pub is_test: bool,
-}
-
-#[derive(Clone, Copy)]
-pub struct MainMemory<'a> {
-	pub module: &'a str,
-	pub name: &'a str,
 }
 
 #[derive(Clone, Copy)]

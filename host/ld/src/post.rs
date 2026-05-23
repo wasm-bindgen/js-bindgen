@@ -1,28 +1,22 @@
-use std::io::Write;
-use std::str;
-
 use anyhow::{Context, Result, bail};
-use itertools::{Itertools, Position};
+use js_bindgen_cli_lib::{JS_OUTPUT_SECTION, JsOutput, MainMemory};
 use js_bindgen_shared::IS_TEST_SECTION;
 use wasm_encoder::{
 	CustomSection, EntityType, ImportSection, Module, ProducersField, ProducersSection, RawSection,
 	Section,
 };
-use wasmparser::{Encoding, KnownCustom, Parser, Payload, TypeRef};
+use wasmparser::{Encoding, KnownCustom, MemoryType, Parser, Payload, TypeRef};
 
 use crate::js::JsStore;
-use crate::pre::MainMemory;
-
-const IMPORTS_JS: &str = include_str!("js/imports.mjs");
 
 /// This removes our custom sections and generates the JS import file.
-pub fn processing(
+pub fn processing<'a>(
 	wasm_input: &[u8],
-	mut js_output: impl Write,
-	main_memory: MainMemory<'_>,
+	main_memory: MainMemory<'a>,
 	mut js_store: JsStore,
 	is_test: bool,
-) -> Result<Vec<u8>> {
+	embed_js_output: bool,
+) -> Result<(Vec<u8>, MemoryType, JsOutput<'a, String>)> {
 	// Start building final Wasm and JS.
 	let mut wasm_output = Vec::new();
 
@@ -110,6 +104,9 @@ pub fn processing(
 		}
 	}
 
+	let memory = memory.context("main memory should be present")?;
+	js_store.assert_expected()?;
+
 	if is_test {
 		CustomSection {
 			name: IS_TEST_SECTION.into(),
@@ -118,111 +115,15 @@ pub fn processing(
 		.append_to(&mut wasm_output);
 	}
 
-	let memory = memory.context("main memory should be present")?;
-	js_store.assert_expected()?;
+	let output = js_store.into_output(main_memory);
 
-	let (js_memory, rest) = IMPORTS_JS.split_once("JBG_PLACEHOLDER_MEMORY").unwrap();
-	let (js_embed, rest) = rest.split_once("JBG_PLACEHOLDER_JS_EMBED").unwrap();
-	let (js_import_object, js_rest) = rest.split_once("JBG_PLACEHOLDER_IMPORT_OBJECT").unwrap();
-
-	// `WebAssembly.Memory`.
-	js_output.write_all(js_memory.as_bytes())?;
-
-	js_output.write_all(b"new WebAssembly.Memory({ ")?;
-
-	if memory.memory64 {
-		write!(js_output, "initial: {}n", memory.initial)?;
-	} else {
-		write!(js_output, "initial: {}", memory.initial)?;
-	}
-
-	if let Some(max) = memory.maximum {
-		if memory.memory64 {
-			write!(js_output, ", maximum: {max}n")?;
-		} else {
-			write!(js_output, ", maximum: {max}")?;
+	if embed_js_output {
+		CustomSection {
+			name: JS_OUTPUT_SECTION.into(),
+			data: postcard::to_allocvec(&output)?.into(),
 		}
+		.append_to(&mut wasm_output);
 	}
 
-	if memory.memory64 {
-		js_output.write_all(b", address: 'i64'")?;
-	}
-
-	if memory.shared {
-		js_output.write_all(b", shared: true")?;
-	}
-
-	js_output.write_all(b" })")?;
-
-	// Requested embedded JS.
-	js_output.write_all(js_embed.as_bytes())?;
-
-	js_output.write_all(b"{\n")?;
-
-	for (package, embeds) in js_store.js_embed() {
-		writeln!(js_output, "\t\t\t{package}: {{")?;
-
-		for (name, js) in embeds {
-			write!(js_output, "\t\t\t\t'{name}': ")?;
-
-			for (position, line) in js.lines().with_position() {
-				if let Position::Middle | Position::Last = position {
-					if line.is_empty() {
-						js_output.write_all(b"\n")?;
-					} else {
-						js_output.write_all(b"\n\t\t\t\t")?;
-					}
-				}
-
-				js_output.write_all(line.as_bytes())?;
-			}
-
-			js_output.write_all(b",\n")?;
-		}
-
-		js_output.write_all(b"\t\t\t},\n")?;
-	}
-
-	js_output.write_all(b"\t\t}")?;
-
-	// `importObject`
-	js_output.write_all(js_import_object.as_bytes())?;
-
-	js_output.write_all(b"{\n")?;
-	writeln!(
-		js_output,
-		"\t\t\t{}: {{ {}: this.#memory }},\n",
-		main_memory.module, main_memory.name
-	)?;
-
-	for (module, names) in js_store.js_import() {
-		writeln!(js_output, "\t\t\t{module}: {{")?;
-
-		for (name, js) in names {
-			write!(js_output, "\t\t\t\t'{name}': ")?;
-
-			for (position, line) in js.lines().with_position() {
-				if let Position::Middle | Position::Last = position {
-					if line.is_empty() {
-						js_output.write_all(b"\n")?;
-					} else {
-						js_output.write_all(b"\n\t\t\t\t")?;
-					}
-				}
-
-				js_output.write_all(line.as_bytes())?;
-			}
-
-			js_output.write_all(b",\n")?;
-		}
-
-		js_output.write_all(b"\t\t\t},\n")?;
-	}
-
-	js_output.write_all(b"\t\t}")?;
-
-	// Finish
-	js_output.write_all(js_rest.as_bytes())?;
-
-	Ok(wasm_output)
+	Ok((wasm_output, memory, output))
 }
