@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use std::{env, iter};
 
 use anyhow::{Context, Result, bail};
-use js_bindgen_cli_lib::JsOutput;
-use js_bindgen_shared::ReadFile;
+use js_bindgen_cli_lib::{JS_OUTPUT_SECTION, JsOutput};
+use js_bindgen_shared::{IS_COMPAT_SECTION, ReadFile};
 use wasmparser::{MemoryType, Parser, Payload, TypeRef};
 
 use crate::run_data::RunData;
@@ -37,6 +37,7 @@ fn main() -> Result<()> {
 	let wasm_bytes = ReadFile::new(&wasm_path)
 		.with_context(|| format!("failed to read Wasm file: {}", wasm_path.display()))?;
 
+	let mut web = true;
 	let mut js_output = None;
 	let mut memories = Vec::new();
 	let mut test_parser = TestParser::new();
@@ -58,16 +59,18 @@ fn main() -> Result<()> {
 			}
 		}
 
-		if let Payload::CustomSection(section) = &payload
-			&& section.name() == js_bindgen_cli_lib::JS_OUTPUT_SECTION
-		{
-			js_output = Some(postcard::from_bytes(section.data())?);
+		if let Payload::CustomSection(section) = &payload {
+			match section.name() {
+				IS_COMPAT_SECTION => web = false,
+				JS_OUTPUT_SECTION => js_output = Some(postcard::from_bytes(section.data())?),
+				_ => (),
+			}
 		}
 
 		test_parser.parse(&payload)?;
 
 		// We found everything we need.
-		if js_output.is_some() && test_parser.found() {
+		if js_output.is_some() && !web && test_parser.found() {
 			break;
 		}
 	}
@@ -82,10 +85,16 @@ fn main() -> Result<()> {
 	let run_data = if let Some(tests) = test_parser.into_tests() {
 		TestCli::run(iter::once(binary).chain(args), tests)
 	} else {
+		let args = if web {
+			iter::once(file).chain(args).collect()
+		} else {
+			Vec::new()
+		};
+
 		Some(RunData::Binary {
 			wasm64: main_memory.data.memory64,
 			memory: js_output.main_memory,
-			args: iter::once(file).chain(args).collect(),
+			args,
 		})
 	};
 

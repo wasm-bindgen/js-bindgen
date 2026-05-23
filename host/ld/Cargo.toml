@@ -14,6 +14,7 @@ test = false
 [dependencies]
 anyhow = { workspace = true }
 argfile = { workspace = true }
+clap = { workspace = true }
 foldhash = { workspace = true }
 hashbrown = { workspace = true, features = ["default-hasher"] }
 js-bindgen-cli-lib = { workspace = true }

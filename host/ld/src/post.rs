@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, bail};
 use js_bindgen_cli_lib::{JS_OUTPUT_SECTION, MainMemory};
-use js_bindgen_shared::IS_TEST_SECTION;
+use js_bindgen_shared::{IS_COMPAT_SECTION, IS_TEST_SECTION};
 use wasm_encoder::{
 	CustomSection, EntityType, ImportSection, Module, ProducersField, ProducersSection, RawSection,
 	Section,
@@ -14,6 +14,7 @@ pub fn processing(
 	wasm_input: &[u8],
 	main_memory: MainMemory<'_>,
 	mut js_store: JsStore,
+	web: bool,
 	is_test: bool,
 ) -> Result<Vec<u8>> {
 	// Start building final Wasm and JS.
@@ -101,6 +102,14 @@ pub fn processing(
 	}
 
 	js_store.assert_expected()?;
+
+	if !web {
+		CustomSection {
+			name: IS_COMPAT_SECTION.into(),
+			data: (&[]).into(),
+		}
+		.append_to(&mut wasm_output);
+	}
 
 	if is_test {
 		CustomSection {

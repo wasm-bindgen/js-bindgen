@@ -9,6 +9,7 @@
 
 # High Priority
 
+- Merge various custom sections we insert.
 - Test Runner:
   - Note that doctests don't work.
   - Consider moving environment variables to CLI arguments.

@@ -8,6 +8,7 @@ use js_bindgen_cli_lib::MainMemory;
 use js_bindgen_ld_shared::JsBindgenWatSectionParser;
 use wasmparser::{Parser, Payload};
 
+use crate::Args;
 use crate::js::JsStore;
 use crate::wasm_ld::WasmLdArguments;
 
@@ -25,8 +26,8 @@ enum Arch {
 	Wasm64,
 }
 
-pub fn processing(args: &[OsString]) -> PreOutput<'_> {
-	let wasm_ld_args = WasmLdArguments::new(&args[1..]);
+pub fn processing(args: &Args) -> PreOutput<'_> {
+	let wasm_ld_args = WasmLdArguments::new(&args.lld);
 
 	if wasm_ld_args
 		.arg_single("flavor")
@@ -66,7 +67,9 @@ pub fn processing(args: &[OsString]) -> PreOutput<'_> {
 
 	// Extract embedded WAT from object files.
 	for input in wasm_ld_args.inputs() {
-		is_test |= is_libtest(input);
+		if !args.web {
+			is_test |= is_libtest(input);
+		}
 
 		js_bindgen_ld_shared::ld_input_parser(input, |path, data, object_mtime| {
 			process_object(

@@ -10,7 +10,7 @@ use itertools::{Itertools, Position};
 use serde::{Deserialize, Serialize};
 use wasmparser::MemoryType;
 
-pub static JS_OUTPUT_SECTION: &str = "js_bindgen.js_output";
+pub const JS_OUTPUT_SECTION: &str = "js_bindgen.js_output";
 
 type FixedHashMap<K, V> = HashMap<K, V, FixedState>;
 
