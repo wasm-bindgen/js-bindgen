@@ -6,6 +6,7 @@ use std::time::SystemTime;
 use anyhow::Result;
 use js_bindgen_cli_lib::MainMemory;
 use js_bindgen_ld_shared::JsBindgenWatSectionParser;
+use js_bindgen_shared::ReadFile;
 use wasmparser::{Parser, Payload};
 
 use crate::Args;
@@ -130,6 +131,7 @@ fn process_object(
 					file_counter += 1;
 					let wasm_path =
 						archive_path.with_added_extension(format!("wasm.{file_counter}.o"));
+					let mut wasm_bytes = None;
 
 					// We first use a fingerprint to quickly determine whether `wasm.o` needs to be
 					// regenerated: https://doc.rust-lang.org/1.92.0/nightly-rustc/cargo/core/compiler/fingerprint/index.html#fingerprints-and-unithashs
@@ -143,8 +145,26 @@ fn process_object(
 							.is_none_or(|(t1, t2)| t1 < t2)
 					} {
 						let wasm = js_bindgen_ld_shared::wat_to_object(wasm64, wat)?;
-						fs::write(&wasm_path, wasm)?;
+						fs::write(&wasm_path, &wasm)?;
+						wasm_bytes = Some(wasm);
 					}
+
+					let exist_file;
+					let wasm_object: &[u8] = if let Some(bytes) = &wasm_bytes {
+						bytes
+					} else {
+						exist_file = ReadFile::new(&wasm_path)?;
+						&exist_file
+					};
+
+					process_object(
+						js_store,
+						wasm64,
+						&mut Vec::new(),
+						&wasm_path,
+						wasm_object,
+						js_bindgen_shared::mtime(&std::fs::metadata(&wasm_path)?)?,
+					)?;
 
 					add_args.push(wasm_path.into());
 				}
