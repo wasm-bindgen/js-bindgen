@@ -27,7 +27,7 @@ pub fn ld_input_parser<E>(
 	mut fun: impl FnMut(&Path, &[u8], Option<SystemTime>) -> Result<(), E>,
 ) -> Result<Result<(), E>, Error> {
 	// We found a UNIX archive.
-	if input.as_encoded_bytes().ends_with(b".rlib") {
+	if input.as_encoded_bytes().ends_with(b".rlib") || input.as_encoded_bytes().ends_with(b".a") {
 		let archive_path = Path::new(&input);
 		let archive_data = match ReadFile::new(archive_path) {
 			Ok(archive_data) => archive_data,
