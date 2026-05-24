@@ -86,7 +86,17 @@ fn main() -> Result<()> {
 		TestCli::run(iter::once(binary).chain(args), tests)
 	} else {
 		let args = if web {
-			iter::once(file).chain(args).collect()
+			iter::once(file)
+				.chain(args)
+				.map(|arg| {
+					arg.into_string().map_err(|arg| {
+						anyhow::anyhow!(
+							"non-UTF-8 argument passed to JS binary: {}",
+							arg.to_string_lossy()
+						)
+					})
+				})
+				.collect::<Result<Vec<_>>>()?
 		} else {
 			Vec::new()
 		};
