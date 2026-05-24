@@ -1,30 +1,21 @@
 mod js;
+mod ld_args;
 mod post;
 mod pre;
-mod wasm_ld;
 
-use std::ffi::OsString;
 use std::process::{self, Command};
 use std::{env, fs};
 
-use clap::Parser;
 use js_bindgen_shared::ReadFile;
 
+use crate::ld_args::LdArguments;
 use crate::pre::PreOutput;
-
-#[derive(Parser)]
-struct Args {
-	#[arg(long)]
-	web: bool,
-	#[arg(allow_hyphen_values = true, trailing_var_arg = true)]
-	lld: Vec<OsString>,
-}
 
 fn main() {
 	// Read arguments.
 	let args = argfile::expand_args_from(env::args_os(), argfile::parse_response, argfile::PREFIX)
 		.unwrap();
-	let args = Args::parse_from(args);
+	let args = LdArguments::new(&args[1..]);
 
 	let PreOutput {
 		add_args,
@@ -35,7 +26,7 @@ fn main() {
 	} = pre::processing(&args);
 
 	let status = Command::new("rust-lld")
-		.args(&args.lld)
+		.args(args.raw_wasm_ld_args())
 		.args(add_args)
 		.status()
 		.unwrap();
@@ -44,7 +35,7 @@ fn main() {
 		let wasm_input = ReadFile::new(output_path).expect("output file should be readable");
 
 		let wasm_output =
-			post::processing(&wasm_input, main_memory, js_store, args.web, is_test).unwrap();
+			post::processing(&wasm_input, main_memory, js_store, args.web(), is_test).unwrap();
 		drop(wasm_input);
 
 		// We could write into the file directly, but `wasm-encoder` doesn't support

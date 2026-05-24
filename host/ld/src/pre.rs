@@ -8,9 +8,8 @@ use js_bindgen_cli_lib::MainMemory;
 use js_bindgen_ld_shared::JsBindgenWatSectionParser;
 use wasmparser::{Parser, Payload};
 
-use crate::Args;
 use crate::js::JsStore;
-use crate::wasm_ld::WasmLdArguments;
+use crate::ld_args::LdArguments;
 
 pub struct PreOutput<'args> {
 	pub add_args: Vec<OsString>,
@@ -26,24 +25,19 @@ enum Arch {
 	Wasm64,
 }
 
-pub fn processing(args: &Args) -> PreOutput<'_> {
-	let wasm_ld_args = WasmLdArguments::new(&args.lld);
-
-	if wasm_ld_args
-		.arg_single("flavor")
-		.is_none_or(|v| v != "wasm")
-	{
-		panic!("the `js-bindgen-ld` should only be used when compiling to a Wasm target")
-	}
+pub fn processing<'a>(args: &'a LdArguments<'a>) -> PreOutput<'a> {
+	assert!(
+		args.arg_single("flavor").is_some_and(|v| v == "wasm"),
+		"the `js-bindgen-ld` should only be used when compiling to a Wasm target"
+	);
 
 	let output_path = Path::new(
-		wasm_ld_args
-			.arg_single("o")
+		args.arg_single("o")
 			.expect("output path argument should be present"),
 	);
 
 	// With Wasm32 no argument is passed, but Wasm64 requires `-mwasm64`.
-	let arch = if let Some(m) = wasm_ld_args.arg_single("m") {
+	let arch = if let Some(m) = args.arg_single("m") {
 		if m == "wasm32" {
 			Arch::Wasm32
 		} else if m == "wasm64" {
@@ -60,14 +54,14 @@ pub fn processing(args: &Args) -> PreOutput<'_> {
 
 	// Extract path to the main memory if user-specified, otherwise force export
 	// with our own path.
-	let main_memory = main_memory(arch, &wasm_ld_args, &mut add_args);
+	let main_memory = main_memory(arch, args, &mut add_args);
 
 	let mut js_store = JsStore::default();
 	let mut is_test = false;
 
 	// Extract embedded WAT from object files.
-	for input in wasm_ld_args.inputs() {
-		if !args.web {
+	for input in args.inputs() {
+		if !args.web() {
 			is_test |= is_libtest(input);
 		}
 
@@ -166,7 +160,7 @@ fn process_object(
 
 fn main_memory<'args>(
 	arch: Arch,
-	wasm_ld_args: &WasmLdArguments<'args>,
+	wasm_ld_args: &LdArguments<'args>,
 	add_args: &mut Vec<OsString>,
 ) -> MainMemory<'args> {
 	// Always force max memory.
