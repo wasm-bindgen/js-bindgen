@@ -128,14 +128,14 @@ unsafe impl Output for u128 {
 	const WAT_TYPE: &str = WAT_PTR_TYPE;
 	const WAT_CONV: Option<OutputWatConv> = Some(OutputWatConv {
 		import: Some(const_concat!(
-			"(import \"env\" \"js_sys.numeric.128\" (func $js_sys.numeric.128 (@sym) (param i32 \
-			 i32 i32 i32 ",
+			"(import \"env\" \"js_sys.numeric.128\" (func $js_sys.numeric.128 (@sym) (param i64 \
+			 i64 ",
 			WAT_PTR_TYPE,
 			")))"
 		)),
 		direct: false,
 		conv: "call $js_sys.numeric.128 (@reloc)",
-		r#type: "i32 i32 i32 i32",
+		r#type: "i64 i64",
 	});
 	const JS_CONV: Option<OutputJsConv> = Some(OutputJsConv {
 		embed: Some(("js_sys", "numeric.128.encode")),
@@ -186,14 +186,14 @@ unsafe impl Output for i128 {
 	const WAT_TYPE: &str = WAT_PTR_TYPE;
 	const WAT_CONV: Option<OutputWatConv> = Some(OutputWatConv {
 		import: Some(const_concat!(
-			"(import \"env\" \"js_sys.numeric.128\" (func $js_sys.numeric.128 (@sym) (param i32 \
-			 i32 i32 i32 ",
+			"(import \"env\" \"js_sys.numeric.128\" (func $js_sys.numeric.128 (@sym) (param i64 \
+			 i64 ",
 			WAT_PTR_TYPE,
 			")))"
 		)),
 		direct: false,
 		conv: "call $js_sys.numeric.128 (@reloc)",
-		r#type: "i32 i32 i32 i32",
+		r#type: "i64 i64",
 	});
 	const JS_CONV: Option<OutputJsConv> = Some(OutputJsConv {
 		embed: Some(("js_sys", "numeric.128.encode")),
@@ -219,20 +219,16 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "numeric.128.encode",
 	"(value) => {{",
-	"	const lo_lo = Number(value & 0xFFFFFFFFn)",
-	"	const lo_hi = Number((value >> 32n) & 0xFFFFFFFFn)",
-	"	const hi_lo = Number((value >> 64n) & 0xFFFFFFFFn)",
-	"	const hi_hi = Number((value >> 96n) & 0xFFFFFFFFn)",
-	"	return [lo_lo, lo_hi, hi_lo, hi_hi]",
+	"	const lo = BigInt.asIntN(64, value)",
+	"	const hi = BigInt.asIntN(64, value >> 64n)",
+	"	return [lo, hi]",
 	"}}",
 );
 
 js_bindgen::unsafe_global_wat!(
-	"(func $js_sys.numeric.128 (@sym) (param $a i32) (param $b i32) (param $c i32) (param $d i32) (param $out {})",
-	"  (i32.store offset=0  local.get $out local.get $a)",
-	"  (i32.store offset=4  local.get $out local.get $b)",
-	"  (i32.store offset=8  local.get $out local.get $c)",
-	"  (i32.store offset=12 local.get $out local.get $d)",
+	"(func $js_sys.numeric.128 (@sym) (param $lo i64) (param $hi i64) (param $out {})",
+	"  (i64.store offset=0 local.get $out local.get $lo)",
+	"  (i64.store offset=8 local.get $out local.get $hi)",
 	")",
 	interpolate WAT_PTR_TYPE,
 );
