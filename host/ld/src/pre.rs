@@ -8,8 +8,8 @@ use js_bindgen_cli_lib::MainMemory;
 use js_bindgen_ld_shared::JsBindgenWatSectionParser;
 use wasmparser::{Parser, Payload};
 
+use crate::args::Arguments;
 use crate::js::JsStore;
-use crate::ld_args::LdArguments;
 
 pub struct PreOutput<'args> {
 	pub add_args: Vec<OsString>,
@@ -25,7 +25,7 @@ enum Arch {
 	Wasm64,
 }
 
-pub fn processing<'a>(args: &'a LdArguments<'a>) -> PreOutput<'a> {
+pub fn processing<'a>(args: &'a Arguments<'a>) -> PreOutput<'a> {
 	assert!(
 		args.arg_single("flavor").is_some_and(|v| v == "wasm"),
 		"the `js-bindgen-ld` should only be used when compiling to a Wasm target"
@@ -160,7 +160,7 @@ fn process_object(
 
 fn main_memory<'args>(
 	arch: Arch,
-	wasm_ld_args: &LdArguments<'args>,
+	wasm_ld_args: &Arguments<'args>,
 	add_args: &mut Vec<OsString>,
 ) -> MainMemory<'args> {
 	// Always force max memory.

@@ -20,29 +20,27 @@ enum OptKind {
 
 const CUSTOM_ARGS: [(&str, OptKind); 1usize] = [("web", OptKind::Flag)];
 
-pub(crate) struct LdArguments<'args> {
-	raw: &'args [OsString],
+pub(crate) struct Arguments<'args> {
 	custom_args: HashMap<&'args str, Vec<&'args OsStr>>,
 	wasm_ld_args: HashMap<&'args str, Vec<&'args OsStr>>,
-	custom_indices: Vec<usize>,
+	pass_args: Vec<&'args OsString>,
 	inputs: Vec<&'args OsString>,
 }
 
-impl<'args> LdArguments<'args> {
+impl<'args> Arguments<'args> {
 	// See the LLVM parser implementation:
 	// https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/llvm/lib/Option/OptTable.cpp#L436-L498.
-	pub(crate) fn new(args: &[OsString]) -> LdArguments<'_> {
-		let raw = args;
-		let mut args = raw.iter().enumerate();
+	pub(crate) fn new(args: &[OsString]) -> Arguments<'_> {
+		let mut args = args.iter();
 		let mut custom_args = HashMap::new();
 		let mut wasm_ld_args = HashMap::new();
-		let mut custom_indices = Vec::new();
+		let mut pass_args = Vec::with_capacity(args.len());
 		let mut inputs = Vec::new();
 
 		let table: HashMap<&str, OptKind> = HashMap::from_iter(CUSTOM_ARGS);
 		let wasm_ld_table: HashMap<&str, OptKind> = HashMap::from_iter(OPT_KIND);
 
-		while let Some((idx, arg)) = args.next() {
+		while let Some(arg) = args.next() {
 			let bytes = arg.as_encoded_bytes();
 			// If a value does not start with `-`, it is treated as `INPUT`.
 			let Some(stripped) = bytes
@@ -54,21 +52,21 @@ impl<'args> LdArguments<'args> {
 				.map(|bytes| unsafe { OsStr::from_encoded_bytes_unchecked(bytes) })
 			else {
 				inputs.push(arg);
+				pass_args.push(arg);
 				continue;
 			};
 
 			// Find the `OptKind` and its longest corresponding prefix.
-			let Some((kind, prefix, remain, is_custom)) =
+			let Some((kind, prefix, remain, is_wasm_ld)) =
 				(0..=stripped.len()).rev().find_map(|end| {
 					let (prefix, remain) = stripped.as_encoded_bytes().split_at(end);
 					let prefix = str::from_utf8(prefix).ok()?;
-					let (custom, kind) = match (table.get(prefix), wasm_ld_table.get(prefix)) {
+					let (wasm_ld, kind) = match (wasm_ld_table.get(prefix), table.get(prefix)) {
 						(None, None) => return None,
-						(None, Some(kind)) => (false, kind),
 						(Some(kind), None) => (true, kind),
-						(Some(_), Some(kind)) => {
-							eprintln!("encountered duplicated defined option: `{}`", arg.display());
-							(false, kind)
+						(None, Some(kind)) => (false, kind),
+						(Some(_), Some(_)) => {
+							panic!("encountered argument collision: `{}`", arg.display());
 						}
 					};
 					// SAFETY:
@@ -77,23 +75,26 @@ impl<'args> LdArguments<'args> {
 					// - We only proceed when having split off a valid argument from `option_table`,
 					//   which are UTF-8 and therefore `remain` is a valid `OsStr`.
 					let remain = unsafe { OsStr::from_encoded_bytes_unchecked(remain) };
-					Some((kind, prefix, remain, custom))
+					Some((kind, prefix, remain, wasm_ld))
 				})
 			else {
 				eprintln!("encountered unknown `wasm-ld` option: `{}`", arg.display());
 				continue;
 			};
 
-			if is_custom {
-				custom_indices.push(idx);
-			}
+			let ld_args = if is_wasm_ld {
+				pass_args.push(arg);
+				&mut wasm_ld_args
+			} else {
+				&mut custom_args
+			};
 
 			let mut next = || {
-				let (idx, s) = args
+				let s = args
 					.next()
 					.unwrap_or_else(|| panic!("`{}` argument should have a value", arg.display()));
-				if is_custom {
-					custom_indices.push(idx);
+				if is_wasm_ld {
+					pass_args.push(s);
 				}
 				s.as_os_str()
 			};
@@ -105,12 +106,6 @@ impl<'args> LdArguments<'args> {
 				OptKind::JoinedOrSeparate => Some(if remain.is_empty() { next() } else { remain }),
 			};
 
-			let ld_args = if is_custom {
-				&mut custom_args
-			} else {
-				&mut wasm_ld_args
-			};
-
 			if let Some(value) = value {
 				ld_args.entry(prefix).or_insert_with(Vec::new).push(value);
 			} else {
@@ -118,11 +113,10 @@ impl<'args> LdArguments<'args> {
 			}
 		}
 
-		LdArguments {
-			raw,
+		Arguments {
 			custom_args,
 			wasm_ld_args,
-			custom_indices,
+			pass_args,
 			inputs,
 		}
 	}
@@ -161,16 +155,8 @@ impl<'args> LdArguments<'args> {
 		self.arg_flag("web")
 	}
 
-	pub(crate) fn raw_wasm_ld_args(&self) -> impl Iterator<Item = &OsString> {
-		let mut custom_indices = self.custom_indices.iter().copied().peekable();
-
-		self.raw.iter().enumerate().filter_map(move |(idx, arg)| {
-			if custom_indices.next_if_eq(&idx).is_some() {
-				None
-			} else {
-				Some(arg)
-			}
-		})
+	pub(crate) fn pass_args(&self) -> &[&OsString] {
+		&self.pass_args
 	}
 }
 
@@ -178,15 +164,16 @@ impl<'args> LdArguments<'args> {
 mod tests {
 	use std::ffi::OsString;
 
-	use crate::ld_args::LdArguments;
+	use crate::args::Arguments;
 
 	#[test]
 	fn test_custom() {
 		let args = &["--web".into(), "--no-entry".into()];
-		let args = LdArguments::new(args);
-		let mut iter = args.raw_wasm_ld_args();
+		let args = Arguments::new(args);
 		assert!(args.web());
-		assert_eq!(iter.next(), Some(&OsString::from("--no-entry")));
+
+		let mut iter = args.pass_args().iter();
+		assert_eq!(iter.next().copied(), Some(&OsString::from("--no-entry")));
 		assert!(iter.next().is_none());
 	}
 }

@@ -1,5 +1,5 @@
+mod args;
 mod js;
-mod ld_args;
 mod post;
 mod pre;
 
@@ -8,14 +8,14 @@ use std::{env, fs};
 
 use js_bindgen_shared::ReadFile;
 
-use crate::ld_args::LdArguments;
+use crate::args::Arguments;
 use crate::pre::PreOutput;
 
 fn main() {
 	// Read arguments.
 	let args = argfile::expand_args_from(env::args_os(), argfile::parse_response, argfile::PREFIX)
 		.unwrap();
-	let args = LdArguments::new(&args[1..]);
+	let args = Arguments::new(&args[1..]);
 
 	let PreOutput {
 		add_args,
@@ -26,7 +26,7 @@ fn main() {
 	} = pre::processing(&args);
 
 	let status = Command::new("rust-lld")
-		.args(args.raw_wasm_ld_args())
+		.args(args.pass_args())
 		.args(add_args)
 		.status()
 		.unwrap();
