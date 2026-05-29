@@ -79,8 +79,8 @@ tokio = { version = "1", features = ["parking_lot"] }
 tower-http = "0.6"
 ui_test = { version = "0.30", default-features = false, features = ["rustc"] }
 url = { version = "2", default-features = false }
-wasm-encoder = { version = "0.250", default-features = false, features = ["wasmparser"] }
-wasmparser = { version = "0.250", default-features = false }
+wasm-encoder = { version = "0.251", default-features = false, features = ["wasmparser"] }
+wasmparser = { version = "0.251", default-features = false }
 weedle2 = "5"
 windows-sys = "0.61"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
