@@ -1,8 +1,8 @@
 #![feature(test)]
 extern crate test;
 
-use test::Bencher;
 use js_sys::js_sys;
+use test::Bencher;
 
 js_bindgen::embed_js!(module = "conv", name = "bench", "(value) => value");
 

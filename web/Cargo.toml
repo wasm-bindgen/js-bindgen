@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["playground"]
+members = ["cargo-bench","cargo-run", "cargo-test"]
 
 [workspace.package]
 edition = "2024"
@@ -10,6 +10,7 @@ license = "MIT OR Apache-2.0"
 [workspace.dependencies]
 js-bindgen = { path = "../client/js-bindgen" }
 js-sys = { path = "../client/js-sys" }
+wcov = { path = "../client/wcov" }
 
 [workspace.lints.clippy]
 alloc_instead_of_core = "warn"

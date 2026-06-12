@@ -16,21 +16,3 @@ fn main() {
 	let elapsed = ins.elapsed();
 	println!("result: {uuid}, cost: {elapsed:?}");
 }
-
-#[cfg(test)]
-mod tests {
-	#[test]
-	#[should_panic]
-	fn test1() {
-		panic!()
-	}
-
-	#[test]
-	#[ignore = "test2"]
-	fn test2() {
-		panic!()
-	}
-
-	#[test]
-	fn test3() {}
-}

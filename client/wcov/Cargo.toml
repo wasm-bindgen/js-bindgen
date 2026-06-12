@@ -1,13 +1,13 @@
 [package]
-name = "playground"
+name = "wcov"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+include.workspace = true
 
-[dev-dependencies]
-js-sys = { workspace = true, features = ["macro"] }
-js-bindgen = { workspace = true }
+[dependencies]
+minicov = "0.3.8"
 
 [lints]
 workspace = true
