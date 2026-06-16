@@ -6,7 +6,7 @@ use js_bindgen_shared::IS_TEST_SECTION;
 use serde::{Serialize, Serializer};
 use wasmparser::Payload;
 
-use crate::run_data::RunData;
+use crate::run_data::{Ctx, RunData};
 
 #[derive(Parser)]
 #[command(name = "js-bindgen-runner", version, about, long_about = None)]
@@ -212,6 +212,7 @@ impl TestCli {
 		}
 
 		Some(RunData::Test {
+			ctx: Ctx::new(),
 			no_capture: cli.no_capture,
 			filtered_count,
 			tests,

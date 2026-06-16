@@ -464,6 +464,7 @@ macro_rules! buffer {
 	};
 }
 
+buffer!("Uint8", 1_usize);
 buffer!("Uint32", 4_usize);
 buffer!("Int32", 4_usize);
 buffer!("Float64", 8_usize);

@@ -34,4 +34,14 @@ extern "js-sys" {
 		ptr: PtrMut<u32>,
 		len: PtrLength<u32>,
 	) -> bool;
+
+	#[js_sys(js_embed = "view.getUint8")]
+	pub(super) unsafe fn array_u8_decode(array: PtrConst<u8>, len: PtrLength<u8>) -> JsArray<u8>;
+
+	#[js_sys(js_embed = "array.u8.encode")]
+	pub(super) unsafe fn array_u8_encode(
+		array: &JsArray<u8>,
+		ptr: PtrMut<u8>,
+		len: PtrLength<u8>,
+	) -> bool;
 }

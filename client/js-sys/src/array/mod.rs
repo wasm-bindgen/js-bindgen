@@ -332,6 +332,108 @@ unsafe impl Input for &[u32] {
 	}
 }
 
+impl JsArray<u8> {
+	pub fn to_slice(&self, slice: &mut [u8]) -> Result<(), TryFromJsArrayError> {
+		// SAFETY: Parameters are correct.
+		let result =
+			unsafe { array::array_u8_encode(self, PtrMut::new(slice), PtrLength::new(slice)) };
+
+		if result {
+			Ok(())
+		} else {
+			Err(TryFromJsArrayError)
+		}
+	}
+
+	pub fn to_uninit_slice<'slice>(
+		&self,
+		slice: &'slice mut [MaybeUninit<u8>],
+	) -> Result<&'slice mut [u8], TryFromJsArrayError> {
+		// SAFETY: Parameters are correct.
+		let result = unsafe {
+			array::array_u8_encode(
+				self,
+				PtrMut::from_uninit_slice(slice),
+				PtrLength::from_uninit_slice(slice),
+			)
+		};
+
+		if result {
+			// SAFETY: Correctly initialized in JS.
+			Ok(unsafe { assume_init_mut(slice) })
+		} else {
+			Err(TryFromJsArrayError)
+		}
+	}
+
+	#[must_use]
+	pub fn to_array<const N: usize>(&self) -> Option<[u8; N]> {
+		let mut array: MaybeUninit<[u8; N]> = MaybeUninit::uninit();
+
+		// SAFETY: Parameters are correct.
+		let result = unsafe {
+			array::array_u8_encode(
+				self,
+				PtrMut::from_uninit_array(&mut array),
+				PtrLength::from_uninit_array(&array),
+			)
+		};
+
+		if result {
+			// SAFETY: Correctly initialized in JS.
+			Some(unsafe { array.assume_init() })
+		} else {
+			None
+		}
+	}
+}
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "array.u8.encode",
+	required_embeds = [("js_sys", "view.setUint8")],
+	"(array, ptr, len) => {{",
+	"	if (array.length !== len) return false",
+	"",
+	"	this.#jsEmbed.js_sys['view.setUint8'](ptr, array)",
+	"	return true",
+	"}}",
+);
+
+impl From<&[u8]> for JsArray<u8> {
+	fn from(value: &[u8]) -> Self {
+		// SAFETY: Parameters are correct.
+		unsafe { array::array_u8_decode(PtrConst::new(value), PtrLength::new(value)) }
+	}
+}
+
+// SAFETY: Implementation.
+unsafe impl Input for &[u8] {
+	const WAT_TYPE: &'static str = Self::Type::WAT_TYPE;
+	const WAT_CONV: Option<InputWatConv> = Self::Type::WAT_CONV;
+	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
+		embed: Some(("js_sys", "array.rust.u8")),
+		pre: " = this.#jsEmbed.js_sys['array.rust.u8'](",
+		post: Some(")"),
+	});
+
+	type Type = ExternSlice<u8>;
+
+	fn into_raw(self) -> Self::Type {
+		js_bindgen::embed_js!(
+			module = "js_sys",
+			name = "array.rust.u8",
+			required_embeds = [("js_sys", "extern_ref"), ("js_sys", "view.getUint8")],
+			"(dataPtr) => {{",
+			"	const {{ ptr, len }} = this.#jsEmbed.js_sys.extern_ref(dataPtr)",
+			"	return this.#jsEmbed.js_sys['view.getUint8'](ptr, len)",
+			"}}",
+		);
+
+		ExternSlice::new(self)
+	}
+}
+
 // MSRV: Stable on v1.93.
 const unsafe fn assume_init_mut<T>(slice: &mut [MaybeUninit<T>]) -> &mut [T] {
 	// SAFETY: copied from Std.

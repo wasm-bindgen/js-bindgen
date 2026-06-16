@@ -12,7 +12,7 @@ use js_bindgen_cli_lib::{JS_OUTPUT_SECTION, JsOutput};
 use js_bindgen_shared::{IS_COMPAT_SECTION, ReadFile};
 use wasmparser::{MemoryType, Parser, Payload, TypeRef};
 
-use crate::run_data::RunData;
+use crate::run_data::{Ctx, RunData};
 use crate::runner::Runner;
 use crate::test::{TestCli, TestParser};
 
@@ -102,6 +102,7 @@ fn main() -> Result<()> {
 		};
 
 		Some(RunData::Binary {
+			ctx: Ctx::new(),
 			wasm64: main_memory.data.memory64,
 			memory: js_output.main_memory,
 			args,

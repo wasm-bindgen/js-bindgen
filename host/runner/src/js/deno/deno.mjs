@@ -1,6 +1,11 @@
 import { run } from "../shared/shared.mjs";
 import { colorText } from "../shared/shared-terminal.mjs";
 import { JsBindgen } from "../imports.mjs";
+const fs = {
+    writeFile(path, data) {
+        Deno.writeFileSync(path, data);
+    },
+};
 const module = await WebAssembly.compileStreaming(fetch(new URL("../wasm.wasm", import.meta.url)));
 const status = await run(module, JsBindgen, (stream, text) => {
     function printSync(input, to) {
@@ -18,5 +23,5 @@ const status = await run(module, JsBindgen, (stream, text) => {
         case 1 /* Stream.Stderr */:
             printSync(output, Deno.stderr);
     }
-});
+}, fs);
 Deno.exit(status);

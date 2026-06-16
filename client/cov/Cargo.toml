@@ -1,0 +1,19 @@
+[package]
+name = "js-bindgen-cov"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+include.workspace = true
+
+[lib]
+bench = false
+doctest = false
+test = false
+
+[dependencies]
+js-sys = { workspace = true, features = ["macro"] }
+minicov = { workspace = true }
+
+[lints]
+workspace = true
