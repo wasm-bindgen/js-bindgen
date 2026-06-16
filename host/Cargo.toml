@@ -76,7 +76,7 @@ strum = { version = "0.28", default-features = false, features = ["derive"] }
 syn = { version = "2", default-features = false }
 tempfile = "3"
 tokio = { version = "1", features = ["parking_lot"] }
-tower-http = "0.6"
+tower-http = "0.7"
 ui_test = { version = "0.30", default-features = false, features = ["rustc"] }
 url = { version = "2", default-features = false }
 wasm-encoder = { version = "0.252", default-features = false, features = ["wasmparser"] }
