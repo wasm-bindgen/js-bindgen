@@ -14,5 +14,8 @@ test = false
 js-bindgen-test-macro = { workspace = true }
 js-sys = { workspace = true, features = ["macro"] }
 
+[target.'cfg(js_bindgen_cov)'.dependencies]
+js-bindgen-cov = { workspace = true }
+
 [lints]
 workspace = true
