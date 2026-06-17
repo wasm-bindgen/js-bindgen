@@ -51,7 +51,7 @@ hashbrown = { version = "0.17", default-features = false, features = ["inline-mo
 indoc = "2"
 inline-snap = { path = "inline-snap" }
 inline-snap-macro = { path = "inline-snap-macro" }
-itertools = { version = "0.14", default-features = false }
+itertools = { version = "0.15", default-features = false }
 js-bindgen-cli-lib = { path = "cli-lib" }
 js-bindgen-ld-shared = { path = "ld-shared" }
 js-bindgen-shared = { path = "shared" }

@@ -6,7 +6,7 @@ use std::{fs, mem};
 use dtor::dtor;
 use hashbrown::HashMap;
 pub use inline_snap_macro::inline_snap;
-use itertools::{Itertools, Position};
+use itertools::Itertools;
 #[doc(hidden)]
 pub use prettyplease;
 #[doc(hidden)]
@@ -189,13 +189,11 @@ fn normalize_output(r#type: Type, input: &str, level: usize) -> String {
 	}
 
 	for (position, mut line) in input.split_inclusive('\n').with_position() {
-		if let Position::Middle | Position::Last = position
-			&& !line.trim_end().is_empty()
-		{
+		if (position.is_middle() || position.is_last()) && !line.trim_end().is_empty() {
 			out.push_str(&tabs);
 		}
 
-		if let Position::Last = position {
+		if position.is_last() {
 			line = line.trim_end();
 		}
 
