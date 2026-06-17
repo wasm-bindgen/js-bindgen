@@ -6,7 +6,7 @@ use std::ops::Deref;
 use anyhow::Result;
 use foldhash::fast::FixedState;
 use hashbrown::HashMap;
-use itertools::{Itertools, Position};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use wasmparser::MemoryType;
 
@@ -77,7 +77,7 @@ impl<T: Deref<Target = str> + Display + Eq + Hash + Serialize> JsOutput<'_, T> {
 				write!(output, "\t\t\t\t'{name}': ")?;
 
 				for (position, line) in js.lines().with_position() {
-					if let Position::Middle | Position::Last = position {
+					if position.is_middle() || position.is_last() {
 						if line.is_empty() {
 							output.write_all(b"\n")?;
 						} else {
@@ -113,7 +113,7 @@ impl<T: Deref<Target = str> + Display + Eq + Hash + Serialize> JsOutput<'_, T> {
 				write!(output, "\t\t\t\t'{name}': ")?;
 
 				for (position, line) in js.lines().with_position() {
-					if let Position::Middle | Position::Last = position {
+					if position.is_middle() || position.is_last() {
 						if line.is_empty() {
 							output.write_all(b"\n")?;
 						} else {
