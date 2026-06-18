@@ -11,6 +11,9 @@ use mini_alloc::MiniAlloc;
 use web_sys::console;
 use web_sys::js_sys::JsString;
 
+#[cfg(js_bindgen_cov)]
+js_bindgen_cov::ensure_linked!();
+
 #[panic_handler]
 fn panic(_: &panic::PanicInfo<'_>) -> ! {
 	wasm::unreachable();
