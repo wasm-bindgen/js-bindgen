@@ -2,7 +2,7 @@
 	"devDependencies": {
 		"@eslint/js": "^10",
 		"@types/deno": "^2",
-		"@types/node": "^25",
+		"@types/node": "^26",
 		"eslint": "^10",
 		"jiti": "^2",
 		"typescript-eslint": "^8"
