@@ -61,7 +61,7 @@ jobs:
           tool: cargo-xwin
       - name: Restore `cargo-xwin` Cache
         if: matrix.os.name == 'windows'
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/cargo-xwin
           key: cargo-xwin-cache-default
@@ -70,7 +70,7 @@ jobs:
         run: cargo xwin cache xwin
       - name: Save `cargo-xwin` Cache
         if: matrix.os.name == 'windows'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/cargo-xwin
           key: cargo-xwin-cache-default
@@ -359,7 +359,7 @@ jobs:
           tool: cargo-xwin
       - name: Restore `cargo-xwin` Cache
         if: matrix.os.name == 'windows'
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/cargo-xwin
           key: cargo-xwin-cache-default
@@ -368,7 +368,7 @@ jobs:
         run: cargo xwin cache xwin
       - name: Save `cargo-xwin` Cache
         if: matrix.os.name == 'windows'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/cargo-xwin
           key: cargo-xwin-cache-default
@@ -428,7 +428,7 @@ jobs:
           tool: cargo-xwin
       - name: Restore `cargo-xwin` Cache
         if: matrix.os.name == 'windows'
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/cargo-xwin
           key: cargo-xwin-cache-default
@@ -437,7 +437,7 @@ jobs:
         run: cargo xwin cache xwin
       - name: Save `cargo-xwin` Cache
         if: matrix.os.name == 'windows'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/cargo-xwin
           key: cargo-xwin-cache-default
