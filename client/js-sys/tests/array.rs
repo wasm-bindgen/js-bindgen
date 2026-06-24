@@ -28,6 +28,28 @@ fn js_value() {
 }
 
 #[test]
+fn u8() {
+	#[js_sys]
+	extern "js-sys" {
+		#[js_sys(js_embed = "test")]
+		fn u8(value: &[u8]) -> JsArray<u8>;
+	}
+
+	let rust_array: [u8; 42] = array::from_fn(|i| i.try_into().unwrap());
+	let js_array = JsArray::from(&rust_array);
+	assert_eq!(rust_array.len(), js_array.length().try_into().unwrap());
+
+	let ffi_array = u8(&rust_array);
+	assert_eq!(rust_array.len(), ffi_array.length().try_into().unwrap());
+
+	let returned_array: [u8; 42] = js_array.to_array().unwrap();
+	assert_eq!(rust_array, returned_array);
+
+	let returned_array: [u8; 42] = ffi_array.to_array().unwrap();
+	assert_eq!(rust_array, returned_array);
+}
+
+#[test]
 fn u32() {
 	#[js_sys]
 	extern "js-sys" {

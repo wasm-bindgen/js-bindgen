@@ -79,6 +79,7 @@ impl Runner {
 			.arg("run")
 			.args(args)
 			.arg("--allow-read")
+			.arg("--allow-write")
 			.arg(script_path)
 			.status()?;
 

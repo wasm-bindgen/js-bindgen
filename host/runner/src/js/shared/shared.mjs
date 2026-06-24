@@ -1,4 +1,27 @@
 import runData from "../run-data.json" with { type: "json" };
+export function createBrowserFsBackend() {
+    const writes = new Map();
+    return {
+        writeFile(path, data) {
+            writes.set(path, data);
+        },
+        async flush() {
+            for (const [path, data] of writes) {
+                const result = await fetch("../fs/write", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/octet-stream",
+                        "X-Js-Bindgen-Path": path,
+                    },
+                    body: data.slice(),
+                });
+                if (!result.ok) {
+                    throw new Error(`fetch failed with status ${result.status}`);
+                }
+            }
+        },
+    };
+}
 function mainMemory(module, name, importObject) {
     const value = importObject[module]?.[name];
     if (!(value instanceof WebAssembly.Memory)) {
@@ -45,12 +68,15 @@ function mainArgs(memory, values, wasm64) {
         return { argc: args.length, argv: ptr };
     }
 }
-export async function run(module, jsBindgenCtor, report) {
+export async function run(module, jsBindgenCtor, report, fs) {
     let interceptFlag = false;
     const interceptStore = [];
     const newLineText = { text: "\n", color: 0 /* Color.Default */ };
     const failedText = { text: "FAILED", color: 3 /* Color.Red */ };
     const okText = { text: "ok", color: 1 /* Color.Green */ };
+    const ctx = runData.ctx;
+    let profraw;
+    let profrawPath;
     const CONSOLE_METHODS = ["debug", "log", "info", "warn", "error"];
     CONSOLE_METHODS.forEach(level => {
         const origin = console[level].bind(console);
@@ -89,6 +115,17 @@ export async function run(module, jsBindgenCtor, report) {
                 set_message: (message) => (panicMessage = message),
                 set_payload: (payload) => (panicPayload = payload),
             },
+            js_bindgen_cov: {
+                pid: () => ctx.pid,
+                tmpdir: () => ctx.tmpdir,
+                llvm_profile_file: () => ctx.llvm_profile_file ?? "",
+                next_profraw: () => profraw ?? new Uint8Array(),
+                record_profraw: (path, data) => {
+                    const bytes = Uint8Array.from(data);
+                    profraw = bytes;
+                    profrawPath = path;
+                },
+            },
         });
         const importObject = jsBindgen.importObject;
         const instance = await jsBindgen.instantiate();
@@ -102,6 +139,17 @@ export async function run(module, jsBindgenCtor, report) {
                 return panicPayload;
             },
         };
+    }
+    function captureProfraw(state) {
+        const f = state.instance.exports["set_profraw"];
+        if (f) {
+            f();
+        }
+    }
+    function flushProfraw() {
+        if (profrawPath && profraw) {
+            fs.writeFile(profrawPath, profraw);
+        }
     }
     if (runData.kind === "binary") {
         const state = await instantiate();
@@ -132,6 +180,8 @@ export async function run(module, jsBindgenCtor, report) {
         finally {
             interceptFlag = false;
         }
+        captureProfraw(state);
+        flushProfraw();
         return status;
     }
     const startTime = performance.now();
@@ -177,6 +227,7 @@ export async function run(module, jsBindgenCtor, report) {
         interceptFlag = true;
         try {
             testFn();
+            captureProfraw(state);
             result = { success: true };
         }
         catch (error) {
@@ -233,6 +284,7 @@ export async function run(module, jsBindgenCtor, report) {
             });
         }
     }
+    flushProfraw();
     let output1 = "\n";
     if (failures.length > 0) {
         output1 += "failures:\n\n";
