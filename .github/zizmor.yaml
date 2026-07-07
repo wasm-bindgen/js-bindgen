@@ -1,4 +1,6 @@
 rules:
+  adhoc-packages:
+    disable: true
   dependabot-cooldown:
     disable: true
   unpinned-uses:
