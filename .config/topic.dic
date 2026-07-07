@@ -1,4 +1,4 @@
-47
+48
 allocator
 API
 APIs
@@ -42,6 +42,7 @@ Wasm64
 Wasmtime
 WAT
 WebDriver/S
+WebKit
 whitelist
 wishlist
 <

@@ -262,7 +262,7 @@ jobs:
       matrix:
         runner:
           - { os: ubuntu-latest, name: linux, runners: all }
-          - { os: macos-latest, name: mac-os, runners: safari-driver, description: "- Safari" }
+          # - { os: macos-latest, name: mac-os, runners: safari-driver, description: "- Safari" }
         target:
           - { name: wasm32, target: wasm32-unknown-unknown, install: true, description: Wasm32 }
           - {

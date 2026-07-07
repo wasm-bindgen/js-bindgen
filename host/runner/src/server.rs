@@ -360,6 +360,7 @@ fn response(content_type: &'static str, body: impl Into<Body>) -> Response {
 		"Cross-Origin-Embedder-Policy",
 		HeaderValue::from_static("require-corp"),
 	);
+	headers.insert("Cache-Control", HeaderValue::from_static("no-store"));
 
 	response
 }
