@@ -305,6 +305,9 @@ jobs:
       - name: Install Deno
         if: runner.os == 'Linux'
         uses: denoland/setup-deno@v2
+      - name: Install Bun
+        if: runner.os == 'Linux'
+        uses: oven-sh/setup-bun@v2
       - name: Download Host Tools
         uses: actions/download-artifact@v8
         with:

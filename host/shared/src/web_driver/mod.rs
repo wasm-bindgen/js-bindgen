@@ -180,9 +180,9 @@ impl WebDriverKind {
 	pub fn search_error() -> String {
 		format!(
 			"to configure the location of a WebDriver binary you can use environment variables \
-			like `WBG_TEST_<WebDriver>_PATH=/path/to/<WebDriver>` or make sure that the binary is in `PATH`; \
+			like `JBG_TEST_<WebDriver>_PATH=/path/to/<WebDriver>` or make sure that the binary is in `PATH`; \
 			to configure the address of a remote WebDriver you can use environment variables \
-			like `WBG_TEST_<WebDriver>_REMOTE=http://remote.host/`; \
+			like `JBG_TEST_<WebDriver>_REMOTE=http://remote.host/`; \
 			you can download supported drivers at:\n\
 			* {} - {}\n\
 			* {} - {}\n\

@@ -309,6 +309,7 @@ impl ValueEnum for Runner {
 enum Engine {
 	Deno,
 	NodeJs,
+	Bun,
 }
 
 impl Engine {
@@ -316,6 +317,7 @@ impl Engine {
 		match self {
 			Self::Deno => "deno",
 			Self::NodeJs => "node-js",
+			Self::Bun => "bun",
 		}
 	}
 
@@ -323,6 +325,7 @@ impl Engine {
 		match self {
 			Self::Deno => "deno",
 			Self::NodeJs => "node",
+			Self::Bun => "bun",
 		}
 	}
 }
@@ -332,6 +335,7 @@ impl Display for Engine {
 		let name = match self {
 			Self::Deno => "Deno",
 			Self::NodeJs => "Node.js",
+			Self::Bun => "Bun",
 		};
 
 		f.write_str(name)

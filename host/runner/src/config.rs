@@ -40,6 +40,7 @@ enum RunnerKind {
 pub enum EngineKind {
 	Deno,
 	NodeJs,
+	Bun,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -202,7 +203,7 @@ impl RunnerConfig {
 					RunnerKind::Engine(Some(engine)) => bail!(
 						"failed to find a suitable {engine} binary; to configure the location of \
 						 the {engine} binary you can use environment variable \
-						 `WBG_TEST_{env}_PATH=/path/to/{binary}` or make sure that the binary is \
+						 `JBG_TEST_{env}_PATH=/path/to/{binary}` or make sure that the binary is \
 						 in `PATH`; you can download {engine} at: {url}",
 						env = engine.to_env(),
 						binary = engine.to_binary(),
@@ -216,9 +217,9 @@ impl RunnerConfig {
 					RunnerKind::WebDriver(Some(web_driver)) => bail!(
 						"failed to find a suitable {web_driver} binary or remote running {web_driver}; \
 						to configure the location of the WebDriver binary you can use environment variable \
-						`WBG_TEST_{env}_PATH=/path/to/{binary}` or make sure that the binary is in `PATH`; \
+						`JBG_TEST_{env}_PATH=/path/to/{binary}` or make sure that the binary is in `PATH`; \
 						to configure the address of a remote {web_driver} you can use environment variable \
-						`WBG_TEST_{env}_REMOTE=http://remote.host/`{url}",
+						`JBG_TEST_{env}_REMOTE=http://remote.host/`{url}",
 						env = web_driver.to_env(),
 						binary = web_driver.to_binary(),
 						url = if let Some(url) = web_driver.to_download_url() {
@@ -274,6 +275,7 @@ impl EngineKind {
 		match self {
 			Self::Deno => "deno",
 			Self::NodeJs => "node-js",
+			Self::Bun => "bun",
 		}
 	}
 
@@ -281,6 +283,7 @@ impl EngineKind {
 		match self {
 			Self::Deno => "DENO",
 			Self::NodeJs => "NODE_JS",
+			Self::Bun => "BUN",
 		}
 	}
 
@@ -288,25 +291,29 @@ impl EngineKind {
 		match self {
 			Self::Deno => "deno",
 			Self::NodeJs => "node",
+			Self::Bun => "bun",
 		}
 	}
 
 	fn to_download_url(self) -> &'static str {
 		match self {
-			Self::Deno => "https://deno.com/",
+			Self::Deno => "https://deno.com",
 			Self::NodeJs => "https://nodejs.org/en/download",
+			Self::Bun => "https://bun.com",
 		}
 	}
 
 	fn search_error() -> String {
 		format!(
 			"to configure the location of a JS engine binary you can use environment variables \
-			 like `WBG_TEST_<engine>_PATH=/path/to/<engine>` or make sure that the binary is in \
-			 `PATH`; you can download supported Js engines at:\n* {} - {}\n* {} - {}",
+			 like `JBG_TEST_<engine>_PATH=/path/to/<engine>` or make sure that the binary is in \
+			 `PATH`; you can download supported Js engines at:\n* {} - {}\n* {} - {}\n* {} - {}",
 			Self::Deno,
 			Self::Deno.to_download_url(),
 			Self::NodeJs,
 			Self::NodeJs.to_download_url(),
+			Self::Bun,
+			Self::Bun.to_download_url(),
 		)
 	}
 }
@@ -316,6 +323,7 @@ impl Display for EngineKind {
 		let name = match self {
 			Self::Deno => "Deno",
 			Self::NodeJs => "Node.js",
+			Self::Bun => "Bun",
 		};
 		f.write_str(name)
 	}
