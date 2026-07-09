@@ -230,7 +230,9 @@ impl Runner {
 		match target {
 			Target::Wasm32 => true,
 			Target::Wasm64 => match self {
-				Self::Engine(_) | Self::WebDriver(WebDriver::Chrome | WebDriver::Gecko) => true,
+				Self::Engine(Engine::Deno | Engine::NodeJs)
+				| Self::WebDriver(WebDriver::Chrome | WebDriver::Gecko) => true,
+				Self::Engine(Engine::Bun) => false,
 				#[cfg(target_os = "macos")]
 				Self::WebDriver(WebDriver::Safari) => false,
 			},
