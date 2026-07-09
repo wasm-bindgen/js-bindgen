@@ -46,6 +46,7 @@ enum Command {
 	Chrome(LocalArgs),
 	Edge(LocalArgs),
 	Gecko(LocalArgs),
+	Lightmount(LocalArgs),
 	Safari(LocalArgs),
 	Remote { url: Url },
 }
@@ -70,6 +71,7 @@ enum DriverPool {
 		active: Mutex<HashMap<String, (u64, Bytes)>>,
 	},
 	Single {
+		kind: WebDriverKind,
 		path: Cow<'static, Path>,
 		args: Vec<OsString>,
 		available: Mutex<HashMap<u64, Vec<(String, Driver)>>>,
@@ -188,6 +190,7 @@ async fn create_session(
 			}
 		}
 		DriverPool::Single {
+			kind,
 			path,
 			args,
 			available,
@@ -205,7 +208,7 @@ async fn create_session(
 
 				response
 			} else {
-				let driver = WebDriver::run_local(path, args).await.unwrap();
+				let driver = WebDriver::run_local(*kind, path, args).await.unwrap();
 				let (session_id, response) = state.client.create_session(&driver, body).await?;
 
 				active.lock().await.insert(
@@ -298,7 +301,7 @@ async fn proxy_request(
 	let mut segments = url.path_segments_mut().unwrap();
 	segments.push("session");
 	segments.push(&id);
-	segments.push(&path);
+	segments.extend(path.split('/'));
 	drop(segments);
 
 	let mut request = Request::new(method, url);
@@ -380,6 +383,7 @@ impl DriverPool {
 			Command::Chrome(args) => Self::local(WebDriverKind::Chrome, args).await,
 			Command::Edge(args) => Self::local(WebDriverKind::Edge, args).await,
 			Command::Gecko(args) => Self::local(WebDriverKind::Gecko, args).await,
+			Command::Lightmount(args) => Self::local(WebDriverKind::Lightmount, args).await,
 			Command::Safari(args) => Self::local(WebDriverKind::Safari, args).await,
 			Command::Remote { url } => Ok(Self::Shared {
 				driver: WebDriver::run(WebDriverLocation::Remote(url)).await?,
@@ -397,12 +401,13 @@ impl DriverPool {
 
 		if kind.multi_session_support() {
 			Ok(Self::Shared {
-				driver: WebDriver::run(WebDriverLocation::Local { path, args }).await?,
+				driver: WebDriver::run(WebDriverLocation::Local { kind, path, args }).await?,
 				available: Mutex::new(HashMap::new()),
 				active: Mutex::new(HashMap::new()),
 			})
 		} else {
 			Ok(Self::Single {
+				kind,
 				path,
 				args,
 				available: Mutex::new(HashMap::new()),

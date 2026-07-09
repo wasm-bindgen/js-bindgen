@@ -108,6 +108,9 @@ impl Test {
 				.stderr(Stdio::null())
 				.args(["-p", web_driver.port()])
 				.arg(web_driver.short_name());
+			if let Some(path) = env::var_os(web_driver.path_env()) {
+				command.arg(path);
+			}
 
 			web_drivers.push(ChildWrapper::new(command)?);
 		}
@@ -144,6 +147,9 @@ impl Test {
 					.envs(test_run.envs())
 					.arg("--workspace")
 					.arg("--all-features");
+				if let Some(web_driver) = test_run.remote {
+					command.env_remove(web_driver.path_env());
+				}
 
 				test_time += command::run(&format!("Run Tests - {test_run}"), command, verbose)?;
 			}
@@ -231,6 +237,7 @@ impl Runner {
 			Target::Wasm32 => true,
 			Target::Wasm64 => match self {
 				Self::Engine(_) | Self::WebDriver(WebDriver::Chrome | WebDriver::Gecko) => true,
+				Self::WebDriver(WebDriver::Lightmount) => false,
 				#[cfg(target_os = "macos")]
 				Self::WebDriver(WebDriver::Safari) => false,
 			},
@@ -241,6 +248,7 @@ impl Runner {
 		match self {
 			Self::Engine(_) => true,
 			Self::WebDriver(WebDriver::Chrome | WebDriver::Gecko) => false,
+			Self::WebDriver(WebDriver::Lightmount) => false,
 			#[cfg(target_os = "macos")]
 			Self::WebDriver(WebDriver::Safari) => false,
 		}
@@ -250,6 +258,7 @@ impl Runner {
 		match self {
 			Self::Engine(_) => true,
 			Self::WebDriver(WebDriver::Chrome | WebDriver::Gecko) => false,
+			Self::WebDriver(WebDriver::Lightmount) => false,
 			#[cfg(target_os = "macos")]
 			Self::WebDriver(WebDriver::Safari) => true,
 		}
@@ -342,6 +351,7 @@ impl Display for Engine {
 enum WebDriver {
 	Chrome,
 	Gecko,
+	Lightmount,
 	#[cfg(target_os = "macos")]
 	Safari,
 }
@@ -351,6 +361,7 @@ impl WebDriver {
 		match self {
 			Self::Chrome => "chrome-driver",
 			Self::Gecko => "gecko-driver",
+			Self::Lightmount => "lightmount-driver",
 			#[cfg(target_os = "macos")]
 			Self::Safari => "safari-driver",
 		}
@@ -360,8 +371,19 @@ impl WebDriver {
 		match self {
 			Self::Chrome => "JBG_TEST_CHROME_DRIVER_REMOTE",
 			Self::Gecko => "JBG_TEST_GECKO_DRIVER_REMOTE",
+			Self::Lightmount => "JBG_TEST_LIGHTMOUNT_DRIVER_REMOTE",
 			#[cfg(target_os = "macos")]
 			Self::Safari => "JBG_TEST_SAFARI_DRIVER_REMOTE",
+		}
+	}
+
+	fn path_env(self) -> &'static str {
+		match self {
+			Self::Chrome => "JBG_TEST_CHROME_DRIVER_PATH",
+			Self::Gecko => "JBG_TEST_GECKO_DRIVER_PATH",
+			Self::Lightmount => "JBG_TEST_LIGHTMOUNT_DRIVER_PATH",
+			#[cfg(target_os = "macos")]
+			Self::Safari => "JBG_TEST_SAFARI_DRIVER_PATH",
 		}
 	}
 
@@ -369,6 +391,7 @@ impl WebDriver {
 		match self {
 			Self::Chrome => "http://127.0.0.1:8000",
 			Self::Gecko => "http://127.0.0.1:8001",
+			Self::Lightmount => "http://127.0.0.1:8003",
 			#[cfg(target_os = "macos")]
 			Self::Safari => "http://127.0.0.1:8002",
 		}
@@ -378,6 +401,7 @@ impl WebDriver {
 		match self {
 			Self::Chrome => "chrome",
 			Self::Gecko => "gecko",
+			Self::Lightmount => "lightmount",
 			#[cfg(target_os = "macos")]
 			Self::Safari => "safari",
 		}
@@ -387,6 +411,7 @@ impl WebDriver {
 		match self {
 			Self::Chrome => "8000",
 			Self::Gecko => "8001",
+			Self::Lightmount => "8003",
 			#[cfg(target_os = "macos")]
 			Self::Safari => "8002",
 		}
@@ -398,6 +423,7 @@ impl Display for WebDriver {
 		let name = match self {
 			Self::Chrome => "Chrome",
 			Self::Gecko => "Firefox",
+			Self::Lightmount => "Lightmount",
 			#[cfg(target_os = "macos")]
 			Self::Safari => "Safari",
 		};

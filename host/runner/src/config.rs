@@ -135,6 +135,7 @@ impl RunnerConfig {
 						return Ok(Some(RunnerConfig::WebDriver {
 							kind: *web_driver,
 							location: WebDriverLocation::Local {
+								kind: *web_driver,
 								path: Cow::Borrowed(Path::new(web_driver.to_binary())),
 								args: env_args(web_driver.to_env())?,
 							},
@@ -342,6 +343,7 @@ fn web_driver_location_from_env(kind: WebDriverKind) -> Result<Option<WebDriverL
 	let local_env = format!("JBG_TEST_{}_PATH", kind.to_env());
 	if let Some(path) = env::var_os(&local_env) {
 		location = Some(WebDriverLocation::Local {
+			kind,
 			path: Cow::Owned(path.into()),
 			args: env_args(kind.to_env())?,
 		});
@@ -426,6 +428,11 @@ fn create_capabilities(kind: WebDriverKind) -> Result<Capabilities> {
 			.as_array_mut()
 			.context("`args` isn't a JSON array")?
 			.extend(vec![Value::String(String::from("-headless"))]),
+		WebDriverKind::Lightmount => {
+			capabilities
+				.entry(String::from("browserName"))
+				.or_insert_with(|| Value::String(String::from("lightmount")));
+		}
 		WebDriverKind::Safari => (),
 	}
 

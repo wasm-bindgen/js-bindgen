@@ -31,11 +31,13 @@ pub enum WebDriverKind {
 	Chrome,
 	Edge,
 	Gecko,
+	Lightmount,
 	Safari,
 }
 
 pub enum WebDriverLocation {
 	Local {
+		kind: WebDriverKind,
 		path: Cow<'static, Path>,
 		args: Vec<OsString>,
 	},
@@ -45,12 +47,14 @@ pub enum WebDriverLocation {
 impl WebDriver {
 	pub async fn run(location: WebDriverLocation) -> Result<Self> {
 		match location {
-			WebDriverLocation::Local { path, args } => Self::run_local(&path, &args).await,
+			WebDriverLocation::Local { kind, path, args } => {
+				Self::run_local(kind, &path, &args).await
+			}
 			WebDriverLocation::Remote(url) => Ok(Self { url, child: None }),
 		}
 	}
 
-	pub async fn run_local(path: &Path, args: &[OsString]) -> Result<Self> {
+	pub async fn run_local(kind: WebDriverKind, path: &Path, args: &[OsString]) -> Result<Self> {
 		// Wait for the WebDriver to come online and bind its port before we try to
 		// connect to it.
 		const MAX: Duration = Duration::from_secs(5);
@@ -62,11 +66,9 @@ impl WebDriver {
 				.await?
 				.local_addr()?;
 			let mut command = Command::new(path);
-			command
-				.stdout(Stdio::piped())
-				.stderr(Stdio::piped())
-				.arg(format!("--port={}", driver_addr.port()))
-				.args(args);
+			command.stdout(Stdio::piped()).stderr(Stdio::piped());
+			kind.configure_command(&mut command, driver_addr.port());
+			command.args(args);
 			let mut child = ChildWrapper::new(command)?;
 
 			loop {
@@ -134,6 +136,7 @@ impl WebDriverKind {
 			Self::Chrome => "chrome-driver",
 			Self::Edge => "edge-driver",
 			Self::Gecko => "gecko-driver",
+			Self::Lightmount => "lightmount-driver",
 			Self::Safari => "safari-driver",
 		}
 	}
@@ -144,6 +147,7 @@ impl WebDriverKind {
 			Self::Chrome => "CHROME_DRIVER",
 			Self::Edge => "EDGE_DRIVER",
 			Self::Gecko => "GECKO_DRIVER",
+			Self::Lightmount => "LIGHTMOUNT_DRIVER",
 			Self::Safari => "SAFARI_DRIVER",
 		}
 	}
@@ -154,7 +158,38 @@ impl WebDriverKind {
 			Self::Chrome => "chromedriver",
 			Self::Edge => "msedgedriver",
 			Self::Gecko => "geckodriver",
+			Self::Lightmount => "lightmount",
 			Self::Safari => "safaridriver",
+		}
+	}
+
+	fn configure_command(self, command: &mut Command, port: u16) {
+		match self {
+			Self::Lightmount => {
+				for key in [
+					"HTTP_PROXY",
+					"HTTPS_PROXY",
+					"ALL_PROXY",
+					"http_proxy",
+					"https_proxy",
+					"all_proxy",
+				] {
+					command.env_remove(key);
+				}
+
+				command
+					.env("NO_PROXY", "*")
+					.env("no_proxy", "*")
+					.arg("serve")
+					.arg("--host")
+					.arg("127.0.0.1")
+					.arg("--port")
+					.arg(port.to_string())
+					.arg("--enable-image-fetch");
+			}
+			Self::Chrome | Self::Edge | Self::Gecko | Self::Safari => {
+				command.arg(format!("--port={port}"));
+			}
 		}
 	}
 
@@ -164,6 +199,7 @@ impl WebDriverKind {
 			Self::Chrome => Some("https://googlechromelabs.github.io/chrome-for-testing/"),
 			Self::Edge => Some("https://developer.microsoft.com/microsoft-edge/tools/webdriver/"),
 			Self::Gecko => Some("https://github.com/mozilla/geckodriver/releases/"),
+			Self::Lightmount => None,
 			Self::Safari => None,
 		}
 	}
@@ -172,7 +208,7 @@ impl WebDriverKind {
 	pub fn multi_session_support(self) -> bool {
 		match self {
 			Self::Chrome | Self::Edge | Self::Safari => true,
-			Self::Gecko => false,
+			Self::Gecko | Self::Lightmount => false,
 		}
 	}
 
@@ -180,17 +216,22 @@ impl WebDriverKind {
 	pub fn search_error() -> String {
 		format!(
 			"to configure the location of a WebDriver binary you can use environment variables \
-			like `WBG_TEST_<WebDriver>_PATH=/path/to/<WebDriver>` or make sure that the binary is in `PATH`; \
+			like `JBG_TEST_<WebDriver>_PATH=/path/to/<WebDriver>` or make sure that the binary is in `PATH`; \
 			to configure the address of a remote WebDriver you can use environment variables \
-			like `WBG_TEST_<WebDriver>_REMOTE=http://remote.host/`; \
+			like `JBG_TEST_<WebDriver>_REMOTE=http://remote.host/`; \
 			you can download supported drivers at:\n\
 			* {} - {}\n\
 			* {} - {}\n\
 			* {} - {}\n\
+			* {} - build lightmount and point `JBG_TEST_LIGHTMOUNT_DRIVER_PATH` at the binary\n\
 			* {} - pre-installed on macOS",
-			Self::Chrome, Self::Chrome.to_download_url().unwrap(),
-			Self::Gecko, Self::Gecko.to_download_url().unwrap(),
-			Self::Edge, Self::Edge.to_download_url().unwrap(),
+			Self::Chrome,
+			Self::Chrome.to_download_url().unwrap(),
+			Self::Gecko,
+			Self::Gecko.to_download_url().unwrap(),
+			Self::Edge,
+			Self::Edge.to_download_url().unwrap(),
+			Self::Lightmount,
 			Self::Safari,
 		)
 	}
@@ -202,6 +243,7 @@ impl Display for WebDriverKind {
 			Self::Chrome => "ChromeDriver",
 			Self::Edge => "EdgeDriver",
 			Self::Gecko => "GeckoDriver",
+			Self::Lightmount => "LightmountDriver",
 			Self::Safari => "SafariDriver",
 		};
 		f.write_str(name)

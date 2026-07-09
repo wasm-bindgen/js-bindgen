@@ -14,7 +14,12 @@ pub struct Client(reqwest::Client);
 
 impl Client {
 	pub fn new() -> Self {
-		Self(reqwest::Client::new())
+		Self(
+			reqwest::Client::builder()
+				.no_proxy()
+				.build()
+				.expect("WebDriver proxy client should build"),
+		)
 	}
 
 	pub async fn status(&self, driver: &WebDriver) -> Result<Response, Response> {
