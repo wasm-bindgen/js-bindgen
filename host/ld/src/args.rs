@@ -19,6 +19,7 @@ enum OptKind {
 }
 
 const CUSTOM_ARGS: [(&str, OptKind); 1usize] = [("web", OptKind::Flag)];
+const LINKER_GUARD_LIBRARY: &str = "js-bindgen-needs-js-bindgen-ld";
 
 pub(crate) struct Arguments<'args> {
 	custom_args: HashMap<&'args str, Vec<&'args OsStr>>,
@@ -82,20 +83,12 @@ impl<'args> Arguments<'args> {
 				continue;
 			};
 
-			let ld_args = if is_wasm_ld {
-				pass_args.push(arg);
-				&mut wasm_ld_args
-			} else {
-				&mut custom_args
-			};
-
+			let mut separate_value = None;
 			let mut next = || {
 				let s = args
 					.next()
 					.unwrap_or_else(|| panic!("`{}` argument should have a value", arg.display()));
-				if is_wasm_ld {
-					pass_args.push(s);
-				}
+				separate_value = Some(s);
 				s.as_os_str()
 			};
 
@@ -104,6 +97,24 @@ impl<'args> Arguments<'args> {
 				OptKind::Separate => Some(next()),
 				OptKind::CommaJoined | OptKind::Joined => Some(remain),
 				OptKind::JoinedOrSeparate => Some(if remain.is_empty() { next() } else { remain }),
+			};
+
+			let is_linker_guard = is_wasm_ld
+				&& matches!(prefix, "l" | "library" | "library=")
+				&& value.is_some_and(|value| value == LINKER_GUARD_LIBRARY);
+
+			if is_linker_guard {
+				continue;
+			}
+
+			let ld_args = if is_wasm_ld {
+				pass_args.push(arg);
+				if let Some(value) = separate_value {
+					pass_args.push(value);
+				}
+				&mut wasm_ld_args
+			} else {
+				&mut custom_args
 			};
 
 			if let Some(value) = value {
