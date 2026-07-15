@@ -299,7 +299,7 @@ jobs:
         run: rustup target add ${{ matrix.target.target }}
       - name: Update Node.js
         if: runner.os == 'Linux'
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: latest
       - name: Install Deno
