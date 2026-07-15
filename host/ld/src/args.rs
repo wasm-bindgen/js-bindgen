@@ -83,12 +83,12 @@ impl<'args> Arguments<'args> {
 				continue;
 			};
 
-			let mut separate_value = None;
+			let mut arg_value = None;
 			let mut next = || {
 				let s = args
 					.next()
 					.unwrap_or_else(|| panic!("`{}` argument should have a value", arg.display()));
-				separate_value = Some(s);
+				arg_value = Some(s);
 				s.as_os_str()
 			};
 
@@ -109,7 +109,7 @@ impl<'args> Arguments<'args> {
 
 			let ld_args = if is_wasm_ld {
 				pass_args.push(arg);
-				if let Some(value) = separate_value {
+				if let Some(value) = arg_value {
 					pass_args.push(value);
 				}
 				&mut wasm_ld_args
