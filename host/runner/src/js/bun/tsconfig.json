@@ -3,5 +3,6 @@
 	"compilerOptions": {
 		"lib": ["ESNext"],
 		"types": ["bun"]
-	}
+	},
+	"files": ["bun.d.mts", "bun.mts"]
 }
