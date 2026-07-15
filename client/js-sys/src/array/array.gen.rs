@@ -364,3 +364,125 @@ pub(super) unsafe fn array_u32_encode(
 		array_u32_encode(Input::into_raw(array), Input::into_raw(ptr), Input::into_raw(len))
 	})
 }
+
+pub(super) unsafe fn array_u8_decode(array: PtrConst<u8>, len: PtrLength<u8>) -> JsArray<u8> {
+	js_bindgen::unsafe_global_wat! {
+		"(import \"js_sys\" \"array_u8_decode\" (func $js_sys.import.array_u8_decode (@sym (name \"js_sys.import.array_u8_decode\")) (param {} {}) (result {}))){}",
+		"(func $js_sys.array_u8_decode (@sym) (param {}) (param $array {}) (param $len {}) (result {})",
+		"  local.get $array{}", "  local.get $len{}",
+		"  call $js_sys.import.array_u8_decode (@reloc){}", ")", interpolate
+		r#macro::wat_input_import_type:: < PtrConst < u8 > > (), interpolate
+		r#macro::wat_input_import_type:: < PtrLength < u8 > > (), interpolate
+		r#macro::wat_output_import_type:: < JsArray < u8 > > (), interpolate
+		r#macro::wat_imports!((PtrConst < u8 >, PtrLength < u8 >), JsArray < u8 >), interpolate
+		r#macro::wat_indirect!(JsArray < u8 >), interpolate < PtrConst < u8 > as Input > ::WAT_TYPE,
+		interpolate < PtrLength < u8 > as Input > ::WAT_TYPE, interpolate r#macro::wat_direct:: <
+		JsArray < u8 > > (), interpolate r#macro::wat_input!(PtrConst < u8 >), interpolate
+		r#macro::wat_input!(PtrLength < u8 >), interpolate r#macro::wat_output!(JsArray < u8 >),
+	}
+
+	js_bindgen::import_js! {
+		module = "js_sys",
+		name = "array_u8_decode",
+		required_embeds = [
+			("js_sys", "view.getUint8"),
+			r#macro::js_input_embed::<PtrConst<u8>>(),
+			r#macro::js_input_embed::<PtrLength<u8>>(),
+			r#macro::js_output_embed::<JsArray<u8>>(),
+		],
+		"{}{}{}{}",
+		interpolate r#macro::js_select!(
+			"",
+			"(array, len) => {\n",
+			(PtrConst<u8>, PtrLength<u8>),
+			JsArray<u8>,
+		),
+		interpolate r#macro::js_parameter!("array", PtrConst<u8>),
+		interpolate r#macro::js_parameter!("len", PtrLength<u8>),
+		interpolate r#macro::js_output!(
+			"\treturn ",
+			"this.#jsEmbed.js_sys['view.getUint8']",
+			"this.#jsEmbed.js_sys['view.getUint8'](array, len)",
+			JsArray<u8>,
+			PtrConst<u8>,
+			PtrLength<u8>,
+		),
+	}
+
+	unsafe extern "C" {
+		#[link_name = "js_sys.array_u8_decode"]
+		fn array_u8_decode(
+			array: <PtrConst<u8> as Input>::Type,
+			len: <PtrLength<u8> as Input>::Type,
+		) -> <JsArray<u8> as Output>::Type;
+	}
+
+	Output::from_raw(unsafe { array_u8_decode(Input::into_raw(array), Input::into_raw(len)) })
+}
+
+pub(super) unsafe fn array_u8_encode(
+	array: &JsArray<u8>,
+	ptr: PtrMut<u8>,
+	len: PtrLength<u8>,
+) -> bool {
+	js_bindgen::unsafe_global_wat! {
+		"(import \"js_sys\" \"array_u8_encode\" (func $js_sys.import.array_u8_encode (@sym (name \"js_sys.import.array_u8_encode\")) (param {} {} {}) (result {}))){}",
+		"(func $js_sys.array_u8_encode (@sym) (param {}) (param $array {}) (param $ptr {}) (param $len {}) (result {})",
+		"  local.get $array{}", "  local.get $ptr{}", "  local.get $len{}",
+		"  call $js_sys.import.array_u8_encode (@reloc){}", ")", interpolate
+		r#macro::wat_input_import_type:: < & JsArray < u8 > > (), interpolate
+		r#macro::wat_input_import_type:: < PtrMut < u8 > > (), interpolate
+		r#macro::wat_input_import_type:: < PtrLength < u8 > > (), interpolate
+		r#macro::wat_output_import_type:: < bool > (), interpolate r#macro::wat_imports!((& JsArray
+		< u8 >, PtrMut < u8 >, PtrLength < u8 >), bool), interpolate r#macro::wat_indirect!(bool),
+		interpolate < & JsArray < u8 > as Input > ::WAT_TYPE, interpolate < PtrMut < u8 > as Input >
+		::WAT_TYPE, interpolate < PtrLength < u8 > as Input > ::WAT_TYPE, interpolate
+		r#macro::wat_direct:: < bool > (), interpolate r#macro::wat_input!(& JsArray < u8 >),
+		interpolate r#macro::wat_input!(PtrMut < u8 >), interpolate r#macro::wat_input!(PtrLength <
+		u8 >), interpolate r#macro::wat_output!(bool),
+	}
+
+	js_bindgen::import_js! {
+		module = "js_sys",
+		name = "array_u8_encode",
+		required_embeds = [
+			("js_sys", "array.u8.encode"),
+			r#macro::js_input_embed::<&JsArray<u8>>(),
+			r#macro::js_input_embed::<PtrMut<u8>>(),
+			r#macro::js_input_embed::<PtrLength<u8>>(),
+			r#macro::js_output_embed::<bool>(),
+		],
+		"{}{}{}{}{}",
+		interpolate r#macro::js_select!(
+			"",
+			"(array, ptr, len) => {\n",
+			(&JsArray<u8>, PtrMut<u8>, PtrLength<u8>),
+			bool,
+		),
+		interpolate r#macro::js_parameter!("array", &JsArray<u8>),
+		interpolate r#macro::js_parameter!("ptr", PtrMut<u8>),
+		interpolate r#macro::js_parameter!("len", PtrLength<u8>),
+		interpolate r#macro::js_output!(
+			"\treturn ",
+			"this.#jsEmbed.js_sys['array.u8.encode']",
+			"this.#jsEmbed.js_sys['array.u8.encode'](array, ptr, len)",
+			bool,
+			&JsArray<u8>,
+			PtrMut<u8>,
+			PtrLength<u8>,
+		),
+	}
+
+	unsafe extern "C" {
+		#[link_name = "js_sys.array_u8_encode"]
+		fn array_u8_encode(
+			array: <&JsArray<u8> as Input>::Type,
+			ptr: <PtrMut<u8> as Input>::Type,
+			len: <PtrLength<u8> as Input>::Type,
+		) -> <bool as Output>::Type;
+	}
+
+	Output::from_raw(unsafe {
+		array_u8_encode(Input::into_raw(array), Input::into_raw(ptr), Input::into_raw(len))
+	})
+}

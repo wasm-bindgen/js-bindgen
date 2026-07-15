@@ -1,3 +1,6 @@
+#[cfg(js_bindgen_cov)]
+js_bindgen_cov::ensure_linked!();
+
 #[cfg(all(target_family = "wasm", any(target_os = "none", target_os = "unknown")))]
 mod unknown;
 

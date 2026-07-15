@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::fs;
 use std::io::{self, ErrorKind, Write};
 use std::net::{Ipv4Addr, SocketAddr};
 use std::ops::DerefMut;
@@ -6,10 +7,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 
 use anyhow::{Context, Result};
-use axum::body::Body;
+use axum::body::{Body, Bytes};
 use axum::extract::State;
-use axum::http::HeaderValue;
 use axum::http::header::CONTENT_TYPE;
+use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::Response;
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -158,6 +159,30 @@ impl HttpServer {
 				get(async |State(state): State<Arc<ServerState>>| {
 					response("application/javascript", state.js_output.clone())
 				}),
+			)
+			.route(
+				"/fs/write",
+				post(
+					async |headers: HeaderMap, body: Bytes| -> Result<(), (StatusCode, String)> {
+						let path = headers
+							.get("x-js-bindgen-path")
+							.ok_or_else(|| {
+								(
+									StatusCode::BAD_REQUEST,
+									"missing `X-Js-Bindgen-Path` header".to_owned(),
+								)
+							})?
+							.to_str()
+							.map_err(|error| (StatusCode::BAD_REQUEST, error.to_string()))?;
+
+						fs::write(path, body).map_err(|error| {
+							(
+								StatusCode::INTERNAL_SERVER_ERROR,
+								format!("failed to write `{path}`: {error}"),
+							)
+						})
+					},
+				),
 			);
 
 		if worker.is_some() {
@@ -350,7 +375,7 @@ fn response(content_type: &'static str, body: impl Into<Body>) -> Response {
 	);
 	headers.insert(
 		"Access-Control-Allow-Headers",
-		HeaderValue::from_static("Content-Type"),
+		HeaderValue::from_static("Content-Type, X-Js-Bindgen-Path"),
 	);
 	headers.insert(
 		"Cross-Origin-Opener-Policy",

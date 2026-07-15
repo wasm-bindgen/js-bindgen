@@ -22,6 +22,41 @@ export const enum Status {
 	Abnormal = 1,
 }
 
+export type FsBackend = {
+	writeFile(path: string, data: Uint8Array): void
+	flush?(): Promise<void>
+}
+
+export type FlushableFsBackend = FsBackend & {
+	flush(): Promise<void>
+}
+
+export function createBrowserFsBackend(): FlushableFsBackend {
+	const writes = new Map<string, Uint8Array>()
+
+	return {
+		writeFile(path, data) {
+			writes.set(path, data)
+		},
+		async flush() {
+			for (const [path, data] of writes) {
+				const result = await fetch("../fs/write", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/octet-stream",
+						"X-Js-Bindgen-Path": path,
+					},
+					body: data.slice(),
+				})
+
+				if (!result.ok) {
+					throw new Error(`fetch failed with status ${result.status}`)
+				}
+			}
+		},
+	}
+}
+
 type MainArgs32 = { argc: number; argv: number }
 type MainArgs64 = { argc: number; argv: bigint }
 
@@ -93,13 +128,17 @@ function mainArgs(
 export async function run(
 	module: WebAssembly.Module,
 	jsBindgenCtor: typeof JsBindgen,
-	report: (stream: Stream, text: StyledText[]) => void
+	report: (stream: Stream, text: StyledText[]) => void,
+	fs: FsBackend
 ): Promise<number> {
 	let interceptFlag = false
 	const interceptStore: string[] = []
 	const newLineText = { text: "\n", color: Color.Default }
 	const failedText = { text: "FAILED", color: Color.Red }
 	const okText = { text: "ok", color: Color.Green }
+	const ctx = runData.ctx
+	let profraw: Uint8Array | undefined
+	let profrawPath: string | undefined
 
 	const CONSOLE_METHODS = ["debug", "log", "info", "warn", "error"] as const
 	CONSOLE_METHODS.forEach(level => {
@@ -141,6 +180,17 @@ export async function run(
 				set_message: (message: string) => (panicMessage = message),
 				set_payload: (payload: string) => (panicPayload = payload),
 			},
+			js_bindgen_cov: {
+				pid: () => ctx.pid,
+				tmpdir: () => ctx.tmpdir,
+				llvm_profile_file: () => ctx.llvm_profile_file ?? "",
+				next_profraw: () => profraw ?? new Uint8Array(),
+				record_profraw: (path: string, data: ArrayLike<number>) => {
+					const bytes = Uint8Array.from(data)
+					profraw = bytes
+					profrawPath = path
+				},
+			},
 		})
 
 		const importObject = jsBindgen.importObject
@@ -155,6 +205,19 @@ export async function run(
 			get panicPayload() {
 				return panicPayload
 			},
+		}
+	}
+
+	function captureProfraw(state: { instance: WebAssembly.Instance }) {
+		const f = state.instance.exports["set_profraw"] as (() => void) | undefined
+		if (f) {
+			f()
+		}
+	}
+
+	function flushProfraw() {
+		if (profrawPath && profraw) {
+			fs.writeFile(profrawPath, profraw)
 		}
 	}
 
@@ -189,6 +252,9 @@ export async function run(
 		} finally {
 			interceptFlag = false
 		}
+
+		captureProfraw(state)
+		flushProfraw()
 
 		return status
 	}
@@ -245,6 +311,7 @@ export async function run(
 
 		try {
 			testFn()
+			captureProfraw(state)
 			result = { success: true }
 		} catch (error) {
 			result = {
@@ -310,6 +377,8 @@ export async function run(
 			})
 		}
 	}
+
+	flushProfraw()
 
 	let output1 = "\n"
 

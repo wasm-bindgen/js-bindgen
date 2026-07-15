@@ -3,6 +3,7 @@ type RunData = TestRunData | BinaryRunData
 type TestRunData = {
 	kind: "test"
 	worker: WorkerKind
+	ctx: Ctx
 	noCapture: boolean
 	filteredCount: number
 	tests: TestEntry[]
@@ -11,6 +12,7 @@ type TestRunData = {
 type BinaryRunData = {
 	kind: "binary"
 	worker: WorkerKind
+	ctx: Ctx
 	wasm64: boolean
 	memory: MainMemory
 	args: string[]
@@ -32,6 +34,12 @@ type TestEntry = {
 type MainMemory = {
 	module: string
 	name: string
+}
+
+type Ctx = {
+	pid: number
+	tmpdir: string
+	llvm_profile_file?: string
 }
 
 declare const config: RunData
