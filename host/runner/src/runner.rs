@@ -17,6 +17,7 @@ use crate::server::HttpServer;
 
 const DENO_JS: &str = include_str!("js/deno/deno.mjs");
 const NODE_JS_JS: &str = include_str!("js/node-js/node-js.mjs");
+const BUN_JS: &str = include_str!("js/bun/bun.mjs");
 pub const SHARED_JS: &str = include_str!("js/shared/shared.mjs");
 pub const SHARED_TERMINAL_JS: &str = include_str!("js/shared/shared-terminal.mjs");
 
@@ -47,6 +48,7 @@ impl Runner {
 			RunnerConfig::Engine { kind, path, args } => match kind {
 				EngineKind::Deno => self.run_deno(&path, &args),
 				EngineKind::NodeJs => self.run_node_js(&path, &args),
+				EngineKind::Bun => self.run_bun(&path, &args),
 			},
 			RunnerConfig::WebDriver {
 				location,
@@ -107,6 +109,36 @@ impl Runner {
 		)?;
 
 		let status = Command::new(binary).args(args).arg(&script_path).status()?;
+
+		if !status.success() {
+			process::exit(status.code().unwrap_or(1));
+		}
+
+		Ok(())
+	}
+
+	fn run_bun(self, binary: &Path, args: &[OsString]) -> Result<()> {
+		let dir = tempfile::tempdir()?;
+
+		fs::create_dir(dir.path().join("bun"))?;
+		let script_path: PathBuf = dir.path().join("bun/script.mjs");
+		fs::write(&script_path, BUN_JS)?;
+
+		fs::write(dir.path().join("run-data.json"), self.run_data)?;
+		fs::copy(self.wasm_path, dir.path().join("wasm.wasm"))?;
+		fs::write(dir.path().join("imports.mjs"), self.js_file)?;
+		fs::create_dir(dir.path().join("shared"))?;
+		fs::write(dir.path().join("shared/shared.mjs"), SHARED_JS)?;
+		fs::write(
+			dir.path().join("shared/shared-terminal.mjs"),
+			SHARED_TERMINAL_JS,
+		)?;
+
+		let status = Command::new(binary)
+			.arg("run")
+			.args(args)
+			.arg(&script_path)
+			.status()?;
 
 		if !status.success() {
 			process::exit(status.code().unwrap_or(1));

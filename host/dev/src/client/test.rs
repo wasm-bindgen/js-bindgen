@@ -230,7 +230,9 @@ impl Runner {
 		match target {
 			Target::Wasm32 => true,
 			Target::Wasm64 => match self {
-				Self::Engine(_) | Self::WebDriver(WebDriver::Chrome | WebDriver::Gecko) => true,
+				Self::Engine(Engine::Deno | Engine::NodeJs)
+				| Self::WebDriver(WebDriver::Chrome | WebDriver::Gecko) => true,
+				Self::Engine(Engine::Bun) => false,
 				#[cfg(target_os = "macos")]
 				Self::WebDriver(WebDriver::Safari) => false,
 			},
@@ -309,6 +311,7 @@ impl ValueEnum for Runner {
 enum Engine {
 	Deno,
 	NodeJs,
+	Bun,
 }
 
 impl Engine {
@@ -316,6 +319,7 @@ impl Engine {
 		match self {
 			Self::Deno => "deno",
 			Self::NodeJs => "node-js",
+			Self::Bun => "bun",
 		}
 	}
 
@@ -323,6 +327,7 @@ impl Engine {
 		match self {
 			Self::Deno => "deno",
 			Self::NodeJs => "node",
+			Self::Bun => "bun",
 		}
 	}
 }
@@ -332,6 +337,7 @@ impl Display for Engine {
 		let name = match self {
 			Self::Deno => "Deno",
 			Self::NodeJs => "Node.js",
+			Self::Bun => "Bun",
 		};
 
 		f.write_str(name)
