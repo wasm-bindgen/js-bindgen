@@ -1,6 +1,7 @@
 {
 	"files": [],
 	"references": [
+		{ "path": "./bun" },
 		{ "path": "./shared" },
 		{ "path": "./dom" },
 		{ "path": "./worker" },

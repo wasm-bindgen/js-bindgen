@@ -17,6 +17,7 @@ use crate::server::HttpServer;
 
 const DENO_JS: &str = include_str!("js/deno/deno.mjs");
 const NODE_JS_JS: &str = include_str!("js/node-js/node-js.mjs");
+const BUN_JS: &str = include_str!("js/bun/bun.mjs");
 pub const SHARED_JS: &str = include_str!("js/shared/shared.mjs");
 pub const SHARED_TERMINAL_JS: &str = include_str!("js/shared/shared-terminal.mjs");
 
@@ -121,7 +122,7 @@ impl Runner {
 
 		fs::create_dir(dir.path().join("bun"))?;
 		let script_path: PathBuf = dir.path().join("bun/script.mjs");
-		fs::write(&script_path, NODE_JS_JS)?;
+		fs::write(&script_path, BUN_JS)?;
 
 		fs::write(dir.path().join("run-data.json"), self.run_data)?;
 		fs::copy(self.wasm_path, dir.path().join("wasm.wasm"))?;
