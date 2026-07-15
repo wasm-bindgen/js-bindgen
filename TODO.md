@@ -56,10 +56,6 @@
 - Validate and improve performance of `JsString` encoding/decoding. See [Emscripten's] or
   [`wasm-bindgen`'s] implementation for inspiration.
 - Experiment if allocation is better for build times then iterator chaining in proc-macros.
-- Find a way to prevent users from accidentally using the default linker.
-  - Supply an invalid object file that would be removed by our custom linker.
-  - Check `RUSTC_LINKER` in a `build.rs`. Which would require a separate library crate for
-    `js-bindgen`.
 - Version all names to make packages compatible with other versions of itself.
 - Embed crate version to make linker capable of detecting unsupported versions.
 - We still need to look into what happens with old files. We might need to delete them ourselves.
