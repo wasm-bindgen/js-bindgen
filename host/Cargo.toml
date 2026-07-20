@@ -73,7 +73,7 @@ serde_repr = "0.1"
 shlex = { version = "2", default-features = false }
 similar-asserts = "2"
 strum = { version = "0.28", default-features = false, features = ["derive"] }
-syn = { version = "2", default-features = false }
+syn = { version = "3", default-features = false }
 tempfile = "3"
 tokio = { version = "1", features = ["parking_lot"] }
 tower-http = "0.7"
