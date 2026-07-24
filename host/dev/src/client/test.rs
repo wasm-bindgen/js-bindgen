@@ -10,6 +10,7 @@ use clap::builder::{ArgPredicate, PossibleValue};
 use clap::{Args, ValueEnum};
 use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
+use super::e2e::E2e;
 use super::permutation::{JsSysTargetFeature, Permutation, Profile};
 use super::process::ChildWrapper;
 use super::{ClientArgs, Target, TargetFeature, util};
@@ -66,7 +67,6 @@ impl Test {
 		} else {
 			unreachable!()
 		};
-
 		let tools_installed = env::var_os("JBG_DEV_TOOLS").is_some_and(|value| value == "1");
 
 		let start = Instant::now();
@@ -122,9 +122,10 @@ impl Test {
 		}
 
 		for permutation in Permutation::iter(&targets, Profile::Test, &target_features, true) {
+			let test_runs: Vec<_> = TestRun::from_permutation(&permutation, &runners).collect();
 			let mut built = false;
 
-			for test_run in TestRun::from_permutation(&permutation, &runners) {
+			for test_run in &test_runs {
 				if !built {
 					let mut command =
 						util::cargo(&permutation, &self.args.nightly_toolchain, "test");
@@ -146,6 +147,21 @@ impl Test {
 					.arg("--all-features");
 
 				test_time += command::run(&format!("Run Tests - {test_run}"), command, verbose)?;
+			}
+
+			if test_runs
+				.iter()
+				.any(|test_run| matches!(test_run.runner, Runner::Engine(_)))
+			{
+				let (e2e, duration) =
+					E2e::build(&permutation, &self.args.nightly_toolchain, verbose)?;
+				build_time += duration;
+
+				for test_run in &test_runs {
+					if let Runner::Engine(engine) = test_run.runner {
+						test_time += e2e.run(engine, test_run.node_js_arg, verbose)?;
+					}
+				}
 			}
 		}
 
@@ -308,7 +324,7 @@ impl ValueEnum for Runner {
 }
 
 #[derive(Clone, Copy, EnumCount, EnumIter, Eq, PartialEq)]
-enum Engine {
+pub(super) enum Engine {
 	Deno,
 	NodeJs,
 	Bun,
@@ -323,7 +339,7 @@ impl Engine {
 		}
 	}
 
-	fn binary(self) -> &'static str {
+	pub(super) fn binary(self) -> &'static str {
 		match self {
 			Self::Deno => "deno",
 			Self::NodeJs => "node",

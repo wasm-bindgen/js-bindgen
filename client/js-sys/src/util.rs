@@ -1,8 +1,7 @@
 use core::marker::PhantomData;
-use core::mem;
 use core::mem::MaybeUninit;
 
-use crate::hazard::{Input, InputJsConv, InputWatConv};
+use crate::hazard::{EmptySlot, IntoJS, IntoJsConv, Slot, WasmAbi, WatConv};
 
 macro_rules! thread_local {
 	($($vis:vis static $name:ident: $ty:ty = $value:expr;)*) => {
@@ -34,41 +33,41 @@ impl<T> LocalKey<T> {
 	}
 }
 
-#[repr(C)]
-pub struct ExternValue<T>(T);
-
-impl<T> ExternValue<T> {
-	pub(crate) const WAT_TYPE: &str = WAT_PTR_TYPE;
-	#[cfg(target_arch = "wasm32")]
-	pub(crate) const WAT_CONV: Option<InputWatConv> = None;
-	#[cfg(target_arch = "wasm64")]
-	pub(crate) const WAT_CONV: Option<InputWatConv> = Some(InputWatConv {
-		import: None,
-		conv: "f64.convert_i64_u",
-		r#type: "f64",
-	});
-
-	pub(crate) fn new(value: T) -> Self {
-		Self(value)
-	}
-}
-
-#[repr(C)]
 pub struct ExternSlice<T> {
 	ptr: PtrConst<T>,
 	len: PtrLength<T>,
 }
 
-#[expect(dead_code, reason = "custom sections are considered dead-code")]
+// SAFETY: `ExternSlice` is represented by `PtrConst` and `PtrLength`.
+unsafe impl<T> WasmAbi for ExternSlice<T> {
+	type Slot1 = PtrConst<T>;
+	type Slot2 = PtrLength<T>;
+	type Slot3 = EmptySlot;
+	type Slot4 = EmptySlot;
+
+	fn split(self) -> (Self::Slot1, Self::Slot2, Self::Slot3, Self::Slot4) {
+		(
+			self.ptr,
+			self.len,
+			EmptySlot::default(),
+			EmptySlot::default(),
+		)
+	}
+
+	fn join(
+		slot1: Self::Slot1,
+		slot2: Self::Slot2,
+		_slot3: Self::Slot3,
+		_slot4: Self::Slot4,
+	) -> Self {
+		Self {
+			ptr: slot1,
+			len: slot2,
+		}
+	}
+}
+
 impl<T> ExternSlice<T> {
-	pub(crate) const WAT_TYPE: &str = ExternValue::<()>::WAT_TYPE;
-	pub(crate) const WAT_CONV: Option<InputWatConv> = ExternValue::<()>::WAT_CONV;
-
-	#[cfg(target_arch = "wasm32")]
-	const VIEW_FN: &str = "view.getUint32";
-	#[cfg(target_arch = "wasm64")]
-	const VIEW_FN: &str = "view.getFloat64";
-
 	pub(crate) fn new(value: &[T]) -> Self {
 		Self {
 			ptr: PtrConst::new(value),
@@ -77,78 +76,57 @@ impl<T> ExternSlice<T> {
 	}
 }
 
-// Verify that we can access `ExternSlice` via a `TypedArray` with two elements.
-const _: () = {
-	debug_assert!(
-		mem::align_of::<ExternSlice<()>>() == mem::size_of::<<PtrConst<()> as Input>::Type>()
-	);
-};
+#[cfg(target_arch = "wasm32")]
+type JsPointerType = u32;
+#[cfg(target_arch = "wasm64")]
+type JsPointerType = f64;
 
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "extern_ref",
-	required_embeds = [("js_sys", ExternSlice::<()>::VIEW_FN)],
-	"(refPtr) => {{",
-	"	const [ptr, len] = this.#jsEmbed.js_sys['{}'](refPtr, 2)",
-	"	return {{ ptr, len }}",
-	"}}",
-	interpolate ExternSlice::<()>::VIEW_FN,
-);
+pub(crate) const WAT_PTR_TYPE: &str = <usize as Slot>::WAT_TYPE;
 
 #[cfg(target_arch = "wasm32")]
-type WatUsizeType = u32;
-#[cfg(target_arch = "wasm64")]
-type WatUsizeType = f64;
+const PTR_INTO_JS_WAT_CONV: Option<WatConv> = None;
 
-#[cfg(target_arch = "wasm32")]
-pub(crate) const WAT_PTR_TYPE: &str = "i32";
 #[cfg(target_arch = "wasm64")]
-pub(crate) const WAT_PTR_TYPE: &str = "i64";
+const PTR_INTO_JS_WAT_CONV: Option<WatConv> = Some(WatConv {
+	import: None,
+	conv: "f64.convert_i64_u",
+	r#type: "f64",
+});
 
 #[repr(transparent)]
-pub(crate) struct PtrConst<T> {
-	ptr: <Self as Input>::Type,
-	_ty: PhantomData<T>,
+pub struct PtrConst<T> {
+	ptr: *const T,
 }
 
 impl<T> PtrConst<T> {
 	pub(crate) fn new(value: &[T]) -> Self {
-		let ptr = value.as_ptr();
-
-		#[cfg(target_arch = "wasm64")]
-		#[expect(
-			clippy::cast_precision_loss,
-			reason = "can't be larger than `MAX_SAFE_INTEGER`"
-		)]
-		let ptr = ptr.addr() as <Self as Input>::Type;
-
 		Self {
-			ptr,
-			_ty: PhantomData,
+			ptr: value.as_ptr(),
 		}
 	}
 }
 
-// SAFETY: Delegated to already implemented types.
-unsafe impl<T> Input for PtrConst<T> {
-	const WAT_TYPE: &str = WatUsizeType::WAT_TYPE;
-	const WAT_CONV: Option<InputWatConv> = WatUsizeType::WAT_CONV;
-	const JS_CONV: Option<InputJsConv> = WatUsizeType::JS_CONV;
+// SAFETY: `PtrConst` is transparent over a native Wasm pointer. On `wasm64`,
+// the WAT adapter converts it to `f64` without losing precision.
+unsafe impl<T> Slot for PtrConst<T> {
+	const WAT_TYPE: &'static str = WAT_PTR_TYPE;
+	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
+}
 
-	#[cfg(target_arch = "wasm32")]
-	type Type = *const T;
-	#[cfg(target_arch = "wasm64")]
-	type Type = f64;
+// SAFETY: The JavaScript conversion matches the WAT boundary representation.
+unsafe impl<T> IntoJS for PtrConst<T> {
+	const JS_CONV: Option<IntoJsConv> = JsPointerType::JS_CONV;
 
-	fn into_raw(self) -> Self::Type {
-		self.ptr
+	type Abi = Self;
+
+	fn into_abi(self) -> Self::Abi {
+		self
 	}
 }
 
 #[repr(transparent)]
 pub(crate) struct PtrMut<T> {
-	ptr: <Self as Input>::Type,
-	_ty: PhantomData<T>,
+	ptr: *mut T,
 }
 
 impl<T> PtrMut<T> {
@@ -165,39 +143,31 @@ impl<T> PtrMut<T> {
 	}
 
 	fn internal(ptr: *mut T) -> Self {
-		#[cfg(target_arch = "wasm64")]
-		#[expect(
-			clippy::cast_precision_loss,
-			reason = "can't be larger than `MAX_SAFE_INTEGER`"
-		)]
-		let ptr = ptr.addr() as <Self as Input>::Type;
-
-		Self {
-			ptr,
-			_ty: PhantomData,
-		}
+		Self { ptr }
 	}
 }
 
-// SAFETY: Delegated to already implemented types.
-unsafe impl<T> Input for PtrMut<T> {
-	const WAT_TYPE: &str = WatUsizeType::WAT_TYPE;
-	const WAT_CONV: Option<InputWatConv> = WatUsizeType::WAT_CONV;
-	const JS_CONV: Option<InputJsConv> = WatUsizeType::JS_CONV;
+// SAFETY: `PtrMut` is transparent over a native Wasm pointer. On `wasm64`,
+// the WAT adapter converts it to `f64` without losing precision.
+unsafe impl<T> Slot for PtrMut<T> {
+	const WAT_TYPE: &'static str = WAT_PTR_TYPE;
+	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
+}
 
-	#[cfg(target_arch = "wasm32")]
-	type Type = *mut T;
-	#[cfg(target_arch = "wasm64")]
-	type Type = f64;
+// SAFETY: The JavaScript conversion matches the WAT boundary representation.
+unsafe impl<T> IntoJS for PtrMut<T> {
+	const JS_CONV: Option<IntoJsConv> = JsPointerType::JS_CONV;
 
-	fn into_raw(self) -> Self::Type {
-		self.ptr
+	type Abi = Self;
+
+	fn into_abi(self) -> Self::Abi {
+		self
 	}
 }
 
 #[repr(transparent)]
-pub(crate) struct PtrLength<T> {
-	len: <Self as Input>::Type,
+pub struct PtrLength<T> {
+	len: usize,
 	_ty: PhantomData<T>,
 }
 
@@ -215,13 +185,6 @@ impl<T> PtrLength<T> {
 	}
 
 	fn internal(len: usize) -> Self {
-		#[cfg(target_arch = "wasm64")]
-		#[expect(
-			clippy::cast_precision_loss,
-			reason = "can't be larger than `MAX_SAFE_INTEGER`"
-		)]
-		let len = len as <Self as Input>::Type;
-
 		Self {
 			len,
 			_ty: PhantomData,
@@ -229,19 +192,21 @@ impl<T> PtrLength<T> {
 	}
 }
 
-// SAFETY: Delegated to already implemented types.
-unsafe impl<T> Input for PtrLength<T> {
-	const WAT_TYPE: &str = WatUsizeType::WAT_TYPE;
-	const WAT_CONV: Option<InputWatConv> = WatUsizeType::WAT_CONV;
-	const JS_CONV: Option<InputJsConv> = WatUsizeType::JS_CONV;
+// SAFETY: `PtrLength` is transparent over `usize`. On `wasm64`, the WAT
+// adapter converts it to `f64` without losing precision.
+unsafe impl<T> Slot for PtrLength<T> {
+	const WAT_TYPE: &'static str = WAT_PTR_TYPE;
+	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
+}
 
-	#[cfg(target_arch = "wasm32")]
-	type Type = usize;
-	#[cfg(target_arch = "wasm64")]
-	type Type = f64;
+// SAFETY: The JavaScript conversion matches the WAT boundary representation.
+unsafe impl<T> IntoJS for PtrLength<T> {
+	const JS_CONV: Option<IntoJsConv> = JsPointerType::JS_CONV;
 
-	fn into_raw(self) -> Self::Type {
-		self.len
+	type Abi = Self;
+
+	fn into_abi(self) -> Self::Abi {
+		self
 	}
 }
 

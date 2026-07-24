@@ -1,4 +1,5 @@
 mod check;
+mod e2e;
 mod fmt;
 mod metadata;
 mod permutation;
@@ -166,6 +167,7 @@ enum TargetFeature {
 	#[default]
 	Default,
 	Atomics,
+	ExceptionHandling,
 }
 
 impl Target {
@@ -185,14 +187,18 @@ impl Target {
 
 	fn toolchain(self, target_feature: TargetFeature) -> Toolchain {
 		match (self, target_feature) {
-			(Self::Wasm64, _) | (_, TargetFeature::Atomics) => Toolchain::Nightly,
+			(Self::Wasm64, _) | (_, TargetFeature::Atomics | TargetFeature::ExceptionHandling) => {
+				Toolchain::Nightly
+			}
 			(Self::Wasm32, TargetFeature::Default) => Toolchain::Any,
 		}
 	}
 
 	fn args(self, target_feature: TargetFeature) -> &'static [&'static str] {
 		match (self, target_feature) {
-			(Self::Wasm32, TargetFeature::Default) => &["--target", "wasm32-unknown-unknown"],
+			(Self::Wasm32, TargetFeature::Default | TargetFeature::ExceptionHandling) => {
+				&["--target", "wasm32-unknown-unknown"]
+			}
 			(Self::Wasm32, TargetFeature::Atomics) => &[
 				"--target",
 				"wasm32-unknown-unknown",
@@ -221,12 +227,13 @@ impl TargetFeature {
 		match self {
 			Self::Default => None,
 			Self::Atomics => Some("-Ctarget-feature=+atomics"),
+			Self::ExceptionHandling => Some("-Ctarget-feature=+exception-handling"),
 		}
 	}
 
 	fn supports_atomics(self) -> bool {
 		match self {
-			Self::Default => false,
+			Self::Default | Self::ExceptionHandling => false,
 			Self::Atomics => true,
 		}
 	}
@@ -237,6 +244,7 @@ impl Display for TargetFeature {
 		match self {
 			Self::Default => Ok(()),
 			Self::Atomics => f.write_str("Atomics"),
+			Self::ExceptionHandling => f.write_str("Exception Handling"),
 		}
 	}
 }

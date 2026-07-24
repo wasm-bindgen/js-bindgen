@@ -27,6 +27,7 @@ pub fn run(
 
 	for CargoTarget {
 		kind,
+		package,
 		name,
 		features,
 		js_sys,
@@ -45,11 +46,11 @@ pub fn run(
 
 				let announce = match kind {
 					TargetKind::Lib => {
-						command.args(["-p", name]);
+						command.args(["-p", package]);
 						*title
 					}
 					TargetKind::Example => {
-						command.args(["--example", name]);
+						command.args(["-p", package, "--example", name]);
 						&format!("{title} Example")
 					}
 					_ => unreachable!(),
@@ -78,6 +79,7 @@ pub fn run(
 
 struct CargoTarget<'m> {
 	kind: TargetKind,
+	package: &'m str,
 	name: &'m str,
 	features: Features<'m>,
 	js_sys: bool,
@@ -100,6 +102,7 @@ impl<'m> CargoTarget<'m> {
 				for features in &feature_combinations {
 					targets.push(Self {
 						kind: TargetKind::Lib,
+						package: &package.name,
 						name: &package.name,
 						features: features.clone(),
 						js_sys,
@@ -116,6 +119,7 @@ impl<'m> CargoTarget<'m> {
 					if let TargetKind::Example = kind {
 						targets.push(Self {
 							kind: TargetKind::Example,
+							package: &package.name,
 							name: &target.name,
 							features: Features::Default,
 							js_sys,

@@ -11,12 +11,15 @@ extern crate alloc;
 mod util;
 mod array;
 mod bigint;
+mod exception;
 mod externref;
 pub mod hazard;
+// Implementations for passing Rust standard types across the JavaScript
+// boundary.
+mod interop;
 #[doc(hidden)]
 pub mod r#macro;
 mod number;
-mod numeric;
 mod panic;
 mod string;
 mod value;

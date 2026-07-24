@@ -15,6 +15,8 @@ pub struct JsStore {
 	embed: FixedHashMap<String, FixedHashMap<String, String>>,
 	expected_embed: HashMap<String, HashSet<String>>,
 	provided_embed: HashMap<String, HashMap<String, JsWithEmbeds>>,
+	export: FixedHashMap<String, String>,
+	export_module: FixedHashMap<String, String>,
 }
 
 struct JsWithEmbeds {
@@ -137,6 +139,40 @@ impl JsStore {
 		Ok(())
 	}
 
+	pub fn add_js_exports(
+		&mut self,
+		custom_section: &CustomSectionReader<'_>,
+	) -> Result<Vec<String>> {
+		let mut names = Vec::new();
+
+		for export in JsBindgenJsSectionParser::new(custom_section) {
+			if let Some(previous) = self.export.get(export.name) {
+				let previous_module = &self.export_module[export.name];
+				bail!(
+					"found multiple JS exports named `{}` from `{}` and `{}`\n  JS Export \
+					 1:\n{}\n  JS Export 2:\n{}",
+					export.name,
+					previous_module,
+					export.module,
+					previous,
+					export.js,
+				);
+			}
+
+			self.export
+				.insert(export.name.to_owned(), export.js.to_owned());
+			self.export_module
+				.insert(export.name.to_owned(), export.module.to_owned());
+			names.push(export.name.to_owned());
+
+			for embed in export.embeds {
+				self.require_js_embed(embed.into());
+			}
+		}
+
+		Ok(names)
+	}
+
 	fn require_js_embed(&mut self, embed: JsEmbed) {
 		if !self
 			.embed
@@ -180,6 +216,7 @@ impl JsStore {
 			main_memory,
 			js_import: self.import,
 			js_embed: self.embed,
+			js_export: self.export,
 		}
 	}
 }

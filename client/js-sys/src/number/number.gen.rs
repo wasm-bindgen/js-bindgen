@@ -4,7 +4,7 @@
 
 use core::marker::PhantomData;
 use crate::JsValue;
-use crate::hazard::{Input, InputWatConv, InputJsConv, OutputJsConv, Output, JsCast, OutputWatConv};
+use crate::hazard::{IntoJS, JsCast, OptionIntoJS};
 
 #[repr(transparent)]
 pub struct JsNumber<T = f64> {
@@ -24,31 +24,20 @@ impl<T> From<JsNumber<T>> for JsValue {
 	}
 }
 
-unsafe impl<T> Input for &JsNumber<T> {
-	const WAT_TYPE: &'static str = <&JsValue as Input>::WAT_TYPE;
-	const WAT_CONV: Option<InputWatConv> = <&JsValue as Input>::WAT_CONV;
-	const JS_CONV: Option<InputJsConv> = <&JsValue as Input>::JS_CONV;
+unsafe impl<T> JsCast for JsNumber<T> {}
 
-	type Type = <&'static JsValue as Input>::Type;
+unsafe impl<T> IntoJS for JsNumber<T> {
+	type Abi = <JsValue as IntoJS>::Abi;
 
-	fn into_raw(self) -> Self::Type {
-		Input::into_raw(&self.value)
+	fn into_abi(self) -> Self::Abi {
+		IntoJS::into_abi(JsValue::from(self))
 	}
 }
 
-unsafe impl<T> JsCast for JsNumber<T> {}
+unsafe impl<T> OptionIntoJS for JsNumber<T> {
+	type OptionAbi = <JsValue as OptionIntoJS>::OptionAbi;
 
-unsafe impl<T> Output for JsNumber<T> {
-	const WAT_TYPE: &str = <JsValue as Output>::WAT_TYPE;
-	const WAT_CONV: Option<OutputWatConv> = <JsValue as Output>::WAT_CONV;
-	const JS_CONV: Option<OutputJsConv> = <JsValue as Output>::JS_CONV;
-
-	type Type = <JsValue as Output>::Type;
-
-	fn from_raw(raw: Self::Type) -> Self {
-		Self {
-			value: Output::from_raw(raw),
-			_type: PhantomData,
-		}
+	fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
+		OptionIntoJS::option_into_abi(value.map(JsValue::from))
 	}
 }
