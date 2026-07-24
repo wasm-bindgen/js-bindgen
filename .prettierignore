@@ -1,2 +1,4 @@
 *.mjs
+/benchmarks/generated
+/benchmarks/target
 /host/cli-lib/src/js/imports.d.mts
