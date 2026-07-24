@@ -111,7 +111,7 @@ pub const fn validate_return_from_js<T: ReturnFromJS>() {
 	);
 }
 
-// WAT metadata shared by import and export adapters.
+// WAT metadata shared by import and export shims.
 
 /// The `WAT` representation of one `ABI` slot at a JavaScript boundary.
 #[doc(hidden)]
@@ -277,8 +277,25 @@ pub const fn return_into_js_is_direct<T: ReturnIntoJS>() -> bool {
 }
 
 #[must_use]
+pub const fn export_input_needs_wat_shim<T: ReturnFromJS>() -> bool {
+	<OutputSlot1<T> as Slot>::FROM_JS_WAT_CONV.is_some()
+		|| <OutputSlot2<T> as Slot>::FROM_JS_WAT_CONV.is_some()
+		|| <OutputSlot3<T> as Slot>::FROM_JS_WAT_CONV.is_some()
+		|| <OutputSlot4<T> as Slot>::FROM_JS_WAT_CONV.is_some()
+}
+
+#[must_use]
+pub const fn export_output_needs_wat_shim<T: ReturnIntoJS>() -> bool {
+	!return_into_js_is_direct::<T>()
+		|| <ReturnSlot1<T> as Slot>::INTO_JS_WAT_CONV.is_some()
+		|| <ReturnSlot2<T> as Slot>::INTO_JS_WAT_CONV.is_some()
+		|| <ReturnSlot3<T> as Slot>::INTO_JS_WAT_CONV.is_some()
+		|| <ReturnSlot4<T> as Slot>::INTO_JS_WAT_CONV.is_some()
+}
+
+#[must_use]
 pub const fn export_output_frame_size<T: ReturnIntoJS>() -> usize {
-	// LLVM keeps the Wasm stack pointer 16-byte aligned. Rounding every adapter
+	// LLVM keeps the Wasm stack pointer 16-byte aligned. Rounding every shim
 	// frame to that alignment preserves the invariant when the frame is allocated.
 	const STACK_ALIGNMENT: usize = 16;
 	let size = core::mem::size_of::<WasmRet<T::Abi>>();

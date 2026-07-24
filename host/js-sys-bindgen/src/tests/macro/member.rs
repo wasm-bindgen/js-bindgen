@@ -12,7 +12,7 @@ fn method() {
 				pub fn test(self: &JsTest) {
 					::js_sys::js_bindgen::unsafe_global_wat! {
 						"{}", interpolate::js_sys::r#macro::wat_import!(module = "test_crate", import = "test",
-						adapter = "test_crate.test", inputs = [("arg0", & ::js_sys::JsValue)],),
+						shim = "test_crate.test", inputs = [("arg0", & ::js_sys::JsValue)],),
 					}
 
 					::js_sys::js_bindgen::import_js! {
@@ -73,7 +73,7 @@ fn method_par() {
 				pub fn test(self: &JsTest, par1: &JsValue, par2: &JsValue) {
 					::js_sys::js_bindgen::unsafe_global_wat! {
 						"{}", interpolate::js_sys::r#macro::wat_import!(module = "test_crate", import = "test",
-						adapter = "test_crate.test", inputs = [("arg0", & ::js_sys::JsValue), ("arg1", &
+						shim = "test_crate.test", inputs = [("arg0", & ::js_sys::JsValue), ("arg1", &
 						JsValue), ("arg2", & JsValue)],),
 					}
 
@@ -161,7 +161,7 @@ fn getter() {
 				pub fn test(self: &JsTest) -> JsValue {
 					::js_sys::js_bindgen::unsafe_global_wat! {
 						"{}", interpolate::js_sys::r#macro::wat_import!(module = "test_crate", import = "test",
-						adapter = "test_crate.test", inputs = [("arg0", & ::js_sys::JsValue)], output =
+						shim = "test_crate.test", inputs = [("arg0", & ::js_sys::JsValue)], output =
 						JsValue,),
 					}
 
@@ -231,7 +231,7 @@ fn setter() {
 				pub fn test(self: &JsTest, value: &JsValue) {
 					::js_sys::js_bindgen::unsafe_global_wat! {
 						"{}", interpolate::js_sys::r#macro::wat_import!(module = "test_crate", import = "test",
-						adapter = "test_crate.test", inputs = [("arg0", & ::js_sys::JsValue), ("arg1", &
+						shim = "test_crate.test", inputs = [("arg0", & ::js_sys::JsValue), ("arg1", &
 						JsValue)],),
 					}
 

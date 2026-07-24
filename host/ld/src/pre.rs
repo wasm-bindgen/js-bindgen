@@ -122,6 +122,10 @@ fn process_object(
 		match &payload {
 			Payload::CustomSection(c) if c.name() == "js_bindgen.wat" => {
 				for wat in JsBindgenWatSectionParser::new(c) {
+					if wat.is_empty() {
+						continue;
+					}
+
 					file_counter += 1;
 					let wasm_path =
 						archive_path.with_added_extension(format!("wasm.{file_counter}.o"));
@@ -182,10 +186,11 @@ fn process_object(
 			Payload::CustomSection(c) if c.name() == "js_bindgen.embed" => {
 				js_store.add_js_embeds(c)?;
 			}
-			// Extract JS export wrappers and keep their WAT adapter symbols alive.
+			// Rust already exports the raw function. Keep its WAT shim when one
+			// was generated.
 			Payload::CustomSection(c) if c.name() == "js_bindgen.export" => {
 				for name in js_store.add_js_exports(c)? {
-					add_args.push(format!("--export={name}").into());
+					add_args.push(format!("--export-if-defined={name}").into());
 				}
 			}
 			_ => (),

@@ -11,7 +11,7 @@ fn basic() {
 			pub fn log(data: &JsValue) {
 				::js_sys::js_bindgen::unsafe_global_wat! {
 					"{}", interpolate::js_sys::r#macro::wat_import!(module = "test_crate", import = "log",
-					adapter = "test_crate.log", inputs = [("arg0", & JsValue)],),
+					shim = "test_crate.log", inputs = [("arg0", & JsValue)],),
 				}
 
 				::js_sys::js_bindgen::import_js! {
@@ -68,7 +68,7 @@ fn namespace() {
 			pub fn log(data: &JsValue) {
 				::js_sys::js_bindgen::unsafe_global_wat! {
 					"{}", interpolate::js_sys::r#macro::wat_import!(module = "test_crate", import =
-					"console.log", adapter = "test_crate.console.log", inputs = [("arg0", & JsValue)],),
+					"console.log", shim = "test_crate.console.log", inputs = [("arg0", & JsValue)],),
 				}
 
 				::js_sys::js_bindgen::import_js! {
@@ -125,7 +125,7 @@ fn js_sys() {
 			pub fn log(data: &JsValue) {
 				js_sys::js_bindgen::unsafe_global_wat! {
 					"{}", interpolate js_sys::r#macro::wat_import!(module = "test_crate", import = "log",
-					adapter = "test_crate.log", inputs = [("arg0", & JsValue)],),
+					shim = "test_crate.log", inputs = [("arg0", & JsValue)],),
 				}
 
 				js_sys::js_bindgen::import_js! {
@@ -182,7 +182,7 @@ fn two_parameters() {
 			pub fn log(data1: &JsValue, data2: &JsValue) {
 				::js_sys::js_bindgen::unsafe_global_wat! {
 					"{}", interpolate::js_sys::r#macro::wat_import!(module = "test_crate", import = "log",
-					adapter = "test_crate.log", inputs = [("arg0", & JsValue), ("arg1", & JsValue)],),
+					shim = "test_crate.log", inputs = [("arg0", & JsValue), ("arg1", & JsValue)],),
 				}
 
 				::js_sys::js_bindgen::import_js! {
@@ -251,7 +251,7 @@ fn empty() {
 			pub fn log() {
 				::js_sys::js_bindgen::unsafe_global_wat! {
 					"{}", interpolate::js_sys::r#macro::wat_import!(module = "test_crate", import = "log",
-					adapter = "test_crate.log", inputs = [],),
+					shim = "test_crate.log", inputs = [],),
 				}
 
 				::js_sys::js_bindgen::import_js! {
@@ -297,7 +297,7 @@ fn js_name() {
 			pub fn logx(data: &JsValue) {
 				::js_sys::js_bindgen::unsafe_global_wat! {
 					"{}", interpolate::js_sys::r#macro::wat_import!(module = "test_crate", import = "logx",
-					adapter = "test_crate.logx", inputs = [("arg0", & JsValue)],),
+					shim = "test_crate.logx", inputs = [("arg0", & JsValue)],),
 				}
 
 				::js_sys::js_bindgen::import_js! {
@@ -355,7 +355,7 @@ fn js_import() {
 			pub fn log(data: &JsValue) {
 				::js_sys::js_bindgen::unsafe_global_wat! {
 					"{}", interpolate::js_sys::r#macro::wat_import!(module = "test_crate", import = "log",
-					adapter = "test_crate.log", inputs = [("arg0", & JsValue)],),
+					shim = "test_crate.log", inputs = [("arg0", & JsValue)],),
 				}
 
 				unsafe extern "C" {
@@ -402,7 +402,7 @@ fn js_embed() {
 			pub fn log(data: &JsValue) {
 				::js_sys::js_bindgen::unsafe_global_wat! {
 					"{}", interpolate::js_sys::r#macro::wat_import!(module = "test_crate", import = "log",
-					adapter = "test_crate.log", inputs = [("arg0", & JsValue)],),
+					shim = "test_crate.log", inputs = [("arg0", & JsValue)],),
 				}
 
 				::js_sys::js_bindgen::import_js! {
@@ -462,7 +462,7 @@ fn r#return() {
 			pub fn is_nan() -> JsValue {
 				::js_sys::js_bindgen::unsafe_global_wat! {
 					"{}", interpolate::js_sys::r#macro::wat_import!(module = "test_crate", import = "is_nan",
-					adapter = "test_crate.is_nan", inputs = [], output = JsValue,),
+					shim = "test_crate.is_nan", inputs = [], output = JsValue,),
 				}
 
 				::js_sys::js_bindgen::import_js! {
@@ -514,7 +514,7 @@ fn cfg() {
 			pub fn log() {
 				::js_sys::js_bindgen::unsafe_global_wat! {
 					"{}", interpolate::js_sys::r#macro::wat_import!(module = "test_crate", import = "log",
-					adapter = "test_crate.log", inputs = [],),
+					shim = "test_crate.log", inputs = [],),
 				}
 
 				::js_sys::js_bindgen::import_js! {

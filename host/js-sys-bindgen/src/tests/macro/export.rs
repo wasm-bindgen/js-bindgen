@@ -35,15 +35,7 @@ fn direct() {
 		}
 	});
 
-	inline_snap::inline_snap!(
-		wat,
-		r#"
-(import "env" "raw" (func $raw (@sym (name "__export_echo")) (param i32) (result i32)))
-(func $export (@sym (name "echo")) (param $arg0_0 i32) (result i32)
-  local.get $arg0_0
-  call $raw (@reloc)
-)"#
-	);
+	assert!(wat.is_empty());
 	assert_eq!(
 		js,
 		r"(arg0) => {
@@ -208,14 +200,7 @@ fn no_parameters() {
 		}
 	});
 
-	inline_snap::inline_snap!(
-		wat,
-		r#"
-(import "env" "raw" (func $raw (@sym (name "__export_answer")) (result i32)))
-(func $export (@sym (name "answer")) (result i32)
-  call $raw (@reloc)
-)"#
-	);
+	assert!(wat.is_empty());
 	assert_eq!(
 		js,
 		r"() => {
@@ -233,15 +218,7 @@ fn no_return_value() {
 		}
 	});
 
-	inline_snap::inline_snap!(
-		wat,
-		r#"
-(import "env" "raw" (func $raw (@sym (name "__export_nothing")) (param i32)))
-(func $export (@sym (name "nothing")) (param $arg0_0 i32)
-  local.get $arg0_0
-  call $raw (@reloc)
-)"#
-	);
+	assert!(wat.is_empty());
 	assert_eq!(
 		js,
 		r"(arg0) => {

@@ -395,7 +395,7 @@ where
 
 	fn return_from_abi(raw: MaybeUninit<WasmRet<Self::Abi>>) -> Self {
 		// SAFETY: An ordinary JavaScript import always initializes its return
-		// value before the adapter returns.
+		// value before the shim returns.
 		T::from_abi(unsafe { raw.assume_init() }.join())
 	}
 }

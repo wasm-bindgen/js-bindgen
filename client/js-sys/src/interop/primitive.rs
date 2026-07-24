@@ -20,7 +20,7 @@ macro_rules! slot {
 
 macro_rules! from_js {
 	($($ty:ty),+ $(,)?) => {$(
-		// SAFETY: The JavaScript adapter produces this primitive's native `ABI`
+		// SAFETY: The JavaScript shim produces this primitive's native `ABI`
 		// slot, which is returned unchanged.
 		unsafe impl FromJS for $ty {
 			type Abi = Self;

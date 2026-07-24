@@ -199,7 +199,7 @@ unsafe impl<T: JsCast> IntoJS for &T {
 unsafe impl JsCast for JsValue {}
 
 // SAFETY: The owned table index is transferred to JavaScript and recycled
-// after the WAT adapter has loaded its `externref`.
+// after the WAT shim has loaded its `externref`.
 unsafe impl IntoJS for JsValue {
 	type Abi = JsValueAbi;
 

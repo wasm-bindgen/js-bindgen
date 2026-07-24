@@ -43,7 +43,7 @@ unsafe impl OptionIntoJS for JsString {
 pub(super) fn string_constructor(value: &JsValue) -> JsString {
 	js_bindgen::unsafe_global_wat! {
 		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "string_constructor",
-		adapter = "js_sys.string_constructor", inputs = [("arg0", & JsValue)], output = JsString,),
+		shim = "js_sys.string_constructor", inputs = [("arg0", & JsValue)], output = JsString,),
 	}
 
 	js_bindgen::import_js! {
@@ -79,7 +79,7 @@ pub(super) fn string_constructor(value: &JsValue) -> JsString {
 
 pub(super) unsafe fn string_eq(string: &JsString, array: PtrConst<u8>, len: PtrLength<u8>) -> bool {
 	js_bindgen::unsafe_global_wat! {
-		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "string_eq", adapter =
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "string_eq", shim =
 		"js_sys.string_eq", inputs = [("arg0", & JsString), ("arg1", PtrConst < u8 >), ("arg2",
 		PtrLength < u8 >)], output = bool,),
 	}
@@ -146,8 +146,8 @@ pub(super) unsafe fn string_eq(string: &JsString, array: PtrConst<u8>, len: PtrL
 
 pub(super) unsafe fn string_decode(array: PtrConst<u8>, len: PtrLength<u8>) -> JsString {
 	js_bindgen::unsafe_global_wat! {
-		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "string_decode", adapter
-		= "js_sys.string_decode", inputs = [("arg0", PtrConst < u8 >), ("arg1", PtrLength < u8 >)],
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "string_decode", shim =
+		"js_sys.string_decode", inputs = [("arg0", PtrConst < u8 >), ("arg1", PtrLength < u8 >)],
 		output = JsString,),
 	}
 
@@ -193,7 +193,7 @@ pub(super) unsafe fn string_decode(array: PtrConst<u8>, len: PtrLength<u8>) -> J
 pub(super) fn string_utf8_length(string: &JsString) -> f64 {
 	js_bindgen::unsafe_global_wat! {
 		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "string_utf8_length",
-		adapter = "js_sys.string_utf8_length", inputs = [("arg0", & JsString)], output = f64,),
+		shim = "js_sys.string_utf8_length", inputs = [("arg0", & JsString)], output = f64,),
 	}
 
 	js_bindgen::import_js! {
@@ -231,8 +231,8 @@ pub(super) fn string_utf8_length(string: &JsString) -> f64 {
 
 pub(super) unsafe fn string_encode(string: &JsString, array: PtrMut<u8>, len: PtrLength<u8>) {
 	js_bindgen::unsafe_global_wat! {
-		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "string_encode", adapter
-		= "js_sys.string_encode", inputs = [("arg0", & JsString), ("arg1", PtrMut < u8 >), ("arg2",
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "string_encode", shim =
+		"js_sys.string_encode", inputs = [("arg0", & JsString), ("arg1", PtrMut < u8 >), ("arg2",
 		PtrLength < u8 >)],),
 	}
 

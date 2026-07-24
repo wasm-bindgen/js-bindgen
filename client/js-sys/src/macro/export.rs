@@ -1,4 +1,4 @@
-// WAT adapter helpers.
+// WAT shim helpers.
 
 #[doc(hidden)]
 #[macro_export]
@@ -107,6 +107,18 @@ macro_rules! wat_export_result_loads {
 
 #[doc(hidden)]
 #[macro_export]
+macro_rules! wat_export_needs_shim {
+	(($(($par:literal, $input:ty)),*) $(,)?) => {
+		false $(|| $crate::r#macro::export_input_needs_wat_shim::<$input>())*
+	};
+	(($(($par:literal, $input:ty)),*), $output:ty $(,)?) => {
+		$crate::r#macro::wat_export_needs_shim!(($(($par, $input)),*))
+			|| $crate::r#macro::export_output_needs_wat_shim::<$output>()
+	};
+}
+
+#[doc(hidden)]
+#[macro_export]
 macro_rules! wat_export_direct {
 	($raw:expr, $export:expr, ($(($par:literal, $input:ty)),*) $(,)?) => {
 		$crate::r#macro::const_concat!(
@@ -210,20 +222,30 @@ macro_rules! wat_export_indirect {
 	}};
 }
 
-/// Generates the complete WAT adapter for one Rust export.
+/// Generates the WAT shim for one Rust export, or an empty string when its
+/// raw `ABI` already matches the JavaScript boundary.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! wat_export {
 	($raw:expr, $export:expr, ($(($par:literal, $input:ty)),*) $(,)?) => {{
 		$($crate::r#macro::validate_return_from_js::<$input>();)*
 
-		$crate::r#macro::wat_export_direct!($raw, $export, ($(($par, $input)),*))
+		if $crate::r#macro::wat_export_needs_shim!(($(($par, $input)),*)) {
+			$crate::r#macro::wat_export_direct!($raw, $export, ($(($par, $input)),*))
+		} else {
+			""
+		}
 	}};
 	($raw:expr, $export:expr, ($(($par:literal, $input:ty)),*), $output:ty $(,)?) => {{
 		$($crate::r#macro::validate_return_from_js::<$input>();)*
 		$crate::r#macro::validate_return_into_js::<$output>();
 
-		if $crate::r#macro::return_into_js_is_direct::<$output>() {
+		if !$crate::r#macro::wat_export_needs_shim!(
+			($(($par, $input)),*),
+			$output,
+		) {
+			""
+		} else if $crate::r#macro::return_into_js_is_direct::<$output>() {
 			$crate::r#macro::wat_export_direct!(
 				$raw,
 				$export,

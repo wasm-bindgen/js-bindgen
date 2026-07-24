@@ -1,11 +1,11 @@
-/// Generates the complete WAT adapter for one JavaScript import.
+/// Generates the complete WAT shim for one JavaScript import.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! wat_import {
 	(
 		module = $crate_name:expr,
 		import = $import_name:expr,
-		adapter = $foreign_name:expr,
+		shim = $foreign_name:expr,
 		inputs = [$(($par:literal, $input:ty)),* $(,)?],
 		$(output = $output:ty,)?
 	) => {{
@@ -89,7 +89,7 @@ macro_rules! wat_imports {
 	};
 }
 
-// Return adapter.
+// Return shim.
 
 #[doc(hidden)]
 #[macro_export]
@@ -185,7 +185,7 @@ macro_rules! wat_output_get {
 	}};
 }
 
-// Input adapter.
+// Input shim.
 
 #[doc(hidden)]
 #[macro_export]

@@ -1,4 +1,4 @@
-/// Generates the complete JavaScript adapter for one import.
+/// Generates the complete JavaScript shim for one import.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! js_import {
@@ -9,7 +9,7 @@ macro_rules! js_import {
 		inputs = [$(($par:literal, $input:ty)),* $(,)?],
 	) => {{
 		const WRAPPED: ::core::primitive::bool =
-			$crate::r#macro::js_needs_adapter!(($($input),*));
+			$crate::r#macro::js_needs_shim!(($($input),*));
 		const OPEN: &::core::primitive::str = if WRAPPED {
 			$crate::r#macro::js_function!("(", ") => {\n", $(($par, $input)),*)
 		} else {
@@ -35,7 +35,7 @@ macro_rules! js_import {
 		output = $output:ty,
 	) => {{
 		const WRAPPED: ::core::primitive::bool =
-			$crate::r#macro::js_needs_adapter!(($($input),*), $output);
+			$crate::r#macro::js_needs_shim!(($($input),*), $output);
 		const OPEN: &::core::primitive::str = if WRAPPED {
 			$crate::r#macro::js_indirect_function!(
 				"(",
@@ -61,11 +61,11 @@ macro_rules! js_import {
 	}};
 }
 
-// Adapter selection.
+// Shim selection.
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! js_needs_adapter {
+macro_rules! js_needs_shim {
 	(($($input:ty),*) $(, $output:ty)? $(,)?) => {{
 		'outer: {
 			$(

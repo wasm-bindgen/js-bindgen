@@ -107,7 +107,7 @@ impl<T> PtrConst<T> {
 }
 
 // SAFETY: `PtrConst` is transparent over a native Wasm pointer. On `wasm64`,
-// the WAT adapter converts it to `f64` without losing precision.
+// the WAT shim converts it to `f64` without losing precision.
 unsafe impl<T> Slot for PtrConst<T> {
 	const WAT_TYPE: &'static str = WAT_PTR_TYPE;
 	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
@@ -148,7 +148,7 @@ impl<T> PtrMut<T> {
 }
 
 // SAFETY: `PtrMut` is transparent over a native Wasm pointer. On `wasm64`,
-// the WAT adapter converts it to `f64` without losing precision.
+// the WAT shim converts it to `f64` without losing precision.
 unsafe impl<T> Slot for PtrMut<T> {
 	const WAT_TYPE: &'static str = WAT_PTR_TYPE;
 	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
@@ -193,7 +193,7 @@ impl<T> PtrLength<T> {
 }
 
 // SAFETY: `PtrLength` is transparent over `usize`. On `wasm64`, the WAT
-// adapter converts it to `f64` without losing precision.
+// shim converts it to `f64` without losing precision.
 unsafe impl<T> Slot for PtrLength<T> {
 	const WAT_TYPE: &'static str = WAT_PTR_TYPE;
 	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;

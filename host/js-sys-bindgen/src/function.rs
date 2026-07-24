@@ -479,7 +479,7 @@ impl<'a> State<'a> {
 				interpolate #r#macro::wat_import!(
 					module = #crate_,
 					import = #import_name,
-					adapter = #foreign_name,
+					shim = #foreign_name,
 					inputs = [#(#inputs),*],
 					#(output = #output,)*
 				),

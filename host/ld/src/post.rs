@@ -1,4 +1,5 @@
 use anyhow::{Context, Result, bail};
+use hashbrown::HashSet;
 use js_bindgen_cli_lib::{JS_OUTPUT_SECTION, MainMemory};
 use js_bindgen_shared::{IS_COMPAT_SECTION, IS_TEST_SECTION};
 use wasm_encoder::{
@@ -57,15 +58,29 @@ pub fn processing(
 
 				import_section.append_to(&mut wasm_output);
 			}
-			// The WAT adapters need these symbols during linking, but callers should only
-			// see the public adapters in the final module.
+			// Prefer a public WAT shim when one was generated. Otherwise expose the
+			// raw Rust export after removing its internal prefix.
 			Payload::ExportSection(exports) => {
 				let mut export_section = ExportSection::new();
+				let mut exports_parsed = Vec::new();
 
 				for export in exports {
-					let export = export.context("export should be parsable")?;
+					exports_parsed.push(export.context("export should be parsable")?);
+				}
 
-					if !export.name.starts_with("__export_") {
+				let shims: HashSet<_> = exports_parsed
+					.iter()
+					.filter_map(|export| {
+						(!export.name.starts_with("__export_")).then_some(export.name)
+					})
+					.collect();
+
+				for export in exports_parsed {
+					if let Some(name) = export.name.strip_prefix("__export_") {
+						if !shims.contains(name) {
+							export_section.export(name, export.kind.into(), export.index);
+						}
+					} else {
 						export_section.export(export.name, export.kind.into(), export.index);
 					}
 				}
