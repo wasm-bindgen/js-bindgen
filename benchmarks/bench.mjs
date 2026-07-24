@@ -150,6 +150,41 @@ const cases = [
     exportName: "i32_identity",
     worker: new URL("./cases/i32.mjs", import.meta.url),
   },
+  {
+    name: "u128 identity (indirect return)",
+    exportName: "u128_identity",
+    worker: new URL("./cases/u128.mjs", import.meta.url),
+  },
+  {
+    name: "Option<i32>::Some (sentinel return)",
+    exportName: "option_i32_identity",
+    worker: new URL("./cases/option-i32.mjs", import.meta.url),
+  },
+  {
+    name: "Result<i32, JsValue>::Ok",
+    exportName: "result_i32_identity",
+    worker: new URL("./cases/result-i32.mjs", import.meta.url),
+  },
+  {
+    name: "i32 identity (import roundtrip)",
+    exportName: "import_i32_identity",
+    worker: new URL("./cases/i32.mjs", import.meta.url),
+  },
+  {
+    name: "u128 identity (import roundtrip)",
+    exportName: "import_u128_identity",
+    worker: new URL("./cases/u128.mjs", import.meta.url),
+  },
+  {
+    name: "Option<i32>::Some (import roundtrip)",
+    exportName: "import_option_i32_identity",
+    worker: new URL("./cases/option-i32.mjs", import.meta.url),
+  },
+  {
+    name: "Result<i32, JsValue>::Ok (import roundtrip)",
+    exportName: "import_result_i32_identity",
+    worker: new URL("./cases/result-i32.mjs", import.meta.url),
+  },
 ];
 
 class Runner {
