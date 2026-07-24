@@ -167,27 +167,3 @@ pub const fn wat_result_default<T: ReturnFromJS>() -> &'static str {
 		""
 	}
 }
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wat_result_try {
-	($ty:ty) => {
-		$crate::r#macro::wat_result_try::<$ty>()
-	};
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wat_result_catch {
-	($ty:ty) => {
-		$crate::r#macro::wat_result_catch::<$ty>()
-	};
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wat_result_default {
-	($ty:ty) => {
-		$crate::r#macro::wat_result_default::<$ty>()
-	};
-}

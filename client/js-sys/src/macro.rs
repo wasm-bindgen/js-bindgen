@@ -24,19 +24,8 @@ pub use crate::{
 	js_parameter,
 };
 // WAT export shims.
-pub use crate::{
-	wat_export, wat_export_direct, wat_export_imports, wat_export_indirect, wat_export_input_gets,
-	wat_export_input_params, wat_export_input_raw_param, wat_export_input_raw_types,
-	wat_export_needs_shim, wat_export_result_loads, wat_export_result_types,
-};
+pub use crate::{wat_export, wat_export_direct, wat_export_indirect, wat_export_needs_shim};
 // WAT import shims.
-pub use crate::{
-	wat_import, wat_import_input_types, wat_import_result, wat_imports, wat_input_gets,
-	wat_input_import_types, wat_input_params, wat_output, wat_output_get, wat_output_import_param,
-	wat_output_param, wat_output_result,
-};
-// Shared WAT and exception helpers.
-pub use crate::{
-	wat_import_list, wat_result_catch, wat_result_default, wat_result_try, wat_slot_params,
-	wat_slot_types,
-};
+pub use crate::{wat_import, wat_import_output};
+// Shared WAT helpers.
+pub use crate::{wat_import_list, wat_imports, wat_input, wat_slots};

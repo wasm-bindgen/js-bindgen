@@ -1,109 +1,4 @@
-// WAT shim helpers.
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wat_export_imports {
-	(($($input:ty),*) $(, $output:ty)? $(,)?) => {
-		$crate::r#macro::wat_import_list!(
-			$($crate::r#macro::from_js_wat_slots::<$input>()[0].import,)*
-			$($crate::r#macro::from_js_wat_slots::<$input>()[1].import,)*
-			$($crate::r#macro::from_js_wat_slots::<$input>()[2].import,)*
-			$($crate::r#macro::from_js_wat_slots::<$input>()[3].import,)*
-			$($crate::r#macro::return_into_js_wat_slots::<$output>()[0].import,)?
-			$($crate::r#macro::return_into_js_wat_slots::<$output>()[1].import,)?
-			$($crate::r#macro::return_into_js_wat_slots::<$output>()[2].import,)?
-			$($crate::r#macro::return_into_js_wat_slots::<$output>()[3].import,)?
-		)
-	};
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wat_export_input_raw_types {
-	($ty:ty $(,)?) => {
-		$crate::r#macro::wat_slot_types!($crate::r#macro::from_js_wat_slots::<$ty>(), abi,)
-	};
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wat_export_input_raw_param {
-	($ty:ty $(,)?) => {{
-		const TYPES: &::core::primitive::str =
-			$crate::r#macro::wat_export_input_raw_types!($ty);
-
-		$crate::r#macro::const_concat_if!(
-			!TYPES.is_empty() => [" (param ", TYPES, ")"],
-		)
-	}};
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wat_export_input_params {
-	($par:literal, $ty:ty $(,)?) => {
-		$crate::r#macro::wat_slot_params!(
-			$par,
-			$crate::r#macro::from_js_wat_slots::<$ty>(),
-			boundary,
-		)
-	};
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wat_export_input_gets {
-	($par:literal, $ty:ty $(,)?) => {{
-		const SLOTS: [$crate::r#macro::WatSlot; 4] =
-			$crate::r#macro::from_js_wat_slots::<$ty>();
-
-		$crate::r#macro::const_concat_if!(
-			!SLOTS[0].abi.is_empty() => ["  local.get $", $par, "_0", $crate::r#macro::wat_conv_prefix(SLOTS[0].conv), SLOTS[0].conv, "\n"],
-			!SLOTS[1].abi.is_empty() => ["  local.get $", $par, "_1", $crate::r#macro::wat_conv_prefix(SLOTS[1].conv), SLOTS[1].conv, "\n"],
-			!SLOTS[2].abi.is_empty() => ["  local.get $", $par, "_2", $crate::r#macro::wat_conv_prefix(SLOTS[2].conv), SLOTS[2].conv, "\n"],
-			!SLOTS[3].abi.is_empty() => ["  local.get $", $par, "_3", $crate::r#macro::wat_conv_prefix(SLOTS[3].conv), SLOTS[3].conv, "\n"],
-		)
-	}};
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wat_export_result_types {
-	($ty:ty $(,)?) => {
-		$crate::r#macro::wat_slot_types!(
-			$crate::r#macro::return_into_js_wat_slots::<$ty>(),
-			boundary,
-		)
-	};
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wat_export_result_loads {
-	($ty:ty $(,)?) => {{
-		const SLOTS: [$crate::r#macro::WatSlot; 4] =
-			$crate::r#macro::return_into_js_wat_slots::<$ty>();
-		const OFFSET_0: &::core::primitive::str = $crate::r#macro::const_integer_str!(
-			$crate::r#macro::export_output_slot_offset::<$ty, 0>()
-		);
-		const OFFSET_1: &::core::primitive::str = $crate::r#macro::const_integer_str!(
-			$crate::r#macro::export_output_slot_offset::<$ty, 1>()
-		);
-		const OFFSET_2: &::core::primitive::str = $crate::r#macro::const_integer_str!(
-			$crate::r#macro::export_output_slot_offset::<$ty, 2>()
-		);
-		const OFFSET_3: &::core::primitive::str = $crate::r#macro::const_integer_str!(
-			$crate::r#macro::export_output_slot_offset::<$ty, 3>()
-		);
-
-		$crate::r#macro::const_concat_if!(
-			!SLOTS[0].abi.is_empty() => ["  local.get $retptr\n  ", SLOTS[0].abi, ".load offset=", OFFSET_0, $crate::r#macro::wat_conv_prefix(SLOTS[0].conv), SLOTS[0].conv, "\n"],
-			!SLOTS[1].abi.is_empty() => ["  local.get $retptr\n  ", SLOTS[1].abi, ".load offset=", OFFSET_1, $crate::r#macro::wat_conv_prefix(SLOTS[1].conv), SLOTS[1].conv, "\n"],
-			!SLOTS[2].abi.is_empty() => ["  local.get $retptr\n  ", SLOTS[2].abi, ".load offset=", OFFSET_2, $crate::r#macro::wat_conv_prefix(SLOTS[2].conv), SLOTS[2].conv, "\n"],
-			!SLOTS[3].abi.is_empty() => ["  local.get $retptr\n  ", SLOTS[3].abi, ".load offset=", OFFSET_3, $crate::r#macro::wat_conv_prefix(SLOTS[3].conv), SLOTS[3].conv, "\n"],
-		)
-	}};
-}
+// WAT shim generation.
 
 #[doc(hidden)]
 #[macro_export]
@@ -122,18 +17,23 @@ macro_rules! wat_export_needs_shim {
 macro_rules! wat_export_direct {
 	($raw:expr, $export:expr, ($(($par:literal, $input:ty)),*) $(,)?) => {
 		$crate::r#macro::const_concat!(
-			$crate::r#macro::wat_export_imports!(($($input),*)),
+			$crate::r#macro::wat_imports!(
+				slots = [
+					$($crate::r#macro::from_js_wat_slots::<$input>(),)*
+				],
+				extras = [],
+			),
 			"\n(import \"env\" \"raw\" (func $raw (@sym (name \"",
 			$raw,
 			"\"))",
-			$($crate::r#macro::wat_export_input_raw_param!($input),)*
+			$($crate::r#macro::wat_input!(export raw_param; $input),)*
 			"))\n",
 			"(func $export (@sym (name \"",
 			$export,
 			"\"))",
-			$($crate::r#macro::wat_export_input_params!($par, $input),)*
+			$($crate::r#macro::wat_input!(export params; $par, $input),)*
 			"\n",
-			$($crate::r#macro::wat_export_input_gets!($par, $input),)*
+			$($crate::r#macro::wat_input!(export gets; $par, $input),)*
 			"  call $raw (@reloc)\n",
 			")"
 		)
@@ -143,22 +43,28 @@ macro_rules! wat_export_direct {
 			$crate::r#macro::return_into_js_wat_slots::<$output>()[0];
 
 		$crate::r#macro::const_concat!(
-			$crate::r#macro::wat_export_imports!(($($input),*), $output),
+			$crate::r#macro::wat_imports!(
+				slots = [
+					$($crate::r#macro::from_js_wat_slots::<$input>(),)*
+					$crate::r#macro::return_into_js_wat_slots::<$output>(),
+				],
+				extras = [],
+			),
 			"\n(import \"env\" \"raw\" (func $raw (@sym (name \"",
 			$raw,
 			"\"))",
-			$($crate::r#macro::wat_export_input_raw_param!($input),)*
+			$($crate::r#macro::wat_input!(export raw_param; $input),)*
 			" (result ",
 			SLOT.abi,
 			")))\n",
 			"(func $export (@sym (name \"",
 			$export,
 			"\"))",
-			$($crate::r#macro::wat_export_input_params!($par, $input),)*
+			$($crate::r#macro::wat_input!(export params; $par, $input),)*
 			" (result ",
 			SLOT.boundary,
 			")\n",
-			$($crate::r#macro::wat_export_input_gets!($par, $input),)*
+			$($crate::r#macro::wat_input!(export gets; $par, $input),)*
 			"  call $raw (@reloc)",
 			$crate::r#macro::wat_conv_prefix(SLOT.conv),
 			SLOT.conv,
@@ -176,16 +82,26 @@ macro_rules! wat_export_indirect {
 			$crate::r#macro::export_output_frame_size::<$output>()
 		);
 		const RESULT_TYPES: &::core::primitive::str =
-			$crate::r#macro::wat_export_result_types!($output);
+			$crate::r#macro::wat_slots!(
+				types,
+				$crate::r#macro::return_into_js_wat_slots::<$output>(),
+				boundary,
+			);
 
 		$crate::r#macro::const_concat!(
-			$crate::r#macro::wat_export_imports!(($($input),*), $output),
+			$crate::r#macro::wat_imports!(
+				slots = [
+					$($crate::r#macro::from_js_wat_slots::<$input>(),)*
+					$crate::r#macro::return_into_js_wat_slots::<$output>(),
+				],
+				extras = [],
+			),
 			"\n(import \"env\" \"raw\" (func $raw (@sym (name \"",
 			$raw,
 			"\")) (param ",
 			POINTER,
 			")",
-			$($crate::r#macro::wat_export_input_raw_param!($input),)*
+			$($crate::r#macro::wat_input!(export raw_param; $input),)*
 			"))\n",
 			"(import \"env\" \"__stack_pointer\" (global $__stack_pointer (mut ",
 			POINTER,
@@ -193,7 +109,7 @@ macro_rules! wat_export_indirect {
 			"(func $export (@sym (name \"",
 			$export,
 			"\"))",
-			$($crate::r#macro::wat_export_input_params!($par, $input),)*
+			$($crate::r#macro::wat_input!(export params; $par, $input),)*
 			" (result ",
 			RESULT_TYPES,
 			")\n",
@@ -208,9 +124,13 @@ macro_rules! wat_export_indirect {
 			POINTER,
 			".sub\n  local.tee $retptr\n  global.set $__stack_pointer\n",
 			"  local.get $retptr\n",
-			$($crate::r#macro::wat_export_input_gets!($par, $input),)*
+			$($crate::r#macro::wat_input!(export gets; $par, $input),)*
 			"  call $raw (@reloc)\n",
-			$crate::r#macro::wat_export_result_loads!($output),
+			$crate::r#macro::wat_slots!(
+				loads,
+				$output,
+				$crate::r#macro::return_into_js_wat_slots::<$output>(),
+			),
 			"  local.get $retptr\n  ",
 			POINTER,
 			".const ",
