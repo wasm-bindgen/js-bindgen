@@ -1,0 +1,4 @@
+#:tombi lint.disabled = true
+
+[toolchain]
+channel = "stage1"

@@ -1,0 +1,9 @@
+[advisories]
+ignore = [
+	# `paste`: Unmaintained.
+	"RUSTSEC-2024-0436",
+]
+
+[output]
+deny = ["warnings"]
+quiet = false

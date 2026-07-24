@@ -1,0 +1,48 @@
+(
+	embeds: [
+		(
+			module: "wabii",
+			name: "stdio.writer",
+			js: r#"(memory, write) => {
+  const decoder = new TextDecoder('utf-8', {
+      fatal: false,
+      ignoreBOM: false,
+  })
+  let buffer = ''
+  return (ptr, len) => {
+      ptr = Number(ptr)
+      len = Number(len)
+      const view = new Uint8Array(memory.buffer, ptr, len)
+      const input = memory.buffer instanceof ArrayBuffer ? view : view.slice()
+      buffer += decoder.decode(input, { stream: true })
+      for (;;) {
+          const newline = buffer.indexOf('\n')
+          if (newline === -1) {
+              break
+          }
+          write(buffer.slice(0, newline))
+          buffer = buffer.slice(newline + 1)
+      }
+  }
+}"#,
+		),
+	],
+	imports: [
+		(
+			module: "wabii",
+			name: "stdio.stdout",
+			required_embeds: [
+				(module: "wabii", name: "stdio.writer"),
+			],
+			js: "this.#jsEmbed.wabii['stdio.writer'](this.#memory, (line) => console.log(line))",
+		),
+		(
+			module: "wabii",
+			name: "stdio.stderr",
+			required_embeds: [
+				(module: "wabii", name: "stdio.writer"),
+			],
+			js: "this.#jsEmbed.wabii['stdio.writer'](this.#memory, (line) => console.error(line))",
+		),
+	],
+)
