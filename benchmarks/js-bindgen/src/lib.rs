@@ -19,6 +19,9 @@ extern "js-sys" {
 
 	#[js_sys(js_embed = "identity")]
 	fn import_result_i32_identity_raw(value: i32) -> Result<i32, JsValue>;
+
+	#[js_sys(js_embed = "identity")]
+	fn import_js_value_identity_raw(value: JsValue) -> JsValue;
 }
 
 #[js_sys]
@@ -42,6 +45,11 @@ fn result_i32_identity(value: i32) -> Result<i32, JsValue> {
 }
 
 #[js_sys]
+fn js_value_identity(value: JsValue) -> JsValue {
+	value
+}
+
+#[js_sys]
 fn import_i32_identity(value: i32) -> i32 {
 	import_i32_identity_raw(value)
 }
@@ -59,4 +67,9 @@ fn import_option_i32_identity(value: Option<i32>) -> Option<i32> {
 #[js_sys]
 fn import_result_i32_identity(value: i32) -> Result<i32, JsValue> {
 	import_result_i32_identity_raw(value)
+}
+
+#[js_sys]
+fn import_js_value_identity(value: JsValue) -> JsValue {
+	import_js_value_identity_raw(value)
 }

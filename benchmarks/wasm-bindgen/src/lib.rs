@@ -13,6 +13,9 @@ extern "C" {
 
 	#[wasm_bindgen(catch, js_name = identity)]
 	fn import_result_i32_identity_raw(value: i32) -> Result<i32, JsValue>;
+
+	#[wasm_bindgen(js_name = identity)]
+	fn import_js_value_identity_raw(value: JsValue) -> JsValue;
 }
 
 #[wasm_bindgen]
@@ -36,6 +39,11 @@ pub fn result_i32_identity(value: i32) -> Result<i32, JsValue> {
 }
 
 #[wasm_bindgen]
+pub fn js_value_identity(value: JsValue) -> JsValue {
+	value
+}
+
+#[wasm_bindgen]
 pub fn import_i32_identity(value: i32) -> i32 {
 	import_i32_identity_raw(value)
 }
@@ -53,4 +61,9 @@ pub fn import_option_i32_identity(value: Option<i32>) -> Option<i32> {
 #[wasm_bindgen]
 pub fn import_result_i32_identity(value: i32) -> Result<i32, JsValue> {
 	import_result_i32_identity_raw(value)
+}
+
+#[wasm_bindgen]
+pub fn import_js_value_identity(value: JsValue) -> JsValue {
+	import_js_value_identity_raw(value)
 }

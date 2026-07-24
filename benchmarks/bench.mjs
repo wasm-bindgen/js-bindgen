@@ -11,6 +11,8 @@ const repositoryDirectory = join(benchmarkDirectory, "..");
 const targetDirectory = join(benchmarkDirectory, "target");
 const generatedDirectory = join(benchmarkDirectory, "generated");
 
+const filters = process.argv.slice(2).map(filter => filter.toLowerCase());
+
 function execute(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: benchmarkDirectory,
@@ -184,6 +186,11 @@ const cases = [
     module: new URL("./cases/result-i32.mjs", import.meta.url),
   },
   {
+    name: "JsValue identity",
+    exportName: "js_value_identity",
+    module: new URL("./cases/js-value.mjs", import.meta.url),
+  },
+  {
     name: "i32 identity (import roundtrip)",
     exportName: "import_i32_identity",
     module: new URL("./cases/i32.mjs", import.meta.url),
@@ -210,9 +217,28 @@ const cases = [
     exportName: "import_result_i32_identity",
     module: new URL("./cases/result-i32.mjs", import.meta.url),
   },
+  {
+    name: "JsValue identity (import roundtrip)",
+    exportName: "import_js_value_identity",
+    module: new URL("./cases/js-value.mjs", import.meta.url),
+  },
 ];
 
-for (const testCase of cases) {
+const selectedCases = cases.filter(testCase => {
+  if (filters.length === 0) {
+    return true;
+  }
+
+  const name = testCase.name.toLowerCase();
+  const exportName = testCase.exportName.toLowerCase();
+  return filters.some(filter => name.includes(filter) || exportName.includes(filter));
+});
+
+if (selectedCases.length === 0) {
+  throw new Error(`no benchmark matched: ${filters.join(", ")}`);
+}
+
+for (const testCase of selectedCases) {
   await group(testCase.name, async () => {
     await summary(async () => {
       for (const implementation of loadedImplementations) {
