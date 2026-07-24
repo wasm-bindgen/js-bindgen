@@ -37,6 +37,8 @@ fn main() {
 	// ;; exports["option_u128"]((1n << 128n) - 2n) === (1n << 128n) - 1n
 	// ;; exports["option_i128"](undefined) === undefined
 	// ;; exports["option_i128"](-(1n << 127n)) === -(1n << 127n) + 1n
+	// ;; exports["import_option_i32"](undefined) === undefined
+	// ;; exports["import_option_i32"](42) === 42
 	// ;; exports["checked_add_u128"](1n << 96n, 3n) === (1n << 96n) + 3n
 	// ;; (() => { try { exports["checked_add_u128"]((1n << 128n) - 1n, 1n); return false } catch (error) { return error === "overflow" } })()
 	// ;; exports["import_result_i64"](41n) === 42n
@@ -50,6 +52,12 @@ fn main() {
 use js_sys::{JsString, JsValue, js_sys};
 
 type JsResult<T> = Result<T, JsString>;
+
+js_sys::js_bindgen::embed_js!(
+	module = "primitive",
+	name = "option.i32",
+	"(value) => value",
+);
 
 js_sys::js_bindgen::embed_js!(
 	module = "primitive",
@@ -73,6 +81,9 @@ js_sys::js_bindgen::embed_js!(
 
 #[js_sys]
 extern "js-sys" {
+	#[js_sys(js_embed = "option.i32")]
+	fn import_option_i32_raw(value: Option<i32>) -> Option<i32>;
+
 	#[js_sys(js_embed = "result.i64")]
 	fn import_result_i64_raw(value: i64) -> Result<i64, JsValue>;
 
@@ -216,6 +227,11 @@ fn option_u128(value: Option<u128>) -> Option<u128> {
 #[js_sys]
 fn option_i128(value: Option<i128>) -> Option<i128> {
 	value.map(|value| value + 1)
+}
+
+#[js_sys]
+fn import_option_i32(value: Option<i32>) -> Option<i32> {
+	import_option_i32_raw(value)
 }
 
 #[js_sys]

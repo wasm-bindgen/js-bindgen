@@ -78,11 +78,10 @@ macro_rules! sentinel_option {
 		// SAFETY: The sentinel is decoded before the carrier is converted back.
 		unsafe impl FromJS for Option<$ty> {
 			const JS_CONV: Option<FromJsConv> = Some(FromJsConv::slot1(const_concat!(
-				"((value) => value == null ? ",
+				"$value == null ? ",
 				$js_sentinel,
 				" : ",
-				$from_js,
-				")($value)"
+				$from_js
 			)));
 
 			type Abi = $carrier;
@@ -445,11 +444,11 @@ sentinel_option! {
 	types: [
 		[i8, u8, i16, u16] => {
 			to_js: "$slot1",
-			from_js: "value",
+			from_js: "$value",
 		},
 		[bool] => {
 			to_js: "$slot1 !== 0",
-			from_js: "value ? 1 : 0",
+			from_js: "$value ? 1 : 0",
 		},
 	],
 }
@@ -461,15 +460,15 @@ sentinel_option! {
 	types: [
 		[i32] => {
 			to_js: "$slot1",
-			from_js: "value >> 0",
+			from_js: "$value >> 0",
 		},
 		[u32] => {
 			to_js: "$slot1",
-			from_js: "value >>> 0",
+			from_js: "$value >>> 0",
 		},
 		[f32] => {
 			to_js: "$slot1",
-			from_js: "Math.fround(value)",
+			from_js: "Math.fround($value)",
 		},
 	],
 }
@@ -482,11 +481,11 @@ sentinel_option! {
 	types: [
 		[isize] => {
 			to_js: "$slot1",
-			from_js: "value >> 0",
+			from_js: "$value >> 0",
 		},
 		[usize] => {
 			to_js: "$slot1",
-			from_js: "value >>> 0",
+			from_js: "$value >>> 0",
 		},
 	],
 }

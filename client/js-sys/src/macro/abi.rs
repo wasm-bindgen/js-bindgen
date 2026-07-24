@@ -394,6 +394,11 @@ pub const fn js_output_templates<T: ReturnFromJS>() -> [&'static str; 4] {
 }
 
 #[must_use]
+pub const fn js_output_has_conversion<T: ReturnFromJS>() -> bool {
+	T::JS_CONV.conversion().is_some()
+}
+
+#[must_use]
 pub const fn js_output_sret<T: ReturnFromJS>() -> &'static str {
 	if let Some(conv) = T::JS_CONV.conversion()
 		&& let Some(sret) = conv.sret

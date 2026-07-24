@@ -181,6 +181,8 @@ macro_rules! js_output {
 		const OUTPUT_WRAPPED: ::core::primitive::bool = $wrapped;
 		const DIRECT_RETURN: ::core::primitive::bool =
 			$crate::r#macro::return_from_js_is_direct::<$output>();
+		const CONVERT_DIRECT: ::core::primitive::bool =
+			DIRECT_RETURN && $crate::r#macro::js_output_has_conversion::<$output>();
 		const CATCH_RESULT: ::core::primitive::bool =
 			$crate::r#macro::catches_result_in_js::<$output>();
 		const CALL: &::core::primitive::str = if OUTPUT_WRAPPED {
@@ -190,7 +192,11 @@ macro_rules! js_output {
 		};
 		const TEMPLATES: [&::core::primitive::str; 4] =
 			$crate::r#macro::js_output_templates::<$output>();
-		const TEMPLATE_VALUE: &::core::primitive::str = if DIRECT_RETURN { CALL } else { "$ret" };
+		const TEMPLATE_VALUE: &::core::primitive::str = if DIRECT_RETURN && !CONVERT_DIRECT {
+			CALL
+		} else {
+			"$ret"
+		};
 		const SLOTS: [&::core::primitive::str; 4] = [
 			$crate::r#macro::js_template!(TEMPLATES[0], value = TEMPLATE_VALUE),
 			$crate::r#macro::js_template!(TEMPLATES[1], value = TEMPLATE_VALUE),
@@ -199,7 +205,9 @@ macro_rules! js_output {
 		];
 		const SRET: &::core::primitive::str = $crate::r#macro::js_output_sret::<$output>();
 		const INDENT: &::core::primitive::str = if CATCH_RESULT { "        " } else { "    " };
-		const VALUE_START: &::core::primitive::str = if DIRECT_RETURN {
+		const VALUE_START: &::core::primitive::str = if CONVERT_DIRECT {
+			$crate::r#macro::const_concat!(INDENT, "const $ret = ")
+		} else if DIRECT_RETURN {
 			if CATCH_RESULT {
 				"        return "
 			} else if OUTPUT_WRAPPED {
@@ -210,7 +218,14 @@ macro_rules! js_output {
 		} else {
 			$crate::r#macro::const_concat!(INDENT, "const $ret = ")
 		};
-		const OUTPUT_VALUE: &::core::primitive::str = if DIRECT_RETURN { SLOTS[0] } else { CALL };
+		const OUTPUT_VALUE: &::core::primitive::str = if DIRECT_RETURN && !CONVERT_DIRECT {
+			SLOTS[0]
+		} else {
+			CALL
+		};
+		const DIRECT_CONVERSION: &::core::primitive::str = $crate::r#macro::const_concat_if!(
+			CONVERT_DIRECT => ["\n", INDENT, "return ", SLOTS[0]],
+		);
 		const SRET_CALL: &::core::primitive::str = $crate::r#macro::const_concat_if!(
 			!DIRECT_RETURN => ["\n", INDENT, SRET, "(", SLOTS[0]],
 			!DIRECT_RETURN && !SLOTS[1].is_empty() => [", ", SLOTS[1]],
@@ -227,6 +242,13 @@ macro_rules! js_output {
 			""
 		};
 
-		$crate::r#macro::const_concat!(TRY, VALUE_START, OUTPUT_VALUE, SRET_CALL, END)
+		$crate::r#macro::const_concat!(
+			TRY,
+			VALUE_START,
+			OUTPUT_VALUE,
+			DIRECT_CONVERSION,
+			SRET_CALL,
+			END
+		)
 	}};
 }
