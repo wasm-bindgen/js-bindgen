@@ -2,6 +2,10 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"bench": "node bench.mjs"
+		"bench": "node --no-compilation-cache bench.mjs",
+		"bench:deno": "deno run -A --v8-flags=--no-compilation-cache bench.mjs"
+	},
+	"devDependencies": {
+		"mitata": "^1.0.34"
 	}
 }

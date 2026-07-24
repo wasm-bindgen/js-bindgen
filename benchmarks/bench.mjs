@@ -1,9 +1,10 @@
 import { spawnSync } from "node:child_process";
-import { once } from "node:events";
-import { rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { Worker } from "node:worker_threads";
+import process from "node:process";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+import { bench, group, run, summary } from "mitata";
 
 const benchmarkDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryDirectory = join(benchmarkDirectory, "..");
@@ -103,21 +104,25 @@ async function build() {
   ]);
 }
 
-function count(name, fallback) {
-  const value = Number.parseInt(process.env[name] ?? fallback, 10);
+async function loadImplementation(implementation) {
+  const module = await import(pathToFileURL(implementation.modulePath));
+  const bytes = await readFile(implementation.wasmPath);
 
-  if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`${name} must be a positive integer`);
+  if (implementation.kind === "js-bindgen") {
+    const wasmModule = await WebAssembly.compile(bytes);
+    const result = await new module.JsBindgen(wasmModule).instantiate();
+    return result.instance.exports;
   }
 
-  return value;
+  if (implementation.kind === "wasm-bindgen") {
+    return module.initSync({ module: bytes });
+  }
+
+  throw new Error(`unknown implementation: ${implementation.kind}`);
 }
 
 await build();
 
-const iterations = count("JBG_BENCH_ITERATIONS", "20000000");
-const warmups = count("JBG_BENCH_WARMUPS", "5");
-const samples = count("JBG_BENCH_SAMPLES", "15");
 const implementations = [
   {
     name: "js-bindgen",
@@ -144,129 +149,100 @@ const implementations = [
     ),
   },
 ];
+const loadedImplementations = await Promise.all(
+  implementations.map(async implementation => ({
+    ...implementation,
+    exports: await loadImplementation(implementation),
+  })),
+);
 const cases = [
   {
     name: "i32 identity",
     exportName: "i32_identity",
-    worker: new URL("./cases/i32.mjs", import.meta.url),
+    module: new URL("./cases/i32.mjs", import.meta.url),
   },
   {
-    name: "u128 identity (indirect return)",
+    name: "u128 identity, small (indirect return)",
     exportName: "u128_identity",
-    worker: new URL("./cases/u128.mjs", import.meta.url),
+    module: new URL("./cases/u128.mjs", import.meta.url),
+    input: [42n, 0n],
+  },
+  {
+    name: "u128 identity, wide (indirect return)",
+    exportName: "u128_identity",
+    module: new URL("./cases/u128.mjs", import.meta.url),
+    input: [0xffffffffffffffffn, 0xffffffffffffffffn],
   },
   {
     name: "Option<i32>::Some (sentinel return)",
     exportName: "option_i32_identity",
-    worker: new URL("./cases/option-i32.mjs", import.meta.url),
+    module: new URL("./cases/option-i32.mjs", import.meta.url),
   },
   {
     name: "Result<i32, JsValue>::Ok",
     exportName: "result_i32_identity",
-    worker: new URL("./cases/result-i32.mjs", import.meta.url),
+    module: new URL("./cases/result-i32.mjs", import.meta.url),
   },
   {
     name: "i32 identity (import roundtrip)",
     exportName: "import_i32_identity",
-    worker: new URL("./cases/i32.mjs", import.meta.url),
+    module: new URL("./cases/i32.mjs", import.meta.url),
   },
   {
-    name: "u128 identity (import roundtrip)",
+    name: "u128 identity, small (import roundtrip)",
     exportName: "import_u128_identity",
-    worker: new URL("./cases/u128.mjs", import.meta.url),
+    module: new URL("./cases/u128.mjs", import.meta.url),
+    input: [42n, 0n],
+  },
+  {
+    name: "u128 identity, wide (import roundtrip)",
+    exportName: "import_u128_identity",
+    module: new URL("./cases/u128.mjs", import.meta.url),
+    input: [0xffffffffffffffffn, 0xffffffffffffffffn],
   },
   {
     name: "Option<i32>::Some (import roundtrip)",
     exportName: "import_option_i32_identity",
-    worker: new URL("./cases/option-i32.mjs", import.meta.url),
+    module: new URL("./cases/option-i32.mjs", import.meta.url),
   },
   {
     name: "Result<i32, JsValue>::Ok (import roundtrip)",
     exportName: "import_result_i32_identity",
-    worker: new URL("./cases/result-i32.mjs", import.meta.url),
+    module: new URL("./cases/result-i32.mjs", import.meta.url),
   },
 ];
 
-class Runner {
-  constructor(worker, implementation) {
-    this.worker = worker;
-    this.implementation = implementation;
-  }
-
-  static async create(testCase, implementation) {
-    const worker = new Worker(testCase.worker, {
-      workerData: {
-        exportName: testCase.exportName,
-        implementation,
-        iterations,
-      },
-    });
-    const [message] = await once(worker, "message");
-
-    if (message.type !== "ready") {
-      throw new Error(`unexpected worker message: ${message.type}`);
-    }
-
-    return new Runner(worker, implementation);
-  }
-
-  async run() {
-    this.worker.postMessage("run");
-    const [message] = await once(this.worker, "message");
-
-    if (message.type !== "result") {
-      throw new Error(`unexpected worker message: ${message.type}`);
-    }
-
-    return message.elapsed;
-  }
-
-  close() {
-    return this.worker.terminate();
-  }
-}
-
-console.log(`Node.js ${process.version}`);
-console.log(`${iterations.toLocaleString()} calls per sample`);
-
 for (const testCase of cases) {
-  const runners = await Promise.all(
-    implementations.map(implementation =>
-      Runner.create(testCase, implementation),
-    ),
-  );
-  const results = Object.fromEntries(
-    implementations.map(({ name }) => [name, []]),
-  );
+  await group(testCase.name, async () => {
+    await summary(async () => {
+      for (const implementation of loadedImplementations) {
+        const moduleUrl = new URL(testCase.module);
+        moduleUrl.searchParams.set("implementation", implementation.kind);
+        const module = await import(moduleUrl);
+        const call = implementation.exports[testCase.exportName];
 
-  for (let round = 0; round < warmups + samples; round++) {
-    const offset = round % runners.length;
+        if (typeof call !== "function") {
+          throw new Error(
+            `missing Wasm export: ${implementation.name}:${testCase.exportName}`,
+          );
+        }
 
-    for (let index = 0; index < runners.length; index++) {
-      const runner = runners[(index + offset) % runners.length];
-      const elapsed = await runner.run();
+        const benchmark = module.createBenchmark({
+          call,
+          implementation,
+          input: testCase.input,
+        });
 
-      if (round >= warmups) {
-        results[runner.implementation.name].push(elapsed);
+        if (typeof benchmark !== "function") {
+          throw new Error(`invalid benchmark case: ${testCase.module}`);
+        }
+
+        bench(implementation.name, benchmark).baseline(
+          implementation.kind === "js-bindgen",
+        );
       }
-    }
-  }
-
-  console.log(`\n${testCase.name}`);
-
-  for (const implementation of implementations) {
-    const values = results[implementation.name].toSorted(
-      (left, right) => left - right,
-    );
-    const median = values[Math.floor(values.length / 2)];
-    const low = values[Math.floor(values.length / 4)];
-    const high = values[Math.floor((values.length * 3) / 4)];
-
-    console.log(
-      `${implementation.name.padEnd(12)} ${median.toFixed(4)} ns/call  ` +
-        `[${low.toFixed(4)}, ${high.toFixed(4)}]`,
-    );
-  }
-
-  await Promise.all(runners.map(runner => runner.close()));
+    });
+  });
 }
+
+await run({ throw: true });

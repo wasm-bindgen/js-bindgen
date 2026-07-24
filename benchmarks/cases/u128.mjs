@@ -1,36 +1,25 @@
-import { workerData } from "node:worker_threads";
+import { do_not_optimize } from "mitata";
 
-import { loadExport, serve } from "../worker.mjs";
+export function createBenchmark({ call, input }) {
+  const output = input.map(value => BigInt.asIntN(64, value));
 
-const call = await loadExport(workerData);
-const { iterations } = workerData;
-const input = [0x0123456789abcdefn, 0xfedcba9876543210n];
-const output = input.map(value => BigInt.asIntN(64, value));
-let sink = 0n;
+  const expected = call(...input);
 
-const expected = call(...input);
-
-if (
-  !Array.isArray(expected) ||
-  expected[0] !== output[0] ||
-  expected[1] !== output[1]
-) {
-  throw new Error("unexpected benchmark function result");
-}
-
-serve(() => {
-  let result;
-  const start = process.hrtime.bigint();
-
-  for (let index = 0; index < iterations; index++) {
-    result = call(...input);
+  if (
+    !Array.isArray(expected) ||
+    expected[0] !== output[0] ||
+    expected[1] !== output[1]
+  ) {
+    throw new Error("unexpected benchmark function result");
   }
 
-  const end = process.hrtime.bigint();
-  sink ^= result[0] ^ result[1];
+  return function* () {
+    let result;
 
-  return {
-    elapsed: Number(end - start) / iterations,
-    sink,
+    yield () => {
+      result = call(...input);
+    };
+
+    do_not_optimize(result);
   };
-});
+}

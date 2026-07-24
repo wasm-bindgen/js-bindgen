@@ -1,29 +1,19 @@
-import { workerData } from "node:worker_threads";
+import { do_not_optimize } from "mitata";
 
-import { loadExport, serve } from "../worker.mjs";
+export function createBenchmark({ call }) {
+  const input = 42;
 
-const call = await loadExport(workerData);
-const { iterations } = workerData;
-const input = 42;
-let sink = 0;
-
-if (call(input) !== input) {
-  throw new Error("unexpected benchmark function result");
-}
-
-serve(() => {
-  let result;
-  const start = process.hrtime.bigint();
-
-  for (let index = 0; index < iterations; index++) {
-    result = call(input);
+  if (call(input) !== input) {
+    throw new Error("unexpected benchmark function result");
   }
 
-  const end = process.hrtime.bigint();
-  sink ^= result;
+  return function* () {
+    let result;
 
-  return {
-    elapsed: Number(end - start) / iterations,
-    sink,
+    yield () => {
+      result = call(input);
+    };
+
+    do_not_optimize(result);
   };
-});
+}
