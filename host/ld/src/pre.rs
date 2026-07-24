@@ -6,6 +6,7 @@ use std::time::SystemTime;
 use anyhow::Result;
 use js_bindgen_cli_lib::MainMemory;
 use js_bindgen_ld_shared::JsBindgenWatSectionParser;
+use js_bindgen_shared::ReadFile;
 use wasmparser::{Parser, Payload};
 
 use crate::args::Arguments;
@@ -121,9 +122,24 @@ fn process_object(
 		match &payload {
 			Payload::CustomSection(c) if c.name() == "js_bindgen.wat" => {
 				for wat in JsBindgenWatSectionParser::new(c) {
+					if wat.is_empty() {
+						continue;
+					}
+
 					file_counter += 1;
 					let wasm_path =
 						archive_path.with_added_extension(format!("wasm.{file_counter}.o"));
+					// The cache is shared by concurrent linker processes. Hold the lock through
+					// freshness validation, generation, and parsing.
+					let lock_path = wasm_path.with_added_extension("lock");
+					let lock = fs::OpenOptions::new()
+						.read(true)
+						.write(true)
+						.create(true)
+						.truncate(false)
+						.open(lock_path)?;
+					lock.lock()?;
+					let mut wasm_bytes = None;
 
 					// We first use a fingerprint to quickly determine whether `wasm.o` needs to be
 					// regenerated: https://doc.rust-lang.org/1.92.0/nightly-rustc/cargo/core/compiler/fingerprint/index.html#fingerprints-and-unithashs
@@ -137,9 +153,28 @@ fn process_object(
 							.is_none_or(|(t1, t2)| t1 < t2)
 					} {
 						let wasm = js_bindgen_ld_shared::wat_to_object(wasm64, wat)?;
-						fs::write(&wasm_path, wasm)?;
+						fs::write(&wasm_path, &wasm)?;
+						wasm_bytes = Some(wasm);
 					}
 
+					let exist_file;
+					let wasm_object: &[u8] = if let Some(bytes) = &wasm_bytes {
+						bytes
+					} else {
+						exist_file = ReadFile::new(&wasm_path)?;
+						&exist_file
+					};
+
+					process_object(
+						js_store,
+						wasm64,
+						&mut Vec::new(),
+						&wasm_path,
+						wasm_object,
+						js_bindgen_shared::mtime(&std::fs::metadata(&wasm_path)?)?,
+					)?;
+
+					drop(lock);
 					add_args.push(wasm_path.into());
 				}
 			}
@@ -150,6 +185,13 @@ fn process_object(
 			// Extract all JS embeds.
 			Payload::CustomSection(c) if c.name() == "js_bindgen.embed" => {
 				js_store.add_js_embeds(c)?;
+			}
+			// Rust already exports the raw function. Keep its WAT shim when one
+			// was generated.
+			Payload::CustomSection(c) if c.name() == "js_bindgen.export" => {
+				for name in js_store.add_js_exports(c)? {
+					add_args.push(format!("--export-if-defined={name}").into());
+				}
 			}
 			_ => (),
 		}

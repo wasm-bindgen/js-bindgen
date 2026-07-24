@@ -43,7 +43,7 @@ macro_rules! test {
 		inline_snap!(output.clone(), $expected);
 
 		let dir = tempfile::tempdir().unwrap();
-		let (wat_output, js_import_output) =
+		let (wat_output, js_import_output, _) =
 			crate::tests::r#macro::inner(dir.path(), &output).unwrap();
 
 		#[allow(clippy::allow_attributes, unused_assignments, unused_mut, reason = "depends on the input")]
@@ -72,11 +72,12 @@ macro_rules! test {
 	}};
 }
 
+mod export;
 mod function;
 mod member;
 mod r#type;
 
-fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
+fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>, Option<String>)> {
 	let js_sys = env::current_dir()?
 		.parent()
 		.and_then(Path::parent)
@@ -188,6 +189,7 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 
 	let mut wat_output = None;
 	let mut js_import_output = None;
+	let mut js_export_output = None;
 
 	for message in Message::parse_stream(reader) {
 		if let Message::CompilerArtifact(Artifact {
@@ -233,6 +235,22 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 
 								js_import_output = Some(import.js.to_owned());
 							}
+							Payload::CustomSection(c) if c.name() == "js_bindgen.export" => {
+								let mut parser = JsBindgenJsSectionParser::new(&c);
+								let export = parser.next().unwrap();
+
+								if export.module != "test_crate" {
+									continue;
+								}
+
+								ensure!(
+									parser.next().is_none(),
+									"found multiple JS export outputs in a single section: \
+									 {parser:?}"
+								);
+
+								js_export_output = Some(export.js.to_owned());
+							}
 							_ => (),
 						}
 					}
@@ -243,5 +261,5 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 		}
 	}
 
-	Ok((wat_output, js_import_output))
+	Ok((wat_output, js_import_output, js_export_output))
 }

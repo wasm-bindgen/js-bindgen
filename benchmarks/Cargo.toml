@@ -1,0 +1,8 @@
+[workspace]
+resolver = "3"
+members = ["js-bindgen", "wasm-bindgen"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false

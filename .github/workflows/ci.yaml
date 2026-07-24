@@ -93,6 +93,11 @@ jobs:
         run: |
           cargo ${{ matrix.os.sub-command }} build -p js-bindgen-ld ${{ matrix.os.args }} --release
           cp target/${{ matrix.os.path }}release/js-bindgen-ld${{ matrix.os.exe }} ${{ runner.temp }}/host-tools/
+      - name: Build `js-bindgen`
+        working-directory: host
+        run: |
+          cargo ${{ matrix.os.sub-command }} build -p js-bindgen-cli ${{ matrix.os.args }} --release
+          cp target/${{ matrix.os.path }}release/js-bindgen${{ matrix.os.exe }} ${{ runner.temp }}/host-tools/
       - name: Build `js-bindgen-runner`
         working-directory: host
         run: |
@@ -139,6 +144,7 @@ jobs:
         target-feature:
           - { name: default }
           - { name: atomics, rust: nightly, components: -c rust-src, description: Atomics }
+          - { name: exception-handling, rust: nightly, description: Exception Handling }
 
     env:
       JBG_DEV_TOOLS: 1
@@ -204,6 +210,7 @@ jobs:
         target-feature:
           - { name: default }
           - { name: atomics, rust: nightly, components: -c rust-src, description: Atomics }
+          - { name: exception-handling, rust: nightly, description: Exception Handling }
 
     env:
       JBG_DEV_TOOLS: 1
@@ -276,6 +283,7 @@ jobs:
         target-feature:
           - { name: default }
           - { name: atomics, rust: nightly, components: -c rust-src, description: " Atomics" }
+          - { name: exception-handling, rust: nightly, description: " Exception Handling" }
         exclude:
           - runner: { name: mac-os }
             target: { name: wasm64 }

@@ -3,7 +3,7 @@
 #![allow(warnings)]
 
 use crate::{js_bindgen, r#macro, JsValue};
-use crate::hazard::{InputJsConv, OutputJsConv, OutputWatConv, Input, InputWatConv, Output, JsCast};
+use crate::hazard::{IntoJS, JsCast, OptionIntoJS};
 use crate::util::{PtrConst, PtrLength, PtrMut};
 
 #[derive(Clone, Debug)]
@@ -22,42 +22,28 @@ impl From<JsString> for JsValue {
 	}
 }
 
-unsafe impl Input for &JsString {
-	const WAT_TYPE: &'static str = <&JsValue as Input>::WAT_TYPE;
-	const WAT_CONV: Option<InputWatConv> = <&JsValue as Input>::WAT_CONV;
-	const JS_CONV: Option<InputJsConv> = <&JsValue as Input>::JS_CONV;
+unsafe impl JsCast for JsString {}
 
-	type Type = <&'static JsValue as Input>::Type;
+unsafe impl IntoJS for JsString {
+	type Abi = <JsValue as IntoJS>::Abi;
 
-	fn into_raw(self) -> Self::Type {
-		Input::into_raw(&self.0)
+	fn into_abi(self) -> Self::Abi {
+		IntoJS::into_abi(JsValue::from(self))
 	}
 }
 
-unsafe impl JsCast for JsString {}
+unsafe impl OptionIntoJS for JsString {
+	type OptionAbi = <JsValue as OptionIntoJS>::OptionAbi;
 
-unsafe impl Output for JsString {
-	const WAT_TYPE: &str = <JsValue as Output>::WAT_TYPE;
-	const WAT_CONV: Option<OutputWatConv> = <JsValue as Output>::WAT_CONV;
-	const JS_CONV: Option<OutputJsConv> = <JsValue as Output>::JS_CONV;
-
-	type Type = <JsValue as Output>::Type;
-
-	fn from_raw(raw: Self::Type) -> Self {
-		Self(Output::from_raw(raw))
+	fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
+		OptionIntoJS::option_into_abi(value.map(JsValue::from))
 	}
 }
 
 pub(super) fn string_constructor(value: &JsValue) -> JsString {
 	js_bindgen::unsafe_global_wat! {
-		"(import \"js_sys\" \"string_constructor\" (func $js_sys.import.string_constructor (@sym (name \"js_sys.import.string_constructor\")) (param {}) (result {}))){}",
-		"(func $js_sys.string_constructor (@sym) (param {}) (param $value {}) (result {})",
-		"  local.get $value{}", "  call $js_sys.import.string_constructor (@reloc){}", ")",
-		interpolate r#macro::wat_input_import_type:: < & JsValue > (), interpolate
-		r#macro::wat_output_import_type:: < JsString > (), interpolate r#macro::wat_imports!((&
-		JsValue), JsString), interpolate r#macro::wat_indirect!(JsString), interpolate < & JsValue
-		as Input > ::WAT_TYPE, interpolate r#macro::wat_direct:: < JsString > (), interpolate
-		r#macro::wat_input!(& JsValue), interpolate r#macro::wat_output!(JsString),
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "string_constructor",
+		shim = "js_sys.string_constructor", inputs = [("arg0", & JsValue)], output = JsString,),
 	}
 
 	js_bindgen::import_js! {
@@ -66,43 +52,36 @@ pub(super) fn string_constructor(value: &JsValue) -> JsString {
 		required_embeds = [
 			r#macro::js_input_embed::<&JsValue>(),
 			r#macro::js_output_embed::<JsString>(),
+			r#macro::js_result_embed::<JsString>(),
 		],
-		"{}{}{}",
-		interpolate r#macro::js_select!("", "(value) => {\n", (&JsValue), JsString),
-		interpolate r#macro::js_parameter!("value", &JsValue),
-		interpolate r#macro::js_output!(
-			"\treturn ",
-			"globalThis.String",
-			"globalThis.String(value)",
-			JsString,
-			&JsValue,
+		"{}",
+		interpolate r#macro::js_import!(
+			direct_open = "", direct_call = "globalThis.String", indirect_call =
+			"globalThis.String(arg0_0)", inputs = [("arg0", & JsValue)], output = JsString,
 		),
 	}
 
 	unsafe extern "C" {
 		#[link_name = "js_sys.string_constructor"]
-		fn string_constructor(value: <&JsValue as Input>::Type) -> <JsString as Output>::Type;
+		fn string_constructor(
+			arg0_0: r#macro::InputSlot1<&JsValue>,
+			arg0_1: r#macro::InputSlot2<&JsValue>,
+			arg0_2: r#macro::InputSlot3<&JsValue>,
+			arg0_3: r#macro::InputSlot4<&JsValue>,
+		) -> r#macro::OutputRet<JsString>;
 	}
 
-	Output::from_raw(unsafe { string_constructor(Input::into_raw(value)) })
+	r#macro::join_output({
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = r#macro::split_input::<&JsValue>(value);
+		unsafe { string_constructor(arg0_0, arg0_1, arg0_2, arg0_3) }
+	})
 }
 
 pub(super) unsafe fn string_eq(string: &JsString, array: PtrConst<u8>, len: PtrLength<u8>) -> bool {
 	js_bindgen::unsafe_global_wat! {
-		"(import \"js_sys\" \"string_eq\" (func $js_sys.import.string_eq (@sym (name \"js_sys.import.string_eq\")) (param {} {} {}) (result {}))){}",
-		"(func $js_sys.string_eq (@sym) (param {}) (param $string {}) (param $array {}) (param $len {}) (result {})",
-		"  local.get $string{}", "  local.get $array{}", "  local.get $len{}",
-		"  call $js_sys.import.string_eq (@reloc){}", ")", interpolate
-		r#macro::wat_input_import_type:: < & JsString > (), interpolate
-		r#macro::wat_input_import_type:: < PtrConst < u8 > > (), interpolate
-		r#macro::wat_input_import_type:: < PtrLength < u8 > > (), interpolate
-		r#macro::wat_output_import_type:: < bool > (), interpolate r#macro::wat_imports!((&
-		JsString, PtrConst < u8 >, PtrLength < u8 >), bool), interpolate
-		r#macro::wat_indirect!(bool), interpolate < & JsString as Input > ::WAT_TYPE, interpolate <
-		PtrConst < u8 > as Input > ::WAT_TYPE, interpolate < PtrLength < u8 > as Input > ::WAT_TYPE,
-		interpolate r#macro::wat_direct:: < bool > (), interpolate r#macro::wat_input!(& JsString),
-		interpolate r#macro::wat_input!(PtrConst < u8 >), interpolate r#macro::wat_input!(PtrLength
-		< u8 >), interpolate r#macro::wat_output!(bool),
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "string_eq", shim =
+		"js_sys.string_eq", inputs = [("arg0", & JsString), ("arg1", PtrConst < u8 >), ("arg2",
+		PtrLength < u8 >)], output = bool,),
 	}
 
 	js_bindgen::import_js! {
@@ -114,56 +93,62 @@ pub(super) unsafe fn string_eq(string: &JsString, array: PtrConst<u8>, len: PtrL
 			r#macro::js_input_embed::<PtrConst<u8>>(),
 			r#macro::js_input_embed::<PtrLength<u8>>(),
 			r#macro::js_output_embed::<bool>(),
+			r#macro::js_result_embed::<bool>(),
 		],
-		"{}{}{}{}{}",
-		interpolate r#macro::js_select!(
-			"",
-			"(string, array, len) => {\n",
-			(&JsString, PtrConst<u8>, PtrLength<u8>),
-			bool,
-		),
-		interpolate r#macro::js_parameter!("string", &JsString),
-		interpolate r#macro::js_parameter!("array", PtrConst<u8>),
-		interpolate r#macro::js_parameter!("len", PtrLength<u8>),
-		interpolate r#macro::js_output!(
-			"\treturn ",
-			"this.#jsEmbed.js_sys['string.eq']",
-			"this.#jsEmbed.js_sys['string.eq'](string, array, len)",
-			bool,
-			&JsString,
-			PtrConst<u8>,
-			PtrLength<u8>,
+		"{}",
+		interpolate r#macro::js_import!(
+			direct_open = "", direct_call = "this.#jsEmbed.js_sys['string.eq']", indirect_call =
+			"this.#jsEmbed.js_sys['string.eq'](arg0_0, arg1_0, arg2_0)", inputs = [("arg0", &
+			JsString), ("arg1", PtrConst < u8 >), ("arg2", PtrLength < u8 >)], output = bool,
 		),
 	}
 
 	unsafe extern "C" {
 		#[link_name = "js_sys.string_eq"]
 		fn string_eq(
-			string: <&JsString as Input>::Type,
-			array: <PtrConst<u8> as Input>::Type,
-			len: <PtrLength<u8> as Input>::Type,
-		) -> <bool as Output>::Type;
+			arg0_0: r#macro::InputSlot1<&JsString>,
+			arg0_1: r#macro::InputSlot2<&JsString>,
+			arg0_2: r#macro::InputSlot3<&JsString>,
+			arg0_3: r#macro::InputSlot4<&JsString>,
+			arg1_0: r#macro::InputSlot1<PtrConst<u8>>,
+			arg1_1: r#macro::InputSlot2<PtrConst<u8>>,
+			arg1_2: r#macro::InputSlot3<PtrConst<u8>>,
+			arg1_3: r#macro::InputSlot4<PtrConst<u8>>,
+			arg2_0: r#macro::InputSlot1<PtrLength<u8>>,
+			arg2_1: r#macro::InputSlot2<PtrLength<u8>>,
+			arg2_2: r#macro::InputSlot3<PtrLength<u8>>,
+			arg2_3: r#macro::InputSlot4<PtrLength<u8>>,
+		) -> r#macro::OutputRet<bool>;
 	}
 
-	Output::from_raw(unsafe {
-		string_eq(Input::into_raw(string), Input::into_raw(array), Input::into_raw(len))
+	r#macro::join_output({
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = r#macro::split_input::<&JsString>(string);
+		let (arg1_0, arg1_1, arg1_2, arg1_3) = r#macro::split_input::<PtrConst<u8>>(array);
+		let (arg2_0, arg2_1, arg2_2, arg2_3) = r#macro::split_input::<PtrLength<u8>>(len);
+		unsafe {
+			string_eq(
+				arg0_0,
+				arg0_1,
+				arg0_2,
+				arg0_3,
+				arg1_0,
+				arg1_1,
+				arg1_2,
+				arg1_3,
+				arg2_0,
+				arg2_1,
+				arg2_2,
+				arg2_3,
+			)
+		}
 	})
 }
 
 pub(super) unsafe fn string_decode(array: PtrConst<u8>, len: PtrLength<u8>) -> JsString {
 	js_bindgen::unsafe_global_wat! {
-		"(import \"js_sys\" \"string_decode\" (func $js_sys.import.string_decode (@sym (name \"js_sys.import.string_decode\")) (param {} {}) (result {}))){}",
-		"(func $js_sys.string_decode (@sym) (param {}) (param $array {}) (param $len {}) (result {})",
-		"  local.get $array{}", "  local.get $len{}",
-		"  call $js_sys.import.string_decode (@reloc){}", ")", interpolate
-		r#macro::wat_input_import_type:: < PtrConst < u8 > > (), interpolate
-		r#macro::wat_input_import_type:: < PtrLength < u8 > > (), interpolate
-		r#macro::wat_output_import_type:: < JsString > (), interpolate
-		r#macro::wat_imports!((PtrConst < u8 >, PtrLength < u8 >), JsString), interpolate
-		r#macro::wat_indirect!(JsString), interpolate < PtrConst < u8 > as Input > ::WAT_TYPE,
-		interpolate < PtrLength < u8 > as Input > ::WAT_TYPE, interpolate r#macro::wat_direct:: <
-		JsString > (), interpolate r#macro::wat_input!(PtrConst < u8 >), interpolate
-		r#macro::wat_input!(PtrLength < u8 >), interpolate r#macro::wat_output!(JsString),
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "string_decode", shim =
+		"js_sys.string_decode", inputs = [("arg0", PtrConst < u8 >), ("arg1", PtrLength < u8 >)],
+		output = JsString,),
 	}
 
 	js_bindgen::import_js! {
@@ -174,47 +159,41 @@ pub(super) unsafe fn string_decode(array: PtrConst<u8>, len: PtrLength<u8>) -> J
 			r#macro::js_input_embed::<PtrConst<u8>>(),
 			r#macro::js_input_embed::<PtrLength<u8>>(),
 			r#macro::js_output_embed::<JsString>(),
+			r#macro::js_result_embed::<JsString>(),
 		],
-		"{}{}{}{}",
-		interpolate r#macro::js_select!(
-			"",
-			"(array, len) => {\n",
-			(PtrConst<u8>, PtrLength<u8>),
-			JsString,
-		),
-		interpolate r#macro::js_parameter!("array", PtrConst<u8>),
-		interpolate r#macro::js_parameter!("len", PtrLength<u8>),
-		interpolate r#macro::js_output!(
-			"\treturn ",
-			"this.#jsEmbed.js_sys['string.decode']",
-			"this.#jsEmbed.js_sys['string.decode'](array, len)",
-			JsString,
-			PtrConst<u8>,
-			PtrLength<u8>,
+		"{}",
+		interpolate r#macro::js_import!(
+			direct_open = "", direct_call = "this.#jsEmbed.js_sys['string.decode']", indirect_call =
+			"this.#jsEmbed.js_sys['string.decode'](arg0_0, arg1_0)", inputs = [("arg0", PtrConst <
+			u8 >), ("arg1", PtrLength < u8 >)], output = JsString,
 		),
 	}
 
 	unsafe extern "C" {
 		#[link_name = "js_sys.string_decode"]
 		fn string_decode(
-			array: <PtrConst<u8> as Input>::Type,
-			len: <PtrLength<u8> as Input>::Type,
-		) -> <JsString as Output>::Type;
+			arg0_0: r#macro::InputSlot1<PtrConst<u8>>,
+			arg0_1: r#macro::InputSlot2<PtrConst<u8>>,
+			arg0_2: r#macro::InputSlot3<PtrConst<u8>>,
+			arg0_3: r#macro::InputSlot4<PtrConst<u8>>,
+			arg1_0: r#macro::InputSlot1<PtrLength<u8>>,
+			arg1_1: r#macro::InputSlot2<PtrLength<u8>>,
+			arg1_2: r#macro::InputSlot3<PtrLength<u8>>,
+			arg1_3: r#macro::InputSlot4<PtrLength<u8>>,
+		) -> r#macro::OutputRet<JsString>;
 	}
 
-	Output::from_raw(unsafe { string_decode(Input::into_raw(array), Input::into_raw(len)) })
+	r#macro::join_output({
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = r#macro::split_input::<PtrConst<u8>>(array);
+		let (arg1_0, arg1_1, arg1_2, arg1_3) = r#macro::split_input::<PtrLength<u8>>(len);
+		unsafe { string_decode(arg0_0, arg0_1, arg0_2, arg0_3, arg1_0, arg1_1, arg1_2, arg1_3) }
+	})
 }
 
 pub(super) fn string_utf8_length(string: &JsString) -> f64 {
 	js_bindgen::unsafe_global_wat! {
-		"(import \"js_sys\" \"string_utf8_length\" (func $js_sys.import.string_utf8_length (@sym (name \"js_sys.import.string_utf8_length\")) (param {}) (result {}))){}",
-		"(func $js_sys.string_utf8_length (@sym) (param {}) (param $string {}) (result {})",
-		"  local.get $string{}", "  call $js_sys.import.string_utf8_length (@reloc){}", ")",
-		interpolate r#macro::wat_input_import_type:: < & JsString > (), interpolate
-		r#macro::wat_output_import_type:: < f64 > (), interpolate r#macro::wat_imports!((&
-		JsString), f64), interpolate r#macro::wat_indirect!(f64), interpolate < & JsString as Input
-		> ::WAT_TYPE, interpolate r#macro::wat_direct:: < f64 > (), interpolate
-		r#macro::wat_input!(& JsString), interpolate r#macro::wat_output!(f64),
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "string_utf8_length",
+		shim = "js_sys.string_utf8_length", inputs = [("arg0", & JsString)], output = f64,),
 	}
 
 	js_bindgen::import_js! {
@@ -224,41 +203,37 @@ pub(super) fn string_utf8_length(string: &JsString) -> f64 {
 			("js_sys", "string.utf8_length"),
 			r#macro::js_input_embed::<&JsString>(),
 			r#macro::js_output_embed::<f64>(),
+			r#macro::js_result_embed::<f64>(),
 		],
-		"{}{}{}",
-		interpolate r#macro::js_select!("", "(string) => {\n", (&JsString), f64),
-		interpolate r#macro::js_parameter!("string", &JsString),
-		interpolate r#macro::js_output!(
-			"\treturn ",
-			"this.#jsEmbed.js_sys['string.utf8_length']",
-			"this.#jsEmbed.js_sys['string.utf8_length'](string)",
-			f64,
-			&JsString,
+		"{}",
+		interpolate r#macro::js_import!(
+			direct_open = "", direct_call = "this.#jsEmbed.js_sys['string.utf8_length']",
+			indirect_call = "this.#jsEmbed.js_sys['string.utf8_length'](arg0_0)", inputs = [("arg0",
+			& JsString)], output = f64,
 		),
 	}
 
 	unsafe extern "C" {
 		#[link_name = "js_sys.string_utf8_length"]
-		fn string_utf8_length(string: <&JsString as Input>::Type) -> <f64 as Output>::Type;
+		fn string_utf8_length(
+			arg0_0: r#macro::InputSlot1<&JsString>,
+			arg0_1: r#macro::InputSlot2<&JsString>,
+			arg0_2: r#macro::InputSlot3<&JsString>,
+			arg0_3: r#macro::InputSlot4<&JsString>,
+		) -> r#macro::OutputRet<f64>;
 	}
 
-	Output::from_raw(unsafe { string_utf8_length(Input::into_raw(string)) })
+	r#macro::join_output({
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = r#macro::split_input::<&JsString>(string);
+		unsafe { string_utf8_length(arg0_0, arg0_1, arg0_2, arg0_3) }
+	})
 }
 
 pub(super) unsafe fn string_encode(string: &JsString, array: PtrMut<u8>, len: PtrLength<u8>) {
 	js_bindgen::unsafe_global_wat! {
-		"(import \"js_sys\" \"string_encode\" (func $js_sys.import.string_encode (@sym (name \"js_sys.import.string_encode\")) (param {} {} {}))){}",
-		"(func $js_sys.string_encode (@sym) (param $string {}) (param $array {}) (param $len {})",
-		"  local.get $string{}", "  local.get $array{}", "  local.get $len{}",
-		"  call $js_sys.import.string_encode (@reloc)", ")", interpolate
-		r#macro::wat_input_import_type:: < & JsString > (), interpolate
-		r#macro::wat_input_import_type:: < PtrMut < u8 > > (), interpolate
-		r#macro::wat_input_import_type:: < PtrLength < u8 > > (), interpolate
-		r#macro::wat_imports!((& JsString, PtrMut < u8 >, PtrLength < u8 >),), interpolate < &
-		JsString as Input > ::WAT_TYPE, interpolate < PtrMut < u8 > as Input > ::WAT_TYPE,
-		interpolate < PtrLength < u8 > as Input > ::WAT_TYPE, interpolate r#macro::wat_input!(&
-		JsString), interpolate r#macro::wat_input!(PtrMut < u8 >), interpolate
-		r#macro::wat_input!(PtrLength < u8 >),
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "string_encode", shim =
+		"js_sys.string_encode", inputs = [("arg0", & JsString), ("arg1", PtrMut < u8 >), ("arg2",
+		PtrLength < u8 >)],),
 	}
 
 	js_bindgen::import_js! {
@@ -270,30 +245,51 @@ pub(super) unsafe fn string_encode(string: &JsString, array: PtrMut<u8>, len: Pt
 			r#macro::js_input_embed::<PtrMut<u8>>(),
 			r#macro::js_input_embed::<PtrLength<u8>>(),
 		],
-		"{}{}{}{}{}",
-		interpolate r#macro::js_select!(
-			"",
-			"(string, array, len) => {\n",
-			(&JsString, PtrMut<u8>, PtrLength<u8>),
-		),
-		interpolate r#macro::js_parameter!("string", &JsString),
-		interpolate r#macro::js_parameter!("array", PtrMut<u8>),
-		interpolate r#macro::js_parameter!("len", PtrLength<u8>),
-		interpolate r#macro::js_select!(
-			"this.#jsEmbed.js_sys['string.encode']",
-			"this.#jsEmbed.js_sys['string.encode'](string, array, len)\n}",
-			(&JsString, PtrMut<u8>, PtrLength<u8>),
+		"{}",
+		interpolate r#macro::js_import!(
+			direct_open = "", direct_call = "this.#jsEmbed.js_sys['string.encode']", indirect_call =
+			"this.#jsEmbed.js_sys['string.encode'](arg0_0, arg1_0, arg2_0)", inputs = [("arg0", &
+			JsString), ("arg1", PtrMut < u8 >), ("arg2", PtrLength < u8 >)],
 		),
 	}
 
 	unsafe extern "C" {
 		#[link_name = "js_sys.string_encode"]
 		fn string_encode(
-			string: <&JsString as Input>::Type,
-			array: <PtrMut<u8> as Input>::Type,
-			len: <PtrLength<u8> as Input>::Type,
+			arg0_0: r#macro::InputSlot1<&JsString>,
+			arg0_1: r#macro::InputSlot2<&JsString>,
+			arg0_2: r#macro::InputSlot3<&JsString>,
+			arg0_3: r#macro::InputSlot4<&JsString>,
+			arg1_0: r#macro::InputSlot1<PtrMut<u8>>,
+			arg1_1: r#macro::InputSlot2<PtrMut<u8>>,
+			arg1_2: r#macro::InputSlot3<PtrMut<u8>>,
+			arg1_3: r#macro::InputSlot4<PtrMut<u8>>,
+			arg2_0: r#macro::InputSlot1<PtrLength<u8>>,
+			arg2_1: r#macro::InputSlot2<PtrLength<u8>>,
+			arg2_2: r#macro::InputSlot3<PtrLength<u8>>,
+			arg2_3: r#macro::InputSlot4<PtrLength<u8>>,
 		);
 	}
 
-	unsafe { string_encode(Input::into_raw(string), Input::into_raw(array), Input::into_raw(len)) };
+	{
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = r#macro::split_input::<&JsString>(string);
+		let (arg1_0, arg1_1, arg1_2, arg1_3) = r#macro::split_input::<PtrMut<u8>>(array);
+		let (arg2_0, arg2_1, arg2_2, arg2_3) = r#macro::split_input::<PtrLength<u8>>(len);
+		unsafe {
+			string_encode(
+				arg0_0,
+				arg0_1,
+				arg0_2,
+				arg0_3,
+				arg1_0,
+				arg1_1,
+				arg1_2,
+				arg1_3,
+				arg2_0,
+				arg2_1,
+				arg2_2,
+				arg2_3,
+			)
+		}
+	};
 }

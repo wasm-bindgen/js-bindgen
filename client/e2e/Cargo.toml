@@ -1,0 +1,12 @@
+[package]
+name = "js-bindgen-e2e"
+edition = { workspace = true }
+rust-version = { workspace = true }
+license = { workspace = true }
+publish = false
+
+[dev-dependencies]
+js-sys = { workspace = true, features = ["macro"] }
+
+[lints]
+workspace = true

@@ -1,8 +1,6 @@
-use std::borrow::Cow;
-use std::ops::{Deref, DerefMut};
-use std::str::FromStr;
+use std::mem;
+use std::ops::DerefMut;
 use std::string::ToString;
-use std::{iter, mem};
 
 use itertools::Itertools;
 use proc_macro2::{Span, TokenStream};
@@ -35,18 +33,22 @@ struct State<'a> {
 	crate_: &'a str,
 	namespace: Option<&'a str>,
 	js_bindgen: Path,
-	r#macro: Option<Path>,
-	input: Path,
-	output: Path,
+	r#macro: Path,
 	import_name: String,
 	foreign_name: String,
-	input_tys: Vec<Type>,
-	output_ty: Vec<Type>,
-	extern_input_names: Vec<Ident>,
-	intern_input_names: Vec<Ident>,
+	inputs: Vec<InputArg>,
+	output_ty: Option<Type>,
 	impl_generic_params: TokenStream,
 	r#type: OutputType,
 	span: Span,
+}
+
+struct InputArg {
+	abi_type: Type,
+	rust_name: Ident,
+	wat_name: syn::LitStr,
+	slot_names: [Ident; 4],
+	type_override: bool,
 }
 
 enum OutputType {
@@ -67,6 +69,22 @@ enum MemberType {
 	Method,
 	Getter,
 	Setter,
+}
+
+impl InputArg {
+	fn new(index: usize, abi_type: Type, rust_name: Ident, type_override: bool) -> Self {
+		let span = Span::mixed_site();
+		let base = format!("arg{index}");
+		let slot_name = |slot| Ident::new(&format!("{base}_{slot}"), span);
+
+		Self {
+			abi_type,
+			rust_name,
+			wat_name: syn::LitStr::new(&base, span),
+			slot_names: [slot_name(0), slot_name(1), slot_name(2), slot_name(3)],
+			type_override,
+		}
+	}
 }
 
 impl Function {
@@ -106,32 +124,69 @@ impl Function {
 			..
 		} = item;
 
-		let mut state = State::parse(
+		let state = State::parse(
 			crate_, js_output, namespace, hygiene, &attrs, &mut sig, span,
 		)?;
 		let wat = state.wat();
 		let js = state.js();
 		let State {
-			input,
-			output,
+			r#macro,
 			foreign_name,
-			input_tys,
+			inputs,
 			output_ty,
-			extern_input_names,
-			intern_input_names,
 			impl_generic_params,
 			r#type,
 			..
 		} = state;
 		let ident = &sig.ident;
+		let split_inputs = inputs.iter().map(|input| {
+			let InputArg {
+				abi_type,
+				rust_name,
+				slot_names: [slot1, slot2, slot3, slot4],
+				type_override,
+				..
+			} = input;
+			let split_input = if *type_override {
+				quote_spanned!(span=> unsafe {
+					#r#macro::split_input_as::<#abi_type>(#rust_name)
+				})
+			} else {
+				quote_spanned!(span=> #r#macro::split_input::<#abi_type>(#rust_name))
+			};
 
-		let mut foreign_call =
-			quote_spanned!(span=> unsafe { #ident(#(#input::into_raw(#intern_input_names)),*) });
-		if output_ty.is_empty() {
-			foreign_call.extend(quote_spanned!(span=> ;));
+			quote_spanned! {span=>
+				let (#slot1, #slot2, #slot3, #slot4) = #split_input;
+			}
+		});
+		let foreign_input_names: Vec<_> = inputs.iter().flat_map(|arg| &arg.slot_names).collect();
+		let foreign_input_tys: Vec<_> = inputs
+			.iter()
+			.flat_map(|arg| {
+				let ty = &arg.abi_type;
+
+				[
+					quote_spanned!(span=> #r#macro::InputSlot1<#ty>),
+					quote_spanned!(span=> #r#macro::InputSlot2<#ty>),
+					quote_spanned!(span=> #r#macro::InputSlot3<#ty>),
+					quote_spanned!(span=> #r#macro::InputSlot4<#ty>),
+				]
+			})
+			.collect();
+		let foreign_output = output_ty.as_ref().map_or_else(
+			TokenStream::new,
+			|ty| quote_spanned!(span=> -> #r#macro::OutputRet<#ty>),
+		);
+
+		let foreign_call = quote_spanned! {span=> {
+			#(#split_inputs)*
+			unsafe { #ident(#(#foreign_input_names),*) }
+		}};
+		let foreign_call = if output_ty.is_some() {
+			quote_spanned!(span=> #r#macro::join_output(#foreign_call))
 		} else {
-			foreign_call = quote_spanned! (span=> #output::from_raw(#foreign_call));
-		}
+			quote_spanned!(span=> #foreign_call;)
+		};
 
 		let item_fn = parse_quote_spanned! {span=>
 			#(#attrs)*
@@ -142,7 +197,7 @@ impl Function {
 
 				unsafe extern "C" {
 					#[link_name = #foreign_name]
-					fn #ident(#(#extern_input_names: <#input_tys as #input>::Type),*) #( -> <#output_ty as #output>::Type)*;
+					fn #ident(#(#foreign_input_names: #foreign_input_tys),*) #foreign_output;
 				}
 
 				#foreign_call
@@ -207,16 +262,17 @@ impl<'a> State<'a> {
 
 		let mut self_ty = None;
 
-		let input_tys = sig
+		let inputs = sig
 			.inputs
 			.iter_mut()
-			.map(|arg| {
+			.enumerate()
+			.map(|(index, arg)| {
 				if let FnArg::Typed(PatType { attrs, pat, ty, .. }) = arg
 					&& let Pat::Ident(PatIdent {
 						attrs: inner_attrs,
 						by_ref: None,
 						mutability: None,
-						ident: _,
+						ident,
 						subpat: None,
 					}) = pat.deref_mut()
 					&& inner_attrs.is_empty()
@@ -242,16 +298,15 @@ impl<'a> State<'a> {
 						})?;
 					}
 
-					if let Some(r#type) = r#type {
-						Ok(r#type)
-					} else {
-						Ok(*ty.clone())
-					}
+					let type_override = r#type.is_some();
+					let r#type = r#type.unwrap_or_else(|| *ty.clone());
+
+					Ok(InputArg::new(index, r#type, ident.clone(), type_override))
 				} else if let FnArg::Receiver(Receiver {
 					attrs,
 					reference: None,
 					mutability: None,
-					self_token: _,
+					self_token,
 					colon_token: Some(_),
 					ty,
 				}) = arg && attrs.is_empty()
@@ -263,7 +318,7 @@ impl<'a> State<'a> {
 					}) = ty.deref_mut()
 					&& let Type::Path(TypePath { qself: None, path }) = elem.deref_mut()
 				{
-					if !matches!(js_output, FunctionJsOutput::Generate { .. }) {
+					if !matches!(&js_output, FunctionJsOutput::Generate { .. }) {
 						return Err(Error::new_spanned(
 							path,
 							"`self` is not supported with `js_import` and `js_embed`",
@@ -272,7 +327,12 @@ impl<'a> State<'a> {
 
 					self_ty = Some(path.clone());
 					let js_value = hygiene.js_value(outer_attrs, span);
-					Ok(parse_quote! { #and_token #js_value })
+					Ok(InputArg::new(
+						index,
+						parse_quote! { #and_token #js_value },
+						(*self_token).into(),
+						true,
+					))
 				} else {
 					Err(Error::new_spanned(arg, "unsupported arguments found"))
 				}
@@ -313,50 +373,24 @@ impl<'a> State<'a> {
 		};
 
 		let output_ty = match &sig.output {
-			ReturnType::Default => Vec::new(),
-			ReturnType::Type(_, ty) => vec![*ty.clone()],
+			ReturnType::Default => None,
+			ReturnType::Type(_, ty) => Some(*ty.clone()),
 		};
-
-		let (extern_input_names, intern_input_names): (Vec<_>, Vec<_>) = sig
-			.inputs
-			.iter()
-			.map(|arg| {
-				if let FnArg::Typed(PatType { pat, .. }) = arg
-					&& let Pat::Ident(PatIdent { ident, .. }) = pat.deref()
-				{
-					(ident.clone(), ident.clone())
-				} else if let FnArg::Receiver(Receiver { self_token, .. }) = arg {
-					(Ident::new("this", Span::mixed_site()), (*self_token).into())
-				} else {
-					unreachable!()
-				}
-			})
-			.collect();
 
 		let impl_generic_params = Self::impl_generic_params(&r#type, &mut sig.generics);
 
 		let js_bindgen = hygiene.js_bindgen(outer_attrs, span);
-		let r#macro = if !input_tys.is_empty() || !output_ty.is_empty() {
-			Some(hygiene.r#macro(outer_attrs, span))
-		} else {
-			None
-		};
-		let input = hygiene.input(outer_attrs, span);
-		let output = hygiene.output(outer_attrs, span);
+		let r#macro = hygiene.r#macro(outer_attrs, span);
 
 		Ok(Self {
 			crate_,
 			namespace,
 			js_bindgen,
 			r#macro,
-			input,
-			output,
 			import_name,
 			foreign_name,
-			input_tys,
+			inputs,
 			output_ty,
-			extern_input_names,
-			intern_input_names,
 			impl_generic_params,
 			r#type,
 			span,
@@ -424,112 +458,59 @@ impl<'a> State<'a> {
 			crate_,
 			js_bindgen,
 			r#macro,
-			input,
 			import_name,
 			foreign_name,
-			input_tys,
+			inputs,
 			output_ty,
-			intern_input_names,
 			span,
 			..
 		} = self;
+		let inputs = inputs.iter().map(|input| {
+			let name = &input.wat_name;
+			let ty = &input.abi_type;
 
-		let mut input_imports = Vec::new();
-
-		for ty in input_tys {
-			if !input_imports.contains(&ty) {
-				input_imports.push(ty);
-			}
-		}
-
-		let mut params = String::new();
-
-		if !output_ty.is_empty() {
-			params.push_str(" (param {})");
-		}
-
-		for name in intern_input_names {
-			params.push_str(" (param $");
-			params.push_str(&name.to_string());
-			params.push_str(" {})");
-		}
-
-		let mut wat_param_gets = String::new();
-
-		for name in intern_input_names {
-			wat_param_gets.push_str(r#""  local.get $"#);
-			wat_param_gets.push_str(&name.to_string());
-			wat_param_gets.push_str(r#"{}","#);
-		}
-
-		let params_placeholder = iter::repeat_n("{}", input_tys.len()).join(" ");
-		let import_params = if input_tys.is_empty() {
-			String::new()
-		} else {
-			format!(" (param {params_placeholder})")
-		};
-		let result = if output_ty.is_empty() {
-			""
-		} else {
-			" (result {})"
-		};
-		let import_funcs_placeholder = if input_imports.is_empty() && output_ty.is_empty() {
-			""
-		} else {
-			"{}"
-		};
-		let wat_ret_conv: String = iter::repeat_n("{}", output_ty.len()).collect();
-
-		let wat = TokenStream::from_str(&format!(
-			r#""(import \"{crate_}\" \"{import_name}\" (func ${crate_}.import.{import_name} (@sym (name \"{crate_}.import.{import_name}\")){import_params}{result})){import_funcs_placeholder}",
-            "(func ${foreign_name} (@sym){params}{result}",
-            {wat_param_gets}
-            "  call ${crate_}.import.{import_name} (@reloc){wat_ret_conv}",
-            ")","#
-		))
-		.unwrap();
-
-		let wat_imports = if input_imports.is_empty() && output_ty.is_empty() {
-			TokenStream::new()
-		} else {
-			quote_spanned! {*span=>
-				interpolate #r#macro::wat_imports!((#(#input_imports),*), #(#output_ty)*),
-			}
-		};
+			quote_spanned!(*span=> (#name, #ty))
+		});
+		let output = output_ty.iter();
 
 		parse_quote_spanned! {*span=>
 			#js_bindgen::unsafe_global_wat! {
-				#wat
-				#(interpolate #r#macro::wat_input_import_type::<#input_tys>(),)*
-				#(interpolate #r#macro::wat_output_import_type::<#output_ty>(),)*
-				#wat_imports
-				#(interpolate #r#macro::wat_indirect!(#output_ty),)*
-				#(interpolate <#input_tys as #input>::WAT_TYPE,)*
-				#(interpolate #r#macro::wat_direct::<#output_ty>(),)*
-				#(interpolate #r#macro::wat_input!(#input_tys),)*
-				#(interpolate #r#macro::wat_output!(#output_ty),)*
+				"{}",
+				interpolate #r#macro::wat_import!(
+					module = #crate_,
+					import = #import_name,
+					shim = #foreign_name,
+					inputs = [#(#inputs),*],
+					#(output = #output,)*
+				),
 			}
 		}
 	}
 
-	fn js(&mut self) -> Option<Stmt> {
+	fn js(&self) -> Option<Stmt> {
 		let Self {
 			crate_,
 			js_bindgen,
 			r#macro,
 			import_name,
-			input_tys,
+			inputs,
 			output_ty,
-			intern_input_names,
 			r#type,
 			span,
 			..
 		} = self;
+		let input_tys: Vec<_> = inputs.iter().map(|input| &input.abi_type).collect();
+		let input_names: Vec<_> = inputs.iter().map(|input| &input.wat_name).collect();
+		let input_value_names: Vec<_> = inputs
+			.iter()
+			.map(|input| input.slot_names[0].to_string())
+			.collect();
+		let output_tys: Vec<_> = output_ty.iter().collect();
 
 		let js_path = match r#type {
 			OutputType::Generate { js_name, member } => {
 				let base = if member.is_some() {
-					"self"
+					input_value_names[0].as_str()
 				} else {
 					"globalThis"
 				};
@@ -552,7 +533,7 @@ impl<'a> State<'a> {
 
 		let mut unique_inputs = Vec::new();
 
-		for ty in input_tys.iter() {
+		for &ty in &input_tys {
 			if !unique_inputs.contains(&ty) {
 				unique_inputs.push(ty);
 			}
@@ -568,8 +549,9 @@ impl<'a> State<'a> {
 			required_embeds.push(quote_spanned!(*span=> #r#macro::js_input_embed::<#ty>()));
 		}
 
-		for ty in output_ty.iter() {
+		for &ty in &output_tys {
 			required_embeds.push(quote_spanned!(*span=> #r#macro::js_output_embed::<#ty>()));
+			required_embeds.push(quote_spanned!(*span=> #r#macro::js_result_embed::<#ty>()));
 		}
 
 		let required_embeds = if required_embeds.is_empty() {
@@ -578,100 +560,53 @@ impl<'a> State<'a> {
 			&[quote_spanned!(*span=> required_embeds = [#(#required_embeds),*])]
 		};
 
-		if input_tys.is_empty() && output_ty.is_empty() {
-			return Some(parse_quote_spanned! {*span=>
-				#js_bindgen::import_js!(
-					module = #crate_,
-					name = #import_name,
-					#(#required_embeds,)*
-					#js_path
-				);
-			});
-		}
-
-		let js_call_pre = if let Some(member) = r#type.member()
-			&& let MemberType::Setter = member.r#type
-		{
-			&format!("{js_path} = {{}}")
-		} else {
-			"{}"
-		};
-		let placeholder: String = iter::once("{}")
-			.chain(iter::repeat_n("{}", input_tys.len()))
-			.chain(iter::once(if output_ty.is_empty() {
-				js_call_pre
-			} else {
-				"{}"
-			}))
-			.collect();
-
-		let input_names_joined = intern_input_names.iter().join(", ");
+		let input_names_joined = input_value_names.iter().join(", ");
 		let call_input_names_joined = if r#type.member().is_some() {
-			Cow::Owned(intern_input_names.iter().skip(1).join(", "))
+			input_value_names.iter().skip(1).join(", ")
 		} else {
-			Cow::Borrowed(&input_names_joined)
+			input_names_joined.clone()
 		};
-		let input_conv = intern_input_names.iter().map(ToString::to_string);
-
+		let js_inputs: Vec<_> = input_names
+			.iter()
+			.zip(input_tys.iter())
+			.map(|(name, ty)| quote_spanned!(*span=> (#name, #ty)))
+			.collect();
 		let direct_fn_open = if r#type.member().is_none() {
-			String::new()
+			quote_spanned!(*span=> "")
 		} else {
-			format!("({input_names_joined}) => ")
+			quote_spanned!(*span=>
+				#r#macro::js_function!("(", ") => ", #(#js_inputs),*)
+			)
 		};
-		let mut indirect_fn_open = format!("({input_names_joined}) => {{\n");
 		let direct_js_call = if let Some(member) = r#type.member() {
 			match member.r#type {
-				MemberType::Method => Cow::Owned(format!("{js_path}({call_input_names_joined})")),
-				MemberType::Getter => Cow::Borrowed(&js_path),
-				MemberType::Setter => Cow::Owned(format!("{call_input_names_joined}")),
+				MemberType::Method => format!("{js_path}({call_input_names_joined})"),
+				MemberType::Getter => js_path.clone(),
+				MemberType::Setter => format!("{js_path} = {call_input_names_joined}"),
 			}
 		} else {
-			Cow::Borrowed(&js_path)
+			js_path.clone()
 		};
 		let indirect_js_call = if r#type.member().is_some() {
-			Cow::Borrowed(direct_js_call.as_str())
+			direct_js_call.clone()
 		} else {
-			Cow::Owned(format!("{js_path}({input_names_joined})"))
+			format!("{js_path}({input_names_joined})")
 		};
-		let mut first_output = if output_ty.is_empty() {
-			Cow::Borrowed(indirect_js_call.deref())
-		} else {
-			Cow::Borrowed("\treturn ")
-		};
-
-		let direct_condition = quote_spanned! {*span=>
-			(#(#unique_inputs),*) #(, #output_ty)*
-		};
-
-		let output = if output_ty.is_empty() {
-			first_output.to_mut().push_str("\n}");
-
-			quote_spanned! {*span=>
-				interpolate #r#macro::js_select!(#direct_js_call, #first_output, #direct_condition),
-			}
-		} else {
-			let mut start = Cow::Borrowed("");
-
-			if input_tys.is_empty() {
-				indirect_fn_open.push_str(&first_output);
-			} else {
-				start = first_output;
-			}
-
-			quote_spanned! {*span=>
-				interpolate #r#macro::js_output!(#start, #direct_js_call, #indirect_js_call, #(#output_ty,)*#(#unique_inputs),*),
-			}
-		};
+		let output = output_ty.iter();
 
 		Some(parse_quote_spanned! {*span=>
 			#js_bindgen::import_js! {
 				module = #crate_,
 				name = #import_name,
 				#(#required_embeds,)*
-				#placeholder,
-				interpolate #r#macro::js_select!(#direct_fn_open, #indirect_fn_open, #direct_condition),
-				#(interpolate #r#macro::js_parameter!(#input_conv, #input_tys),)*
-				#output
+				"{}",
+				interpolate #r#macro::js_import!(
+					direct_open = #direct_fn_open,
+					direct_call = #direct_js_call,
+					indirect_call = #indirect_js_call,
+					inputs = [#(#js_inputs),*],
+					#(output = #output,)*
+				),
 			}
 		})
 	}

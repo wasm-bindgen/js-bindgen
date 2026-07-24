@@ -14,7 +14,10 @@ anyhow = { workspace = true }
 cargo_metadata = { workspace = true }
 clap = { workspace = true }
 paste = { workspace = true }
+ron = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 strum = { workspace = true }
+tempfile = { workspace = true }
 
 [dev-dependencies]
 cargo_metadata = { workspace = true, features = ["builder"] }

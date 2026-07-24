@@ -61,6 +61,21 @@ fn import_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
 	js_internal(input, "js_bindgen.import")
 }
 
+#[proc_macro]
+pub fn export_js(input: ::proc_macro::TokenStream) -> ::proc_macro::TokenStream {
+	#[cfg_attr(
+		not(test),
+		expect(clippy::useless_conversion, reason = "`proc-macro2` compatibility")
+	)]
+	export_js_internal(input.into())
+		.unwrap_or_else(|e| e)
+		.into()
+}
+
+fn export_js_internal(input: TokenStream) -> Result<TokenStream, TokenStream> {
+	js_internal(input, "js_bindgen.export")
+}
+
 fn js_internal(input: TokenStream, section: &str) -> Result<TokenStream, TokenStream> {
 	let mut input = input.into_iter().peekable();
 

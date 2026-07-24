@@ -4,7 +4,7 @@
 
 use core::marker::PhantomData;
 use crate::{js_bindgen, r#macro, JsValue};
-use crate::hazard::{InputJsConv, OutputJsConv, OutputWatConv, Input, InputWatConv, Output, JsCast};
+use crate::hazard::{IntoJS, JsCast, OptionIntoJS};
 use crate::util::{PtrConst, PtrLength, PtrMut};
 
 #[repr(transparent)]
@@ -25,46 +25,29 @@ impl<T> From<JsArray<T>> for JsValue {
 	}
 }
 
-unsafe impl<T> Input for &JsArray<T> {
-	const WAT_TYPE: &'static str = <&JsValue as Input>::WAT_TYPE;
-	const WAT_CONV: Option<InputWatConv> = <&JsValue as Input>::WAT_CONV;
-	const JS_CONV: Option<InputJsConv> = <&JsValue as Input>::JS_CONV;
+unsafe impl<T> JsCast for JsArray<T> {}
 
-	type Type = <&'static JsValue as Input>::Type;
+unsafe impl<T> IntoJS for JsArray<T> {
+	type Abi = <JsValue as IntoJS>::Abi;
 
-	fn into_raw(self) -> Self::Type {
-		Input::into_raw(&self.value)
+	fn into_abi(self) -> Self::Abi {
+		IntoJS::into_abi(JsValue::from(self))
 	}
 }
 
-unsafe impl<T> JsCast for JsArray<T> {}
+unsafe impl<T> OptionIntoJS for JsArray<T> {
+	type OptionAbi = <JsValue as OptionIntoJS>::OptionAbi;
 
-unsafe impl<T> Output for JsArray<T> {
-	const WAT_TYPE: &str = <JsValue as Output>::WAT_TYPE;
-	const WAT_CONV: Option<OutputWatConv> = <JsValue as Output>::WAT_CONV;
-	const JS_CONV: Option<OutputJsConv> = <JsValue as Output>::JS_CONV;
-
-	type Type = <JsValue as Output>::Type;
-
-	fn from_raw(raw: Self::Type) -> Self {
-		Self {
-			value: Output::from_raw(raw),
-			_type: PhantomData,
-		}
+	fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
+		OptionIntoJS::option_into_abi(value.map(JsValue::from))
 	}
 }
 
 impl<T> JsArray<T> {
 	pub fn length(self: &JsArray<T>) -> u32 {
 		js_bindgen::unsafe_global_wat! {
-			"(import \"js_sys\" \"length\" (func $js_sys.import.length (@sym (name \"js_sys.import.length\")) (param {}) (result {}))){}",
-			"(func $js_sys.length (@sym) (param {}) (param $self {}) (result {})",
-			"  local.get $self{}", "  call $js_sys.import.length (@reloc){}", ")", interpolate
-			r#macro::wat_input_import_type:: < & JsValue > (), interpolate
-			r#macro::wat_output_import_type:: < u32 > (), interpolate r#macro::wat_imports!((&
-			JsValue), u32), interpolate r#macro::wat_indirect!(u32), interpolate < & JsValue as
-			Input > ::WAT_TYPE, interpolate r#macro::wat_direct:: < u32 > (), interpolate
-			r#macro::wat_input!(& JsValue), interpolate r#macro::wat_output!(u32),
+			"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "length", shim =
+			"js_sys.length", inputs = [("arg0", & JsValue)], output = u32,),
 		}
 
 		js_bindgen::import_js! {
@@ -73,25 +56,32 @@ impl<T> JsArray<T> {
 			required_embeds = [
 				r#macro::js_input_embed::<&JsValue>(),
 				r#macro::js_output_embed::<u32>(),
+				r#macro::js_result_embed::<u32>(),
 			],
-			"{}{}{}",
-			interpolate r#macro::js_select!("(self) => ", "(self) => {\n", (&JsValue), u32),
-			interpolate r#macro::js_parameter!("self", &JsValue),
-			interpolate r#macro::js_output!(
-				"\treturn ",
-				"self.length",
-				"self.length",
-				u32,
-				&JsValue,
+			"{}",
+			interpolate r#macro::js_import!(
+				direct_open = r#macro::js_function!("(", ") => ", ("arg0", & JsValue)), direct_call
+				= "arg0_0.length", indirect_call = "arg0_0.length", inputs = [("arg0", & JsValue)],
+				output = u32,
 			),
 		}
 
 		unsafe extern "C" {
 			#[link_name = "js_sys.length"]
-			fn length(this: <&JsValue as Input>::Type) -> <u32 as Output>::Type;
+			fn length(
+				arg0_0: r#macro::InputSlot1<&JsValue>,
+				arg0_1: r#macro::InputSlot2<&JsValue>,
+				arg0_2: r#macro::InputSlot3<&JsValue>,
+				arg0_3: r#macro::InputSlot4<&JsValue>,
+			) -> r#macro::OutputRet<u32>;
 		}
 
-		Output::from_raw(unsafe { length(Input::into_raw(self)) })
+		r#macro::join_output({
+			let (arg0_0, arg0_1, arg0_2, arg0_3) = unsafe {
+				r#macro::split_input_as::<&JsValue>(self)
+			};
+			unsafe { length(arg0_0, arg0_1, arg0_2, arg0_3) }
+		})
 	}
 }
 
@@ -100,19 +90,9 @@ pub(super) unsafe fn array_js_value_decode(
 	len: PtrLength<JsValue>,
 ) -> JsArray<JsValue> {
 	js_bindgen::unsafe_global_wat! {
-		"(import \"js_sys\" \"array_js_value_decode\" (func $js_sys.import.array_js_value_decode (@sym (name \"js_sys.import.array_js_value_decode\")) (param {} {}) (result {}))){}",
-		"(func $js_sys.array_js_value_decode (@sym) (param {}) (param $array {}) (param $len {}) (result {})",
-		"  local.get $array{}", "  local.get $len{}",
-		"  call $js_sys.import.array_js_value_decode (@reloc){}", ")", interpolate
-		r#macro::wat_input_import_type:: < PtrConst < JsValue > > (), interpolate
-		r#macro::wat_input_import_type:: < PtrLength < JsValue > > (), interpolate
-		r#macro::wat_output_import_type:: < JsArray < JsValue > > (), interpolate
-		r#macro::wat_imports!((PtrConst < JsValue >, PtrLength < JsValue >), JsArray < JsValue >),
-		interpolate r#macro::wat_indirect!(JsArray < JsValue >), interpolate < PtrConst < JsValue >
-		as Input > ::WAT_TYPE, interpolate < PtrLength < JsValue > as Input > ::WAT_TYPE,
-		interpolate r#macro::wat_direct:: < JsArray < JsValue > > (), interpolate
-		r#macro::wat_input!(PtrConst < JsValue >), interpolate r#macro::wat_input!(PtrLength <
-		JsValue >), interpolate r#macro::wat_output!(JsArray < JsValue >),
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "array_js_value_decode",
+		shim = "js_sys.array_js_value_decode", inputs = [("arg0", PtrConst < JsValue >), ("arg1",
+		PtrLength < JsValue >)], output = JsArray < JsValue >,),
 	}
 
 	js_bindgen::import_js! {
@@ -123,35 +103,38 @@ pub(super) unsafe fn array_js_value_decode(
 			r#macro::js_input_embed::<PtrConst<JsValue>>(),
 			r#macro::js_input_embed::<PtrLength<JsValue>>(),
 			r#macro::js_output_embed::<JsArray<JsValue>>(),
+			r#macro::js_result_embed::<JsArray<JsValue>>(),
 		],
-		"{}{}{}{}",
-		interpolate r#macro::js_select!(
-			"",
-			"(array, len) => {\n",
-			(PtrConst<JsValue>, PtrLength<JsValue>),
-			JsArray<JsValue>,
-		),
-		interpolate r#macro::js_parameter!("array", PtrConst<JsValue>),
-		interpolate r#macro::js_parameter!("len", PtrLength<JsValue>),
-		interpolate r#macro::js_output!(
-			"\treturn ",
-			"this.#jsEmbed.js_sys['array.js_value.decode']",
-			"this.#jsEmbed.js_sys['array.js_value.decode'](array, len)",
-			JsArray<JsValue>,
-			PtrConst<JsValue>,
-			PtrLength<JsValue>,
+		"{}",
+		interpolate r#macro::js_import!(
+			direct_open = "", direct_call = "this.#jsEmbed.js_sys['array.js_value.decode']",
+			indirect_call = "this.#jsEmbed.js_sys['array.js_value.decode'](arg0_0, arg1_0)", inputs
+			= [("arg0", PtrConst < JsValue >), ("arg1", PtrLength < JsValue >)], output = JsArray <
+			JsValue >,
 		),
 	}
 
 	unsafe extern "C" {
 		#[link_name = "js_sys.array_js_value_decode"]
 		fn array_js_value_decode(
-			array: <PtrConst<JsValue> as Input>::Type,
-			len: <PtrLength<JsValue> as Input>::Type,
-		) -> <JsArray<JsValue> as Output>::Type;
+			arg0_0: r#macro::InputSlot1<PtrConst<JsValue>>,
+			arg0_1: r#macro::InputSlot2<PtrConst<JsValue>>,
+			arg0_2: r#macro::InputSlot3<PtrConst<JsValue>>,
+			arg0_3: r#macro::InputSlot4<PtrConst<JsValue>>,
+			arg1_0: r#macro::InputSlot1<PtrLength<JsValue>>,
+			arg1_1: r#macro::InputSlot2<PtrLength<JsValue>>,
+			arg1_2: r#macro::InputSlot3<PtrLength<JsValue>>,
+			arg1_3: r#macro::InputSlot4<PtrLength<JsValue>>,
+		) -> r#macro::OutputRet<JsArray<JsValue>>;
 	}
 
-	Output::from_raw(unsafe { array_js_value_decode(Input::into_raw(array), Input::into_raw(len)) })
+	r#macro::join_output({
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = r#macro::split_input::<PtrConst<JsValue>>(array);
+		let (arg1_0, arg1_1, arg1_2, arg1_3) = r#macro::split_input::<PtrLength<JsValue>>(len);
+		unsafe {
+			array_js_value_decode(arg0_0, arg0_1, arg0_2, arg0_3, arg1_0, arg1_1, arg1_2, arg1_3)
+		}
+	})
 }
 
 pub(super) unsafe fn array_js_value_encode(
@@ -162,25 +145,10 @@ pub(super) unsafe fn array_js_value_encode(
 	externref_len: i32,
 ) -> bool {
 	js_bindgen::unsafe_global_wat! {
-		"(import \"js_sys\" \"array_js_value_encode\" (func $js_sys.import.array_js_value_encode (@sym (name \"js_sys.import.array_js_value_encode\")) (param {} {} {} {} {}) (result {}))){}",
-		"(func $js_sys.array_js_value_encode (@sym) (param {}) (param $array {}) (param $array_ptr {}) (param $array_len {}) (param $externref_ptr {}) (param $externref_len {}) (result {})",
-		"  local.get $array{}", "  local.get $array_ptr{}", "  local.get $array_len{}",
-		"  local.get $externref_ptr{}", "  local.get $externref_len{}",
-		"  call $js_sys.import.array_js_value_encode (@reloc){}", ")", interpolate
-		r#macro::wat_input_import_type:: < & JsArray > (), interpolate
-		r#macro::wat_input_import_type:: < PtrMut < JsValue > > (), interpolate
-		r#macro::wat_input_import_type:: < PtrLength < JsValue > > (), interpolate
-		r#macro::wat_input_import_type:: < PtrConst < i32 > > (), interpolate
-		r#macro::wat_input_import_type:: < i32 > (), interpolate r#macro::wat_output_import_type:: <
-		bool > (), interpolate r#macro::wat_imports!((& JsArray, PtrMut < JsValue >, PtrLength <
-		JsValue >, PtrConst < i32 >, i32), bool), interpolate r#macro::wat_indirect!(bool),
-		interpolate < & JsArray as Input > ::WAT_TYPE, interpolate < PtrMut < JsValue > as Input >
-		::WAT_TYPE, interpolate < PtrLength < JsValue > as Input > ::WAT_TYPE, interpolate <
-		PtrConst < i32 > as Input > ::WAT_TYPE, interpolate < i32 as Input > ::WAT_TYPE, interpolate
-		r#macro::wat_direct:: < bool > (), interpolate r#macro::wat_input!(& JsArray), interpolate
-		r#macro::wat_input!(PtrMut < JsValue >), interpolate r#macro::wat_input!(PtrLength < JsValue
-		>), interpolate r#macro::wat_input!(PtrConst < i32 >), interpolate r#macro::wat_input!(i32),
-		interpolate r#macro::wat_output!(bool),
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "array_js_value_encode",
+		shim = "js_sys.array_js_value_encode", inputs = [("arg0", & JsArray), ("arg1", PtrMut <
+		JsValue >), ("arg2", PtrLength < JsValue >), ("arg3", PtrConst < i32 >), ("arg4", i32)],
+		output = bool,),
 	}
 
 	js_bindgen::import_js! {
@@ -194,69 +162,84 @@ pub(super) unsafe fn array_js_value_encode(
 			r#macro::js_input_embed::<PtrConst<i32>>(),
 			r#macro::js_input_embed::<i32>(),
 			r#macro::js_output_embed::<bool>(),
+			r#macro::js_result_embed::<bool>(),
 		],
-		"{}{}{}{}{}{}{}",
-		interpolate r#macro::js_select!(
-			"",
-			"(array, array_ptr, array_len, externref_ptr, externref_len) => {\n",
-			(&JsArray, PtrMut<JsValue>, PtrLength<JsValue>, PtrConst<i32>, i32),
-			bool,
-		),
-		interpolate r#macro::js_parameter!("array", &JsArray),
-		interpolate r#macro::js_parameter!("array_ptr", PtrMut<JsValue>),
-		interpolate r#macro::js_parameter!("array_len", PtrLength<JsValue>),
-		interpolate r#macro::js_parameter!("externref_ptr", PtrConst<i32>),
-		interpolate r#macro::js_parameter!("externref_len", i32),
-		interpolate r#macro::js_output!(
-			"\treturn ",
-			"this.#jsEmbed.js_sys['array.js_value.encode']",
-			"this.#jsEmbed.js_sys['array.js_value.encode'](array, array_ptr, array_len, externref_ptr, externref_len)",
-			bool,
-			&JsArray,
-			PtrMut<JsValue>,
-			PtrLength<JsValue>,
-			PtrConst<i32>,
-			i32,
+		"{}",
+		interpolate r#macro::js_import!(
+			direct_open = "", direct_call = "this.#jsEmbed.js_sys['array.js_value.encode']",
+			indirect_call =
+			"this.#jsEmbed.js_sys['array.js_value.encode'](arg0_0, arg1_0, arg2_0, arg3_0, arg4_0)",
+			inputs = [("arg0", & JsArray), ("arg1", PtrMut < JsValue >), ("arg2", PtrLength <
+			JsValue >), ("arg3", PtrConst < i32 >), ("arg4", i32)], output = bool,
 		),
 	}
 
 	unsafe extern "C" {
 		#[link_name = "js_sys.array_js_value_encode"]
 		fn array_js_value_encode(
-			array: <&JsArray as Input>::Type,
-			array_ptr: <PtrMut<JsValue> as Input>::Type,
-			array_len: <PtrLength<JsValue> as Input>::Type,
-			externref_ptr: <PtrConst<i32> as Input>::Type,
-			externref_len: <i32 as Input>::Type,
-		) -> <bool as Output>::Type;
+			arg0_0: r#macro::InputSlot1<&JsArray>,
+			arg0_1: r#macro::InputSlot2<&JsArray>,
+			arg0_2: r#macro::InputSlot3<&JsArray>,
+			arg0_3: r#macro::InputSlot4<&JsArray>,
+			arg1_0: r#macro::InputSlot1<PtrMut<JsValue>>,
+			arg1_1: r#macro::InputSlot2<PtrMut<JsValue>>,
+			arg1_2: r#macro::InputSlot3<PtrMut<JsValue>>,
+			arg1_3: r#macro::InputSlot4<PtrMut<JsValue>>,
+			arg2_0: r#macro::InputSlot1<PtrLength<JsValue>>,
+			arg2_1: r#macro::InputSlot2<PtrLength<JsValue>>,
+			arg2_2: r#macro::InputSlot3<PtrLength<JsValue>>,
+			arg2_3: r#macro::InputSlot4<PtrLength<JsValue>>,
+			arg3_0: r#macro::InputSlot1<PtrConst<i32>>,
+			arg3_1: r#macro::InputSlot2<PtrConst<i32>>,
+			arg3_2: r#macro::InputSlot3<PtrConst<i32>>,
+			arg3_3: r#macro::InputSlot4<PtrConst<i32>>,
+			arg4_0: r#macro::InputSlot1<i32>,
+			arg4_1: r#macro::InputSlot2<i32>,
+			arg4_2: r#macro::InputSlot3<i32>,
+			arg4_3: r#macro::InputSlot4<i32>,
+		) -> r#macro::OutputRet<bool>;
 	}
 
-	Output::from_raw(unsafe {
-		array_js_value_encode(
-			Input::into_raw(array),
-			Input::into_raw(array_ptr),
-			Input::into_raw(array_len),
-			Input::into_raw(externref_ptr),
-			Input::into_raw(externref_len),
-		)
+	r#macro::join_output({
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = r#macro::split_input::<&JsArray>(array);
+		let (arg1_0, arg1_1, arg1_2, arg1_3) = r#macro::split_input::<PtrMut<JsValue>>(array_ptr);
+		let (arg2_0, arg2_1, arg2_2, arg2_3) = r#macro::split_input::<
+			PtrLength<JsValue>,
+		>(array_len);
+		let (arg3_0, arg3_1, arg3_2, arg3_3) = r#macro::split_input::<PtrConst<i32>>(externref_ptr);
+		let (arg4_0, arg4_1, arg4_2, arg4_3) = r#macro::split_input::<i32>(externref_len);
+		unsafe {
+			array_js_value_encode(
+				arg0_0,
+				arg0_1,
+				arg0_2,
+				arg0_3,
+				arg1_0,
+				arg1_1,
+				arg1_2,
+				arg1_3,
+				arg2_0,
+				arg2_1,
+				arg2_2,
+				arg2_3,
+				arg3_0,
+				arg3_1,
+				arg3_2,
+				arg3_3,
+				arg4_0,
+				arg4_1,
+				arg4_2,
+				arg4_3,
+			)
+		}
 	})
 }
 
 pub(super) unsafe fn array_u32_decode(array: PtrConst<u32>, len: PtrLength<u32>) -> JsArray<u32> {
 	js_bindgen::unsafe_global_wat! {
-		"(import \"js_sys\" \"array_u32_decode\" (func $js_sys.import.array_u32_decode (@sym (name \"js_sys.import.array_u32_decode\")) (param {} {}) (result {}))){}",
-		"(func $js_sys.array_u32_decode (@sym) (param {}) (param $array {}) (param $len {}) (result {})",
-		"  local.get $array{}", "  local.get $len{}",
-		"  call $js_sys.import.array_u32_decode (@reloc){}", ")", interpolate
-		r#macro::wat_input_import_type:: < PtrConst < u32 > > (), interpolate
-		r#macro::wat_input_import_type:: < PtrLength < u32 > > (), interpolate
-		r#macro::wat_output_import_type:: < JsArray < u32 > > (), interpolate
-		r#macro::wat_imports!((PtrConst < u32 >, PtrLength < u32 >), JsArray < u32 >), interpolate
-		r#macro::wat_indirect!(JsArray < u32 >), interpolate < PtrConst < u32 > as Input >
-		::WAT_TYPE, interpolate < PtrLength < u32 > as Input > ::WAT_TYPE, interpolate
-		r#macro::wat_direct:: < JsArray < u32 > > (), interpolate r#macro::wat_input!(PtrConst < u32
-		>), interpolate r#macro::wat_input!(PtrLength < u32 >), interpolate
-		r#macro::wat_output!(JsArray < u32 >),
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "array_u32_decode", shim
+		= "js_sys.array_u32_decode", inputs = [("arg0", PtrConst < u32 >), ("arg1", PtrLength < u32
+		>)], output = JsArray < u32 >,),
 	}
 
 	js_bindgen::import_js! {
@@ -267,35 +250,35 @@ pub(super) unsafe fn array_u32_decode(array: PtrConst<u32>, len: PtrLength<u32>)
 			r#macro::js_input_embed::<PtrConst<u32>>(),
 			r#macro::js_input_embed::<PtrLength<u32>>(),
 			r#macro::js_output_embed::<JsArray<u32>>(),
+			r#macro::js_result_embed::<JsArray<u32>>(),
 		],
-		"{}{}{}{}",
-		interpolate r#macro::js_select!(
-			"",
-			"(array, len) => {\n",
-			(PtrConst<u32>, PtrLength<u32>),
-			JsArray<u32>,
-		),
-		interpolate r#macro::js_parameter!("array", PtrConst<u32>),
-		interpolate r#macro::js_parameter!("len", PtrLength<u32>),
-		interpolate r#macro::js_output!(
-			"\treturn ",
-			"this.#jsEmbed.js_sys['view.getUint32']",
-			"this.#jsEmbed.js_sys['view.getUint32'](array, len)",
-			JsArray<u32>,
-			PtrConst<u32>,
-			PtrLength<u32>,
+		"{}",
+		interpolate r#macro::js_import!(
+			direct_open = "", direct_call = "this.#jsEmbed.js_sys['view.getUint32']", indirect_call
+			= "this.#jsEmbed.js_sys['view.getUint32'](arg0_0, arg1_0)", inputs = [("arg0", PtrConst
+			< u32 >), ("arg1", PtrLength < u32 >)], output = JsArray < u32 >,
 		),
 	}
 
 	unsafe extern "C" {
 		#[link_name = "js_sys.array_u32_decode"]
 		fn array_u32_decode(
-			array: <PtrConst<u32> as Input>::Type,
-			len: <PtrLength<u32> as Input>::Type,
-		) -> <JsArray<u32> as Output>::Type;
+			arg0_0: r#macro::InputSlot1<PtrConst<u32>>,
+			arg0_1: r#macro::InputSlot2<PtrConst<u32>>,
+			arg0_2: r#macro::InputSlot3<PtrConst<u32>>,
+			arg0_3: r#macro::InputSlot4<PtrConst<u32>>,
+			arg1_0: r#macro::InputSlot1<PtrLength<u32>>,
+			arg1_1: r#macro::InputSlot2<PtrLength<u32>>,
+			arg1_2: r#macro::InputSlot3<PtrLength<u32>>,
+			arg1_3: r#macro::InputSlot4<PtrLength<u32>>,
+		) -> r#macro::OutputRet<JsArray<u32>>;
 	}
 
-	Output::from_raw(unsafe { array_u32_decode(Input::into_raw(array), Input::into_raw(len)) })
+	r#macro::join_output({
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = r#macro::split_input::<PtrConst<u32>>(array);
+		let (arg1_0, arg1_1, arg1_2, arg1_3) = r#macro::split_input::<PtrLength<u32>>(len);
+		unsafe { array_u32_decode(arg0_0, arg0_1, arg0_2, arg0_3, arg1_0, arg1_1, arg1_2, arg1_3) }
+	})
 }
 
 pub(super) unsafe fn array_u32_encode(
@@ -304,20 +287,9 @@ pub(super) unsafe fn array_u32_encode(
 	len: PtrLength<u32>,
 ) -> bool {
 	js_bindgen::unsafe_global_wat! {
-		"(import \"js_sys\" \"array_u32_encode\" (func $js_sys.import.array_u32_encode (@sym (name \"js_sys.import.array_u32_encode\")) (param {} {} {}) (result {}))){}",
-		"(func $js_sys.array_u32_encode (@sym) (param {}) (param $array {}) (param $ptr {}) (param $len {}) (result {})",
-		"  local.get $array{}", "  local.get $ptr{}", "  local.get $len{}",
-		"  call $js_sys.import.array_u32_encode (@reloc){}", ")", interpolate
-		r#macro::wat_input_import_type:: < & JsArray < u32 > > (), interpolate
-		r#macro::wat_input_import_type:: < PtrMut < u32 > > (), interpolate
-		r#macro::wat_input_import_type:: < PtrLength < u32 > > (), interpolate
-		r#macro::wat_output_import_type:: < bool > (), interpolate r#macro::wat_imports!((& JsArray
-		< u32 >, PtrMut < u32 >, PtrLength < u32 >), bool), interpolate
-		r#macro::wat_indirect!(bool), interpolate < & JsArray < u32 > as Input > ::WAT_TYPE,
-		interpolate < PtrMut < u32 > as Input > ::WAT_TYPE, interpolate < PtrLength < u32 > as Input
-		> ::WAT_TYPE, interpolate r#macro::wat_direct:: < bool > (), interpolate
-		r#macro::wat_input!(& JsArray < u32 >), interpolate r#macro::wat_input!(PtrMut < u32 >),
-		interpolate r#macro::wat_input!(PtrLength < u32 >), interpolate r#macro::wat_output!(bool),
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "array_u32_encode", shim
+		= "js_sys.array_u32_encode", inputs = [("arg0", & JsArray < u32 >), ("arg1", PtrMut < u32
+		>), ("arg2", PtrLength < u32 >)], output = bool,),
 	}
 
 	js_bindgen::import_js! {
@@ -329,38 +301,54 @@ pub(super) unsafe fn array_u32_encode(
 			r#macro::js_input_embed::<PtrMut<u32>>(),
 			r#macro::js_input_embed::<PtrLength<u32>>(),
 			r#macro::js_output_embed::<bool>(),
+			r#macro::js_result_embed::<bool>(),
 		],
-		"{}{}{}{}{}",
-		interpolate r#macro::js_select!(
-			"",
-			"(array, ptr, len) => {\n",
-			(&JsArray<u32>, PtrMut<u32>, PtrLength<u32>),
-			bool,
-		),
-		interpolate r#macro::js_parameter!("array", &JsArray<u32>),
-		interpolate r#macro::js_parameter!("ptr", PtrMut<u32>),
-		interpolate r#macro::js_parameter!("len", PtrLength<u32>),
-		interpolate r#macro::js_output!(
-			"\treturn ",
-			"this.#jsEmbed.js_sys['array.u32.encode']",
-			"this.#jsEmbed.js_sys['array.u32.encode'](array, ptr, len)",
-			bool,
-			&JsArray<u32>,
-			PtrMut<u32>,
-			PtrLength<u32>,
+		"{}",
+		interpolate r#macro::js_import!(
+			direct_open = "", direct_call = "this.#jsEmbed.js_sys['array.u32.encode']",
+			indirect_call = "this.#jsEmbed.js_sys['array.u32.encode'](arg0_0, arg1_0, arg2_0)",
+			inputs = [("arg0", & JsArray < u32 >), ("arg1", PtrMut < u32 >), ("arg2", PtrLength <
+			u32 >)], output = bool,
 		),
 	}
 
 	unsafe extern "C" {
 		#[link_name = "js_sys.array_u32_encode"]
 		fn array_u32_encode(
-			array: <&JsArray<u32> as Input>::Type,
-			ptr: <PtrMut<u32> as Input>::Type,
-			len: <PtrLength<u32> as Input>::Type,
-		) -> <bool as Output>::Type;
+			arg0_0: r#macro::InputSlot1<&JsArray<u32>>,
+			arg0_1: r#macro::InputSlot2<&JsArray<u32>>,
+			arg0_2: r#macro::InputSlot3<&JsArray<u32>>,
+			arg0_3: r#macro::InputSlot4<&JsArray<u32>>,
+			arg1_0: r#macro::InputSlot1<PtrMut<u32>>,
+			arg1_1: r#macro::InputSlot2<PtrMut<u32>>,
+			arg1_2: r#macro::InputSlot3<PtrMut<u32>>,
+			arg1_3: r#macro::InputSlot4<PtrMut<u32>>,
+			arg2_0: r#macro::InputSlot1<PtrLength<u32>>,
+			arg2_1: r#macro::InputSlot2<PtrLength<u32>>,
+			arg2_2: r#macro::InputSlot3<PtrLength<u32>>,
+			arg2_3: r#macro::InputSlot4<PtrLength<u32>>,
+		) -> r#macro::OutputRet<bool>;
 	}
 
-	Output::from_raw(unsafe {
-		array_u32_encode(Input::into_raw(array), Input::into_raw(ptr), Input::into_raw(len))
+	r#macro::join_output({
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = r#macro::split_input::<&JsArray<u32>>(array);
+		let (arg1_0, arg1_1, arg1_2, arg1_3) = r#macro::split_input::<PtrMut<u32>>(ptr);
+		let (arg2_0, arg2_1, arg2_2, arg2_3) = r#macro::split_input::<PtrLength<u32>>(len);
+		unsafe {
+			array_u32_encode(
+				arg0_0,
+				arg0_1,
+				arg0_2,
+				arg0_3,
+				arg1_0,
+				arg1_1,
+				arg1_2,
+				arg1_3,
+				arg2_0,
+				arg2_1,
+				arg2_2,
+				arg2_3,
+			)
+		}
 	})
 }

@@ -3,122 +3,136 @@
 #![allow(warnings)]
 
 use js_sys::{js_bindgen, r#macro};
-use js_sys::hazard::{Input, Output};
 use js_sys::JsValue;
 use js_sys::hazard::JsCast;
 
 pub fn log0() {
 	js_bindgen::unsafe_global_wat! {
-		"(import \"web_sys\" \"console.log0\" (func $web_sys.import.console.log0 (@sym (name \"web_sys.import.console.log0\"))))",
-		"(func $web_sys.console.log0 (@sym)", "  call $web_sys.import.console.log0 (@reloc)", ")",
+		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.log0", shim =
+		"web_sys.console.log0", inputs = [],),
 	}
 
-	js_bindgen::import_js! (module = "web_sys", name = "console.log0", "globalThis.console.log");
+	js_bindgen::import_js! {
+		module = "web_sys",
+		name = "console.log0",
+		"{}",
+		interpolate r#macro::js_import!(
+			direct_open = "", direct_call = "globalThis.console.log", indirect_call =
+			"globalThis.console.log()", inputs = [],
+		),
+	}
 
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.log0"]
 		fn log0();
 	}
 
-	unsafe { log0() };
+	{ unsafe { log0() } };
 }
 
 pub fn log<T: JsCast>(data: &[T]) {
 	js_bindgen::unsafe_global_wat! {
-		"(import \"web_sys\" \"console.log\" (func $web_sys.import.console.log (@sym (name \"web_sys.import.console.log\")) (param {}))){}",
-		"(func $web_sys.console.log (@sym) (param $data {})", "  local.get $data{}",
-		"  call $web_sys.import.console.log (@reloc)", ")", interpolate
-		r#macro::wat_input_import_type:: < & [JsValue] > (), interpolate r#macro::wat_imports!((&
-		[JsValue]),), interpolate < & [JsValue] as Input > ::WAT_TYPE, interpolate
-		r#macro::wat_input!(& [JsValue]),
+		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.log", shim =
+		"web_sys.console.log", inputs = [("arg0", & [JsValue])],),
 	}
 
 	js_bindgen::import_js! {
 		module = "web_sys",
 		name = "console.log",
 		required_embeds = [r#macro::js_input_embed::<&[JsValue]>()],
-		"{}{}{}",
-		interpolate r#macro::js_select!("", "(data) => {\n", (&[JsValue])),
-		interpolate r#macro::js_parameter!("data", &[JsValue]),
-		interpolate r#macro::js_select!(
-			"globalThis.console.log",
-			"globalThis.console.log(data)\n}",
-			(&[JsValue]),
+		"{}",
+		interpolate r#macro::js_import!(
+			direct_open = "", direct_call = "globalThis.console.log", indirect_call =
+			"globalThis.console.log(arg0_0)", inputs = [("arg0", & [JsValue])],
 		),
 	}
 
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.log"]
-		fn log(data: <&[JsValue] as Input>::Type);
+		fn log(
+			arg0_0: r#macro::InputSlot1<&[JsValue]>,
+			arg0_1: r#macro::InputSlot2<&[JsValue]>,
+			arg0_2: r#macro::InputSlot3<&[JsValue]>,
+			arg0_3: r#macro::InputSlot4<&[JsValue]>,
+		);
 	}
 
-	unsafe { log(Input::into_raw(data)) };
+	{
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = unsafe {
+			r#macro::split_input_as::<&[JsValue]>(data)
+		};
+		unsafe { log(arg0_0, arg0_1, arg0_2, arg0_3) }
+	};
 }
 
 pub fn log2(data1: &JsValue, data2: &JsValue) {
 	js_bindgen::unsafe_global_wat! {
-		"(import \"web_sys\" \"console.log2\" (func $web_sys.import.console.log2 (@sym (name \"web_sys.import.console.log2\")) (param {} {}))){}",
-		"(func $web_sys.console.log2 (@sym) (param $data1 {}) (param $data2 {})",
-		"  local.get $data1{}", "  local.get $data2{}",
-		"  call $web_sys.import.console.log2 (@reloc)", ")", interpolate
-		r#macro::wat_input_import_type:: < & JsValue > (), interpolate
-		r#macro::wat_input_import_type:: < & JsValue > (), interpolate r#macro::wat_imports!((&
-		JsValue),), interpolate < & JsValue as Input > ::WAT_TYPE, interpolate < & JsValue as Input
-		> ::WAT_TYPE, interpolate r#macro::wat_input!(& JsValue), interpolate r#macro::wat_input!(&
-		JsValue),
+		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.log2", shim =
+		"web_sys.console.log2", inputs = [("arg0", & JsValue), ("arg1", & JsValue)],),
 	}
 
 	js_bindgen::import_js! {
 		module = "web_sys",
 		name = "console.log2",
 		required_embeds = [r#macro::js_input_embed::<&JsValue>()],
-		"{}{}{}{}",
-		interpolate r#macro::js_select!("", "(data1, data2) => {\n", (&JsValue)),
-		interpolate r#macro::js_parameter!("data1", &JsValue),
-		interpolate r#macro::js_parameter!("data2", &JsValue),
-		interpolate r#macro::js_select!(
-			"globalThis.console.log",
-			"globalThis.console.log(data1, data2)\n}",
-			(&JsValue),
+		"{}",
+		interpolate r#macro::js_import!(
+			direct_open = "", direct_call = "globalThis.console.log", indirect_call =
+			"globalThis.console.log(arg0_0, arg1_0)", inputs = [("arg0", & JsValue), ("arg1", &
+			JsValue)],
 		),
 	}
 
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.log2"]
-		fn log2(data1: <&JsValue as Input>::Type, data2: <&JsValue as Input>::Type);
+		fn log2(
+			arg0_0: r#macro::InputSlot1<&JsValue>,
+			arg0_1: r#macro::InputSlot2<&JsValue>,
+			arg0_2: r#macro::InputSlot3<&JsValue>,
+			arg0_3: r#macro::InputSlot4<&JsValue>,
+			arg1_0: r#macro::InputSlot1<&JsValue>,
+			arg1_1: r#macro::InputSlot2<&JsValue>,
+			arg1_2: r#macro::InputSlot3<&JsValue>,
+			arg1_3: r#macro::InputSlot4<&JsValue>,
+		);
 	}
 
-	unsafe { log2(Input::into_raw(data1), Input::into_raw(data2)) };
+	{
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = r#macro::split_input::<&JsValue>(data1);
+		let (arg1_0, arg1_1, arg1_2, arg1_3) = r#macro::split_input::<&JsValue>(data2);
+		unsafe { log2(arg0_0, arg0_1, arg0_2, arg0_3, arg1_0, arg1_1, arg1_2, arg1_3) }
+	};
 }
 
 pub fn error(data: &JsValue) {
 	js_bindgen::unsafe_global_wat! {
-		"(import \"web_sys\" \"console.error\" (func $web_sys.import.console.error (@sym (name \"web_sys.import.console.error\")) (param {}))){}",
-		"(func $web_sys.console.error (@sym) (param $data {})", "  local.get $data{}",
-		"  call $web_sys.import.console.error (@reloc)", ")", interpolate
-		r#macro::wat_input_import_type:: < & JsValue > (), interpolate r#macro::wat_imports!((&
-		JsValue),), interpolate < & JsValue as Input > ::WAT_TYPE, interpolate r#macro::wat_input!(&
-		JsValue),
+		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.error", shim =
+		"web_sys.console.error", inputs = [("arg0", & JsValue)],),
 	}
 
 	js_bindgen::import_js! {
 		module = "web_sys",
 		name = "console.error",
 		required_embeds = [r#macro::js_input_embed::<&JsValue>()],
-		"{}{}{}",
-		interpolate r#macro::js_select!("", "(data) => {\n", (&JsValue)),
-		interpolate r#macro::js_parameter!("data", &JsValue),
-		interpolate r#macro::js_select!(
-			"globalThis.console.error",
-			"globalThis.console.error(data)\n}",
-			(&JsValue),
+		"{}",
+		interpolate r#macro::js_import!(
+			direct_open = "", direct_call = "globalThis.console.error", indirect_call =
+			"globalThis.console.error(arg0_0)", inputs = [("arg0", & JsValue)],
 		),
 	}
 
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.error"]
-		fn error(data: <&JsValue as Input>::Type);
+		fn error(
+			arg0_0: r#macro::InputSlot1<&JsValue>,
+			arg0_1: r#macro::InputSlot2<&JsValue>,
+			arg0_2: r#macro::InputSlot3<&JsValue>,
+			arg0_3: r#macro::InputSlot4<&JsValue>,
+		);
 	}
 
-	unsafe { error(Input::into_raw(data)) };
+	{
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = r#macro::split_input::<&JsValue>(data);
+		unsafe { error(arg0_0, arg0_1, arg0_2, arg0_3) }
+	};
 }

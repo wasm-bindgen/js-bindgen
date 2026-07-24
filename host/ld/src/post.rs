@@ -1,9 +1,10 @@
 use anyhow::{Context, Result, bail};
+use hashbrown::HashSet;
 use js_bindgen_cli_lib::{JS_OUTPUT_SECTION, MainMemory};
 use js_bindgen_shared::{IS_COMPAT_SECTION, IS_TEST_SECTION};
 use wasm_encoder::{
-	CustomSection, EntityType, ImportSection, Module, ProducersField, ProducersSection, RawSection,
-	Section,
+	CustomSection, EntityType, ExportSection, ImportSection, Module, ProducersField,
+	ProducersSection, RawSection, Section,
 };
 use wasmparser::{Encoding, KnownCustom, Parser, Payload, TypeRef};
 
@@ -57,10 +58,40 @@ pub fn processing(
 
 				import_section.append_to(&mut wasm_output);
 			}
+			// Prefer a public WAT shim when one was generated. Otherwise expose the
+			// raw Rust export after removing its internal prefix.
+			Payload::ExportSection(exports) => {
+				let mut export_section = ExportSection::new();
+				let mut exports_parsed = Vec::new();
+
+				for export in exports {
+					exports_parsed.push(export.context("export should be parsable")?);
+				}
+
+				let shims: HashSet<_> = exports_parsed
+					.iter()
+					.filter_map(|export| {
+						(!export.name.starts_with("__export_")).then_some(export.name)
+					})
+					.collect();
+
+				for export in exports_parsed {
+					if let Some(name) = export.name.strip_prefix("__export_") {
+						if !shims.contains(name) {
+							export_section.export(name, export.kind.into(), export.index);
+						}
+					} else {
+						export_section.export(export.name, export.kind.into(), export.index);
+					}
+				}
+
+				export_section.append_to(&mut wasm_output);
+			}
 			// Don't write back our own custom sections.
 			Payload::CustomSection(c) if c.name() == "js_bindgen.wat" => (),
 			Payload::CustomSection(c) if c.name() == "js_bindgen.import" => (),
 			Payload::CustomSection(c) if c.name() == "js_bindgen.embed" => (),
+			Payload::CustomSection(c) if c.name() == "js_bindgen.export" => (),
 			// Register ourselves in the producer section.
 			Payload::CustomSection(c) if c.name() == "producers" => {
 				let KnownCustom::Producers(c) = c.as_known() else {

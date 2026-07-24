@@ -14,4 +14,4 @@ unsafe extern "C" {}
 #[doc(hidden)]
 pub mod r#macro;
 
-pub use js_bindgen_macro::{embed_js, import_js, unsafe_global_wat};
+pub use js_bindgen_macro::{embed_js, export_js, import_js, unsafe_global_wat};

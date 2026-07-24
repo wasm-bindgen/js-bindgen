@@ -72,5 +72,15 @@ macro_rules! internal {
 unsigned!(JsNumber, u8, u16, u32);
 unsigned!(JsBigInt, u64, u128);
 
+#[cfg(target_arch = "wasm32")]
+unsigned!(JsNumber, usize);
+#[cfg(target_arch = "wasm64")]
+unsigned!(JsBigInt, usize);
+
 signed!(JsNumber, i8, i16, i32);
 signed!(JsBigInt, i64, i128);
+
+#[cfg(target_arch = "wasm32")]
+signed!(JsNumber, isize);
+#[cfg(target_arch = "wasm64")]
+signed!(JsBigInt, isize);
