@@ -125,6 +125,16 @@ fn process_object(
 					file_counter += 1;
 					let wasm_path =
 						archive_path.with_added_extension(format!("wasm.{file_counter}.o"));
+					// The cache is shared by concurrent linker processes. Hold the lock through
+					// freshness validation, generation, and parsing.
+					let lock_path = wasm_path.with_added_extension("lock");
+					let lock = fs::OpenOptions::new()
+						.read(true)
+						.write(true)
+						.create(true)
+						.truncate(false)
+						.open(lock_path)?;
+					lock.lock()?;
 					let mut wasm_bytes = None;
 
 					// We first use a fingerprint to quickly determine whether `wasm.o` needs to be
@@ -160,6 +170,7 @@ fn process_object(
 						js_bindgen_shared::mtime(&std::fs::metadata(&wasm_path)?)?,
 					)?;
 
+					drop(lock);
 					add_args.push(wasm_path.into());
 				}
 			}
