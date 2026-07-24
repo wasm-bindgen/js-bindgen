@@ -32,40 +32,6 @@ impl Hygiene<'_> {
 		}
 	}
 
-	pub(crate) fn input(&mut self, attrs: &[Attribute], span: Span) -> Path {
-		match self {
-			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned!(span=> Input));
-				parse_quote_spanned!(span=> Input)
-			}
-			Hygiene::Hygiene { js_sys } => Self::with_js_sys(*js_sys, &quote!(hazard::Input), span),
-		}
-	}
-
-	pub(crate) fn input_wat_conv(&mut self, attrs: &[Attribute], span: Span) -> Path {
-		match self {
-			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned!(span=> InputWatConv));
-				parse_quote_spanned!(span=> InputWatConv)
-			}
-			Hygiene::Hygiene { js_sys } => {
-				Self::with_js_sys(*js_sys, &quote!(hazard::InputWatConv), span)
-			}
-		}
-	}
-
-	pub(crate) fn input_js_conv(&mut self, attrs: &[Attribute], span: Span) -> Path {
-		match self {
-			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned!(span=> InputJsConv));
-				parse_quote_spanned!(span=> InputJsConv)
-			}
-			Hygiene::Hygiene { js_sys } => {
-				Self::with_js_sys(*js_sys, &quote!(hazard::InputJsConv), span)
-			}
-		}
-	}
-
 	pub(crate) fn js_cast(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {
@@ -78,38 +44,26 @@ impl Hygiene<'_> {
 		}
 	}
 
-	pub(crate) fn output(&mut self, attrs: &[Attribute], span: Span) -> Path {
+	pub(crate) fn js_into(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned!(span=> Output));
-				parse_quote_spanned!(span=> Output)
+				imports.hazard_push(attrs, parse_quote_spanned!(span=> IntoJS));
+				parse_quote_spanned!(span=> IntoJS)
 			}
 			Hygiene::Hygiene { js_sys } => {
-				Self::with_js_sys(*js_sys, &quote!(hazard::Output), span)
+				Self::with_js_sys(*js_sys, &quote!(hazard::IntoJS), span)
 			}
 		}
 	}
 
-	pub(crate) fn output_wat_conv(&mut self, attrs: &[Attribute], span: Span) -> Path {
+	pub(crate) fn js_option_into(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned!(span=> OutputWatConv));
-				parse_quote_spanned!(span=> OutputWatConv)
+				imports.hazard_push(attrs, parse_quote_spanned!(span=> OptionIntoJS));
+				parse_quote_spanned!(span=> OptionIntoJS)
 			}
 			Hygiene::Hygiene { js_sys } => {
-				Self::with_js_sys(*js_sys, &quote!(hazard::OutputWatConv), span)
-			}
-		}
-	}
-
-	pub(crate) fn output_js_conv(&mut self, attrs: &[Attribute], span: Span) -> Path {
-		match self {
-			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned!(span=> OutputJsConv));
-				parse_quote_spanned!(span=> OutputJsConv)
-			}
-			Hygiene::Hygiene { js_sys } => {
-				Self::with_js_sys(*js_sys, &quote!(hazard::OutputJsConv), span)
+				Self::with_js_sys(*js_sys, &quote!(hazard::OptionIntoJS), span)
 			}
 		}
 	}
@@ -149,17 +103,6 @@ impl Hygiene<'_> {
 		}
 	}
 
-	pub(crate) fn str(&mut self, span: Span) -> Path {
-		match self {
-			Hygiene::Imports(_) => {
-				parse_quote_spanned!(span=> str)
-			}
-			Hygiene::Hygiene { .. } => {
-				parse_quote_spanned!(span=> ::core::primitive::str)
-			}
-		}
-	}
-
 	pub(crate) fn from(&mut self, span: Span) -> Path {
 		match self {
 			Hygiene::Imports(_) => {
@@ -167,17 +110,6 @@ impl Hygiene<'_> {
 			}
 			Hygiene::Hygiene { .. } => {
 				parse_quote_spanned!(span=> ::core::convert::From)
-			}
-		}
-	}
-
-	pub(crate) fn option(&mut self, span: Span) -> Path {
-		match self {
-			Hygiene::Imports(_) => {
-				parse_quote_spanned!(span=> Option)
-			}
-			Hygiene::Hygiene { .. } => {
-				parse_quote_spanned!(span=> ::core::option::Option)
 			}
 		}
 	}

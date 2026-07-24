@@ -1,3 +1,5 @@
+#[cfg(feature = "macro")]
+mod export;
 #[cfg(feature = "file")]
 mod file;
 mod function;

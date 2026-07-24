@@ -3,6 +3,7 @@ resolver = "3"
 members = [
 	"cargo-js-sys",
 	"cargo-shim",
+	"cli",
 	"cli-lib",
 	"dev",
 	"inline-snap",

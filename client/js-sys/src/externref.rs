@@ -10,6 +10,8 @@ js_bindgen::unsafe_global_wat!(
 	"(import \"js_sys\" \"externref.table\" (table $js_sys.import.externref.table (@sym (name \
 	 \"js_sys.externref.table\")) 2 externref))",
 	"(import \"env\" \"js_sys.externref.next\" (func $js_sys.externref.next (@sym) (result i32)))",
+	"(import \"env\" \"js_sys.externref.recycle\" (func $js_sys.externref.recycle (@sym) (param \
+	 i32)))",
 	"(func $js_sys.externref.grow (@sym) (param $size i32) (result i32)",
 	"  ref.null extern",
 	"  local.get $size",
@@ -26,6 +28,21 @@ js_bindgen::unsafe_global_wat!(
 	"(func $js_sys.externref.get (@sym) (param $index i32) (result externref)",
 	"  local.get $index",
 	"  table.get $js_sys.import.externref.table (@reloc)",
+	")",
+	"(func $js_sys.externref.take (@sym) (param $index i32) (result externref)",
+	"  (local $value externref)",
+	"  local.get $index",
+	"  table.get $js_sys.import.externref.table (@reloc)",
+	"  local.set $value",
+	"  ;; Indices zero and one are reserved for `undefined` and `null`.",
+	"  local.get $index",
+	"  i32.const 2",
+	"  i32.ge_u",
+	"  if",
+	"    local.get $index",
+	"    call $js_sys.externref.recycle (@reloc)",
+	"  end",
+	"  local.get $value",
 	")",
 	"(func $js_sys.externref.remove (@sym) (param $index i32)",
 	"  local.get $index",
@@ -120,7 +137,16 @@ impl ExternrefTable {
 	}
 }
 
+pub(crate) fn reserve() -> i32 {
+	EXTERNREF_TABLE.with(|table| table.try_borrow_mut().unwrap().next())
+}
+
 #[unsafe(export_name = "js_sys.externref.next")]
 extern "C" fn next() -> i32 {
-	EXTERNREF_TABLE.with(|table| table.try_borrow_mut().unwrap().next())
+	reserve()
+}
+
+#[unsafe(export_name = "js_sys.externref.recycle")]
+extern "C" fn recycle(index: i32) {
+	EXTERNREF_TABLE.with(|table| table.try_borrow_mut().unwrap().remove(index));
 }

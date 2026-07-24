@@ -20,7 +20,7 @@ fn basic() {
 		},
 		{
 			use js_sys::JsValue;
-			use js_sys::hazard::{Input, InputWatConv, InputJsConv, OutputJsConv, Output, JsCast, OutputWatConv};
+			use js_sys::hazard::{IntoJS, JsCast, OptionIntoJS};
 
 			#[repr(transparent)]
 			struct Test(JsValue);
@@ -37,31 +37,24 @@ fn basic() {
 				}
 			}
 
-			unsafe impl Input for &Test {
-				const WAT_TYPE: &'static str = <&JsValue as Input>::WAT_TYPE;
-				const WAT_CONV: Option<InputWatConv> = <&JsValue as Input>::WAT_CONV;
-				const JS_CONV: Option<InputJsConv> = <&JsValue as Input>::JS_CONV;
-
-				type Type = <&'static JsValue as Input>::Type;
-
-				fn into_raw(self) -> Self::Type {
-					Input::into_raw(&self.0)
-				}
-			}
-
 			unsafe impl JsCast for Test {}
 
-			unsafe impl Output for Test {
-				const WAT_TYPE: &str = <JsValue as Output>::WAT_TYPE;
-				const WAT_CONV: Option<OutputWatConv> = <JsValue as Output>::WAT_CONV;
-				const JS_CONV: Option<OutputJsConv> = <JsValue as Output>::JS_CONV;
+			unsafe impl IntoJS for Test {
+				type Abi = <JsValue as IntoJS>::Abi;
 
-				type Type = <JsValue as Output>::Type;
-
-				fn from_raw(raw: Self::Type) -> Self {
-					Self(Output::from_raw(raw))
+				fn into_abi(self) -> Self::Abi {
+					IntoJS::into_abi(JsValue::from(self))
 				}
 			}
+
+			unsafe impl OptionIntoJS for Test {
+				type OptionAbi = <JsValue as OptionIntoJS>::OptionAbi;
+
+				fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
+					OptionIntoJS::option_into_abi(value.map(JsValue::from))
+				}
+			}
+
 		},
 	);
 }
@@ -85,7 +78,7 @@ fn generic() {
 		{
 			use core::marker::PhantomData;
 			use js_sys::JsValue;
-			use js_sys::hazard::{Input, InputWatConv, InputJsConv, OutputJsConv, Output, JsCast, OutputWatConv};
+			use js_sys::hazard::{IntoJS, JsCast, OptionIntoJS};
 
 			#[repr(transparent)]
 			struct Test<T = JsValue> {
@@ -105,34 +98,24 @@ fn generic() {
 				}
 			}
 
-			unsafe impl<T> Input for &Test<T> {
-				const WAT_TYPE: &'static str = <&JsValue as Input>::WAT_TYPE;
-				const WAT_CONV: Option<InputWatConv> = <&JsValue as Input>::WAT_CONV;
-				const JS_CONV: Option<InputJsConv> = <&JsValue as Input>::JS_CONV;
-
-				type Type = <&'static JsValue as Input>::Type;
-
-				fn into_raw(self) -> Self::Type {
-					Input::into_raw(&self.value)
-				}
-			}
-
 			unsafe impl<T> JsCast for Test<T> {}
 
-			unsafe impl<T> Output for Test<T> {
-				const WAT_TYPE: &str = <JsValue as Output>::WAT_TYPE;
-				const WAT_CONV: Option<OutputWatConv> = <JsValue as Output>::WAT_CONV;
-				const JS_CONV: Option<OutputJsConv> = <JsValue as Output>::JS_CONV;
+			unsafe impl<T> IntoJS for Test<T> {
+				type Abi = <JsValue as IntoJS>::Abi;
 
-				type Type = <JsValue as Output>::Type;
-
-				fn from_raw(raw: Self::Type) -> Self {
-					Self {
-						value: Output::from_raw(raw),
-						_type: PhantomData,
-					}
+				fn into_abi(self) -> Self::Abi {
+					IntoJS::into_abi(JsValue::from(self))
 				}
 			}
+
+			unsafe impl<T> OptionIntoJS for Test<T> {
+				type OptionAbi = <JsValue as OptionIntoJS>::OptionAbi;
+
+				fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
+					OptionIntoJS::option_into_abi(value.map(JsValue::from))
+				}
+			}
+
 		},
 	);
 }

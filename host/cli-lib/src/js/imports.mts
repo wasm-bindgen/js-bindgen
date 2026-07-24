@@ -2,9 +2,18 @@ declare const JBG_PLACEHOLDER_MEMORY: WebAssembly.Memory
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const JBG_PLACEHOLDER_JS_EMBED: Record<string, Record<string, any>>
 declare const JBG_PLACEHOLDER_IMPORT_OBJECT: WebAssembly.Imports
+declare const JBG_PLACEHOLDER_JS_EXPORT: WebAssembly.Instance["exports"]
+
+export type JsBindgenInstance = {
+	instance: WebAssembly.Instance
+	exports: WebAssembly.Instance["exports"]
+}
 
 export class JsBindgen {
 	#finished = false
+	// @ts-expect-error: Used by generated imports that catch exceptions.
+	// eslint-disable-next-line no-unused-private-class-members
+	#instance: WebAssembly.Instance
 	#importObject: WebAssembly.Imports
 	// @ts-expect-error: Used in placeholder.
 	// eslint-disable-next-line no-unused-private-class-members, @typescript-eslint/no-explicit-any
@@ -61,20 +70,31 @@ export class JsBindgen {
 		}
 	}
 
-	async instantiate(): Promise<WebAssembly.Instance> {
+	async instantiate(): Promise<JsBindgenInstance> {
 		if (this.#finished) {
 			throw new Error("create a new `JsBindgen` class")
 		}
 
 		return WebAssembly.instantiate(this.#module, this.#importObject).then(instance => {
+			this.#instance = instance
 			this.#finished = true
-			return instance
+
+			const jsExports = JBG_PLACEHOLDER_JS_EXPORT
+			const exports = Object.assign(
+				Object.create(null) as WebAssembly.Instance["exports"],
+				instance.exports,
+				jsExports
+			)
+			return {
+				instance,
+				exports,
+			}
 		})
 	}
 
 	static async instantiateStreaming(
 		...args: Parameters<typeof fetch> | []
-	): Promise<WebAssembly.Instance> {
+	): Promise<JsBindgenInstance> {
 		let response
 
 		if (args.length === 0) {

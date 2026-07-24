@@ -8,8 +8,7 @@ use core::fmt::{self, Display, Formatter};
 
 pub use self::string::JsString;
 use crate::JsValue;
-use crate::hazard::{Input, InputJsConv, InputWatConv};
-use crate::util::{ExternSlice, PtrConst, PtrLength, PtrMut};
+use crate::util::{PtrConst, PtrLength, PtrMut};
 
 impl JsString {
 	#[must_use]
@@ -55,42 +54,6 @@ impl PartialEq<String> for JsString {
 
 impl From<&str> for JsString {
 	fn from(value: &str) -> Self {
-		#[cfg(any(not(target_feature = "atomics"), js_sys_target_feature = "sab"))]
-		js_bindgen::embed_js!(
-			module = "js_sys",
-			name = "string.decode",
-			"(ptr, len) => {{",
-			"	const decoder = new TextDecoder('utf-8', {{",
-			"		fatal: false,",
-			"		ignoreBOM: false,",
-			"	}})",
-			"	const view = new Uint8Array(this.#memory.buffer, ptr, len)",
-			"	return decoder.decode(view)",
-			"}}",
-		);
-
-		#[cfg(all(target_feature = "atomics", not(js_sys_target_feature = "sab")))]
-		js_bindgen::embed_js!(
-			module = "js_sys",
-			name = "string.decode",
-			required_embeds = [("js_sys", "string.sab")],
-			"(ptr, len) => {{",
-			"	const decoder = new TextDecoder('utf-8', {{",
-			"		fatal: false,",
-			"		ignoreBOM: false,",
-			"	}})",
-			"	let view",
-			"",
-			"	if (this.#jsEmbed.js_sys['string.sab']) {{",
-			"		view = new Uint8Array(this.#memory.buffer, ptr, len)",
-			"	}} else {{",
-			"		view = new Uint8Array(this.#memory.buffer).slice(ptr, ptr + len)",
-			"	}}",
-			"",
-			"	return decoder.decode(view)",
-			"}}",
-		);
-
 		// SAFETY: Parameters are correct.
 		unsafe {
 			string::string_decode(
@@ -105,17 +68,25 @@ impl From<&JsString> for String {
 	fn from(value: &JsString) -> Self {
 		js_bindgen::embed_js!(
 			module = "js_sys",
+			name = "string.encoder",
+			"new TextEncoder()",
+		);
+
+		js_bindgen::embed_js!(
+			module = "js_sys",
 			name = "string.utf8_length",
-			"(string) => new TextEncoder().encode(string).length",
+			required_embeds = [("js_sys", "string.encoder")],
+			"(string) => this.#jsEmbed.js_sys['string.encoder'].encode(string).length",
 		);
 
 		#[cfg(any(not(target_feature = "atomics"), js_sys_target_feature = "sab"))]
 		js_bindgen::embed_js!(
 			module = "js_sys",
 			name = "string.encode",
+			required_embeds = [("js_sys", "string.encoder")],
 			"(string, ptr, len) => {{",
 			"	const view = new Uint8Array(this.#memory.buffer, ptr, len)",
-			"	new TextEncoder().encodeInto(string, view)",
+			"	this.#jsEmbed.js_sys['string.encoder'].encodeInto(string, view)",
 			"}}",
 		);
 
@@ -123,13 +94,13 @@ impl From<&JsString> for String {
 		js_bindgen::embed_js!(
 			module = "js_sys",
 			name = "string.encode",
-			required_embeds = [("js_sys", "string.sab")],
+			required_embeds = [("js_sys", "string.encoder"), ("js_sys", "string.sab")],
 			"(string, ptr, len) => {{",
 			"	if (this.#jsEmbed.js_sys['string.sab']) {{",
 			"		const view = new Uint8Array(this.#memory.buffer, ptr, len)",
-			"		new TextEncoder().encodeInto(string, view)",
+			"		this.#jsEmbed.js_sys['string.encoder'].encodeInto(string, view)",
 			"	}} else {{",
-			"		const bytes = new TextEncoder().encode(string)",
+			"		const bytes = this.#jsEmbed.js_sys['string.encoder'].encode(string)",
 			"		new Uint8Array(this.#memory.buffer).set(bytes, ptr)",
 			"	}}",
 			"}}",
@@ -158,7 +129,8 @@ impl From<&JsString> for String {
 			);
 		}
 
-		// SAFETY:
+		// SAFETY: `string.encode` initializes exactly `len` bytes with valid
+		// UTF-8 produced by `TextEncoder`.
 		unsafe {
 			vec.set_len(len);
 			Self::from_utf8_unchecked(vec)
@@ -183,30 +155,3 @@ js_bindgen::embed_js!(
 	"	}}",
 	"}})()",
 );
-
-// SAFETY: Implementation.
-unsafe impl Input for &str {
-	const WAT_TYPE: &'static str = Self::Type::WAT_TYPE;
-	const WAT_CONV: Option<InputWatConv> = Self::Type::WAT_CONV;
-	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
-		embed: Some(("js_sys", "string.rust.decode")),
-		pre: " = this.#jsEmbed.js_sys['string.rust.decode'](",
-		post: Some(")"),
-	});
-
-	type Type = ExternSlice<u8>;
-
-	fn into_raw(self) -> Self::Type {
-		js_bindgen::embed_js!(
-			module = "js_sys",
-			name = "string.rust.decode",
-			required_embeds = [("js_sys", "extern_ref"), ("js_sys", "string.decode")],
-			"(dataPtr) => {{",
-			"	const {{ ptr, len }} = this.#jsEmbed.js_sys['extern_ref'](dataPtr)",
-			"	return this.#jsEmbed.js_sys['string.decode'](ptr, len)",
-			"}}",
-		);
-
-		ExternSlice::new(self.as_bytes())
-	}
-}

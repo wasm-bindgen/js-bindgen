@@ -23,35 +23,23 @@ fn basic() {
 				}
 			}
 
-			unsafe impl ::js_sys::hazard::Input for &JsString {
-				const WAT_TYPE: &'static ::core::primitive::str =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_TYPE;
-				const WAT_CONV: ::core::option::Option<::js_sys::hazard::InputWatConv> =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_CONV;
-				const JS_CONV: ::core::option::Option<::js_sys::hazard::InputJsConv> =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
+			unsafe impl ::js_sys::hazard::JsCast for JsString {}
 
-				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
+			unsafe impl ::js_sys::hazard::IntoJS for JsString {
+				type Abi = <::js_sys::JsValue as ::js_sys::hazard::IntoJS>::Abi;
 
-				fn into_raw(self) -> Self::Type {
-					::js_sys::hazard::Input::into_raw(&self.0)
+				fn into_abi(self) -> Self::Abi {
+					::js_sys::hazard::IntoJS::into_abi(::js_sys::JsValue::from(self))
 				}
 			}
 
-			unsafe impl ::js_sys::hazard::JsCast for JsString {}
+			unsafe impl ::js_sys::hazard::OptionIntoJS for JsString {
+				type OptionAbi = <::js_sys::JsValue as ::js_sys::hazard::OptionIntoJS>::OptionAbi;
 
-			unsafe impl ::js_sys::hazard::Output for JsString {
-				const WAT_TYPE: &::core::primitive::str =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_TYPE;
-				const WAT_CONV: ::core::option::Option<::js_sys::hazard::OutputWatConv> =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_CONV;
-				const JS_CONV: ::core::option::Option<::js_sys::hazard::OutputJsConv> =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::JS_CONV;
-
-				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
-
-				fn from_raw(raw: Self::Type) -> Self {
-					Self(::js_sys::hazard::Output::from_raw(raw))
+				fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
+					::js_sys::hazard::OptionIntoJS::option_into_abi(
+						value.map(::js_sys::JsValue::from),
+					)
 				}
 			}
 		},
@@ -88,38 +76,23 @@ fn generic() {
 				}
 			}
 
-			unsafe impl<T> ::js_sys::hazard::Input for &JsString<T> {
-				const WAT_TYPE: &'static ::core::primitive::str =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_TYPE;
-				const WAT_CONV: ::core::option::Option<::js_sys::hazard::InputWatConv> =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_CONV;
-				const JS_CONV: ::core::option::Option<::js_sys::hazard::InputJsConv> =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
+			unsafe impl<T> ::js_sys::hazard::JsCast for JsString<T> {}
 
-				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
+			unsafe impl<T> ::js_sys::hazard::IntoJS for JsString<T> {
+				type Abi = <::js_sys::JsValue as ::js_sys::hazard::IntoJS>::Abi;
 
-				fn into_raw(self) -> Self::Type {
-					::js_sys::hazard::Input::into_raw(&self.value)
+				fn into_abi(self) -> Self::Abi {
+					::js_sys::hazard::IntoJS::into_abi(::js_sys::JsValue::from(self))
 				}
 			}
 
-			unsafe impl<T> ::js_sys::hazard::JsCast for JsString<T> {}
+			unsafe impl<T> ::js_sys::hazard::OptionIntoJS for JsString<T> {
+				type OptionAbi = <::js_sys::JsValue as ::js_sys::hazard::OptionIntoJS>::OptionAbi;
 
-			unsafe impl<T> ::js_sys::hazard::Output for JsString<T> {
-				const WAT_TYPE: &::core::primitive::str =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_TYPE;
-				const WAT_CONV: ::core::option::Option<::js_sys::hazard::OutputWatConv> =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_CONV;
-				const JS_CONV: ::core::option::Option<::js_sys::hazard::OutputJsConv> =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::JS_CONV;
-
-				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
-
-				fn from_raw(raw: Self::Type) -> Self {
-					Self {
-						value: ::js_sys::hazard::Output::from_raw(raw),
-						_type: ::core::marker::PhantomData,
-					}
+				fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
+					::js_sys::hazard::OptionIntoJS::option_into_abi(
+						value.map(::js_sys::JsValue::from),
+					)
 				}
 			}
 		},
@@ -156,38 +129,23 @@ fn default() {
 				}
 			}
 
-			unsafe impl<T> ::js_sys::hazard::Input for &JsString<T> {
-				const WAT_TYPE: &'static ::core::primitive::str =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_TYPE;
-				const WAT_CONV: ::core::option::Option<::js_sys::hazard::InputWatConv> =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_CONV;
-				const JS_CONV: ::core::option::Option<::js_sys::hazard::InputJsConv> =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
+			unsafe impl<T> ::js_sys::hazard::JsCast for JsString<T> {}
 
-				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
+			unsafe impl<T> ::js_sys::hazard::IntoJS for JsString<T> {
+				type Abi = <::js_sys::JsValue as ::js_sys::hazard::IntoJS>::Abi;
 
-				fn into_raw(self) -> Self::Type {
-					::js_sys::hazard::Input::into_raw(&self.value)
+				fn into_abi(self) -> Self::Abi {
+					::js_sys::hazard::IntoJS::into_abi(::js_sys::JsValue::from(self))
 				}
 			}
 
-			unsafe impl<T> ::js_sys::hazard::JsCast for JsString<T> {}
+			unsafe impl<T> ::js_sys::hazard::OptionIntoJS for JsString<T> {
+				type OptionAbi = <::js_sys::JsValue as ::js_sys::hazard::OptionIntoJS>::OptionAbi;
 
-			unsafe impl<T> ::js_sys::hazard::Output for JsString<T> {
-				const WAT_TYPE: &::core::primitive::str =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_TYPE;
-				const WAT_CONV: ::core::option::Option<::js_sys::hazard::OutputWatConv> =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_CONV;
-				const JS_CONV: ::core::option::Option<::js_sys::hazard::OutputJsConv> =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::JS_CONV;
-
-				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
-
-				fn from_raw(raw: Self::Type) -> Self {
-					Self {
-						value: ::js_sys::hazard::Output::from_raw(raw),
-						_type: ::core::marker::PhantomData,
-					}
+				fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
+					::js_sys::hazard::OptionIntoJS::option_into_abi(
+						value.map(::js_sys::JsValue::from),
+					)
 				}
 			}
 		},
@@ -224,38 +182,23 @@ fn r#trait() {
 				}
 			}
 
-			unsafe impl<T: Sized> ::js_sys::hazard::Input for &JsString<T> {
-				const WAT_TYPE: &'static ::core::primitive::str =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_TYPE;
-				const WAT_CONV: ::core::option::Option<::js_sys::hazard::InputWatConv> =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::WAT_CONV;
-				const JS_CONV: ::core::option::Option<::js_sys::hazard::InputJsConv> =
-					<&::js_sys::JsValue as ::js_sys::hazard::Input>::JS_CONV;
+			unsafe impl<T: Sized> ::js_sys::hazard::JsCast for JsString<T> {}
 
-				type Type = <&'static ::js_sys::JsValue as ::js_sys::hazard::Input>::Type;
+			unsafe impl<T: Sized> ::js_sys::hazard::IntoJS for JsString<T> {
+				type Abi = <::js_sys::JsValue as ::js_sys::hazard::IntoJS>::Abi;
 
-				fn into_raw(self) -> Self::Type {
-					::js_sys::hazard::Input::into_raw(&self.value)
+				fn into_abi(self) -> Self::Abi {
+					::js_sys::hazard::IntoJS::into_abi(::js_sys::JsValue::from(self))
 				}
 			}
 
-			unsafe impl<T: Sized> ::js_sys::hazard::JsCast for JsString<T> {}
+			unsafe impl<T: Sized> ::js_sys::hazard::OptionIntoJS for JsString<T> {
+				type OptionAbi = <::js_sys::JsValue as ::js_sys::hazard::OptionIntoJS>::OptionAbi;
 
-			unsafe impl<T: Sized> ::js_sys::hazard::Output for JsString<T> {
-				const WAT_TYPE: &::core::primitive::str =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_TYPE;
-				const WAT_CONV: ::core::option::Option<::js_sys::hazard::OutputWatConv> =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::WAT_CONV;
-				const JS_CONV: ::core::option::Option<::js_sys::hazard::OutputJsConv> =
-					<::js_sys::JsValue as ::js_sys::hazard::Output>::JS_CONV;
-
-				type Type = <::js_sys::JsValue as ::js_sys::hazard::Output>::Type;
-
-				fn from_raw(raw: Self::Type) -> Self {
-					Self {
-						value: ::js_sys::hazard::Output::from_raw(raw),
-						_type: ::core::marker::PhantomData,
-					}
+				fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
+					::js_sys::hazard::OptionIntoJS::option_into_abi(
+						value.map(::js_sys::JsValue::from),
+					)
 				}
 			}
 		},

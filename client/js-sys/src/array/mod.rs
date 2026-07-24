@@ -10,7 +10,7 @@ use core::ptr;
 pub use self::array::JsArray;
 use crate::JsValue;
 use crate::externref::ExternrefTable;
-use crate::hazard::{Input, InputJsConv, InputWatConv, JsCast};
+use crate::hazard::{IntoJS, IntoJsConv, JsCast};
 use crate::util::{ExternSlice, PtrConst, PtrLength, PtrMut};
 
 impl<T> JsArray<T> {
@@ -34,19 +34,18 @@ where
 	}
 }
 
-// SAFETY: Implementation.
-unsafe impl<'a, T, const N: usize> Input for &'a [T; N]
+// SAFETY: The array delegates to the slice implementation with the same
+// element representation.
+unsafe impl<'a, T, const N: usize> IntoJS for &'a [T; N]
 where
-	&'a [T]: Input,
+	&'a [T]: IntoJS,
 {
-	const WAT_TYPE: &'static str = <&[T] as Input>::WAT_TYPE;
-	const WAT_CONV: Option<InputWatConv> = <&[T] as Input>::WAT_CONV;
-	const JS_CONV: Option<InputJsConv> = <&[T] as Input>::JS_CONV;
+	const JS_CONV: Option<IntoJsConv> = <&[T] as IntoJS>::JS_CONV;
 
-	type Type = <&'a [T] as Input>::Type;
+	type Abi = <&'a [T] as IntoJS>::Abi;
 
-	fn into_raw(self) -> Self::Type {
-		self.as_slice().into_raw()
+	fn into_abi(self) -> Self::Abi {
+		self.as_slice().into_abi()
 	}
 }
 
@@ -150,17 +149,23 @@ js_bindgen::embed_js!(
 	"",
 	// Default value helps browsers to optimize.
 	"	let tableIndex = 0",
-	"	if (arrLen > refLen) {{",
-	"		tableIndex = table.grow(arrLen - refLen)",
+	"	const reused = Math.min(arrLen, refLen)",
+	"	const refIndices = this.#jsEmbed.js_sys['view.getInt32'](",
+	"		refPtr + (refLen - reused) * 4,",
+	"		reused,",
+	"	)",
+	"	const elemIndices = new Array(arrLen)",
+	"	if (arrLen > reused) {{",
+	"		tableIndex = table.grow(arrLen - reused)",
 	"	}}",
 	"",
-	"	let refIndex = refLen - 1",
+	"	let refIndex = reused - 1",
 	"",
 	"	for (let arrayIndex = 0; arrayIndex < arrLen; arrayIndex++) {{",
 	"		let elemIndex",
 	"",
 	"		if (refIndex >= 0) {{",
-	"			elemIndex = this.#jsEmbed.js_sys['view.getInt32'](refPtr + refIndex * 4, 1)[0]",
+	"			elemIndex = refIndices[refIndex]",
 	"			refIndex--",
 	"		}} else {{",
 	"			elemIndex = tableIndex",
@@ -168,29 +173,30 @@ js_bindgen::embed_js!(
 	"		}}",
 	"",
 	"		table.set(elemIndex, array[arrayIndex])",
-	"		this.#jsEmbed.js_sys['view.setInt32'](arrPtr + arrayIndex * 4, [elemIndex])",
+	"		elemIndices[arrayIndex] = elemIndex",
 	"	}}",
 	"",
+	"	this.#jsEmbed.js_sys['view.setInt32'](arrPtr, elemIndices)",
 	"	return true",
+	"}}",
+);
+
+js_bindgen::embed_js!(
+	module = "js_sys",
+	name = "array.js_value.decode",
+	required_embeds = [("js_sys", "view.getInt32")],
+	"(ptr, len) => {{",
+	"	const array = new Array(len)",
+	"	const refIndices = this.#jsEmbed.js_sys['view.getInt32'](ptr, len)",
+	"	for (let arrayIndex = 0; arrayIndex < len; arrayIndex++) {{",
+	"		array[arrayIndex] = this.#jsEmbed.js_sys['externref.table'].get(refIndices[arrayIndex])",
+	"	}}",
+	"	return array",
 	"}}",
 );
 
 impl<T: JsCast> From<&[T]> for JsArray<T> {
 	fn from(value: &[T]) -> Self {
-		js_bindgen::embed_js!(
-			module = "js_sys",
-			name = "array.js_value.decode",
-			required_embeds = [("js_sys", "view.getInt32")],
-			"(ptr, len) => {{",
-			"	const array = new Array(len)",
-			"	for (let arrayIndex = 0; arrayIndex < len; arrayIndex++) {{",
-			"		const [refIndex] = this.#jsEmbed.js_sys['view.getInt32'](ptr + arrayIndex * 4, 1)",
-			"		array[arrayIndex] = this.#jsEmbed.js_sys['externref.table'].get(refIndex)",
-			"	}}",
-			"	return array",
-			"}}",
-		);
-
 		let slice = JsValue::from_slice(value);
 		// SAFETY: Parameters are correct.
 		let result =
@@ -200,32 +206,17 @@ impl<T: JsCast> From<&[T]> for JsArray<T> {
 	}
 }
 
-// SAFETY: Implementation.
-unsafe impl<T: JsCast> Input for &[T] {
-	const WAT_TYPE: &'static str = Self::Type::WAT_TYPE;
-	const WAT_CONV: Option<InputWatConv> = Self::Type::WAT_CONV;
-	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
-		embed: Some(("js_sys", "array.rust.js_value")),
-		pre: " = this.#jsEmbed.js_sys['array.rust.js_value'](",
-		post: Some(")"),
-	});
+// SAFETY: The two slots point to borrowed `JsValue` table indices, which the
+// JavaScript decoder resolves before the import is called.
+unsafe impl<T: JsCast> IntoJS for &[T] {
+	const JS_CONV: Option<IntoJsConv> = Some(
+		IntoJsConv::new("this.#jsEmbed.js_sys['array.js_value.decode']($slot1, $slot2)")
+			.with_embed(("js_sys", "array.js_value.decode")),
+	);
 
-	type Type = ExternSlice<JsValue>;
+	type Abi = ExternSlice<JsValue>;
 
-	fn into_raw(self) -> Self::Type {
-		js_bindgen::embed_js!(
-			module = "js_sys",
-			name = "array.rust.js_value",
-			required_embeds = [
-				("js_sys", "extern_ref"),
-				("js_sys", "array.js_value.decode")
-			],
-			"(dataPtr) => {{",
-			"	const {{ ptr, len }} = this.#jsEmbed.js_sys['extern_ref'](dataPtr)",
-			"	return this.#jsEmbed.js_sys['array.js_value.decode'](ptr, len)",
-			"}}",
-		);
-
+	fn into_abi(self) -> Self::Abi {
 		ExternSlice::new(JsValue::from_slice(self))
 	}
 }
@@ -305,29 +296,17 @@ impl From<&[u32]> for JsArray<u32> {
 	}
 }
 
-// SAFETY: Implementation.
-unsafe impl Input for &[u32] {
-	const WAT_TYPE: &'static str = Self::Type::WAT_TYPE;
-	const WAT_CONV: Option<InputWatConv> = Self::Type::WAT_CONV;
-	const JS_CONV: Option<InputJsConv> = Some(InputJsConv {
-		embed: Some(("js_sys", "array.rust.u32")),
-		pre: " = this.#jsEmbed.js_sys['array.rust.u32'](",
-		post: Some(")"),
-	});
+// SAFETY: The two slots describe a borrowed `u32` slice, which JavaScript
+// copies into an array before the import is called.
+unsafe impl IntoJS for &[u32] {
+	const JS_CONV: Option<IntoJsConv> = Some(
+		IntoJsConv::new("this.#jsEmbed.js_sys['view.getUint32']($slot1, $slot2)")
+			.with_embed(("js_sys", "view.getUint32")),
+	);
 
-	type Type = ExternSlice<u32>;
+	type Abi = ExternSlice<u32>;
 
-	fn into_raw(self) -> Self::Type {
-		js_bindgen::embed_js!(
-			module = "js_sys",
-			name = "array.rust.u32",
-			required_embeds = [("js_sys", "extern_ref"), ("js_sys", "view.getUint32")],
-			"(dataPtr) => {{",
-			"	const {{ ptr, len }} = this.#jsEmbed.js_sys.extern_ref(dataPtr)",
-			"	return this.#jsEmbed.js_sys['view.getUint32'](ptr, len)",
-			"}}",
-		);
-
+	fn into_abi(self) -> Self::Abi {
 		ExternSlice::new(self)
 	}
 }

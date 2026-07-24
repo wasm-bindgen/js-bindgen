@@ -12,22 +12,28 @@ pub fn r#macro(
 	item: TokenStream,
 	imports: Option<&mut ImportManager>,
 ) -> Result<TokenStream, TokenStream> {
-	let foreign_mod: ItemForeignMod = syn::parse2(item).map_err(Error::into_compile_error)?;
+	match syn::parse2(item).map_err(Error::into_compile_error)? {
+		Item::ForeignMod(foreign_mod) => internal(attr, foreign_mod, None, imports)
+			.map(|items| items.into_iter().map(Item::into_token_stream).collect())
+			.map_err(|(output, error)| {
+				let error = error.into_compile_error();
 
-	internal(attr, foreign_mod, None, imports)
-		.map(|items| items.into_iter().map(Item::into_token_stream).collect())
-		.map_err(|(output, error)| {
-			let error = error.into_compile_error();
-
-			if let Some(output) = output {
-				let mut output: TokenStream =
-					output.into_iter().map(Item::into_token_stream).collect();
-				output.extend(error);
-				output
-			} else {
-				error
-			}
-		})
+				if let Some(output) = output {
+					let mut output: TokenStream =
+						output.into_iter().map(Item::into_token_stream).collect();
+					output.extend(error);
+					output
+				} else {
+					error
+				}
+			}),
+		Item::Fn(function) => {
+			crate::export::r#macro(attr, &function, None).map_err(Error::into_compile_error)
+		}
+		item => Err(
+			Error::new_spanned(item, "expected an extern block or function").into_compile_error(),
+		),
+	}
 }
 
 pub(crate) fn internal(

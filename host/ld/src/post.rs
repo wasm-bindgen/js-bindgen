@@ -2,8 +2,8 @@ use anyhow::{Context, Result, bail};
 use js_bindgen_cli_lib::{JS_OUTPUT_SECTION, MainMemory};
 use js_bindgen_shared::{IS_COMPAT_SECTION, IS_TEST_SECTION};
 use wasm_encoder::{
-	CustomSection, EntityType, ImportSection, Module, ProducersField, ProducersSection, RawSection,
-	Section,
+	CustomSection, EntityType, ExportSection, ImportSection, Module, ProducersField,
+	ProducersSection, RawSection, Section,
 };
 use wasmparser::{Encoding, KnownCustom, Parser, Payload, TypeRef};
 
@@ -57,10 +57,26 @@ pub fn processing(
 
 				import_section.append_to(&mut wasm_output);
 			}
+			// The WAT adapters need these symbols during linking, but callers should only
+			// see the public adapters in the final module.
+			Payload::ExportSection(exports) => {
+				let mut export_section = ExportSection::new();
+
+				for export in exports {
+					let export = export.context("export should be parsable")?;
+
+					if !export.name.starts_with("__export_") {
+						export_section.export(export.name, export.kind.into(), export.index);
+					}
+				}
+
+				export_section.append_to(&mut wasm_output);
+			}
 			// Don't write back our own custom sections.
 			Payload::CustomSection(c) if c.name() == "js_bindgen.wat" => (),
 			Payload::CustomSection(c) if c.name() == "js_bindgen.import" => (),
 			Payload::CustomSection(c) if c.name() == "js_bindgen.embed" => (),
+			Payload::CustomSection(c) if c.name() == "js_bindgen.export" => (),
 			// Register ourselves in the producer section.
 			Payload::CustomSection(c) if c.name() == "producers" => {
 				let KnownCustom::Producers(c) = c.as_known() else {

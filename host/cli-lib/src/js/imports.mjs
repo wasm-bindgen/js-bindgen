@@ -1,5 +1,8 @@
 export class JsBindgen {
     #finished = false;
+    // @ts-expect-error: Used by generated imports that catch exceptions.
+    // eslint-disable-next-line no-unused-private-class-members
+    #instance;
     #importObject;
     // @ts-expect-error: Used in placeholder.
     // eslint-disable-next-line no-unused-private-class-members, @typescript-eslint/no-explicit-any
@@ -53,8 +56,14 @@ export class JsBindgen {
             throw new Error("create a new `JsBindgen` class");
         }
         return WebAssembly.instantiate(this.#module, this.#importObject).then(instance => {
+            this.#instance = instance;
             this.#finished = true;
-            return instance;
+            const jsExports = JBG_PLACEHOLDER_JS_EXPORT;
+            const exports = Object.assign(Object.create(null), instance.exports, jsExports);
+            return {
+                instance,
+                exports,
+            };
         });
     }
     static async instantiateStreaming(...args) {

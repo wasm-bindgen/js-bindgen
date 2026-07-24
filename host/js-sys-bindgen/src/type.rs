@@ -30,26 +30,19 @@ impl Type {
 			.collect();
 
 		let js_value = hygiene.js_value(&cfgs, span);
-		let input = hygiene.input(&cfgs, span);
-		let input_wat_conv = hygiene.input_wat_conv(&cfgs, span);
-		let input_js_conv = hygiene.input_js_conv(&cfgs, span);
 		let js_cast = hygiene.js_cast(&cfgs, span);
-		let output = hygiene.output(&cfgs, span);
-		let output_wat_conv = hygiene.output_wat_conv(&cfgs, span);
-		let output_js_conv = hygiene.output_js_conv(&cfgs, span);
+		let into_js = hygiene.js_into(&cfgs, span);
+		let option_into_js = hygiene.js_option_into(&cfgs, span);
 		let as_ref = hygiene.as_ref(span);
-		let str = hygiene.str(span);
 		let from = hygiene.from(span);
-		let option = hygiene.option(span);
 
 		let (gen_impl, gen_type, gen_where) = generics.split_for_impl();
 
-		let (fields, semi_token, value, from_raw) = if generics.params.is_empty() {
+		let (fields, semi_token, value) = if generics.params.is_empty() {
 			(
 				Fields::Unnamed(parse_quote_spanned! {span=>(#js_value)}),
 				Some(Token![;](span)),
 				quote_spanned! {span=>0},
-				quote_spanned! {span=>Self(#output::from_raw(raw))},
 			)
 		} else {
 			let phantom_data = hygiene.phantom_data(&cfgs, span);
@@ -63,12 +56,6 @@ impl Type {
 				}),
 				None,
 				quote_spanned! {span=>value},
-				quote_spanned! {span=>
-					Self {
-						value: #output::from_raw(raw),
-						_type: #phantom_data,
-					}
-				},
 			)
 		};
 
@@ -91,33 +78,25 @@ impl Type {
 			},
 			parse_quote_spanned! {span=>
 				#(#cfgs)*
-				unsafe impl #gen_impl #input for &#ident #gen_type #gen_where {
-					const WAT_TYPE: &'static #str = <&#js_value as #input>::WAT_TYPE;
-					const WAT_CONV: #option<#input_wat_conv> = <&#js_value as #input>::WAT_CONV;
-					const JS_CONV: #option<#input_js_conv> = <&#js_value as #input>::JS_CONV;
+				unsafe impl #gen_impl #js_cast for #ident #gen_type #gen_where {}
+			},
+			parse_quote_spanned! {span=>
+				#(#cfgs)*
+				unsafe impl #gen_impl #into_js for #ident #gen_type #gen_where {
+					type Abi = <#js_value as #into_js>::Abi;
 
-					type Type = <&'static #js_value as #input>::Type;
-
-					fn into_raw(self) -> Self::Type {
-						#input::into_raw(&self.#value)
+					fn into_abi(self) -> Self::Abi {
+						#into_js::into_abi(#js_value::from(self))
 					}
 				}
 			},
 			parse_quote_spanned! {span=>
 				#(#cfgs)*
-				unsafe impl #gen_impl #js_cast for #ident #gen_type #gen_where {}
-			},
-			parse_quote_spanned! {span=>
-				#(#cfgs)*
-				unsafe impl #gen_impl #output for #ident #gen_type #gen_where {
-					const WAT_TYPE: &#str = <#js_value as #output>::WAT_TYPE;
-					const WAT_CONV: #option<#output_wat_conv> = <#js_value as #output>::WAT_CONV;
-					const JS_CONV: #option<#output_js_conv> = <#js_value as #output>::JS_CONV;
+				unsafe impl #gen_impl #option_into_js for #ident #gen_type #gen_where {
+					type OptionAbi = <#js_value as #option_into_js>::OptionAbi;
 
-					type Type = <#js_value as #output>::Type;
-
-					fn from_raw(raw: Self::Type) -> Self {
-						#from_raw
+					fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
+						#option_into_js::option_into_abi(value.map(#js_value::from))
 					}
 				}
 			},

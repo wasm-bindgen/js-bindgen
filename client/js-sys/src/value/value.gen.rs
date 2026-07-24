@@ -3,23 +3,14 @@
 #![allow(warnings)]
 
 use crate::{js_bindgen, r#macro};
-use crate::hazard::{Input, Output};
 use super::JsValue;
 use crate::util::PtrLength;
 
 pub(super) fn js_value_partial_eq(value1: &JsValue, value2: &JsValue) -> bool {
 	js_bindgen::unsafe_global_wat! {
-		"(import \"js_sys\" \"js_value_partial_eq\" (func $js_sys.import.js_value_partial_eq (@sym (name \"js_sys.import.js_value_partial_eq\")) (param {} {}) (result {}))){}",
-		"(func $js_sys.js_value_partial_eq (@sym) (param {}) (param $value1 {}) (param $value2 {}) (result {})",
-		"  local.get $value1{}", "  local.get $value2{}",
-		"  call $js_sys.import.js_value_partial_eq (@reloc){}", ")", interpolate
-		r#macro::wat_input_import_type:: < & JsValue > (), interpolate
-		r#macro::wat_input_import_type:: < & JsValue > (), interpolate
-		r#macro::wat_output_import_type:: < bool > (), interpolate r#macro::wat_imports!((&
-		JsValue), bool), interpolate r#macro::wat_indirect!(bool), interpolate < & JsValue as Input
-		> ::WAT_TYPE, interpolate < & JsValue as Input > ::WAT_TYPE, interpolate
-		r#macro::wat_direct:: < bool > (), interpolate r#macro::wat_input!(& JsValue), interpolate
-		r#macro::wat_input!(& JsValue), interpolate r#macro::wat_output!(bool),
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "js_value_partial_eq",
+		adapter = "js_sys.js_value_partial_eq", inputs = [("arg0", & JsValue), ("arg1", & JsValue)],
+		output = bool,),
 	}
 
 	js_bindgen::import_js! {
@@ -29,29 +20,35 @@ pub(super) fn js_value_partial_eq(value1: &JsValue, value2: &JsValue) -> bool {
 			("js_sys", "js_value.partial_eq"),
 			r#macro::js_input_embed::<&JsValue>(),
 			r#macro::js_output_embed::<bool>(),
+			r#macro::js_result_embed::<bool>(),
 		],
-		"{}{}{}{}",
-		interpolate r#macro::js_select!("", "(value1, value2) => {\n", (&JsValue), bool),
-		interpolate r#macro::js_parameter!("value1", &JsValue),
-		interpolate r#macro::js_parameter!("value2", &JsValue),
-		interpolate r#macro::js_output!(
-			"\treturn ",
-			"this.#jsEmbed.js_sys['js_value.partial_eq']",
-			"this.#jsEmbed.js_sys['js_value.partial_eq'](value1, value2)",
-			bool,
-			&JsValue,
+		"{}",
+		interpolate r#macro::js_import!(
+			direct_open = "", direct_call = "this.#jsEmbed.js_sys['js_value.partial_eq']",
+			indirect_call = "this.#jsEmbed.js_sys['js_value.partial_eq'](arg0_0, arg1_0)", inputs =
+			[("arg0", & JsValue), ("arg1", & JsValue)], output = bool,
 		),
 	}
 
 	unsafe extern "C" {
 		#[link_name = "js_sys.js_value_partial_eq"]
 		fn js_value_partial_eq(
-			value1: <&JsValue as Input>::Type,
-			value2: <&JsValue as Input>::Type,
-		) -> <bool as Output>::Type;
+			arg0_0: r#macro::InputSlot1<&JsValue>,
+			arg0_1: r#macro::InputSlot2<&JsValue>,
+			arg0_2: r#macro::InputSlot3<&JsValue>,
+			arg0_3: r#macro::InputSlot4<&JsValue>,
+			arg1_0: r#macro::InputSlot1<&JsValue>,
+			arg1_1: r#macro::InputSlot2<&JsValue>,
+			arg1_2: r#macro::InputSlot3<&JsValue>,
+			arg1_3: r#macro::InputSlot4<&JsValue>,
+		) -> r#macro::OutputRet<bool>;
 	}
 
-	Output::from_raw(unsafe {
-		js_value_partial_eq(Input::into_raw(value1), Input::into_raw(value2))
+	r#macro::join_output({
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = r#macro::split_input::<&JsValue>(value1);
+		let (arg1_0, arg1_1, arg1_2, arg1_3) = r#macro::split_input::<&JsValue>(value2);
+		unsafe {
+			js_value_partial_eq(arg0_0, arg0_1, arg0_2, arg0_3, arg1_0, arg1_1, arg1_2, arg1_3)
+		}
 	})
 }
