@@ -86,6 +86,24 @@ extern "C" {
 	fn import_js_value_slice_raw(value: &[JsValue]) -> u32;
 }
 
+#[wasm_bindgen(
+	inline_js = "export function invoke_closure(callback, value) { return callback(value); }"
+)]
+extern "C" {
+	#[wasm_bindgen(js_name = invoke_closure)]
+	fn invoke_closure_raw(callback: &Closure<dyn FnMut(i32) -> i32>, value: i32) -> i32;
+}
+
+std::thread_local! {
+	static CALLBACK: Closure<dyn FnMut(i32) -> i32> =
+		Closure::new(|value| value);
+}
+
+#[wasm_bindgen]
+pub fn bench_closure_call(value: i32) -> i32 {
+	CALLBACK.with(|callback| invoke_closure_raw(callback, value))
+}
+
 #[wasm_bindgen]
 pub fn bench_export_bool() -> bool {
 	true

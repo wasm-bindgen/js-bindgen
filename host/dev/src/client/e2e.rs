@@ -104,6 +104,9 @@ impl E2e {
 					command.args(["run", "--allow-read"]);
 				}
 				Engine::NodeJs => {
+					if example.name == "closure" {
+						command.arg("--expose-gc");
+					}
 					command.args(node_js_arg);
 				}
 				Engine::Bun => {

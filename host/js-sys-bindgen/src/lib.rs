@@ -1,4 +1,6 @@
 #[cfg(feature = "macro")]
+mod closure;
+#[cfg(feature = "macro")]
 mod export;
 #[cfg(feature = "file")]
 mod file;
@@ -16,6 +18,8 @@ pub use proc_macro2;
 pub use quote;
 pub use syn;
 
+#[cfg(feature = "macro")]
+pub use crate::closure::closure;
 #[cfg(feature = "file")]
 pub use crate::file::file;
 pub use crate::function::{Function, FunctionJsOutput};

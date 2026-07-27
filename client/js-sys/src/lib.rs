@@ -11,6 +11,7 @@ extern crate alloc;
 mod util;
 mod array;
 mod bigint;
+mod closure;
 mod exception;
 mod externref;
 pub mod hazard;
@@ -26,10 +27,11 @@ mod value;
 
 pub use js_bindgen;
 #[cfg(feature = "macro")]
-pub use js_sys_macro::js_sys;
+pub use js_sys_macro::{closure, js_sys};
 
 pub use crate::array::{JsArray, TryFromJsArrayError};
 pub use crate::bigint::JsBigInt;
+pub use crate::closure::Closure;
 pub use crate::number::JsNumber;
 pub use crate::panic::{UnwrapThrowExt, panic};
 pub use crate::string::JsString;

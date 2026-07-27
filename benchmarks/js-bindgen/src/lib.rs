@@ -1,6 +1,6 @@
 use core::{array, hint::black_box};
 
-use js_sys::{JsValue, js_sys};
+use js_sys::{Closure, JsValue, closure, js_sys};
 
 js_sys::js_bindgen::embed_js!(
 	module = "js_bindgen_benchmark",
@@ -18,6 +18,12 @@ js_sys::js_bindgen::embed_js!(
 	module = "js_bindgen_benchmark",
 	name = "length",
 	"(value) => value.length",
+);
+
+js_sys::js_bindgen::embed_js!(
+	module = "js_bindgen_benchmark",
+	name = "invoke_closure",
+	"(callback, value) => callback(value)",
 );
 
 #[js_sys]
@@ -96,6 +102,19 @@ extern "js-sys" {
 
 	#[js_sys(js_embed = "length")]
 	fn import_js_value_slice_raw(value: &[JsValue]) -> u32;
+
+	#[js_sys(js_embed = "invoke_closure")]
+	fn invoke_closure_raw(callback: &Closure<dyn FnMut(i32) -> i32>, value: i32) -> i32;
+}
+
+std::thread_local! {
+	static CALLBACK: Closure<dyn FnMut(i32) -> i32> =
+		closure!(dyn FnMut(i32) -> i32, |value| value);
+}
+
+#[js_sys]
+fn bench_closure_call(value: i32) -> i32 {
+	CALLBACK.with(|callback| invoke_closure_raw(callback, value))
 }
 
 #[js_sys]

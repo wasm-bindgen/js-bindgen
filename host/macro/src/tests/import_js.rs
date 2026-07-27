@@ -307,6 +307,19 @@ fn required_embeds_multiple() {
 }
 
 #[test]
+fn required_embeds_function_trait() {
+	crate::import_js_internal(quote! {
+		module = "foo",
+		name = "bar",
+		required_embeds = [
+			js_input_embed::<&Closure<dyn FnMut(i32) -> i32>>(),
+		],
+		"",
+	})
+	.unwrap();
+}
+
+#[test]
 fn required_embeds_empty() {
 	let output = crate::import_js_internal(quote! {
 		module = "foo", name = "bar", required_embeds = [], "",

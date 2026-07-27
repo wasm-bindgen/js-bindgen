@@ -276,12 +276,12 @@ macro_rules! js_export_output_expression {
 #[macro_export]
 macro_rules! js_export {
 	($export:expr, ($(($par:literal, $input:ty)),*) $(,)?) => {{
-		$($crate::r#macro::validate_from_js::<$input>();)*
 		const PARAMETERS: &::core::primitive::str =
 			$crate::r#macro::js_export_parameters!($(($par, $input)),*);
 		const ARGUMENTS: &::core::primitive::str =
 			$crate::r#macro::js_export_arguments!($(($par, $input)),*);
 
+		$($crate::r#macro::validate_from_js::<$input>();)*
 		$crate::r#macro::const_concat!(
 			"(",
 			PARAMETERS,
@@ -293,8 +293,6 @@ macro_rules! js_export {
 		)
 	}};
 	($export:expr, ($(($par:literal, $input:ty)),*), $output:ty $(,)?) => {{
-		$($crate::r#macro::validate_from_js::<$input>();)*
-		$crate::r#macro::validate_return_into_js::<$output>();
 		const PARAMETERS: &::core::primitive::str =
 			$crate::r#macro::js_export_parameters!($(($par, $input)),*);
 		const ARGUMENTS: &::core::primitive::str =
@@ -333,6 +331,8 @@ macro_rules! js_export {
 				""
 			};
 
+		$($crate::r#macro::validate_from_js::<$input>();)*
+		$crate::r#macro::validate_return_into_js::<$output>();
 		$crate::r#macro::const_concat!(
 			"(",
 			PARAMETERS,
