@@ -45,7 +45,7 @@ jobs:
       - name: Install Target
         run: rustup target add x86_64-pc-windows-msvc
       - name: Install `cargo-xwin`
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.85.3
         with:
           tool: cargo-xwin
       - name: Restore `cargo-xwin` Cache
@@ -187,7 +187,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Zizmor
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.85.3
         with:
           tool: zizmor
       - name: Run Zizmor

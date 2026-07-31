@@ -56,7 +56,7 @@ jobs:
         run: rustup component add llvm-tools
       - name: Install `cargo-xwin`
         if: matrix.os.name == 'windows'
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.85.3
         with:
           tool: cargo-xwin
       - name: Restore `cargo-xwin` Cache
@@ -357,7 +357,7 @@ jobs:
           persist-credentials: false
       - name: Install `cargo-xwin`
         if: matrix.os.name == 'windows'
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.85.3
         with:
           tool: cargo-xwin
       - name: Restore `cargo-xwin` Cache
@@ -426,7 +426,7 @@ jobs:
           persist-credentials: false
       - name: Install `cargo-xwin`
         if: matrix.os.name == 'windows'
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.85.3
         with:
           tool: cargo-xwin
       - name: Restore `cargo-xwin` Cache

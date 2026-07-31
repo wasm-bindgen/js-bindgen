@@ -30,7 +30,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install `cargo-spellcheck`
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.85.3
         with:
           tool: cargo-spellcheck
       - name: Run `cargo-spellcheck`
@@ -49,7 +49,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Typos
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.85.3
         with:
           tool: typos-cli
       - name: Run Typos
