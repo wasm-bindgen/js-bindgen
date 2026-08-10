@@ -1,9 +1,19 @@
 use core::array;
 
 use js_bindgen_test::test;
-use js_sys::{JsArray, JsValue, js_sys};
+use js_sys::{JsArray, JsString, JsValue, js_sys};
 
 js_bindgen::embed_js!(module = "array", name = "test", "(value) => value");
+js_bindgen::embed_js!(
+	module = "array",
+	name = "throwing",
+	"(value, len) => new Proxy(new Array(len).fill(value), {{",
+	"	get(target, property) {{",
+	"		if (property === '1') throw new Error('boom')",
+	"		return target[property]",
+	"	}}",
+	"}})",
+);
 
 #[test]
 fn js_value() {
@@ -11,6 +21,9 @@ fn js_value() {
 	extern "js-sys" {
 		#[js_sys(js_embed = "test")]
 		fn js(value: &[JsValue]) -> JsArray<JsValue>;
+
+		#[js_sys(js_embed = "throwing")]
+		fn throwing(value: &JsValue, len: u32) -> JsArray<JsValue>;
 	}
 
 	let rust_array = [JsValue::UNDEFINED; 42];
@@ -22,6 +35,16 @@ fn js_value() {
 
 	let mut wrong_length = [JsValue::UNDEFINED; 41];
 	assert!(js_array.to_slice(&mut wrong_length).is_err());
+
+	let previous = JsString::from("previous");
+	let previous: JsValue = previous.into();
+	let mut destination: [JsValue; 42] = array::from_fn(|_| previous.clone());
+	let throwing = throwing(&JsValue::NULL, 42);
+	assert!(throwing.to_slice(&mut destination).is_err());
+	assert!(destination.iter().all(|value| value == &previous));
+
+	js_array.to_slice(&mut destination).unwrap();
+	assert_eq!(rust_array, destination);
 
 	let returned_array: [JsValue; 42] = js_array.to_array().unwrap();
 	assert_eq!(rust_array, returned_array);

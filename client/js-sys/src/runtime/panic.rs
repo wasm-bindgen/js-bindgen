@@ -1,5 +1,3 @@
-#[cfg(not(debug_assertions))]
-use alloc::format;
 #[cfg(all(not(debug_assertions), target_arch = "wasm32"))]
 use core::arch::wasm32 as wasm;
 #[cfg(all(not(debug_assertions), target_arch = "wasm64"))]
@@ -58,16 +56,14 @@ impl<T, E: Debug> UnwrapThrowExt<T> for Result<T, E> {
 	fn expect_throw(self, message: &str) -> T {
 		match self {
 			Ok(value) => value,
-			Err(error) => panic(&format!("{message}: {error:?}")),
+			Err(_) => panic(message),
 		}
 	}
 
 	fn unwrap_throw(self) -> T {
 		match self {
 			Ok(value) => value,
-			Err(error) => panic(&format!(
-				"called `Result::unwrap()` on an `Err` value: {error:?}"
-			)),
+			Err(_) => panic("called `Result::unwrap()` on an `Err` value"),
 		}
 	}
 }

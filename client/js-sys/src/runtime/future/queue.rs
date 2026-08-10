@@ -7,7 +7,7 @@ use super::task::Task;
 js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "future.schedule",
-	"() => globalThis.queueMicrotask(() => this.#jsExports.future_poll())",
+	"() => globalThis.queueMicrotask(this.#jsExports.future_poll)",
 );
 
 #[crate::js_sys(js_sys = crate)]

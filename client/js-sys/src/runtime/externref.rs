@@ -1,7 +1,10 @@
 use alloc::vec::Vec;
 use core::cell::RefCell;
+use core::mem;
 
 use super::panic::panic;
+use crate::JsValue;
+use crate::hazard::JsCast;
 use crate::util::PtrConst;
 
 pub(crate) const WAT_TABLE_IMPORT: &str = "(import \"js_sys\" \"externref.table\" (table \
@@ -96,6 +99,7 @@ struct Slab {
 	data: Vec<usize>,
 	head: usize,
 	base: usize,
+	table_len: usize,
 }
 
 impl Slab {
@@ -104,6 +108,7 @@ impl Slab {
 			data: Vec::new(),
 			head: 0,
 			base: 0,
+			table_len: 0,
 		}
 	}
 
@@ -118,7 +123,7 @@ impl Slab {
 		let slot = self.head;
 		if slot == self.data.len() {
 			let len = self.data.len();
-			if len == self.data.capacity() {
+			if len == self.table_len {
 				let additional = len.max(128);
 				let first = grow(index_to_abi(additional));
 				if first == -1 {
@@ -128,16 +133,17 @@ impl Slab {
 				let first = index_from_abi(first);
 				if self.base == 0 {
 					self.base = first;
-				} else if self.base + self.data.len() != first {
+				} else if self.base + self.table_len != first {
 					panic("non-contiguous `externref` table growth");
 				}
 
 				if self.data.try_reserve_exact(additional).is_err() {
 					panic("`externref` slab allocation failure");
 				}
+				self.table_len += additional;
 			}
 
-			if self.data.len() >= self.data.capacity() {
+			if self.data.len() >= self.table_len {
 				panic("`externref` slab capacity mismatch");
 			}
 			self.data.push(slot + 1);
@@ -195,6 +201,22 @@ impl ReservedSlots {
 	pub(crate) fn commit(mut self) {
 		self.committed = true;
 	}
+
+	/// Moves the values stored in the reserved slots into an initialized slice,
+	/// dropping every replaced value through its Rust type.
+	pub(crate) fn replace<T: JsCast>(mut self, destination: &mut [T]) {
+		assert_eq!(self.slots.len(), destination.len());
+
+		// Popping in reverse preserves the original slot order without shifting
+		// the vector on every replacement.
+		for value in destination.iter_mut().rev() {
+			let index = self.slots.pop().unwrap();
+			let old = mem::replace(value, T::unchecked_from(JsValue::new(index)));
+			drop(old);
+		}
+
+		self.committed = true;
+	}
 }
 
 impl Drop for ReservedSlots {
@@ -202,6 +224,7 @@ impl Drop for ReservedSlots {
 		if !self.committed {
 			let mut slab = EXTERNREF_SLAB.0.borrow_mut();
 			for &index in &self.slots {
+				remove(index);
 				slab.dealloc(index_from_abi(index));
 			}
 		}

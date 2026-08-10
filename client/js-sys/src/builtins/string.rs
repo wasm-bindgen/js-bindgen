@@ -11,9 +11,11 @@ use crate::util::{PtrConst, PtrLength, PtrMut};
 #[js_sys(js_sys = crate)]
 extern "js-sys" {
 	#[js_sys(js_name = "String", extends = Object)]
-	#[derive(Debug, Clone, PartialEq, Eq)]
+	#[derive(Debug, Clone, PartialEq)]
 	pub type JsString;
 }
+
+impl Eq for JsString {}
 
 #[js_sys(js_sys = crate)]
 extern "js-sys" {
@@ -196,9 +198,10 @@ js_bindgen::embed_js!(
 	"	if (this.#memory.buffer instanceof ArrayBuffer)",
 	"		return true",
 	"",
-	"	const array = new WebAssembly.Memory({{ initial: 0, maximum: 0, shared: true }})",
 	"	try {{",
-	"		new TextDecoder().decode(array)",
+	"		const view = new Uint8Array(this.#memory.buffer, 0, 0)",
+	"		new TextDecoder().decode(view)",
+	"		new TextEncoder().encodeInto('', view)",
 	"		return true",
 	"	}} catch {{",
 	"		return false",

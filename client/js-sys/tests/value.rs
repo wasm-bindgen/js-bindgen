@@ -1,5 +1,13 @@
 use js_bindgen_test::test;
-use js_sys::{JsString, JsValue};
+use js_sys::{JsString, JsValue, js_sys};
+
+js_bindgen::embed_js!(module = "value", name = "nan", "() => NaN");
+
+#[js_sys]
+extern "js-sys" {
+	#[js_sys(js_embed = "nan")]
+	fn nan() -> JsValue;
+}
 
 #[test]
 fn undefined() {
@@ -24,6 +32,12 @@ fn clone() {
 	let value = JsString::from("Hello, World!");
 	let value = value.clone();
 	assert_eq!(value, "Hello, World!");
+}
+
+#[test]
+fn strict_equality_is_not_reflexive() {
+	let value = nan();
+	assert!(!PartialEq::eq(&value, &value));
 }
 
 #[test]

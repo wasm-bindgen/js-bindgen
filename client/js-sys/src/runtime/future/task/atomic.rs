@@ -3,10 +3,9 @@ use alloc::rc::Rc;
 use alloc::sync::Arc;
 use core::cell::RefCell;
 use core::future::Future;
-use core::mem::ManuallyDrop;
 use core::pin::Pin;
 use core::sync::atomic::{AtomicI32, Ordering};
-use core::task::{Context, RawWaker, RawWakerVTable, Waker};
+use core::task::{Context, Waker};
 
 use super::ClearOnUnwind;
 use crate::Closure;
@@ -103,44 +102,22 @@ impl Wake {
 		})
 	}
 
-	fn wake_by_ref(&self) {
+	fn signal(&self) {
 		if self.state.swap(AWAKE, Ordering::SeqCst) == AWAKE {
 			return;
 		}
 
 		notify(PtrConst::from_ref(&self.state));
 	}
+}
 
-	unsafe fn raw_waker(this: Arc<Self>) -> RawWaker {
-		unsafe fn clone(pointer: *const ()) -> RawWaker {
-			// SAFETY: Every pointer in this table comes from `Arc::into_raw`.
-			let wake = ManuallyDrop::new(unsafe { Arc::from_raw(pointer.cast::<Wake>()) });
-			// SAFETY: The clone becomes the ownership represented by the new
-			// `RawWaker`.
-			unsafe { Wake::raw_waker(Arc::clone(&wake)) }
-		}
+impl alloc::task::Wake for Wake {
+	fn wake(self: Arc<Self>) {
+		self.signal();
+	}
 
-		unsafe fn wake(pointer: *const ()) {
-			// SAFETY: `wake` consumes the ownership represented by this `Waker`.
-			let wake = unsafe { Arc::from_raw(pointer.cast::<Wake>()) };
-			wake.wake_by_ref();
-		}
-
-		unsafe fn wake_by_ref(pointer: *const ()) {
-			// SAFETY: `wake_by_ref` borrows the ownership represented by this
-			// `Waker`.
-			let wake = ManuallyDrop::new(unsafe { Arc::from_raw(pointer.cast::<Wake>()) });
-			wake.wake_by_ref();
-		}
-
-		unsafe fn drop(pointer: *const ()) {
-			// SAFETY: `drop` consumes the ownership represented by this `Waker`.
-			core::mem::drop(unsafe { Arc::from_raw(pointer.cast::<Wake>()) });
-		}
-
-		const VTABLE: RawWakerVTable = RawWakerVTable::new(clone, wake, wake_by_ref, drop);
-
-		RawWaker::new(Arc::into_raw(this).cast(), &VTABLE)
+	fn wake_by_ref(self: &Arc<Self>) {
+		self.signal();
 	}
 }
 
@@ -158,8 +135,7 @@ pub(in crate::runtime::future) struct Task {
 impl Task {
 	pub(super) fn spawn(future: impl Future<Output = ()> + 'static) {
 		let wake = Wake::new();
-		// SAFETY: The raw `Waker` owns the cloned, thread-safe `Arc`.
-		let waker = unsafe { Waker::from_raw(Wake::raw_waker(Arc::clone(&wake))) };
+		let waker = Waker::from(Arc::clone(&wake));
 		let task = Rc::new(Self {
 			state: RefCell::new(None),
 			wake,
@@ -168,7 +144,7 @@ impl Task {
 		let resume = crate::closure!(js_sys = crate, dyn FnMut(), move || {
 			// A delayed notification from the preceding wait may arrive after a
 			// new wait starts. Normalize the state before polling in either case.
-			resumed_task.wake.wake_by_ref();
+			resumed_task.wake.signal();
 			resumed_task.run();
 		});
 		*task.state.borrow_mut() = Some(TaskState {

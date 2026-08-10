@@ -115,19 +115,19 @@ impl JsValue {
 		}
 	}
 
-	pub fn from_slice<T: JsCast>(slice: &[T]) -> &[Self] {
+	pub(crate) fn from_slice<T: JsCast>(slice: &[T]) -> &[Self] {
 		let ptr: *const Self = slice.as_ptr().cast();
 		// SAFETY: `JsCast` assumes that `T` is `#[transparent]` over a `JsValue`.
 		unsafe { slice::from_raw_parts(ptr, slice.len()) }
 	}
 
-	pub fn from_slice_mut<T: JsCast>(slice: &mut [T]) -> &mut [Self] {
+	pub(crate) fn from_slice_mut<T: JsCast>(slice: &mut [T]) -> &mut [Self] {
 		let ptr: *mut Self = slice.as_mut_ptr().cast();
 		// SAFETY: `JsCast` assumes that `T` is `#[transparent]` over a `JsValue`.
 		unsafe { slice::from_raw_parts_mut(ptr, slice.len()) }
 	}
 
-	pub fn from_uninit_slice_mut<T: JsCast>(
+	pub(crate) fn from_uninit_slice_mut<T: JsCast>(
 		slice: &mut [MaybeUninit<T>],
 	) -> &mut [MaybeUninit<Self>] {
 		let ptr: *mut MaybeUninit<Self> = slice.as_mut_ptr().cast();
@@ -177,7 +177,7 @@ impl Clone for JsValue {
 impl Drop for JsValue {
 	#[inline]
 	fn drop(&mut self) {
-		if self.index > 1 {
+		if u32::from_ne_bytes(self.index.to_ne_bytes()) >= 2 {
 			release(self.index);
 		}
 	}
@@ -281,5 +281,3 @@ impl PartialEq for JsValue {
 		js_value_partial_eq(self, other)
 	}
 }
-
-impl Eq for JsValue {}
