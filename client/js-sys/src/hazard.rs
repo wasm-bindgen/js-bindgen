@@ -5,7 +5,6 @@ use crate::JsValue;
 use crate::runtime::externref::{WAT_INDEX_LOCAL, WAT_TAKE_IMPORTS};
 
 // Conversion `metadata`.
-
 #[derive(Clone, Copy)]
 pub struct WatConv {
 	pub imports: Option<&'static str>,

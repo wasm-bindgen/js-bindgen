@@ -371,6 +371,11 @@ pub const fn js_return_embed<T: ReturnIntoJS>() -> (&'static str, &'static str) 
 }
 
 #[must_use]
+pub const fn js_return_has_conversion<T: ReturnIntoJS>() -> bool {
+	T::JS_CONV.conversion().is_some()
+}
+
+#[must_use]
 pub const fn js_output_embed<T: ReturnFromJS>() -> (&'static str, &'static str) {
 	js_embed(match T::JS_CONV.conversion() {
 		Some(conv) => conv.embed,
@@ -384,6 +389,11 @@ pub const fn js_from_embed<T: FromJS>() -> (&'static str, &'static str) {
 		Some(conv) => conv.embed,
 		None => None,
 	})
+}
+
+#[must_use]
+pub const fn js_from_has_conversion<T: FromJS>() -> bool {
+	T::JS_CONV.is_some()
 }
 
 #[must_use]

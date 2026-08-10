@@ -23,7 +23,18 @@ pub(super) const fn descriptor_capacity(descriptor: &ImportDescriptor) -> usize 
 		embed += 1;
 	}
 
+	if descriptor.suspending {
+		capacity.add_str("new WebAssembly.Suspending(");
+	}
+
 	let wrapped = descriptor.needs_js_shim();
+	let await_output = descriptor.awaits_suspending_output();
+
+	if await_output {
+		capacity.add_str("async ");
+		capacity.add_str("await (");
+		capacity.add(1);
+	}
 
 	if wrapped {
 		capacity.add(1);
@@ -53,15 +64,24 @@ pub(super) const fn descriptor_capacity(descriptor: &ImportDescriptor) -> usize 
 	}
 
 	match descriptor.output {
-		Some(output) => add_output_capacity(&mut capacity, output, js, wrapped),
+		Some(output) => {
+			add_output_capacity(&mut capacity, output, js, wrapped);
+		}
 		None => {
 			if wrapped {
+				if descriptor.suspending {
+					capacity.add_str("    return ");
+				}
 				capacity.add_str(js.indirect_call);
 				capacity.add_str("\n}");
 			} else {
 				capacity.add_str(js.direct_call);
 			}
 		}
+	}
+
+	if descriptor.suspending {
+		capacity.add(1);
 	}
 
 	capacity.get()
@@ -237,8 +257,16 @@ impl ImportDescriptor {
 
 	const fn write_js<const LEN: usize>(&self, writer: &mut Writer<LEN>, js: ImportJs) {
 		let wrapped = self.needs_js_shim();
+		let await_output = self.awaits_suspending_output();
+
+		if self.suspending {
+			writer.write_str("new WebAssembly.Suspending(");
+		}
 
 		if wrapped {
+			if await_output {
+				writer.write_str("async ");
+			}
 			writer.write_byte(b'(');
 
 			if let Some(output) = self.output
@@ -266,15 +294,22 @@ impl ImportDescriptor {
 		}
 
 		match self.output {
-			Some(output) => write_output(writer, output, js, wrapped),
+			Some(output) => write_output(writer, output, js, wrapped, await_output),
 			None => {
 				if wrapped {
+					if self.suspending {
+						writer.write_str("    return ");
+					}
 					writer.write_str(js.indirect_call);
 					writer.write_str("\n}");
 				} else {
 					writer.write_str(js.direct_call);
 				}
 			}
+		}
+
+		if self.suspending {
+			writer.write_byte(b')');
 		}
 	}
 }
@@ -326,6 +361,7 @@ const fn write_output<const LEN: usize>(
 	output: &ImportOutput,
 	js: ImportJs,
 	wrapped: bool,
+	await_output: bool,
 ) {
 	let convert_direct = output.direct && output.has_js_conversion;
 	let catches_result = !output.js_try.is_empty();
@@ -358,9 +394,18 @@ const fn write_output<const LEN: usize>(
 	}
 
 	if output.direct && !convert_direct {
+		if await_output {
+			writer.write_str("await (");
+		}
 		write_template(writer, output.js_templates[0], template_value, None);
 	} else {
+		if await_output {
+			writer.write_str("await (");
+		}
 		writer.write_str(call);
+	}
+	if await_output {
+		writer.write_byte(b')');
 	}
 
 	if convert_direct {

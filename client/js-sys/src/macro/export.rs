@@ -271,6 +271,42 @@ macro_rules! js_export_output_expression {
 	}};
 }
 
+#[doc(hidden)]
+#[macro_export]
+macro_rules! js_export_result_throw {
+	($indent:literal, $ty:ty $(,)?) => {{
+		const SLOTS: [$crate::r#macro::WatSlot; 4] =
+			$crate::r#macro::return_into_js_wat_slots::<$ty>();
+		const ERROR_DISCRIMINANT: &::core::primitive::str = if SLOTS[0].abi.is_empty() {
+			"ret[0]"
+		} else if SLOTS[1].abi.is_empty() {
+			"ret[1]"
+		} else {
+			"ret[2]"
+		};
+		const ERROR: &::core::primitive::str = if SLOTS[0].abi.is_empty() {
+			"ret[1]"
+		} else if SLOTS[1].abi.is_empty() {
+			"ret[2]"
+		} else {
+			"ret[3]"
+		};
+
+		if $crate::r#macro::return_into_js_is_result::<$ty>() {
+			$crate::r#macro::const_concat!(
+				$indent,
+				"if (",
+				ERROR_DISCRIMINANT,
+				" !== 0) throw ",
+				ERROR,
+				"\n",
+			)
+		} else {
+			""
+		}
+	}};
+}
+
 /// Generates the complete JavaScript wrapper for one Rust export.
 #[doc(hidden)]
 #[macro_export]
@@ -299,37 +335,8 @@ macro_rules! js_export {
 			$crate::r#macro::js_export_arguments!($(($par, $input)),*);
 		const OUTPUT: &::core::primitive::str =
 			$crate::r#macro::js_export_output_expression!($output);
-		const SLOTS: [$crate::r#macro::WatSlot; 4] =
-			$crate::r#macro::return_into_js_wat_slots::<$output>();
-		const ERROR_DISCRIMINANT: &::core::primitive::str =
-			if SLOTS[0].abi.is_empty() {
-				"ret[0]"
-			} else if SLOTS[1].abi.is_empty() {
-				"ret[1]"
-			} else {
-				"ret[2]"
-			};
-		const ERROR: &::core::primitive::str =
-			if SLOTS[0].abi.is_empty() {
-				"ret[1]"
-			} else if SLOTS[1].abi.is_empty() {
-				"ret[2]"
-			} else {
-				"ret[3]"
-			};
-		const THROW: &::core::primitive::str = if $crate::r#macro::return_into_js_is_result::<
-			$output,
-		>() {
-			$crate::r#macro::const_concat!(
-					"    if (",
-					ERROR_DISCRIMINANT,
-					" !== 0) throw ",
-					ERROR,
-					"\n",
-				)
-			} else {
-				""
-			};
+		const THROW: &::core::primitive::str =
+			$crate::r#macro::js_export_result_throw!("    ", $output);
 
 		$($crate::r#macro::validate_from_js::<$input>();)*
 		$crate::r#macro::validate_return_into_js::<$output>();
@@ -346,5 +353,77 @@ macro_rules! js_export {
 			OUTPUT,
 			"\n}"
 		)
+	}};
+}
+
+/// Generates handling for the value produced by a `promising` export.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! js_export_promising_then {
+	() => {
+		""
+	};
+	($output:ty) => {{
+		const OUTPUT: &::core::primitive::str =
+			$crate::r#macro::js_export_output_expression!($output);
+		const POSTPROCESS: ::core::primitive::bool =
+			$crate::r#macro::js_return_has_conversion::<$output>()
+				|| $crate::r#macro::return_into_js_is_result::<$output>();
+		const THROW: &::core::primitive::str =
+			$crate::r#macro::js_export_result_throw!("        ", $output);
+
+		if POSTPROCESS {
+			$crate::r#macro::const_concat!(
+				".then(ret => {\n",
+				THROW,
+				"        return ",
+				OUTPUT,
+				"\n    })",
+			)
+		} else {
+			""
+		}
+	}};
+}
+
+/// Generates a JavaScript wrapper for a Wasm export marked as `promising`.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! js_export_promising {
+	(
+		$export:expr,
+		($(($par:literal, $input:ty)),*)
+		$(, $output:ty)?
+		$(,)?
+	) => {{
+		const PARAMETERS: &::core::primitive::str =
+			$crate::r#macro::js_export_parameters!($(($par, $input)),*);
+		const ARGUMENTS: &::core::primitive::str =
+			$crate::r#macro::js_export_arguments!($(($par, $input)),*);
+		const THEN: &::core::primitive::str =
+			$crate::r#macro::js_export_promising_then!($($output)?);
+		const PASSTHROUGH: ::core::primitive::bool = THEN.is_empty()
+			$(&& !$crate::r#macro::js_from_has_conversion::<$input>())*;
+		const RAW: &::core::primitive::str = $crate::r#macro::const_concat!(
+			"WebAssembly.promising(wasmExports['",
+			$export,
+			"'])",
+		);
+		const WRAPPED: &::core::primitive::str = $crate::r#macro::const_concat!(
+			"(() => {\n    const $promising = ",
+			RAW,
+			"\n    return (",
+			PARAMETERS,
+			") => $promising(",
+			ARGUMENTS,
+			")",
+			THEN,
+			"\n})()",
+		);
+
+		$($crate::r#macro::validate_from_js::<$input>();)*
+		$($crate::r#macro::validate_return_into_js::<$output>();)?
+
+		if PASSTHROUGH { RAW } else { WRAPPED }
 	}};
 }

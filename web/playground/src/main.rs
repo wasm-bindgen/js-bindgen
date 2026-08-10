@@ -23,6 +23,8 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+	use js_sys::{JsValue, Promise, block_on};
+
 	#[test]
 	#[should_panic]
 	fn test1() {
@@ -37,4 +39,24 @@ mod tests {
 
 	#[test]
 	fn test3() {}
+
+	#[test]
+	fn jspi_block_on() {
+		let value = String::from("resolved");
+		let output = block_on(async {
+			Promise::resolve(&JsValue::UNDEFINED).await.unwrap();
+			value.as_str()
+		});
+
+		assert_eq!(output, "resolved");
+	}
+
+	#[test]
+	#[should_panic(expected = "JSPI panic")]
+	fn jspi_should_panic() {
+		block_on(async {
+			Promise::resolve(&JsValue::UNDEFINED).await.unwrap();
+			panic!("JSPI panic");
+		});
+	}
 }

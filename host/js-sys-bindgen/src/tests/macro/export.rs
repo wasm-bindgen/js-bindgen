@@ -46,6 +46,126 @@ fn js_name_expression() {
 }
 
 #[test]
+fn promising_direct() {
+	let (_, js) = expand_with_attr(
+		&quote!(promising),
+		&quote! {
+			fn echo(value: i32) -> i32 {
+				value
+			}
+		},
+	);
+
+	assert_eq!(js, "WebAssembly.promising(wasmExports['echo'])");
+}
+
+#[test]
+fn promising_without_output_converts_inputs() {
+	let (_, js) = expand_with_attr(
+		&quote!(promising),
+		&quote! {
+			fn notify(value: u128) {
+				let _ = value;
+			}
+		},
+	);
+
+	assert_eq!(
+		js,
+		"(() => {\n    const $promising = WebAssembly.promising(wasmExports['notify'])\n    \
+		 return (arg0) => $promising(arg0, arg0 >> 64n)\n})()",
+	);
+}
+
+#[test]
+fn promising_postprocesses_fulfilled_values() {
+	let (_, js) = expand_with_attr(
+		&quote!(promising),
+		&quote! {
+			fn echo(value: u32) -> u32 {
+				value
+			}
+		},
+	);
+
+	assert_eq!(
+		js,
+		"(() => {\n    const $promising = WebAssembly.promising(wasmExports['echo'])\n    return \
+		 (arg0) => $promising(arg0).then(ret => {\n        return ret >>> 0\n    })\n})()",
+	);
+}
+
+#[test]
+fn promising_externref_uses_passthrough() {
+	let (_, js) = expand_with_attr(
+		&quote!(promising),
+		&quote! {
+			fn echo(value: JsValue) -> JsValue {
+				value
+			}
+		},
+	);
+
+	assert_eq!(js, "WebAssembly.promising(wasmExports['echo'])");
+}
+
+#[test]
+fn promising_converts_multivalue_results() {
+	let (_, js) = expand_with_attr(
+		&quote!(promising),
+		&quote! {
+			fn echo(value: u128) -> u128 {
+				value
+			}
+		},
+	);
+
+	assert_eq!(
+		js,
+		"(() => {\n    const $promising = WebAssembly.promising(wasmExports['echo'])\n    return \
+		 (arg0) => $promising(arg0, arg0 >> 64n).then(ret => {\n        return \
+		 this.#jsEmbed.js_sys['numeric.u128.decode'](ret[0], ret[1])\n    })\n})()",
+	);
+}
+
+#[test]
+fn promising_turns_result_errors_into_rejections() {
+	let (_, js) = expand_with_attr(
+		&quote!(promising),
+		&quote! {
+			fn checked(value: i32) -> Result<i32, JsValue> {
+				Ok(value)
+			}
+		},
+	);
+
+	assert_eq!(
+		js,
+		"(() => {\n    const $promising = WebAssembly.promising(wasmExports['checked'])\n    \
+		 return (arg0) => $promising(arg0).then(ret => {\n        if (ret[1] !== 0) throw \
+		 ret[2]\n        return ret[0]\n    })\n})()",
+	);
+}
+
+#[test]
+fn promising_attribute_is_a_flag() {
+	let function = syn::parse2(quote! {
+		fn answer() -> i32 {
+			42
+		}
+	})
+	.unwrap();
+
+	let error = crate::export::r#macro(quote!(promising = true), &function, Some("test_crate"))
+		.unwrap_err();
+	assert_eq!(error.to_string(), "`promising` supports no values");
+
+	let error = crate::export::r#macro(quote!(promising, promising), &function, Some("test_crate"))
+		.unwrap_err();
+	assert_eq!(error.to_string(), "duplicate `promising` argument");
+}
+
+#[test]
 fn borrowed_return_is_rejected() {
 	let function = syn::parse2(quote! {
 		fn echo(value: &JsString) -> &JsString {

@@ -1,5 +1,6 @@
 //! Bridges JavaScript promises and Rust futures.
 
+mod jspi;
 mod queue;
 mod task;
 
@@ -9,6 +10,8 @@ use core::future::{Future, IntoFuture};
 use core::pin::Pin;
 use core::task::{Context, Poll, Waker};
 use core::{fmt, mem};
+
+pub use jspi::block_on;
 
 use crate::hazard::JsCast;
 use crate::{Closure, JsValue, Promise, PromiseWithResolvers};

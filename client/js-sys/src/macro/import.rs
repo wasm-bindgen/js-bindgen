@@ -14,7 +14,7 @@ use super::{
 };
 use crate::hazard::{IntoJS, ReturnFromJS};
 
-/// All target-dependent metadata needed to render one imported argument.
+/// All target-dependent information needed to render one imported argument.
 #[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct ImportInput {
@@ -30,7 +30,7 @@ struct ImportInputType {
 	wat_capacity: WatInputCapacity,
 }
 
-/// All target-dependent metadata needed to render one imported result.
+/// All target-dependent information needed to render one imported result.
 #[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct ImportOutput {
@@ -74,6 +74,7 @@ pub struct ImportDescriptor {
 	inputs: &'static [ImportInput],
 	output: Option<&'static ImportOutput>,
 	js: Option<ImportJs>,
+	suspending: bool,
 	wat_capacity: usize,
 	js_capacity: usize,
 }
@@ -167,6 +168,41 @@ impl ImportDescriptor {
 		output: Option<&'static ImportOutput>,
 		js: Option<ImportJs>,
 	) -> Self {
+		Self::build(module, import, shim, inputs, output, js, false)
+	}
+
+	#[doc(hidden)]
+	#[must_use]
+	pub const fn new_suspending(
+		module: &'static str,
+		import: &'static str,
+		shim: &'static str,
+		inputs: &'static [ImportInput],
+		output: Option<&'static ImportOutput>,
+		js: Option<ImportJs>,
+	) -> Self {
+		assert!(
+			js.is_some(),
+			"suspending imports require a generated JavaScript binding",
+		);
+		if let Some(output) = output {
+			assert!(
+				!catches_result_in_js_from_output(output),
+				"suspending Result imports require the Wasm exception-handling target feature",
+			);
+		}
+		Self::build(module, import, shim, inputs, output, js, true)
+	}
+
+	const fn build(
+		module: &'static str,
+		import: &'static str,
+		shim: &'static str,
+		inputs: &'static [ImportInput],
+		output: Option<&'static ImportOutput>,
+		js: Option<ImportJs>,
+		suspending: bool,
+	) -> Self {
 		let mut descriptor = Self {
 			module,
 			import,
@@ -174,6 +210,7 @@ impl ImportDescriptor {
 			inputs,
 			output,
 			js,
+			suspending,
 			wat_capacity: 0,
 			js_capacity: 0,
 		};
@@ -199,12 +236,23 @@ impl ImportDescriptor {
 			None => false,
 		}
 	}
+
+	const fn awaits_suspending_output(&self) -> bool {
+		if !self.suspending {
+			return false;
+		}
+
+		match self.output {
+			Some(output) => output.has_js_conversion || catches_result_in_js_from_output(output),
+			None => false,
+		}
+	}
 }
 
 /// Returns a safe upper bound for [`import_wat`].
 ///
-/// This follows the renderer without scanning declaration contents, so it is
-/// suitable for sizing a padded, single-pass section.
+/// This follows the rendering logic without scanning declaration contents, so
+/// it is suitable for sizing a padded, single-pass section.
 #[doc(hidden)]
 #[must_use]
 pub const fn import_wat_capacity(imports: &[ImportDescriptor]) -> usize {
@@ -237,8 +285,8 @@ pub const fn import_wat<const CAPACITY: usize>(
 
 /// Returns a safe upper bound for [`import_js`].
 ///
-/// This follows the renderer without scanning template contents, so it is
-/// suitable for sizing a padded, single-pass section.
+/// This follows the rendering logic without scanning template contents, so it
+/// is suitable for sizing a padded, single-pass section.
 #[doc(hidden)]
 #[must_use]
 pub const fn import_js_capacity(imports: &[ImportDescriptor]) -> usize {

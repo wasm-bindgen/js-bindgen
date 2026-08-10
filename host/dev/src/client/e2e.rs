@@ -204,7 +204,7 @@ impl Example {
 		};
 		let mut script = format!(
 			"import {{ JsBindgen }} from './{}.mjs'\n\n{read}\nconst module = await \
-			 WebAssembly.compile(bytes)\nconst {{ exports }} = await new \
+			 WebAssembly.compile(bytes)\nconst {{ instance, exports }} = await new \
 			 JsBindgen(module).instantiate()\n\nfunction assert(value, expression) {{\n    if \
 			 (!value) throw new Error(`assertion failed: ${{expression}}`)\n}}\n",
 			self.name

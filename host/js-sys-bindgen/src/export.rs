@@ -14,6 +14,7 @@ pub(crate) fn r#macro(
 ) -> Result<TokenStream, Error> {
 	let mut js_sys: Option<Path> = None;
 	let mut js_name: Option<Expr> = None;
+	let mut promising = false;
 
 	meta::parser(|meta| {
 		if meta.path.is_ident("js_sys") {
@@ -30,6 +31,15 @@ pub(crate) fn r#macro(
 				Err(meta.error("duplicate `js_name` argument"))
 			} else {
 				js_name = Some(meta.value()?.parse()?);
+				Ok(())
+			}
+		} else if meta.path.is_ident("promising") {
+			if meta.input.peek(syn::Token![=]) || meta.input.peek(syn::token::Paren) {
+				Err(meta.error("`promising` supports no values"))
+			} else if promising {
+				Err(meta.error("duplicate `promising` argument"))
+			} else {
+				promising = true;
 				Ok(())
 			}
 		} else {
@@ -98,6 +108,11 @@ pub(crate) fn r#macro(
 			#call;
 		}
 	};
+	let js_export = if promising {
+		quote_spanned!(span=> #macro_path::js_export_promising!)
+	} else {
+		quote_spanned!(span=> #macro_path::js_export!)
+	};
 
 	Ok(quote_spanned! {span=>
 		#function
@@ -127,7 +142,7 @@ pub(crate) fn r#macro(
 					#(#required_embeds),*
 				],
 				"{}",
-				interpolate #macro_path::js_export!(
+				interpolate #js_export(
 					#export_name,
 					(#(#codegen_inputs),*)
 					#output_argument,

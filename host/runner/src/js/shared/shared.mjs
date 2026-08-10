@@ -1,4 +1,7 @@
 import runData from "../run-data.json" with { type: "json" };
+function usesJspi(module) {
+    return WebAssembly.Module.imports(module).some(item => item.module === "js_sys" && item.name === "jspi_suspend");
+}
 function mainMemory(module, name, importObject) {
     const value = importObject[module]?.[name];
     if (!(value instanceof WebAssembly.Memory)) {
@@ -46,6 +49,7 @@ function mainArgs(memory, values, wasm64) {
     }
 }
 export async function run(module, jsBindgenCtor, report) {
+    const jspi = usesJspi(module);
     let interceptFlag = false;
     const interceptStore = [];
     const newLineText = { text: "\n", color: 0 /* Color.Default */ };
@@ -109,18 +113,19 @@ export async function run(module, jsBindgenCtor, report) {
             return 1 /* Status.Abnormal */;
         }
         const memory = mainMemory(runData.memory.module, runData.memory.name, state.importObject);
+        const mainExports = jspi ? state.instance.instance.exports : state.instance.exports;
         interceptFlag = true;
         let status;
         try {
             if (runData.wasm64) {
                 const { argc, argv } = mainArgs(memory, runData.args, true);
-                const main = state.instance.exports["main"];
-                status = main(argc, argv);
+                const main = mainExports["main"];
+                status = jspi ? await WebAssembly.promising(main)(argc, argv) : main(argc, argv);
             }
             else {
                 const { argc, argv } = mainArgs(memory, runData.args, false);
-                const main = state.instance.exports["main"];
-                status = main(argc, argv);
+                const main = mainExports["main"];
+                status = jspi ? await WebAssembly.promising(main)(argc, argv) : main(argc, argv);
             }
         }
         catch (error) {

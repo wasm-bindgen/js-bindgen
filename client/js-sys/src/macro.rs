@@ -21,7 +21,7 @@ pub use crate::{const_concat, const_concat_if, const_integer_str, js_template};
 // JavaScript export shims.
 pub use crate::{
 	js_export, js_export_arguments, js_export_input_arguments, js_export_output_expression,
-	js_export_parameters,
+	js_export_parameters, js_export_promising, js_export_promising_then, js_export_result_throw,
 };
 // JavaScript import shims.
 pub use crate::{

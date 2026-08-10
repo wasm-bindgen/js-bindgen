@@ -29,7 +29,7 @@ pub use builtins::{
 pub use js_bindgen;
 pub use js_sys_macro::{closure, js_sys};
 pub use runtime::{
-	Closure, ClosureAllocation, ClosureHeader, JsFuture, JsValue, UnwrapThrowExt,
+	Closure, ClosureAllocation, ClosureHeader, JsFuture, JsValue, UnwrapThrowExt, block_on,
 	future_to_promise, panic, spawn_local,
 };
 

@@ -655,6 +655,51 @@ fn js_embed() {
 }
 
 #[test]
+fn suspending_direct() {
+	let js = generated_js(syn::parse_quote! {
+		extern "js-sys" {
+			#[js_sys(suspending)]
+			pub fn wait(value: i32) -> i32;
+		}
+	});
+
+	assert_eq!(js, "new WebAssembly.Suspending(globalThis.wait)");
+}
+
+#[test]
+fn suspending_converts_inputs_before_calling_javascript() {
+	let js = generated_js(syn::parse_quote! {
+		extern "js-sys" {
+			#[js_sys(suspending)]
+			pub fn wait(value: u32) -> u32;
+		}
+	});
+
+	assert_eq!(
+		js,
+		"new WebAssembly.Suspending((arg0_0) => {\n    arg0_0 = arg0_0 >>> 0\n    return \
+		 globalThis.wait(arg0_0)\n})",
+	);
+}
+
+#[test]
+fn suspending_converts_fulfilled_indirect_results() {
+	let js = generated_js(syn::parse_quote! {
+		extern "js-sys" {
+			#[js_sys(suspending)]
+			pub fn wait() -> u128;
+		}
+	});
+
+	assert_eq!(
+		js,
+		"new WebAssembly.Suspending(async ($retptr) => {\n    const $ret = await \
+		 (globalThis.wait())\n    this.#jsEmbed.js_sys['numeric.128.encode']($ret, $ret >> 64n, \
+		 $retptr)\n})",
+	);
+}
+
+#[test]
 fn r#return() {
 	test!(
 		{},
@@ -841,6 +886,34 @@ fn incompatible_binding_options_are_rejected() {
 }
 
 #[test]
+fn suspending_requires_a_generated_binding() {
+	let input = syn::parse_quote! {
+		extern "js-sys" {
+			#[js_sys(js_import, suspending)]
+			pub fn wait();
+		}
+	};
+
+	assert_eq!(
+		super::macro_error(input),
+		"`suspending` cannot be combined with `js_import`; provide a `WebAssembly.Suspending` \
+		 import directly",
+	);
+}
+
+#[test]
+fn duplicate_suspending_is_rejected() {
+	let input = syn::parse_quote! {
+		extern "js-sys" {
+			#[js_sys(suspending, suspending)]
+			pub fn wait();
+		}
+	};
+
+	assert_eq!(super::macro_error(input), "duplicate attribute");
+}
+
+#[test]
 fn duplicate_parameter_abi_override_is_rejected() {
 	let input = syn::parse_quote! {
 		extern "js-sys" {
@@ -853,4 +926,20 @@ fn duplicate_parameter_abi_override_is_rejected() {
 	};
 
 	assert_eq!(super::macro_error(input), "duplicate attribute");
+}
+fn generated_js(input: syn::ItemForeignMod) -> String {
+	let output =
+		crate::r#macro::expand_for_test(proc_macro2::TokenStream::new(), input, "test_crate")
+			.unwrap()
+			.into_items()
+			.unwrap();
+	let output = prettyplease::unparse(&syn::File {
+		shebang: None,
+		attrs: Vec::new(),
+		items: output,
+	});
+	let dir = tempfile::tempdir().unwrap();
+	let (_, js, _) = super::inner(dir.path(), &output).unwrap();
+
+	js.unwrap()
 }

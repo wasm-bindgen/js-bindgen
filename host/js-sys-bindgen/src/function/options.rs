@@ -20,6 +20,9 @@ pub(super) struct FunctionOptions {
 	pub(super) embed: Option<String>,
 	/// Leaves the JavaScript implementation to the import object.
 	pub(super) import: bool,
+	/// Allows a Promise returned by the JavaScript implementation to suspend
+	/// the current Wasm stack.
+	pub(super) suspending: bool,
 }
 
 impl FunctionOptions {
@@ -82,6 +85,8 @@ impl FunctionOptions {
 					}
 				} else if meta.path.is_ident("js_import") {
 					parse_flag(&meta, "js_import", &mut options.import)
+				} else if meta.path.is_ident("suspending") {
+					parse_flag(&meta, "suspending", &mut options.suspending)
 				} else {
 					Err(meta.error("unsupported attribute"))
 				}
@@ -107,6 +112,13 @@ impl FunctionOptions {
 			return Err(Error::new_spanned(
 				rust_name,
 				"`js_import` and `js_embed` cannot be combined with JavaScript binding options",
+			));
+		}
+		if self.import && self.suspending {
+			return Err(Error::new_spanned(
+				rust_name,
+				"`suspending` cannot be combined with `js_import`; provide a \
+				 `WebAssembly.Suspending` import directly",
 			));
 		}
 		if operation_count > 1 {
@@ -140,7 +152,7 @@ impl FunctionOptions {
 }
 
 fn parse_flag(meta: &syn::meta::ParseNestedMeta<'_>, name: &str, value: &mut bool) -> Result<()> {
-	if !meta.input.is_empty() {
+	if meta.input.peek(syn::Token![=]) || meta.input.peek(syn::token::Paren) {
 		return Err(meta.error(format!("`{name}` supports no values")));
 	}
 	if *value {

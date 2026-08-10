@@ -108,7 +108,7 @@ impl Wake {
 			return;
 		}
 
-		notify(PtrConst::new(core::slice::from_ref(&self.state)));
+		notify(PtrConst::from_ref(&self.state));
 	}
 
 	unsafe fn raw_waker(this: Arc<Self>) -> RawWaker {
@@ -181,7 +181,7 @@ impl Task {
 
 	fn wait(&self, resume: &Closure<dyn FnMut()>) {
 		wait(
-			PtrConst::new(core::slice::from_ref(&self.wake.state)),
+			PtrConst::from_ref(&self.wake.state),
 			self.wake.state.load(Ordering::SeqCst) == AWAKE,
 			resume,
 		);

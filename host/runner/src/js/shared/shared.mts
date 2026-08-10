@@ -24,6 +24,18 @@ export const enum Status {
 
 type MainArgs32 = { argc: number; argv: number }
 type MainArgs64 = { argc: number; argv: bigint }
+type WasmFunction<Args extends unknown[], Result> = (...args: Args) => Result
+type Jspi = typeof WebAssembly & {
+	promising<Args extends unknown[], Result>(
+		fn: WasmFunction<Args, Result>
+	): WasmFunction<Args, Promise<Result>>
+}
+
+function usesJspi(module: WebAssembly.Module): boolean {
+	return WebAssembly.Module.imports(module).some(
+		item => item.module === "js_sys" && item.name === "jspi_suspend"
+	)
+}
 
 function mainMemory(
 	module: string,
@@ -95,6 +107,7 @@ export async function run(
 	jsBindgenCtor: typeof JsBindgen,
 	report: (stream: Stream, text: StyledText[]) => void
 ): Promise<number> {
+	const jspi = usesJspi(module)
 	let interceptFlag = false
 	const interceptStore: string[] = []
 	const newLineText = { text: "\n", color: Color.Default }
@@ -166,6 +179,7 @@ export async function run(
 		}
 
 		const memory = mainMemory(runData.memory.module, runData.memory.name, state.importObject)
+		const mainExports = jspi ? state.instance.instance.exports : state.instance.exports
 
 		interceptFlag = true
 		let status: number
@@ -173,12 +187,12 @@ export async function run(
 		try {
 			if (runData.wasm64) {
 				const { argc, argv } = mainArgs(memory, runData.args, true)
-				const main = state.instance.exports["main"] as (argc: number, argv: bigint) => number
-				status = main(argc, argv)
+				const main = mainExports["main"] as (argc: number, argv: bigint) => number
+				status = jspi ? await (WebAssembly as Jspi).promising(main)(argc, argv) : main(argc, argv)
 			} else {
 				const { argc, argv } = mainArgs(memory, runData.args, false)
-				const main = state.instance.exports["main"] as (argc: number, argv: number) => number
-				status = main(argc, argv)
+				const main = mainExports["main"] as (argc: number, argv: number) => number
+				status = jspi ? await (WebAssembly as Jspi).promising(main)(argc, argv) : main(argc, argv)
 			}
 		} catch (error) {
 			const message = state.panicMessage ?? (error as Error).message

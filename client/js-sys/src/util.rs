@@ -107,6 +107,12 @@ impl<T> PtrConst<T> {
 			ptr: value.as_ptr(),
 		}
 	}
+
+	pub(crate) fn from_ref(value: &T) -> Self {
+		Self {
+			ptr: core::ptr::from_ref(value),
+		}
+	}
 }
 
 // SAFETY: `PtrConst` is transparent over a native Wasm pointer. On `wasm64`,

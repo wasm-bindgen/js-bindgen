@@ -18,8 +18,8 @@ use crate::hygiene::Hygiene;
 mod js;
 mod options;
 
-use self::js::ForeignItem;
-use self::options::FunctionOptions;
+use js::ForeignItem;
+use options::FunctionOptions;
 
 pub(crate) struct FunctionImport {
 	pub(crate) cfg_attrs: Vec<Attribute>,
@@ -33,6 +33,7 @@ struct FunctionPlan {
 	output_ty: Option<Type>,
 	impl_generic_params: TokenStream,
 	binding: ForeignItem,
+	suspending: bool,
 }
 
 struct InputArg {
@@ -211,6 +212,7 @@ impl FunctionPlan {
 		js_names: &HashMap<String, String>,
 		span: Span,
 	) -> Result<Self> {
+		let suspending = options.suspending;
 		let external_implementation = options.import || options.embed.is_some();
 		let (inputs, self_ty) =
 			Self::parse_inputs(hygiene, sig, cfg_attrs, span, external_implementation)?;
@@ -228,6 +230,7 @@ impl FunctionPlan {
 			output_ty,
 			impl_generic_params,
 			binding,
+			suspending,
 		})
 	}
 
@@ -342,6 +345,7 @@ impl FunctionPlan {
 			setter,
 			embed,
 			import,
+			suspending: _,
 		} = options;
 
 		if import {
@@ -555,6 +559,7 @@ impl FunctionPlan {
 			inputs,
 			output_ty,
 			binding,
+			suspending,
 			..
 		} = self;
 		let input_descriptors = inputs.iter().map(|input| {
@@ -634,8 +639,13 @@ impl FunctionPlan {
 			quote_spanned!(span=> ::core::option::Option::None)
 		};
 		let needs_js_section = js.is_some();
+		let descriptor_constructor = if *suspending {
+			quote_spanned!(span=> #macro_path::ImportDescriptor::new_suspending)
+		} else {
+			quote_spanned!(span=> #macro_path::ImportDescriptor::new)
+		};
 		let descriptor = quote_spanned! {span=>
-			#macro_path::ImportDescriptor::new(
+			#descriptor_constructor(
 				#crate_,
 				#import_name,
 				#link_name,
