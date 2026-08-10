@@ -253,16 +253,6 @@ macro_rules! wat_slots {
 			!SLOTS[3].abi.is_empty() => [" (param $", $par, "_3 ", SLOTS[3].$field, ")"],
 		)
 	}};
-	(import_gets, $par:literal, $slots:expr $(,)?) => {{
-		const SLOTS: [$crate::r#macro::WatSlot; 4] = $slots;
-
-		$crate::r#macro::const_concat_if!(
-			!SLOTS[0].abi.is_empty() => ["", "  local.get $", $par, "_0", $crate::r#macro::wat_conv_prefix(SLOTS[0].conv), SLOTS[0].conv],
-			!SLOTS[1].abi.is_empty() => ["\n", "  local.get $", $par, "_1", $crate::r#macro::wat_conv_prefix(SLOTS[1].conv), SLOTS[1].conv],
-			!SLOTS[2].abi.is_empty() => ["\n", "  local.get $", $par, "_2", $crate::r#macro::wat_conv_prefix(SLOTS[2].conv), SLOTS[2].conv],
-			!SLOTS[3].abi.is_empty() => ["\n", "  local.get $", $par, "_3", $crate::r#macro::wat_conv_prefix(SLOTS[3].conv), SLOTS[3].conv],
-		)
-	}};
 	(export_gets, $par:literal, $slots:expr $(,)?) => {{
 		const SLOTS: [$crate::r#macro::WatSlot; 4] = $slots;
 
@@ -297,45 +287,10 @@ macro_rules! wat_slots {
 	}};
 }
 
-/// Renders input fragments for JavaScript imports and Rust exports.
+/// Renders input fragments for Rust exports.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! wat_input {
-	(import types;) => {
-		""
-	};
-	(import types; $first:ty $(, $rest:ty)* $(,)?) => {
-		$crate::r#macro::const_concat!(
-			$crate::r#macro::wat_slots!(
-				types,
-				$crate::r#macro::into_js_wat_slots::<$first>(),
-				boundary,
-			),
-			$(
-				" ",
-				$crate::r#macro::wat_slots!(
-					types,
-					$crate::r#macro::into_js_wat_slots::<$rest>(),
-					boundary,
-				),
-			)*
-		)
-	};
-	(import params; $par:literal, $ty:ty $(,)?) => {
-		$crate::r#macro::wat_slots!(
-			params,
-			$par,
-			$crate::r#macro::into_js_wat_slots::<$ty>(),
-			abi,
-		)
-	};
-	(import gets; $par:literal, $ty:ty $(,)?) => {
-		$crate::r#macro::wat_slots!(
-			import_gets,
-			$par,
-			$crate::r#macro::into_js_wat_slots::<$ty>(),
-		)
-	};
 	(export raw_param; $ty:ty $(,)?) => {
 		$crate::r#macro::wat_slots!(
 			grouped_param,

@@ -206,6 +206,17 @@ fn direct() {
 }
 
 #[test]
+fn scalar_passthrough() {
+	let (_, js) = expand(&quote! {
+		fn echo(value: i32) -> i32 {
+			value
+		}
+	});
+
+	assert_eq!(js, "wasmExports['echo']");
+}
+
+#[test]
 fn wat_slot_conversions() {
 	let (wat, js) = expand(&quote! {
 		pub fn drop_value(value: JsValue) {
@@ -233,12 +244,7 @@ fn wat_slot_conversions() {
 		  call $raw (@reloc)
 		)"
 	);
-	assert_eq!(
-		js,
-		r"(arg0) => {
-    wasmExports['drop_value'](arg0)
-}"
-	);
+	assert_eq!(js, "wasmExports['drop_value']");
 
 	let (wat, js) = expand(&quote! {
 		pub fn undefined() -> Option<JsValue> {
@@ -267,13 +273,7 @@ fn wat_slot_conversions() {
 		  end
 		)"
 	);
-	assert_eq!(
-		js,
-		r"() => {
-    const ret = wasmExports['undefined']()
-    return ret
-}"
-	);
+	assert_eq!(js, "wasmExports['undefined']");
 }
 
 #[test]
@@ -567,10 +567,5 @@ fn no_return_value() {
   call $raw (@reloc)
 )"#
 	);
-	assert_eq!(
-		js,
-		r"(arg0) => {
-    wasmExports['nothing'](arg0)
-}"
-	);
+	assert_eq!(js, "wasmExports['nothing']");
 }

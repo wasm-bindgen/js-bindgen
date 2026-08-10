@@ -598,8 +598,8 @@ const fn input_types_are_empty(inputs: &[super::ImportInput]) -> bool {
 		return true;
 	}
 
-	// `wat_input!(import types; ...)` unconditionally inserts one space between
-	// arguments, so two or more arguments always produce a non-empty fragment.
+	// Input groups are separated by a space, so two or more arguments always
+	// produce a non-empty fragment.
 	if inputs.len() > 1 {
 		return false;
 	}

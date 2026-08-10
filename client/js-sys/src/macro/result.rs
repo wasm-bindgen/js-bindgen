@@ -50,19 +50,6 @@ const WAT_CATCH: &str = crate::const_concat!(
 );
 
 #[must_use]
-pub const fn catches_result_in_js<T: ReturnFromJS>() -> bool {
-	#[cfg(target_feature = "exception-handling")]
-	{
-		false
-	}
-
-	#[cfg(not(target_feature = "exception-handling"))]
-	{
-		crate::r#macro::return_from_js_is_result::<T>()
-	}
-}
-
-#[must_use]
 pub const fn js_result_try<T: ReturnFromJS>() -> &'static str {
 	#[cfg(target_feature = "exception-handling")]
 	{

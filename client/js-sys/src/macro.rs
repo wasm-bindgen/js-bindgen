@@ -2,13 +2,9 @@ mod abi;
 mod closure;
 mod export;
 mod import;
-mod js_import;
 mod result;
 mod text;
 mod wat;
-mod wat_import;
-
-pub use alloc::boxed::Box;
 
 pub use abi::*;
 pub use import::*;
@@ -23,11 +19,6 @@ pub use crate::{
 	js_export, js_export_arguments, js_export_input_arguments, js_export_output_expression,
 	js_export_parameters, js_export_promising, js_export_promising_then, js_export_result_throw,
 };
-// JavaScript import shims.
-pub use crate::{
-	js_function, js_import, js_indirect_function, js_input_parameters, js_needs_shim, js_output,
-	js_parameter,
-};
 // WAT closure shims.
 pub use crate::{
 	wat_closure, wat_closure_call, wat_closure_direct, wat_closure_indirect,
@@ -35,7 +26,5 @@ pub use crate::{
 };
 // WAT export shims.
 pub use crate::{wat_export, wat_export_direct, wat_export_indirect};
-// WAT import shims.
-pub use crate::{wat_import, wat_import_output};
 // Shared WAT helpers.
 pub use crate::{wat_imports, wat_input, wat_locals, wat_slots, wat_unique_list};

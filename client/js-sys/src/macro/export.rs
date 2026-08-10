@@ -316,17 +316,29 @@ macro_rules! js_export {
 			$crate::r#macro::js_export_parameters!($(($par, $input)),*);
 		const ARGUMENTS: &::core::primitive::str =
 			$crate::r#macro::js_export_arguments!($(($par, $input)),*);
+		const PASSTHROUGH: ::core::primitive::bool = true
+			$(&& !$crate::r#macro::js_from_has_conversion::<$input>())*;
+		const RAW: &::core::primitive::str = $crate::r#macro::const_concat!(
+			"wasmExports['",
+			$export,
+			"']",
+		);
 
 		$($crate::r#macro::validate_from_js::<$input>();)*
-		$crate::r#macro::const_concat!(
-			"(",
-			PARAMETERS,
-			") => {\n    wasmExports['",
-			$export,
-			"'](",
-			ARGUMENTS,
-			")\n}"
-		)
+
+		if PASSTHROUGH {
+			RAW
+		} else {
+			$crate::r#macro::const_concat!(
+				"(",
+				PARAMETERS,
+				") => {\n    ",
+				RAW,
+				"(",
+				ARGUMENTS,
+				")\n}"
+			)
+		}
 	}};
 	($export:expr, ($(($par:literal, $input:ty)),*), $output:ty $(,)?) => {{
 		const PARAMETERS: &::core::primitive::str =
@@ -337,22 +349,36 @@ macro_rules! js_export {
 			$crate::r#macro::js_export_output_expression!($output);
 		const THROW: &::core::primitive::str =
 			$crate::r#macro::js_export_result_throw!("    ", $output);
+		const PASSTHROUGH: ::core::primitive::bool =
+			!$crate::r#macro::js_return_has_conversion::<$output>()
+				&& !$crate::r#macro::return_into_js_is_result::<$output>()
+				$(&& !$crate::r#macro::js_from_has_conversion::<$input>())*;
+		const RAW: &::core::primitive::str = $crate::r#macro::const_concat!(
+			"wasmExports['",
+			$export,
+			"']",
+		);
 
 		$($crate::r#macro::validate_from_js::<$input>();)*
 		$crate::r#macro::validate_return_into_js::<$output>();
-		$crate::r#macro::const_concat!(
-			"(",
-			PARAMETERS,
-			") => {\n    const ret = wasmExports['",
-			$export,
-			"'](",
-			ARGUMENTS,
-			")\n",
-			THROW,
-			"    return ",
-			OUTPUT,
-			"\n}"
-		)
+
+		if PASSTHROUGH {
+			RAW
+		} else {
+			$crate::r#macro::const_concat!(
+				"(",
+				PARAMETERS,
+				") => {\n    const ret = ",
+				RAW,
+				"(",
+				ARGUMENTS,
+				")\n",
+				THROW,
+				"    return ",
+				OUTPUT,
+				"\n}"
+			)
+		}
 	}};
 }
 

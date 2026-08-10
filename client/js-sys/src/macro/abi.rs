@@ -2,7 +2,7 @@ use crate::hazard::{
 	FromJS, IntoJS, ReturnAbi, ReturnFromJS, ReturnIntoJS, Slot, WasmAbi, WasmRet, WatConv,
 };
 
-// Rust ABI shims used by generated import and export functions.
+// Rust `ABI` shims used by generated import and export functions.
 
 pub type InputSlot1<T> = <<T as IntoJS>::Abi as WasmAbi>::Slot1;
 pub type InputSlot2<T> = <<T as IntoJS>::Abi as WasmAbi>::Slot2;
@@ -51,13 +51,13 @@ pub fn return_to_js<T: ReturnIntoJS>(value: T) -> WasmRet<T::Abi> {
 }
 
 /// Lowers a value through a different [`IntoJS`] implementation with the same
-/// ABI. This is reserved for generated `#[js_sys(type = ...)]` overrides, where
-/// `T` must also describe the value's WAT and JavaScript conversions.
+/// `ABI`. This is reserved for generated `#[js_sys(type = ...)]` overrides,
+/// where `T` must also describe the value's WAT and JavaScript conversions.
 ///
 /// # Safety
 ///
-/// The value's lowering must have the semantics expected by `T`; sharing an ABI
-/// alone does not make two [`IntoJS`] implementations interchangeable.
+/// The value's lowering must have the semantics expected by `T`; sharing an
+/// `ABI` alone does not make two [`IntoJS`] implementations interchangeable.
 #[must_use]
 #[inline]
 pub unsafe fn split_input_as<T: IntoJS>(
@@ -72,7 +72,7 @@ pub fn join_output<T: ReturnFromJS>(value: OutputRet<T>) -> T {
 	T::from_return_abi(value)
 }
 
-// Compile-time validation of conversion metadata.
+// Compile-time validation of conversion `metadata`.
 
 #[must_use]
 pub const fn into_js_is_multislot<T: IntoJS>() -> bool {
@@ -140,13 +140,13 @@ pub const fn validate_return_from_js<T: ReturnFromJS>() {
 	);
 }
 
-// WAT metadata shared by import and export shims.
+// WAT `metadata` shared by import and export shims.
 
 /// The `WAT` representation of one `ABI` slot at a JavaScript boundary.
 #[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct WatSlot {
-	/// The carrier type in the Rust function ABI.
+	/// The carrier type in the Rust function `ABI`.
 	pub abi: &'static str,
 	/// The type visible at the JavaScript boundary.
 	pub boundary: &'static str,
@@ -239,69 +239,6 @@ pub const fn wat_direct<T: ReturnFromJS>() -> &'static str {
 }
 
 #[must_use]
-pub const fn wat_indirect_type<T: ReturnFromJS>() -> &'static str {
-	if return_from_js_is_direct::<T>() {
-		""
-	} else {
-		crate::util::WAT_PTR_TYPE
-	}
-}
-
-#[must_use]
-pub const fn wat_indirect_import_type<T: ReturnFromJS>() -> &'static str {
-	if return_from_js_is_direct::<T>() {
-		""
-	} else {
-		into_js_wat_slots::<crate::util::PtrMut<()>>()[0].boundary
-	}
-}
-
-#[must_use]
-pub const fn wat_indirect_conv<T: ReturnFromJS>() -> &'static str {
-	if return_from_js_is_direct::<T>() {
-		""
-	} else {
-		into_js_wat_slots::<crate::util::PtrMut<()>>()[0].conv
-	}
-}
-
-#[must_use]
-pub const fn wat_output_imports<T: ReturnFromJS>() -> &'static str {
-	if return_from_js_is_direct::<T>() {
-		return_from_js_wat_slots::<T>()[0].imports
-	} else {
-		""
-	}
-}
-
-#[must_use]
-pub const fn wat_output_locals<T: ReturnFromJS>() -> &'static str {
-	if return_from_js_is_direct::<T>() {
-		return_from_js_wat_slots::<T>()[0].locals
-	} else {
-		into_js_wat_slots::<crate::util::PtrMut<()>>()[0].locals
-	}
-}
-
-#[must_use]
-pub const fn wat_output_import_type<T: ReturnFromJS>() -> &'static str {
-	if return_from_js_is_direct::<T>() {
-		return_from_js_wat_slots::<T>()[0].boundary
-	} else {
-		""
-	}
-}
-
-#[must_use]
-pub const fn wat_output_conv<T: ReturnFromJS>() -> &'static str {
-	if return_from_js_is_direct::<T>() {
-		return_from_js_wat_slots::<T>()[0].conv
-	} else {
-		""
-	}
-}
-
-#[must_use]
 pub const fn return_from_js_is_direct<T: ReturnFromJS>() -> bool {
 	<T::Abi as ReturnAbi>::MODE.is_direct()
 }
@@ -352,7 +289,7 @@ pub const fn wat_pointer_type() -> &'static str {
 	crate::util::WAT_PTR_TYPE
 }
 
-// JavaScript conversion metadata.
+// JavaScript conversion `metadata`.
 
 #[must_use]
 pub const fn js_input_embed<T: IntoJS>() -> (&'static str, &'static str) {
