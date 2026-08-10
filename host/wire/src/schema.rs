@@ -185,11 +185,19 @@ impl WireImportOutput {
 	}
 }
 
+/// The role of one generated `Wasm` adapter.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WireImportKind {
+	Normal,
+	ClosureFactory,
+}
+
 /// One semantic JavaScript import.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct WireImport {
 	pub(crate) module: &'static str,
 	pub(crate) name: &'static str,
+	pub(crate) kind: WireImportKind,
 	pub(crate) inputs: &'static [WireImportInput],
 	pub(crate) output: Option<WireImportOutput>,
 	pub(crate) binding: Option<WireImportBinding>,
@@ -210,11 +218,26 @@ impl WireImport {
 		Self {
 			module,
 			name,
+			kind: WireImportKind::Normal,
 			inputs,
 			output,
 			binding,
 			suspending,
 		}
+	}
+
+	#[must_use]
+	pub const fn closure_factory(
+		module: &'static str,
+		name: &'static str,
+		inputs: &'static [WireImportInput],
+		output: Option<WireImportOutput>,
+		binding: Option<WireImportBinding>,
+		suspending: bool,
+	) -> Self {
+		let mut import = Self::new(module, name, inputs, output, binding, suspending);
+		import.kind = WireImportKind::ClosureFactory;
+		import
 	}
 }
 

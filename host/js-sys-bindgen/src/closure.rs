@@ -12,6 +12,8 @@ use syn::{
 use xxhash_rust::xxh3::xxh3_128;
 
 use crate::export::{ExportAbi, lower_abi};
+use crate::hygiene::Hygiene;
+use crate::{function, r#macro::render_import_groups};
 
 mod keyword {
 	syn::custom_keyword!(js_sys);
@@ -55,6 +57,18 @@ pub(crate) fn closure_with(
 		),
 		span,
 	);
+	let factory_item = parse_quote_spanned! {span=>
+		#[js_sys(js_embed = #factory_name)]
+		fn #factory_ident(
+			data: ::core::primitive::usize,
+		) -> #js_sys::JsValue;
+	};
+	let mut hygiene = Hygiene::Qualified {
+		js_sys: Some(&js_sys),
+	};
+	let (factory_function, factory_import) =
+		function::expand_closure_factory(&mut hygiene, crate_name, factory_item)?;
+	let factory_wire = render_import_groups(vec![factory_import]);
 	let inputs: Vec<_> = signature.inputs.iter().collect();
 	let output = signature.output.as_ref();
 	let ExportAbi {
@@ -183,13 +197,8 @@ pub(crate) fn closure_with(
 				#factory_js,
 			}
 
-			#[#js_sys::js_sys(js_sys = #js_sys)]
-			extern "js-sys" {
-				#[js_sys(js_embed = #factory_name)]
-				fn #factory_ident(
-					data: ::core::primitive::usize,
-				) -> #js_sys::JsValue;
-			}
+			#factory_function
+			#factory_wire
 
 			let allocation = allocate(#expression);
 			let value = #factory_ident(allocation.data());

@@ -4,7 +4,10 @@ use alloc::{rc::Rc, vec::Vec};
 
 pub use crate::PointerWidth;
 pub use crate::abi::ResultLayout;
-use crate::abi::{RefType, WatIndexType, WatType};
+use crate::{
+	WireImportKind,
+	abi::{RefType, WatIndexType, WatType},
+};
 
 /// One primitive `Wasm` `ABI` slot.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -199,6 +202,7 @@ pub struct ImportBinding<'a> {
 pub struct Import<'a> {
 	pub module: &'a str,
 	pub name: &'a str,
+	pub kind: WireImportKind,
 	pub inputs: Vec<ImportInput<'a>>,
 	pub output: Option<ImportOutput<'a>>,
 	pub binding: Option<ImportBinding<'a>>,

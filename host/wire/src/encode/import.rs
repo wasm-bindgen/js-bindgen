@@ -1,10 +1,10 @@
 use core::mem::size_of;
 
 use crate::{
-	IMPORT_CATCH_JAVASCRIPT, IMPORT_CATCH_WASM, IMPORT_HAS_BINDING, IMPORT_HAS_OUTPUT,
-	IMPORT_OUTPUT_DIRECT, IMPORT_OUTPUT_RESULT, IMPORT_SUSPENDING, WireImport, WireImportBinding,
-	WireImportCatch, WireImportInput, WireImportInputType, WireImportOutput, WireImportOutputType,
-	WireImportTypeTable,
+	IMPORT_CATCH_JAVASCRIPT, IMPORT_CATCH_WASM, IMPORT_CLOSURE_FACTORY, IMPORT_HAS_BINDING,
+	IMPORT_HAS_OUTPUT, IMPORT_OUTPUT_DIRECT, IMPORT_OUTPUT_RESULT, IMPORT_SUSPENDING, WireImport,
+	WireImportBinding, WireImportCatch, WireImportInput, WireImportInputType, WireImportKind,
+	WireImportOutput, WireImportOutputType, WireImportTypeTable,
 	abi::{JsCatch, WatCatch},
 };
 
@@ -268,7 +268,11 @@ impl WireImport {
 		encoder.string(self.name);
 		encoder.u8(flag(self.suspending, IMPORT_SUSPENDING)
 			| flag(self.output.is_some(), IMPORT_HAS_OUTPUT)
-			| flag(self.binding.is_some(), IMPORT_HAS_BINDING));
+			| flag(self.binding.is_some(), IMPORT_HAS_BINDING)
+			| flag(
+				matches!(self.kind, WireImportKind::ClosureFactory),
+				IMPORT_CLOSURE_FACTORY,
+			));
 		encoder.count(self.inputs.len());
 		let mut index = 0;
 		while index < self.inputs.len() {

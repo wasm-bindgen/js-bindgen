@@ -30,7 +30,14 @@ pub(crate) struct FunctionImport {
 	pub(crate) output_type: Option<Type>,
 	pub(crate) binding: Option<FunctionBinding>,
 	pub(crate) suspending: bool,
+	pub(crate) kind: FunctionImportKind,
 	pub(crate) macro_path: Path,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum FunctionImportKind {
+	Normal,
+	ClosureFactory,
 }
 
 /// JavaScript binding data shared by the flat and direct Wire emitters.
@@ -230,6 +237,16 @@ pub(crate) fn expand(
 	};
 
 	Ok((item, import))
+}
+
+pub(crate) fn expand_closure_factory(
+	hygiene: &mut Hygiene<'_>,
+	crate_: &str,
+	item: ForeignItemFn,
+) -> Result<(TokenStream, FunctionImport)> {
+	let (function, mut import) = expand(hygiene, None, crate_, &HashMap::new(), item)?;
+	import.kind = FunctionImportKind::ClosureFactory;
+	Ok((function, import))
 }
 
 impl FunctionPlan {
@@ -690,6 +707,7 @@ impl FunctionPlan {
 			output_type: output_abi_ty.cloned(),
 			binding,
 			suspending: *suspending,
+			kind: FunctionImportKind::Normal,
 			macro_path: macro_path.clone(),
 		}
 	}

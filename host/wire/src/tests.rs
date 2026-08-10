@@ -117,7 +117,7 @@ const IMPORT_TYPE_TABLE: WireImportTypeTable = WireImportTypeTable::new(
 );
 const IMPORT_EMBEDS: &[JsEmbed] = &[JsEmbed::new("js_sys", "identity")];
 const IMPORTS: &[WireImport] = &[
-	WireImport::new(
+	WireImport::closure_factory(
 		"js_sys",
 		"number.identity",
 		&[WireImportInput::new("arg0", 0)],
@@ -248,6 +248,8 @@ fn imports() {
 		]
 	);
 	assert!(imports[1].suspending);
+	assert_eq!(imports[0].kind, WireImportKind::ClosureFactory);
+	assert_eq!(imports[1].kind, WireImportKind::Normal);
 	let Some(ImportCatch::Wasm(catch)) = &group.catch else {
 		panic!("expected Wasm catch metadata");
 	};

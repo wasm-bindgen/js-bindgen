@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use js_bindgen_wire::WireImportKind;
 use js_bindgen_wire::abi::WatType;
 use js_bindgen_wire::model::{
 	Import, ImportCatch, ImportErrorMode, ImportGroup, ImportOutput, ImportOutputAbi, Slot,
@@ -155,6 +156,10 @@ fn render_shim(wat: &mut String, shim: Shim<'_, '_>) {
 	} = shim;
 	write!(wat, "(func ${}.{} (@sym)", import.module, import.name)
 		.expect("writing to a String cannot fail");
+	if import.kind == WireImportKind::ClosureFactory {
+		write!(wat, " (@comdat \"{}.{}\")", import.module, import.name)
+			.expect("writing to a String cannot fail");
+	}
 
 	if let Some(ImportOutput {
 		abi: ImportOutputAbi::Indirect { retptr, .. },

@@ -239,7 +239,7 @@ struct ImportGroup {
 	macro_path: Path,
 }
 
-fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream {
+pub(crate) fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream {
 	let mut groups: Vec<ImportGroup> = Vec::new();
 
 	for import in imports {
@@ -288,6 +288,14 @@ fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream {
 				let name = &import.name;
 				let input_names = &import.input_names;
 				let suspending = import.suspending;
+				let constructor = match import.kind {
+					crate::function::FunctionImportKind::Normal => {
+						quote::quote!(#macro_path::WireImport::new)
+					}
+					crate::function::FunctionImportKind::ClosureFactory => {
+						quote::quote!(#macro_path::WireImport::closure_factory)
+					}
+				};
 				let input_indices: Vec<_> = import
 					.input_types
 					.iter()
@@ -335,7 +343,7 @@ fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream {
 				};
 
 				wire_descriptors.push(quote::quote! {
-					#macro_path::WireImport::new(
+					#constructor(
 						#module,
 						#name,
 						&[#(#wire_inputs),*],

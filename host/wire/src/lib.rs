@@ -40,8 +40,10 @@ pub(crate) const WAT_IMPORT_TAG: u8 = 2;
 pub(crate) const IMPORT_SUSPENDING: u8 = 1 << 0;
 pub(crate) const IMPORT_HAS_OUTPUT: u8 = 1 << 1;
 pub(crate) const IMPORT_HAS_BINDING: u8 = 1 << 2;
+pub(crate) const IMPORT_CLOSURE_FACTORY: u8 = 1 << 3;
 #[cfg(feature = "alloc")]
-pub(crate) const IMPORT_FLAGS: u8 = IMPORT_SUSPENDING | IMPORT_HAS_OUTPUT | IMPORT_HAS_BINDING;
+pub(crate) const IMPORT_FLAGS: u8 =
+	IMPORT_SUSPENDING | IMPORT_HAS_OUTPUT | IMPORT_HAS_BINDING | IMPORT_CLOSURE_FACTORY;
 
 pub(crate) const IMPORT_OUTPUT_DIRECT: u8 = 1 << 0;
 pub(crate) const IMPORT_OUTPUT_RESULT: u8 = 1 << 1;

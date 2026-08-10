@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::Path;
@@ -63,7 +62,6 @@ pub fn processing<'a>(args: &'a Arguments<'a>) -> PreOutput<'a> {
 	let main_memory = main_memory(arch, args, &mut add_args);
 
 	let mut js_store = JsStore::default();
-	let mut seen_wat = HashSet::new();
 	let mut is_test = false;
 
 	// Extract embedded WAT from object files.
@@ -75,7 +73,6 @@ pub fn processing<'a>(args: &'a Arguments<'a>) -> PreOutput<'a> {
 		js_bindgen_ld_shared::ld_input_parser(input, |path, data, object_mtime| -> Result<()> {
 			process_object(
 				&mut js_store,
-				&mut seen_wat,
 				matches!(arch, Arch::Wasm64),
 				&mut add_args,
 				path,
@@ -144,7 +141,6 @@ fn compile_wat(
 /// them and passes them to the linker.
 fn process_object(
 	js_store: &mut JsStore,
-	seen_wat: &mut HashSet<String>,
 	wasm64: bool,
 	add_args: &mut Vec<OsString>,
 	archive_path: &Path,
@@ -173,9 +169,6 @@ fn process_object(
 			Payload::CustomSection(c) if c.name() == WAT_SECTION => {
 				for wat in JsBindgenWatSectionParser::new(c) {
 					let wasm_path = next_wasm_object();
-					if !seen_wat.insert(wat.to_owned()) {
-						continue;
-					}
 					let wasm_bytes = compile_wat(&wasm_path, wasm64, wat, object_mtime)?;
 
 					let exist_file;
@@ -188,7 +181,6 @@ fn process_object(
 
 					process_object(
 						js_store,
-						seen_wat,
 						wasm64,
 						&mut Vec::new(),
 						&wasm_path,
@@ -216,10 +208,8 @@ fn process_object(
 
 							if let Some(wat) = rendered.wat {
 								let wasm_path = next_wasm_object();
-								if seen_wat.insert(wat.clone()) {
-									compile_wat(&wasm_path, wasm64, &wat, object_mtime)?;
-									add_args.push(wasm_path.into());
-								}
+								compile_wat(&wasm_path, wasm64, &wat, object_mtime)?;
+								add_args.push(wasm_path.into());
 							}
 						}
 						RenderedRecord::Exports(exports) => {
@@ -230,10 +220,8 @@ fn process_object(
 
 								add_args.push(format!("--export={name}").into());
 								let wasm_path = next_wasm_object();
-								if seen_wat.insert(shim.clone()) {
-									compile_wat(&wasm_path, wasm64, &shim, object_mtime)?;
-									add_args.push(wasm_path.into());
-								}
+								compile_wat(&wasm_path, wasm64, &shim, object_mtime)?;
+								add_args.push(wasm_path.into());
 							}
 						}
 					}
