@@ -1,5 +1,5 @@
-use js_sys::JsValue;
 use js_sys::hazard::JsCast;
+use js_sys::{JsValue, js_sys};
 
 #[js_sys(namespace = "console")]
 extern "js-sys" {
@@ -13,5 +13,6 @@ extern "js-sys" {
 
 	pub fn error(data: &JsValue);
 
+	#[must_use]
 	pub fn error1(data: &JsValue) -> u128;
 }

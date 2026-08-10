@@ -1,7 +1,6 @@
 [workspace]
 resolver = "3"
 members = [
-	"cargo-js-sys",
 	"cargo-shim",
 	"cli",
 	"cli-lib",
@@ -37,14 +36,12 @@ include = [
 ]
 
 [workspace.dependencies]
-annotate-snippets = { version = "0.12", default-features = false }
 anstyle = { version = "1", default-features = false }
 anyhow = "1"
 argfile = { version = "1", features = ["response"] }
 axum = { version = "0.8", default-features = false, features = ["http1", "http2", "json", "tokio"] }
 cargo_metadata = "0.23"
 clap = { version = "4", features = ["derive"] }
-clap-cargo = { version = "0.18", features = ["cargo_metadata"] }
 dtor = { version = "1", default-features = false, features = ["proc_macro"] }
 fantoccini = { version = "0.22", default-features = false, features = ["rustls-tls"] }
 foldhash = { version = "0.2", default-features = false }

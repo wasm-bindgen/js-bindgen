@@ -3,15 +3,13 @@ use std::env;
 
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-#[cfg(any(feature = "file", test))]
+#[cfg(test)]
 use syn::File;
 use syn::parse::Parser;
 use syn::{Attribute, Error, ForeignItem, Item, ItemForeignMod, LitStr, Path, meta};
 
 use crate::function::{FunctionImport, expand};
 use crate::hygiene::Hygiene;
-#[cfg(feature = "file")]
-use crate::hygiene::ImportManager;
 use crate::r#type::{Type, TypeOptions};
 
 pub fn r#macro(attr: TokenStream, item: TokenStream) -> Result<TokenStream, TokenStream> {
@@ -42,24 +40,6 @@ pub fn r#macro(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Toke
 	}
 }
 
-#[cfg(feature = "file")]
-pub(crate) fn expand_file(
-	attr: TokenStream,
-	foreign_mod: ItemForeignMod,
-	crate_name: &str,
-	imports: &mut ImportManager,
-) -> Result<GeneratedItems, (Option<GeneratedItems>, Error)> {
-	let (_, namespace, error) = parse_block_options(attr, false);
-
-	expand_foreign_mod(
-		foreign_mod,
-		crate_name,
-		namespace.as_deref(),
-		Hygiene::Imports(imports),
-		error,
-	)
-}
-
 #[cfg(test)]
 pub(crate) fn expand_for_test(
 	attr: TokenStream,
@@ -74,7 +54,7 @@ fn expand_proc_macro(
 	foreign_mod: ItemForeignMod,
 	crate_name: &str,
 ) -> Result<GeneratedItems, (Option<GeneratedItems>, Error)> {
-	let (js_sys, namespace, error) = parse_block_options(attr, true);
+	let (js_sys, namespace, error) = parse_block_options(attr);
 
 	expand_foreign_mod(
 		foreign_mod,
@@ -87,10 +67,7 @@ fn expand_proc_macro(
 	)
 }
 
-fn parse_block_options(
-	attr: TokenStream,
-	allow_js_sys_path: bool,
-) -> (Option<Path>, Option<String>, ErrorStack) {
+fn parse_block_options(attr: TokenStream) -> (Option<Path>, Option<String>, ErrorStack) {
 	let mut error = ErrorStack::new();
 	let mut js_sys: Option<Path> = None;
 	let mut namespace: Option<String> = None;
@@ -99,9 +76,7 @@ fn parse_block_options(
 		if meta.path.is_ident("js_sys") {
 			// The block-level `js_sys` option selects the crate path used by
 			// every generated item in this foreign module.
-			if !allow_js_sys_path {
-				Err(meta.error("`js_sys` attribute only allowed with proc-macro hygiene"))
-			} else if js_sys.is_some() {
+			if js_sys.is_some() {
 				Err(meta.error("duplicate attribute"))
 			} else {
 				js_sys = Some(meta.value()?.parse()?);
@@ -227,7 +202,7 @@ impl GeneratedItems {
 		self.0
 	}
 
-	#[cfg(any(feature = "file", test))]
+	#[cfg(test)]
 	pub(crate) fn into_items(self) -> Result<Vec<Item>, Error> {
 		Ok(syn::parse2::<File>(self.0)?.items)
 	}

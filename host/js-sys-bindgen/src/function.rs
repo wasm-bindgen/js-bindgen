@@ -209,7 +209,7 @@ pub(crate) fn expand(
 	} else if output_ty.is_some() {
 		quote_spanned!(span=> #macro_path::join_output(#foreign_call))
 	} else {
-		quote_spanned!(span=> #foreign_call;)
+		foreign_call
 	};
 
 	let item_fn = quote_spanned! {span=>

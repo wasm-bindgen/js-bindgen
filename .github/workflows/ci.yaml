@@ -83,11 +83,6 @@ jobs:
           cache-bin: false
       - name: Prepare Output Directory
         run: mkdir ${{ runner.temp }}/host-tools
-      - name: Build `cargo-js-sys`
-        working-directory: host
-        run: |
-          cargo ${{ matrix.os.sub-command }} build -p cargo-js-sys ${{ matrix.os.args }} --release
-          cp target/${{ matrix.os.path }}release/cargo-js-sys${{ matrix.os.exe }} ${{ runner.temp }}/host-tools/
       - name: Build `js-bindgen-ld`
         working-directory: host
         run: |
@@ -529,33 +524,3 @@ jobs:
       - name: Test
         working-directory: host
         run: js-bindgen-dev host test -v
-
-  cargo-js-sys:
-    name: Check `cargo-js-sys`
-
-    needs: host-tools
-
-    runs-on: ubuntu-latest
-
-    timeout-minutes: 20
-
-    env:
-      JBG_DEV_TOOLS: 1
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - name: Download Host Tools
-        uses: actions/download-artifact@v8
-        with:
-          name: host-tools-linux
-          path: ${{ runner.temp }}/host-tools/
-      - name: Install Host Tools
-        run: |
-          chmod +x ${{ runner.temp }}/host-tools/*
-          echo "${{ runner.temp }}/host-tools" >> $GITHUB_PATH
-      - name: Check
-        working-directory: client
-        run: cargo-js-sys js-sys -c --workspace -v

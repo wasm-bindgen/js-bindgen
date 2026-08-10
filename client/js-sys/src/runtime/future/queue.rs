@@ -12,10 +12,6 @@ js_bindgen::embed_js!(
 
 #[crate::js_sys(js_sys = crate)]
 extern "js-sys" {
-	#[expect(
-		clippy::unnecessary_operation,
-		reason = "the generated wrapper calls a side-effect-only import"
-	)]
 	#[js_sys(js_embed = "future.schedule")]
 	fn schedule();
 }

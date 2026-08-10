@@ -30,7 +30,6 @@ inline-snap = { workspace = true }
 prettyplease = { workspace = true }
 
 [features]
-file = ["dep:foldhash", "dep:hashbrown"]
 web-idl = ["dep:foldhash", "dep:hashbrown", "dep:weedle2"]
 
 [lints]

@@ -13,8 +13,8 @@ use anyhow::Result;
 use clap::{Args, Subcommand, ValueEnum};
 use strum::EnumIter;
 
+pub use self::check::Tool;
 use self::check::{Check, Tools};
-pub use self::check::{ClientTool, Tool};
 use self::fmt::Fmt;
 use self::permutation::{Profile, Toolchain};
 use self::test::Test;
