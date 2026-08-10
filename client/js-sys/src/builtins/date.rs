@@ -15,7 +15,7 @@ extern "js-sys" {
 	pub fn new() -> Date;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/Date)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Date)]
 	pub fn new_with_value(value: &JsValue) -> Result<Date, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/Date)

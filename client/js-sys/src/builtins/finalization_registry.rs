@@ -9,7 +9,7 @@ extern "js-sys" {
 	pub type FinalizationRegistry;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/FinalizationRegistry/FinalizationRegistry)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = FinalizationRegistry)]
 	pub fn new(cleanup_callback: &Function) -> Result<FinalizationRegistry, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/FinalizationRegistry/register)

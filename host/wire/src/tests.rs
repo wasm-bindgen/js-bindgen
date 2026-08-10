@@ -150,19 +150,30 @@ const EXPORT_I32_INPUT: WireExportInputType =
 	WireExportInputType::new([I32, None, None, None], None);
 const EXPORT_DIRECT_OUTPUT: WireExportOutputType =
 	WireExportOutputType::direct([I32, None, None, None], None);
+const EXPORT_VOID_OUTPUT: WireExportOutputType =
+	WireExportOutputType::direct([None, None, None, None], None);
 const EXPORT_RESULT_UNIT_OUTPUT: WireExportOutputType = WireExportOutputType::indirect(
 	[None, None, I32, I32],
 	ReturnConv::Result(None),
 	WireReturnFrame::new(16, [0, 0, 0, 8]),
 	Some(ResultLayout::new(0, 1)),
 );
-const EXPORTS: &[WireExport] = &[WireExport::new_symbol(
-	"exports",
-	"foo",
-	"foo.raw",
-	&[WireExportInput::new(&EXPORT_I32_INPUT)],
-	Some(WireExportOutput::new(&EXPORT_DIRECT_OUTPUT)),
-)];
+const EXPORTS: &[WireExport] = &[
+	WireExport::new_symbol(
+		"exports",
+		"foo",
+		"foo.raw",
+		&[WireExportInput::new(&EXPORT_I32_INPUT)],
+		Some(WireExportOutput::new(&EXPORT_DIRECT_OUTPUT)),
+	),
+	WireExport::new_symbol(
+		"exports",
+		"unit",
+		"unit.raw",
+		&[],
+		Some(WireExportOutput::new(&EXPORT_VOID_OUTPUT)),
+	),
+];
 const EXPORT_WIRE: Wire = Wire::exports_with(PointerWidth::Wasm64, EXPORTS);
 const EXPORT_LEN: usize = wire_blob_len(&EXPORT_WIRE);
 const EXPORT_RECORD: WireRecord<EXPORT_LEN> = WireRecord::new(&EXPORT_WIRE);
@@ -420,7 +431,7 @@ fn exports() {
 	let Record::Exports(exports) = decode(EXPORT_RECORD.as_bytes()).unwrap() else {
 		panic!("expected exports");
 	};
-	assert_eq!(exports.len(), 1);
+	assert_eq!(exports.len(), 2);
 	assert_eq!((exports[0].module, exports[0].name), ("exports", "foo"));
 	assert_eq!(exports[0].pointer_width, PointerWidth::Wasm64);
 	assert_eq!(exports[0].callee, Callee::Symbol { name: "foo.raw" });
@@ -429,7 +440,15 @@ fn exports() {
 	let Some(ExportOutput::Direct { slot, .. }) = &exports[0].output else {
 		panic!("expected direct output");
 	};
+	let slot = slot.as_ref().expect("expected one direct output slot");
 	assert_eq!(slot.rust, WatType::I32);
+	assert_eq!((exports[1].module, exports[1].name), ("exports", "unit"));
+	assert!(
+		exports[1]
+			.output
+			.as_ref()
+			.is_some_and(ExportOutput::is_void)
+	);
 }
 
 #[test]

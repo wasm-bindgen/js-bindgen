@@ -21,7 +21,10 @@ extern "js-sys" {
 	pub fn new_typed<K, V>() -> WeakMap<K, V>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakMap/WeakMap)
-	#[js_sys(constructor, return_abi = Result<WeakMap, JsValue>)]
+	#[js_sys(
+		constructor = WeakMap<K, V>,
+		return_abi = Result<WeakMap, JsValue>
+	)]
 	pub fn new_from_iterable<K, V, I: Iterable>(
 		#[js_sys(type = &JsValue)] entries: &I,
 	) -> Result<WeakMap<K, V>, JsValue>;

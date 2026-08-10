@@ -108,7 +108,9 @@ impl<'export, 'wire> PreparedCall<'export, 'wire> {
 
 fn render_sync(call: &PreparedCall<'_, '_>) -> String {
 	let invoke = format!("{}({})", call.callable, call.arguments);
-	if let Some(output) = call.export.output.as_ref() {
+	if let Some(output) = call.export.output.as_ref()
+		&& !output.is_void()
+	{
 		format!(
 			"({}) => {{\n{}    const ret = {invoke}\n{}\n}}",
 			call.parameters,
@@ -181,7 +183,7 @@ fn render_output_slot(output: &ExportOutput<'_>, slot: usize) -> String {
 		if slot < usize::from(result.discriminant) {
 			return format!("ret[{slot}]");
 		}
-	} else if output.is_direct() {
+	} else if output.is_direct() && !output.is_void() {
 		if slot == 0 {
 			return "ret".to_owned();
 		}
@@ -189,4 +191,31 @@ fn render_output_slot(output: &ExportOutput<'_>, slot: usize) -> String {
 		return format!("ret[{slot}]");
 	}
 	String::new()
+}
+
+#[cfg(test)]
+mod tests {
+	use js_bindgen_wire::PointerWidth;
+	use js_bindgen_wire::model::{Callee, Export, ExportOutput};
+
+	use super::render;
+
+	#[test]
+	fn void_passthrough() {
+		let export = Export {
+			module: "test",
+			name: "unit",
+			pointer_width: PointerWidth::Wasm32,
+			inputs: Vec::new(),
+			output: Some(ExportOutput::Direct {
+				slot: None,
+				js_conversion: None,
+			}),
+			embeds: Vec::new(),
+			promising: false,
+			callee: Callee::Symbol { name: "unit.raw" },
+		};
+
+		assert_eq!(render(&export).js, r#"wasmExports["unit"]"#);
+	}
 }

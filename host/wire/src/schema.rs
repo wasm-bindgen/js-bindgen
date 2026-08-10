@@ -306,6 +306,10 @@ impl WireReturnFrame {
 }
 
 impl WireExportOutputType {
+	/// Describes a C `ABI` return with zero or one direct Wasm result slots.
+	///
+	/// A zero-slot return has no JavaScript conversion because the native Wasm
+	/// result is already `undefined`.
 	#[must_use]
 	pub const fn direct(slots: [Option<WatSlot>; 4], conversion: Option<IntoJsConv>) -> Self {
 		let mut slot_count = 0;
@@ -316,7 +320,8 @@ impl WireExportOutputType {
 			}
 			index += 1;
 		}
-		assert!(slot_count == 1);
+		assert!(slot_count <= 1);
+		assert!(slot_count != 0 || conversion.is_none());
 		Self {
 			kind: WireExportOutputKind::Direct { slots, conversion },
 		}

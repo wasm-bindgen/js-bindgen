@@ -79,7 +79,7 @@ extern "js-sys" {
 	pub type Tag;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Tag/Tag)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Tag)]
 	pub fn new(descriptor: &TagDescriptor) -> Result<Tag, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Tag/type)
@@ -93,11 +93,11 @@ extern "js-sys" {
 	pub type Exception;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Exception/Exception)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Exception)]
 	pub fn new(tag: &Tag, payload: &[JsValue]) -> Result<Exception, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Exception/Exception)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Exception)]
 	pub fn new_with_options(
 		tag: &Tag,
 		payload: &[JsValue],

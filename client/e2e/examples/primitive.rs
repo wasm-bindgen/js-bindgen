@@ -15,6 +15,7 @@ fn main() {
 	// ;; exports["add_u128_ref"](1n << 96n, 3n) === (1n << 96n) + 3n
 	// ;; exports["not_bool_ref"](false) === true
 	// ;; (() => { const value = exports["usize_max"](); return value === (typeof value === "bigint" ? 0xffff_ffff_ffff_ffffn : 0xffff_ffff) })()
+	// ;; exports["unit_alias"]() === undefined
 	// ;; exports["option_bool"](undefined) === undefined
 	// ;; exports["option_bool"](false) === true
 	// ;; exports["option_unit"](undefined) === undefined
@@ -64,12 +65,16 @@ fn main() {
 use js_sys::{JsString, JsValue, js_sys};
 
 type JsResult<T> = Result<T, JsString>;
+type Unit = ();
 
 js_sys::js_bindgen::embed_js!(
 	module = "primitive",
 	name = "option.i32",
 	"(value) => value",
 );
+
+#[js_sys]
+fn unit_alias() -> Unit {}
 
 js_sys::js_bindgen::embed_js!(
 	module = "primitive",

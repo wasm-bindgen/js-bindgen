@@ -9,11 +9,11 @@ extern "js-sys" {
 	pub type Instance;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Instance/Instance)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Instance)]
 	pub fn new(module: &Module) -> Result<Instance, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Instance/Instance)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Instance)]
 	pub fn new_with_imports(module: &Module, imports: &Object) -> Result<Instance, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Instance/exports)

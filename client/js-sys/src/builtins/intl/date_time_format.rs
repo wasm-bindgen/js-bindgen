@@ -207,11 +207,11 @@ extern "js-sys" {
 	pub fn new() -> DateTimeFormat;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat/DateTimeFormat)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = DateTimeFormat)]
 	pub fn new_with_locales(locales: &JsValue) -> Result<DateTimeFormat, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat/DateTimeFormat)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = DateTimeFormat)]
 	pub fn new_with_locales_and_options(
 		locales: &JsValue,
 		options: &DateTimeFormatOptions,

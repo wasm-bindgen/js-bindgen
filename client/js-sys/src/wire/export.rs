@@ -21,6 +21,12 @@ impl<T: ReturnIntoJS> MetadataFor<T> for WireExportOutputType {
 				let ReturnConv::Value(conversion) = T::JS_CONV else {
 					panic!("a direct export cannot return Result");
 				};
+				let conversion = if matches!(slots, [None, None, None, None]) {
+					// A zero-slot Wasm return is already JavaScript `undefined`.
+					None
+				} else {
+					conversion
+				};
 				Self::direct(slots, conversion)
 			}
 			ReturnMode::Indirect => {

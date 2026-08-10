@@ -1,6 +1,9 @@
+use std::fmt::Write;
+
 use proc_macro2::{Span, TokenStream};
-use quote::quote_spanned;
-use syn::{Ident, LitStr, Path};
+use quote::{ToTokens, quote_spanned};
+use syn::{Ident, LitStr, Path, PathArguments};
+use xxhash_rust::xxh3::xxh3_128;
 
 /// A global JavaScript path referenced by an imported operation.
 pub(crate) struct FunctionGlobalPath {
@@ -262,10 +265,30 @@ impl ForeignItem {
 		}
 	}
 
-	fn owner_name(&self) -> &Ident {
-		self.owner()
-			.and_then(|owner| owner.segments.last())
-			.map(|segment| &segment.ident)
-			.expect("static and instance bindings always have an owner")
+	fn owner_name(&self) -> String {
+		let owner = self
+			.owner()
+			.expect("static and instance bindings always have an owner");
+		let mut name = String::new();
+		for (index, segment) in owner.segments.iter().enumerate() {
+			if index != 0 {
+				name.push_str("::");
+			}
+			write!(name, "{}", segment.ident).expect("writing to a String cannot fail");
+		}
+
+		if owner
+			.segments
+			.iter()
+			.any(|segment| !matches!(segment.arguments, PathArguments::None))
+		{
+			// Generic arguments are part of the Rust owner identity, but are not
+			// suitable as raw linker symbol text.
+			let syntax = owner.to_token_stream().to_string();
+			write!(name, "${:032x}", xxh3_128(syntax.as_bytes()))
+				.expect("writing to a String cannot fail");
+		}
+
+		name
 	}
 }

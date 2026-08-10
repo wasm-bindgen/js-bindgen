@@ -110,10 +110,17 @@ impl<'a> ExportOutput<'a> {
 		let result = flags & EXPORT_OUTPUT_RESULT != 0;
 		let output = if direct {
 			let slots = value::compact(&slots);
-			decoder.ensure(slots.len() == 1, "direct export output must have one slot")?;
+			decoder.ensure(
+				slots.len() <= 1,
+				"direct export output has more than one slot",
+			)?;
 			decoder.ensure(!result, "direct export output cannot be a Result")?;
+			decoder.ensure(
+				!slots.is_empty() || js_conversion.is_none(),
+				"zero-slot export output cannot have a JavaScript conversion",
+			)?;
 			ExportOutput::Direct {
-				slot: slots[0].clone(),
+				slot: slots.into_iter().next(),
 				js_conversion,
 			}
 		} else {

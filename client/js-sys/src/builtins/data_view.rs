@@ -9,15 +9,15 @@ extern "js-sys" {
 	pub type DataView;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView/DataView)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = DataView)]
 	pub fn new(buffer: &JsValue) -> Result<DataView, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView/DataView)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = DataView)]
 	pub fn new_with_offset(buffer: &JsValue, byte_offset: f64) -> Result<DataView, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView/DataView)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = DataView)]
 	pub fn new_with_offset_and_length(
 		buffer: &JsValue,
 		byte_offset: f64,

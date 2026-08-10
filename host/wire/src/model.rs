@@ -286,7 +286,8 @@ pub struct ReturnFrame<'a> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ExportOutput<'a> {
 	Direct {
-		slot: Slot<'a>,
+		/// The sole direct result, or `None` for a zero-slot return.
+		slot: Option<Slot<'a>>,
 		js_conversion: Option<&'a str>,
 	},
 	Indirect {
@@ -300,6 +301,11 @@ impl<'a> ExportOutput<'a> {
 	#[must_use]
 	pub const fn is_direct(&self) -> bool {
 		matches!(self, Self::Direct { .. })
+	}
+
+	#[must_use]
+	pub const fn is_void(&self) -> bool {
+		matches!(self, Self::Direct { slot: None, .. })
 	}
 
 	#[must_use]

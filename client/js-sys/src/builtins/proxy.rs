@@ -14,7 +14,7 @@ extern "js-sys" {
 	pub type ProxyRevocable;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Proxy)]
 	pub fn new(target: &JsValue, handler: &JsValue) -> Result<Proxy, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/revocable)

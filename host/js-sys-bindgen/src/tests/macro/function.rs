@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use proc_macro2::{Span, TokenStream};
-use syn::Item;
+use quote::ToTokens;
+use syn::{GenericParam, Item};
 
 fn expand_function(
 	namespace: Option<&str>,
@@ -69,6 +70,144 @@ fn function_descriptor_preserves_binding_options() {
 		},
 	);
 	assert!(imported.binding.is_none());
+}
+
+#[test]
+fn constructor_generics() {
+	let (output, _) = expand_function(
+		None,
+		None,
+		syn::parse_quote! {
+			#[js_sys(constructor = Owner<'a, Wrapper<T>, N>)]
+			pub fn new<
+				'a: 'b,
+				'b,
+				U,
+				I,
+				T: ?Sized + Dependency<U> = Fallback,
+				const N: usize = 4,
+			>(
+				value: I,
+			) -> Option<Owner<'a, Wrapper<T>, N>>;
+		},
+	);
+	let item: syn::ItemImpl = syn::parse2(output).unwrap();
+	let expected_owner: syn::Type = syn::parse_quote!(Owner<'a, Wrapper<T>, N>);
+	assert_eq!(*item.self_ty, expected_owner);
+	assert_eq!(generic_names(&item.generics), ["'a", "T", "N"]);
+	let type_param = item
+		.generics
+		.params
+		.iter()
+		.find_map(|param| match param {
+			GenericParam::Type(param) => Some(param),
+			_ => None,
+		})
+		.expect("T is an impl generic");
+	assert_eq!(type_param.bounds.to_token_stream().to_string(), "? Sized");
+	assert!(type_param.default.is_none());
+	let const_param = item
+		.generics
+		.params
+		.iter()
+		.find_map(|param| match param {
+			GenericParam::Const(param) => Some(param),
+			_ => None,
+		})
+		.expect("N is an impl generic");
+	assert!(const_param.default.is_none());
+
+	let method = item
+		.items
+		.iter()
+		.find_map(|item| match item {
+			syn::ImplItem::Fn(item) => Some(item),
+			_ => None,
+		})
+		.expect("constructor impl contains its method");
+	assert_eq!(generic_names(&method.sig.generics), ["'b", "U", "I"]);
+	let where_clause = method
+		.sig
+		.generics
+		.where_clause
+		.as_ref()
+		.expect("impl generic bounds move to the method");
+	let predicates = where_clause.predicates.to_token_stream().to_string();
+	assert!(predicates.contains("'a : 'b"));
+	assert!(predicates.contains("T : Dependency < U >"));
+}
+
+#[test]
+fn qualified_owner_generics() {
+	let (output, _) = expand_function(
+		None,
+		None,
+		syn::parse_quote! {
+			#[js_sys(constructor = Owner<other::T, U>)]
+			pub fn new<T, U>() -> Option<Owner<other::T, U>>;
+		},
+	);
+	let item: syn::ItemImpl = syn::parse2(output).unwrap();
+	assert_eq!(generic_names(&item.generics), ["U"]);
+	let method = item
+		.items
+		.iter()
+		.find_map(|item| match item {
+			syn::ImplItem::Fn(item) => Some(item),
+			_ => None,
+		})
+		.expect("constructor impl contains its method");
+	assert_eq!(generic_names(&method.sig.generics), ["T"]);
+}
+
+#[test]
+fn qualified_owner_js_name() {
+	let mut js_names = HashMap::new();
+	js_names.insert("Owner".to_owned(), "LocalOwner".to_owned());
+	let mut hygiene = crate::hygiene::Hygiene::Qualified { js_sys: None };
+	let (_, import) = crate::function::expand(
+		&mut hygiene,
+		None,
+		"test_crate",
+		&js_names,
+		syn::parse_quote! {
+			#[js_sys(constructor = other::Owner)]
+			pub fn new() -> Option<other::Owner>;
+		},
+	)
+	.unwrap();
+
+	let binding: syn::Expr = syn::parse2(
+		import
+			.binding
+			.as_ref()
+			.expect("generated constructor has a binding")
+			.wire(&import.macro_path, Span::call_site()),
+	)
+	.unwrap();
+	let expected: syn::Expr = syn::parse_quote! {
+		::js_sys::wire::WireImportBinding::Construct {
+			target: ::js_sys::wire::WireGlobalPath::new(
+				::core::option::Option::None,
+				::core::option::Option::None,
+				"Owner"
+			),
+			variadic: false,
+		}
+	};
+	assert_eq!(binding, expected);
+}
+
+fn generic_names(generics: &syn::Generics) -> Vec<String> {
+	generics
+		.params
+		.iter()
+		.map(|param| match param {
+			GenericParam::Lifetime(param) => param.lifetime.to_string(),
+			GenericParam::Type(param) => param.ident.to_string(),
+			GenericParam::Const(param) => param.ident.to_string(),
+		})
+		.collect()
 }
 
 #[test]
@@ -170,5 +309,14 @@ fn invalid_options() {
 			}
 		},
 		"duplicate attribute"
+	);
+	assert_error!(
+		{
+			extern "js-sys" {
+				#[js_sys(constructor = JsTest)]
+				pub fn new();
+			}
+		},
+		"`constructor` requires a return type"
 	);
 }

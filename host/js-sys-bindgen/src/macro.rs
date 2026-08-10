@@ -143,7 +143,16 @@ fn expand_foreign_mod(
 			let rust_name = item.ident.to_string();
 			let js_name = options.js_name.clone().unwrap_or_else(|| rust_name.clone());
 
-			js_names.insert(rust_name.clone(), js_name);
+			if let Some(previous) = js_names.get(&rust_name) {
+				if previous != &js_name {
+					error.push(Error::new_spanned(
+						&item.ident,
+						format!("conflicting JavaScript names for `{rust_name}`"),
+					));
+				}
+			} else {
+				js_names.insert(rust_name.clone(), js_name);
+			}
 			type_options.push_back(options);
 		}
 	}

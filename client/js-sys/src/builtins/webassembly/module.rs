@@ -63,11 +63,11 @@ extern "js-sys" {
 	pub type Module;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Module/Module)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Module)]
 	pub fn new(bytes: &JsValue) -> Result<Module, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Module/Module)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Module)]
 	pub fn new_with_options(bytes: &JsValue, options: &CompileOptions) -> Result<Module, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Module/customSections_static)

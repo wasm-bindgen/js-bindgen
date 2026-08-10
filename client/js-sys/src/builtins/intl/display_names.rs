@@ -133,7 +133,7 @@ extern "js-sys" {
 	pub type DisplayNamesResolvedOptions;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DisplayNames/DisplayNames)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = DisplayNames)]
 	pub fn new(locales: &JsValue, options: &DisplayNamesOptions) -> Result<DisplayNames, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DisplayNames/supportedLocalesOf)

@@ -37,11 +37,11 @@ extern "js-sys" {
 	pub type ArrayBuffer;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer/ArrayBuffer)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = ArrayBuffer)]
 	pub fn new(byte_length: f64) -> Result<ArrayBuffer, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer/ArrayBuffer)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = ArrayBuffer)]
 	pub fn new_with_options(
 		byte_length: f64,
 		options: &ArrayBufferOptions,
@@ -112,11 +112,11 @@ extern "js-sys" {
 	pub type SharedArrayBuffer;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer/SharedArrayBuffer)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = SharedArrayBuffer)]
 	pub fn new(byte_length: f64) -> Result<SharedArrayBuffer, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer/SharedArrayBuffer)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = SharedArrayBuffer)]
 	pub fn new_with_options(
 		byte_length: f64,
 		options: &ArrayBufferOptions,

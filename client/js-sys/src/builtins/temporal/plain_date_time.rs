@@ -12,11 +12,11 @@ extern "js-sys" {
 	pub type PlainDateTime;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainDateTime/PlainDateTime)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainDateTime)]
 	pub fn new(iso_year: i32, iso_month: u32, iso_day: u32) -> Result<PlainDateTime, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainDateTime/PlainDateTime)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainDateTime)]
 	pub fn new_with_year_month_day_hour(
 		iso_year: i32,
 		iso_month: u32,
@@ -25,7 +25,7 @@ extern "js-sys" {
 	) -> Result<PlainDateTime, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainDateTime/PlainDateTime)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainDateTime)]
 	pub fn new_with_year_month_day_hour_minute(
 		iso_year: i32,
 		iso_month: u32,
@@ -35,7 +35,7 @@ extern "js-sys" {
 	) -> Result<PlainDateTime, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainDateTime/PlainDateTime)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainDateTime)]
 	pub fn new_with_year_month_day_hour_minute_second(
 		iso_year: i32,
 		iso_month: u32,
@@ -46,7 +46,7 @@ extern "js-sys" {
 	) -> Result<PlainDateTime, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainDateTime/PlainDateTime)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainDateTime)]
 	pub fn new_with_year_month_day_hour_minute_second_millisecond(
 		iso_year: i32,
 		iso_month: u32,
@@ -62,7 +62,7 @@ extern "js-sys" {
 		clippy::too_many_arguments,
 		reason = "matches the JavaScript constructor"
 	)]
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainDateTime)]
 	pub fn new_with_year_month_day_hour_minute_second_millisecond_microsecond(
 		iso_year: i32,
 		iso_month: u32,
@@ -79,7 +79,7 @@ extern "js-sys" {
 		clippy::too_many_arguments,
 		reason = "matches the JavaScript constructor"
 	)]
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainDateTime)]
 	pub fn new_with_year_month_day_hour_minute_second_millisecond_microsecond_nanosecond(
 		iso_year: i32,
 		iso_month: u32,
@@ -97,7 +97,7 @@ extern "js-sys" {
 		clippy::too_many_arguments,
 		reason = "matches the JavaScript constructor"
 	)]
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainDateTime)]
 	pub fn new_with_values(
 		iso_year: i32,
 		iso_month: u32,

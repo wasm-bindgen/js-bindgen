@@ -168,11 +168,11 @@ extern "js-sys" {
 	pub fn new() -> DurationFormat;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DurationFormat/DurationFormat)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = DurationFormat)]
 	pub fn new_with_locales(locales: &JsValue) -> Result<DurationFormat, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DurationFormat/DurationFormat)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = DurationFormat)]
 	pub fn new_with_locales_and_options(
 		locales: &JsValue,
 		options: &DurationFormatOptions,

@@ -9,11 +9,11 @@ extern "js-sys" {
 	pub type Function;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Function)]
 	pub fn new_no_args(body: &str) -> Result<Function, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Function)]
 	pub fn new_with_args(args: &str, body: &str) -> Result<Function, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/apply)

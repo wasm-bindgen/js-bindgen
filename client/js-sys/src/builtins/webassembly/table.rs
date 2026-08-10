@@ -133,11 +133,11 @@ extern "js-sys" {
 	pub type Table;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Table/Table)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Table)]
 	pub fn new(descriptor: &TableDescriptor) -> Result<Table, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Table/Table)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Table)]
 	pub fn new_with_value(descriptor: &TableDescriptor, value: &JsValue) -> Result<Table, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Table/length)

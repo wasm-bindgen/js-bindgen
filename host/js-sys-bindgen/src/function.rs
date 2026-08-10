@@ -1,15 +1,15 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::ops::DerefMut;
 use std::string::ToString;
 
-use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned};
+use proc_macro2::{Span, TokenStream, TokenTree};
+use quote::{ToTokens, quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{
-	Attribute, Error, FnArg, ForeignItemFn, GenericArgument, GenericParam, Generics, Ident, LitStr,
-	Pat, PatIdent, PatType, Path, PathArguments, Receiver, Result, ReturnType, Signature, Token,
-	Type, TypePath, TypeReference, parse_quote,
+	Attribute, Error, FnArg, ForeignItemFn, GenericParam, Generics, Ident, LitStr, Pat, PatIdent,
+	PatType, Path, Receiver, Result, ReturnType, Signature, Token, TraitBoundModifier, Type,
+	TypeParamBound, TypePath, TypeReference, WherePredicate, parse_quote,
 };
 
 use crate::hygiene::Hygiene;
@@ -18,7 +18,7 @@ mod js;
 mod options;
 
 use js::{ForeignItem, FunctionBinding};
-use options::{BindingKind, FunctionOptions};
+use options::{BindingKind, ConstructorOwner, FunctionOptions};
 
 /// Backend-independent description of one JavaScript import.
 pub(crate) struct FunctionImport {
@@ -361,7 +361,7 @@ impl FunctionPlan {
 
 		let argument_count = sig.inputs.len() - usize::from(self_ty.is_some());
 
-		if matches!(&binding, BindingKind::Constructor) && self_ty.is_some() {
+		if matches!(&binding, BindingKind::Constructor(_)) && self_ty.is_some() {
 			return Err(Error::new(
 				span,
 				"`constructor` cannot be used with a `self` parameter",
@@ -393,10 +393,15 @@ impl FunctionPlan {
 		}
 
 		match binding {
-			BindingKind::Constructor => {
+			BindingKind::Constructor(owner) => {
 				// `constructor` applies to this foreign function. Its return type
-				// selects the Rust `impl` owner and JavaScript invokes it with `new`.
-				let owner = Self::constructor_type(&sig.output)?;
+				// selects the Rust `impl` owner unless one was supplied explicitly,
+				// and JavaScript invokes it with `new`.
+				let output = Self::constructor_output(&sig.output)?;
+				let owner = match owner {
+					ConstructorOwner::Infer => Self::constructor_type(output)?,
+					ConstructorOwner::Explicit(owner) => owner,
+				};
 				let name = js_name.unwrap_or_else(|| Self::type_js_name(&owner, js_names));
 
 				Ok(ForeignItem::constructor(owner, namespace, &name, variadic))
@@ -502,7 +507,7 @@ impl FunctionPlan {
 		}
 	}
 
-	fn constructor_type(output: &ReturnType) -> Result<Path> {
+	fn constructor_output(output: &ReturnType) -> Result<&Type> {
 		let ReturnType::Type(_, output) = output else {
 			return Err(Error::new_spanned(
 				output,
@@ -510,7 +515,18 @@ impl FunctionPlan {
 			));
 		};
 
-		Self::constructor_type_from(output)
+		Ok(output)
+	}
+
+	fn constructor_type(output: &Type) -> Result<Path> {
+		let Type::Path(TypePath { qself: None, path }) = output else {
+			return Err(Error::new_spanned(
+				output,
+				"`constructor` requires a path return type or an explicit owner",
+			));
+		};
+
+		Ok(path.clone())
 	}
 
 	fn type_js_name(owner: &Path, js_names: &HashMap<String, String>) -> String {
@@ -521,73 +537,63 @@ impl FunctionPlan {
 			.ident
 			.to_string();
 
-		js_names.get(&rust_name).cloned().unwrap_or(rust_name)
-	}
-
-	fn constructor_type_from(output: &Type) -> Result<Path> {
-		let Type::Path(TypePath { qself: None, path }) = output else {
-			return Err(Error::new_spanned(
-				output,
-				"`constructor` requires a path return type",
-			));
-		};
-		let segment = path
-			.segments
-			.last()
-			.expect("a type path always contains a segment");
-
-		if segment.ident == "Result"
-			&& let PathArguments::AngleBracketed(arguments) = &segment.arguments
-			&& let Some(GenericArgument::Type(output)) = arguments.args.first()
-		{
-			return Self::constructor_type_from(output);
+		if owner.leading_colon.is_none() && owner.segments.len() == 1 {
+			js_names.get(&rust_name).cloned().unwrap_or(rust_name)
+		} else {
+			rust_name
 		}
-
-		Ok(path.clone())
 	}
 
 	// Extract type generics from signature that are part of `impl <type>`.
 	fn impl_generic_params(binding: &ForeignItem, generics: &mut Generics) -> TokenStream {
 		if let Some(owner) = binding.owner() {
-			let mut fn_generic_params: Vec<_> =
-				mem::take(&mut generics.params).into_iter().collect();
+			let params: Vec<_> = mem::take(&mut generics.params).into_iter().collect();
+			let mut identifiers = HashMap::new();
+			let mut lifetimes = HashMap::new();
 
-			let impl_generic_params: Vec<_> = fn_generic_params
-				.extract_if(.., |param| {
-					for path in &owner.segments {
-						if let PathArguments::AngleBracketed(args) = &path.arguments {
-							for arg in &args.args {
-								match (&*param, arg) {
-									(
-										GenericParam::Lifetime(param),
-										GenericArgument::Lifetime(arg),
-									) if &param.lifetime == arg => {
-										return true;
-									}
-									(
-										GenericParam::Type(param),
-										GenericArgument::Type(Type::Path(TypePath {
-											qself: None,
-											path,
-										})),
-									) => {
-										if let Some(arg) = path.get_ident()
-											&& &param.ident == arg
-										{
-											return true;
-										}
-									}
-									_ => (),
-								}
-							}
-						}
+			for (index, param) in params.iter().enumerate() {
+				match param {
+					GenericParam::Lifetime(param) => {
+						lifetimes.insert(param.lifetime.ident.to_string(), index);
 					}
+					GenericParam::Type(param) => {
+						identifiers.insert(param.ident.to_string(), index);
+					}
+					GenericParam::Const(param) => {
+						identifiers.insert(param.ident.to_string(), index);
+					}
+				}
+			}
 
-					false
-				})
-				.collect();
+			let mut impl_indices = HashSet::new();
+			for segment in &owner.segments {
+				Self::collect_generic_references(
+					segment.arguments.to_token_stream(),
+					&identifiers,
+					&lifetimes,
+					&mut impl_indices,
+				);
+			}
 
+			let mut impl_generic_params = Vec::new();
+			let mut fn_generic_params = Vec::new();
+			let mut method_predicates = Vec::new();
+			for (index, param) in params.into_iter().enumerate() {
+				if impl_indices.contains(&index) {
+					let (param, predicates) = Self::prepare_impl_generic(param);
+					impl_generic_params.push(param);
+					method_predicates.extend(predicates);
+				} else {
+					fn_generic_params.push(param);
+				}
+			}
 			generics.params = fn_generic_params.into_iter().collect();
+			if !method_predicates.is_empty() {
+				generics
+					.make_where_clause()
+					.predicates
+					.extend(method_predicates);
+			}
 
 			if impl_generic_params.is_empty() {
 				TokenStream::new()
@@ -599,6 +605,110 @@ impl FunctionPlan {
 			}
 		} else {
 			TokenStream::new()
+		}
+	}
+
+	fn prepare_impl_generic(param: GenericParam) -> (GenericParam, Vec<WherePredicate>) {
+		match param {
+			GenericParam::Lifetime(mut param) => {
+				let bounds = mem::take(&mut param.bounds);
+				param.colon_token = None;
+				let predicates = if bounds.is_empty() {
+					Vec::new()
+				} else {
+					let lifetime = &param.lifetime;
+					vec![parse_quote!(#lifetime: #bounds)]
+				};
+
+				(GenericParam::Lifetime(param), predicates)
+			}
+			GenericParam::Type(mut param) => {
+				let bounds = mem::take(&mut param.bounds);
+				let mut impl_bounds =
+					syn::punctuated::Punctuated::<TypeParamBound, Token![+]>::new();
+				let mut method_bounds =
+					syn::punctuated::Punctuated::<TypeParamBound, Token![+]>::new();
+
+				for bound in bounds {
+					if matches!(
+						&bound,
+						TypeParamBound::Trait(bound)
+							if matches!(bound.modifier, TraitBoundModifier::Maybe(_))
+								&& bound.path.is_ident("Sized")
+					) {
+						impl_bounds.push(bound);
+					} else {
+						method_bounds.push(bound);
+					}
+				}
+
+				param.colon_token =
+					(!impl_bounds.is_empty()).then_some(Token![:](param.ident.span()));
+				param.bounds = impl_bounds;
+				param.eq_token = None;
+				param.default = None;
+				let predicates = if method_bounds.is_empty() {
+					Vec::new()
+				} else {
+					let ident = &param.ident;
+					vec![parse_quote!(#ident: #method_bounds)]
+				};
+
+				(GenericParam::Type(param), predicates)
+			}
+			GenericParam::Const(mut param) => {
+				param.eq_token = None;
+				param.default = None;
+
+				(GenericParam::Const(param), Vec::new())
+			}
+		}
+	}
+
+	fn collect_generic_references(
+		tokens: TokenStream,
+		identifiers: &HashMap<String, usize>,
+		lifetimes: &HashMap<String, usize>,
+		references: &mut HashSet<usize>,
+	) {
+		let tokens: Vec<_> = tokens.into_iter().collect();
+		let mut index = 0;
+
+		while index < tokens.len() {
+			match &tokens[index] {
+				TokenTree::Group(group) => Self::collect_generic_references(
+					group.stream(),
+					identifiers,
+					lifetimes,
+					references,
+				),
+				TokenTree::Punct(punct)
+					if punct.as_char() == '\''
+						&& matches!(tokens.get(index + 1), Some(TokenTree::Ident(_))) =>
+				{
+					let Some(TokenTree::Ident(ident)) = tokens.get(index + 1) else {
+						unreachable!("validated by the match guard");
+					};
+					if let Some(parameter) = lifetimes.get(&ident.to_string()) {
+						references.insert(*parameter);
+					}
+					index += 1;
+				}
+				TokenTree::Ident(ident) => {
+					let is_qualified_path_segment = index >= 2
+						&& matches!(&tokens[index - 1], TokenTree::Punct(punct) if punct.as_char() == ':')
+						&& matches!(&tokens[index - 2], TokenTree::Punct(punct) if punct.as_char() == ':');
+					let is_member = index >= 1
+						&& matches!(&tokens[index - 1], TokenTree::Punct(punct) if punct.as_char() == '.');
+					if !is_qualified_path_segment
+						&& !is_member && let Some(parameter) = identifiers.get(&ident.to_string())
+					{
+						references.insert(*parameter);
+					}
+				}
+				TokenTree::Literal(_) | TokenTree::Punct(_) => (),
+			}
+			index += 1;
 		}
 	}
 

@@ -111,11 +111,11 @@ extern "js-sys" {
 	pub fn new() -> RelativeTimeFormat;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/RelativeTimeFormat/RelativeTimeFormat)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = RelativeTimeFormat)]
 	pub fn new_with_locales(locales: &JsValue) -> Result<RelativeTimeFormat, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/RelativeTimeFormat/RelativeTimeFormat)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = RelativeTimeFormat)]
 	pub fn new_with_locales_and_options(
 		locales: &JsValue,
 		options: &RelativeTimeFormatOptions,

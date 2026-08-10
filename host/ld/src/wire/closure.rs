@@ -34,7 +34,7 @@ pub(super) fn render<'a>(closure: &Closure<'a>) -> RenderedClosure<'a> {
 
 fn render_call<'a>(closure: &Closure<'a>, name: &str) -> RenderedClosureShim<'a> {
 	let export = Export {
-		// The export renderer only uses this field when building an ordinary
+		// The export `renderer` only uses this field when building an ordinary
 		// `JsBinding`; closure dispatchers have no public module of their own.
 		module: closure.factory.helper.module,
 		name,

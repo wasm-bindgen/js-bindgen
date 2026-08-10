@@ -11,7 +11,10 @@ extern "js-sys" {
 	pub type WeakRef<T = Object>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakRef/WeakRef)
-	#[js_sys(constructor, return_abi = Result<WeakRef, JsValue>)]
+	#[js_sys(
+		constructor = WeakRef<T>,
+		return_abi = Result<WeakRef, JsValue>
+	)]
 	pub fn new<T: JsCast>(#[js_sys(type = &JsValue)] target: &T) -> Result<WeakRef<T>, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakRef/deref)

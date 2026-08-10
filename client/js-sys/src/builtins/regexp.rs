@@ -9,11 +9,11 @@ extern "js-sys" {
 	pub type RegExp;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp/RegExp)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = RegExp)]
 	pub fn new(pattern: &str) -> Result<RegExp, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp/RegExp)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = RegExp)]
 	pub fn new_with_flags(pattern: &str, flags: &str) -> Result<RegExp, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp/RegExp)
@@ -22,7 +22,7 @@ extern "js-sys" {
 	pub fn new_from_regexp(pattern: &RegExp) -> RegExp;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp/RegExp)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = RegExp)]
 	pub fn new_from_regexp_with_flags(pattern: &RegExp, flags: &str) -> Result<RegExp, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp/escape)

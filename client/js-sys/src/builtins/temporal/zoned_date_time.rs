@@ -13,11 +13,11 @@ extern "js-sys" {
 	pub type ZonedDateTime;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/ZonedDateTime/ZonedDateTime)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = ZonedDateTime)]
 	pub fn new(epoch_nanoseconds: &BigInt, time_zone: &str) -> Result<ZonedDateTime, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/ZonedDateTime/ZonedDateTime)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = ZonedDateTime)]
 	pub fn new_with_calendar(
 		epoch_nanoseconds: &BigInt,
 		time_zone: &str,

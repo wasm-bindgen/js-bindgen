@@ -10,11 +10,11 @@ extern "js-sys" {
 	pub type PlainYearMonth;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainYearMonth/PlainYearMonth)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainYearMonth)]
 	pub fn new(iso_year: i32, iso_month: u32) -> Result<PlainYearMonth, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainYearMonth/PlainYearMonth)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainYearMonth)]
 	pub fn new_with_calendar(
 		iso_year: i32,
 		iso_month: u32,
@@ -22,7 +22,7 @@ extern "js-sys" {
 	) -> Result<PlainYearMonth, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainYearMonth/PlainYearMonth)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainYearMonth)]
 	pub fn new_with_calendar_and_reference_day(
 		iso_year: i32,
 		iso_month: u32,

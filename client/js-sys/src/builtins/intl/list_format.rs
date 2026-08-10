@@ -86,11 +86,11 @@ extern "js-sys" {
 	pub fn new() -> ListFormat;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/ListFormat/ListFormat)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = ListFormat)]
 	pub fn new_with_locales(locales: &JsValue) -> Result<ListFormat, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/ListFormat/ListFormat)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = ListFormat)]
 	pub fn new_with_locales_and_options(
 		locales: &JsValue,
 		options: &ListFormatOptions,

@@ -48,9 +48,10 @@ pub unsafe trait WasmAbi: Sized {
 ///
 /// # Safety
 ///
-/// `MODE` must match the `ABI` of [`WasmRet<Self>`]. A direct return must use
-/// exactly one non-empty slot. An indirect return uses the target's native
-/// pointer type for its hidden return parameter.
+/// `MODE` must match the `ABI` of [`WasmRet<Self>`]. A direct return uses at
+/// most one non-empty slot; only [`EmptySlot`] may use none, in which case the
+/// JavaScript result is `undefined`. An indirect return uses the target's
+/// native pointer type for its hidden return parameter.
 pub unsafe trait ReturnAbi: WasmAbi {
 	const MODE: ReturnMode;
 	const RESULT_LAYOUT: Option<ResultLayout> = None;
@@ -115,6 +116,12 @@ impl EmptySlot {
 // SAFETY: `EmptySlot` is an absent slot and therefore has no WAT type.
 unsafe impl Slot for EmptySlot {
 	const WAT_TYPE: Option<WatType> = None;
+}
+
+// SAFETY: Returning `WasmRet<EmptySlot>` has no Wasm result slot. It is still a
+// direct C `ABI` return: no hidden return pointer is present.
+unsafe impl ReturnAbi for EmptySlot {
+	const MODE: ReturnMode = ReturnMode::Direct;
 }
 
 // SAFETY: Every non-empty `Slot` is a complete single-slot `ABI` carrier.

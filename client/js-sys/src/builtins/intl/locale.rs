@@ -113,11 +113,11 @@ extern "js-sys" {
 	pub type TextInfo;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Locale/Locale)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Locale)]
 	pub fn new(tag: &str) -> Result<Locale, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Locale/Locale)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Locale)]
 	pub fn new_with_options(tag: &str, options: &LocaleOptions) -> Result<Locale, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Locale/baseName)

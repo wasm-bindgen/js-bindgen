@@ -95,11 +95,11 @@ extern "js-sys" {
 	pub type Global;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Global/Global)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Global)]
 	pub fn new(descriptor: &GlobalDescriptor) -> Result<Global, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Global/Global)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Global)]
 	pub fn new_with_value(
 		descriptor: &GlobalDescriptor,
 		value: &JsValue,

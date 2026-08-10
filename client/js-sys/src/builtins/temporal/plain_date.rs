@@ -13,11 +13,11 @@ extern "js-sys" {
 	pub type PlainDate;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainDate/PlainDate)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainDate)]
 	pub fn new(iso_year: i32, iso_month: u32, iso_day: u32) -> Result<PlainDate, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainDate/PlainDate)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainDate)]
 	pub fn new_with_calendar(
 		iso_year: i32,
 		iso_month: u32,

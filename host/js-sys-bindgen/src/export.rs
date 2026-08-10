@@ -67,9 +67,6 @@ pub(crate) fn r#macro(
 	);
 	let crate_name = LitStr::new(&crate_name, span);
 	let output_ty = match &function.sig.output {
-		ReturnType::Type(_, ty) if matches!(ty.as_ref(), Type::Tuple(tuple) if tuple.elems.is_empty()) => {
-			None
-		}
 		ReturnType::Type(_, ty) => Some(ty.as_ref()),
 		ReturnType::Default => None,
 	};

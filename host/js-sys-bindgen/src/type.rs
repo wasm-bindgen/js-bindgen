@@ -1,9 +1,10 @@
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote, quote_spanned};
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-	Error, Fields, ForeignItemType, Item, ItemImpl, ItemStruct, LitStr, Path, Token,
-	parse_quote_spanned,
+	Attribute, Error, Fields, ForeignItemType, Item, ItemImpl, ItemStruct, LitStr, Meta, Path,
+	Token, parse_quote_spanned,
 };
 
 use crate::hygiene::Hygiene;
@@ -79,9 +80,7 @@ impl Type {
 		} = item;
 
 		let mut item_attrs = attrs;
-		let mut cfgs: Vec<_> = item_attrs
-			.extract_if(.., |attr| attr.path().is_ident("cfg"))
-			.collect();
+		let cfgs: Vec<_> = item_attrs.iter().filter_map(impl_cfg_attr).collect();
 
 		let js_value = hygiene.js_value(&cfgs, span);
 		let js_cast = hygiene.js_cast(&cfgs, span);
@@ -105,17 +104,17 @@ impl Type {
 				.filter_map(|param| match param {
 					syn::GenericParam::Lifetime(param) => {
 						let lifetime = &param.lifetime;
-						Some(quote_spanned!(span=> &#lifetime ()))
+						Some(quote_spanned!(span=> #phantom_data<&#lifetime ()>))
 					}
 					syn::GenericParam::Type(param) => {
 						let ident = &param.ident;
-						Some(quote_spanned!(span=> #ident))
+						Some(quote_spanned!(span=> #phantom_data<#ident>))
 					}
 					syn::GenericParam::Const(_) => None,
 				})
 				.collect();
 			let marker_type = match marker_types.as_slice() {
-				[] => quote!(()),
+				[] => quote!(#phantom_data<()>),
 				[ty] => quote!(#ty),
 				types => quote!((#(#types,)*)),
 			};
@@ -124,7 +123,7 @@ impl Type {
 				Fields::Named(parse_quote_spanned! {span=>
 					{
 						value: #js_value,
-						_type: #phantom_data<#marker_type>,
+						_type: #marker_type,
 					}
 				}),
 				None,
@@ -204,7 +203,6 @@ impl Type {
 			});
 		}
 
-		item_attrs.append(&mut cfgs);
 		item_attrs.push(parse_quote_spanned! {span=>#[repr(transparent)]});
 
 		let r#struct = ItemStruct {
@@ -218,6 +216,45 @@ impl Type {
 		};
 
 		Self { r#struct, impls }
+	}
+}
+
+/// Copies only attributes which can remove a generated implementation.
+///
+/// A type's ordinary attributes belong on the generated `struct`. Direct `cfg`
+/// attributes must also gate its implementations. For `cfg_attr`, retain only
+/// nested `cfg` attributes (including recursively nested `cfg_attr`) so an
+/// unrelated attribute such as `derive` is not applied to an `impl` item.
+fn impl_cfg_attr(attr: &Attribute) -> Option<Attribute> {
+	let meta = impl_cfg_meta(&attr.meta)?;
+	let mut attr = attr.clone();
+	attr.meta = meta;
+	Some(attr)
+}
+
+fn impl_cfg_meta(meta: &Meta) -> Option<Meta> {
+	if meta.path().is_ident("cfg") {
+		Some(meta.clone())
+	} else if meta.path().is_ident("cfg_attr") {
+		let Meta::List(list) = meta else {
+			return None;
+		};
+		let arguments = list
+			.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
+			.ok()?;
+		let mut arguments = arguments.into_iter();
+		let predicate = arguments.next()?;
+		let attributes: Vec<_> = arguments.filter_map(|meta| impl_cfg_meta(&meta)).collect();
+
+		if attributes.is_empty() {
+			return None;
+		}
+
+		let mut list = list.clone();
+		list.tokens = quote!(#predicate #(, #attributes)*);
+		Some(Meta::List(list))
+	} else {
+		None
 	}
 }
 

@@ -14,15 +14,15 @@ extern "js-sys" {
 	pub fn new() -> PlainTime;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainTime/PlainTime)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainTime)]
 	pub fn new_with_hour(hour: u32) -> Result<PlainTime, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainTime/PlainTime)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainTime)]
 	pub fn new_with_hour_minute(hour: u32, minute: u32) -> Result<PlainTime, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainTime/PlainTime)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainTime)]
 	pub fn new_with_hour_minute_second(
 		hour: u32,
 		minute: u32,
@@ -30,7 +30,7 @@ extern "js-sys" {
 	) -> Result<PlainTime, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainTime/PlainTime)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainTime)]
 	pub fn new_with_hour_minute_second_millisecond(
 		hour: u32,
 		minute: u32,
@@ -39,7 +39,7 @@ extern "js-sys" {
 	) -> Result<PlainTime, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainTime/PlainTime)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainTime)]
 	pub fn new_with_hour_minute_second_millisecond_microsecond(
 		hour: u32,
 		minute: u32,
@@ -49,7 +49,7 @@ extern "js-sys" {
 	) -> Result<PlainTime, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/PlainTime/PlainTime)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = PlainTime)]
 	pub fn new_with_values(
 		hour: u32,
 		minute: u32,

@@ -18,6 +18,7 @@ fn main() {
 	// ;; exports["closure_option_ref"](20)
 	// ;; exports["closure_option_owned"](20)
 	// ;; (() => { const callback = exports["closure_return"](2); return callback(40) === 42 })()
+	// ;; exports["closure_unit_alias"]()() === undefined
 	// ;; exports["closure_error_lifecycle"]()
 	// ;; exports["closure_once_lifecycle"]()
 	// ;; typeof globalThis.gc !== "function" || typeof FinalizationRegistry === "undefined" || await (async () => { let callback = exports["closure_finalization"](); const unref = callback.unref; callback = null; for (let i = 0; i < 100 && exports["closure_finalization_drops"]() === 0; i++) { globalThis.gc(); await new Promise(resolve => globalThis.setTimeout(resolve, 0)) } if (exports["closure_finalization_drops"]() !== 1) return false; unref(); return exports["closure_finalization_drops"]() === 1 })()
@@ -27,6 +28,8 @@ use std::cell::Cell;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use js_sys::{Closure, JsString, JsValue, closure, js_sys};
+
+type Unit = ();
 
 static DROPS: AtomicU32 = AtomicU32::new(0);
 
@@ -354,6 +357,11 @@ fn closure_option_owned(value: i32) -> bool {
 #[js_sys]
 fn closure_return(offset: i32) -> Closure<dyn FnMut(i32) -> i32> {
 	closure!(dyn FnMut(i32) -> i32, move |value| value + offset)
+}
+
+#[js_sys]
+fn closure_unit_alias() -> Closure<dyn FnMut() -> Unit> {
+	closure!(dyn FnMut() -> Unit, || {})
 }
 
 #[js_sys]

@@ -21,7 +21,7 @@ extern "js-sys" {
 	pub fn new_typed<T>() -> Set<T>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set/Set)
-	#[js_sys(constructor, return_abi = Result<Set, JsValue>)]
+	#[js_sys(constructor = Set<T>, return_abi = Result<Set, JsValue>)]
 	pub fn new_from_iterable<T: JsCast, I: Iterable<Item = T>>(
 		#[js_sys(type = &JsValue)] items: &I,
 	) -> Result<Set<T>, JsValue>;

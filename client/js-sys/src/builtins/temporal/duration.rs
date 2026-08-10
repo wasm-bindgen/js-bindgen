@@ -13,15 +13,15 @@ extern "js-sys" {
 	pub fn new() -> Duration;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Duration/Duration)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Duration)]
 	pub fn new_with_years(years: f64) -> Result<Duration, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Duration/Duration)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Duration)]
 	pub fn new_with_years_months(years: f64, months: f64) -> Result<Duration, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Duration/Duration)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Duration)]
 	pub fn new_with_years_months_weeks(
 		years: f64,
 		months: f64,
@@ -29,7 +29,7 @@ extern "js-sys" {
 	) -> Result<Duration, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Duration/Duration)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Duration)]
 	pub fn new_with_years_months_weeks_days(
 		years: f64,
 		months: f64,
@@ -38,7 +38,7 @@ extern "js-sys" {
 	) -> Result<Duration, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Duration/Duration)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Duration)]
 	pub fn new_with_years_months_weeks_days_hours(
 		years: f64,
 		months: f64,
@@ -48,7 +48,7 @@ extern "js-sys" {
 	) -> Result<Duration, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Duration/Duration)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Duration)]
 	pub fn new_with_years_months_weeks_days_hours_minutes(
 		years: f64,
 		months: f64,
@@ -59,7 +59,7 @@ extern "js-sys" {
 	) -> Result<Duration, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Duration/Duration)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Duration)]
 	pub fn new_with_years_months_weeks_days_hours_minutes_seconds(
 		years: f64,
 		months: f64,
@@ -75,7 +75,7 @@ extern "js-sys" {
 		clippy::too_many_arguments,
 		reason = "matches the JavaScript constructor"
 	)]
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Duration)]
 	pub fn new_with_years_months_weeks_days_hours_minutes_seconds_milliseconds(
 		years: f64,
 		months: f64,
@@ -92,7 +92,7 @@ extern "js-sys" {
 		clippy::too_many_arguments,
 		reason = "matches the JavaScript constructor"
 	)]
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Duration)]
 	pub fn new_with_years_months_weeks_days_hours_minutes_seconds_milliseconds_microseconds(
 		years: f64,
 		months: f64,
@@ -110,7 +110,7 @@ extern "js-sys" {
 		clippy::too_many_arguments,
 		reason = "matches the JavaScript constructor"
 	)]
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Duration)]
 	pub fn new_with_values(
 		years: f64,
 		months: f64,

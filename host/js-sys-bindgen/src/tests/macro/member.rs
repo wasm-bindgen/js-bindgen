@@ -40,6 +40,28 @@ fn static_getter_uses_the_javascript_type_name() {
 }
 
 #[test]
+fn owner_import_names() {
+	fn import_name(owner: &syn::Path) -> String {
+		let function: syn::ForeignItemFn = syn::parse_quote! {
+			pub fn value(self: &#owner) -> i32;
+		};
+
+		let mut hygiene = crate::hygiene::Hygiene::Qualified { js_sys: None };
+		let (_, import) =
+			crate::function::expand(&mut hygiene, None, "test_crate", &HashMap::new(), function)
+				.unwrap();
+		import.name.value()
+	}
+
+	assert_eq!(import_name(&syn::parse_quote!(a::Value)), "a::Value.value");
+	assert_eq!(import_name(&syn::parse_quote!(b::Value)), "b::Value.value");
+	assert_ne!(
+		import_name(&syn::parse_quote!(Value<u8>)),
+		import_name(&syn::parse_quote!(Value<u16>))
+	);
+}
+
+#[test]
 fn invalid_member_options() {
 	let variadic = syn::parse_quote! {
 		extern "js-sys" {

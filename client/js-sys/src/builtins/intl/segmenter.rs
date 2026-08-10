@@ -64,11 +64,11 @@ extern "js-sys" {
 	pub fn new() -> Segmenter;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segmenter/Segmenter)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Segmenter)]
 	pub fn new_with_locales(locales: &JsValue) -> Result<Segmenter, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segmenter/Segmenter)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Segmenter)]
 	pub fn new_with_locales_and_options(
 		locales: &JsValue,
 		options: &SegmenterOptions,

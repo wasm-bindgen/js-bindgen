@@ -992,24 +992,24 @@ macro_rules! typed_array {
 			pub type $name;
 
 			/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray/TypedArray)
-			#[js_sys(constructor)]
+			#[js_sys(constructor = $name)]
 			pub fn new(value: &JsValue) -> Result<$name, JsValue>;
 
 			/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray/TypedArray)
-			#[js_sys(constructor)]
+			#[js_sys(constructor = $name)]
 			pub fn new_with_length(
 				length: f64,
 			) -> Result<$name, JsValue>;
 
 			/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray/TypedArray)
-			#[js_sys(constructor)]
+			#[js_sys(constructor = $name)]
 			pub fn new_with_byte_offset(
 				buffer: &JsValue,
 				byte_offset: f64,
 			) -> Result<$name, JsValue>;
 
 			/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray/TypedArray)
-			#[js_sys(constructor)]
+			#[js_sys(constructor = $name)]
 			pub fn new_with_byte_offset_and_length(
 				buffer: &JsValue,
 				byte_offset: f64,
@@ -1143,22 +1143,22 @@ extern "js-sys" {
 	pub type Float16Array;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray/TypedArray)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Float16Array)]
 	pub fn new(value: &JsValue) -> Result<Float16Array, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray/TypedArray)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Float16Array)]
 	pub fn new_with_length(length: f64) -> Result<Float16Array, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray/TypedArray)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Float16Array)]
 	pub fn new_with_byte_offset(
 		buffer: &JsValue,
 		byte_offset: f64,
 	) -> Result<Float16Array, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray/TypedArray)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Float16Array)]
 	pub fn new_with_byte_offset_and_length(
 		buffer: &JsValue,
 		byte_offset: f64,

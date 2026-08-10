@@ -10,7 +10,7 @@ extern "js-sys" {
 	pub type Instant;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Instant/Instant)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Instant)]
 	pub fn new(epoch_nanoseconds: &BigInt) -> Result<Instant, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal/Instant/from)

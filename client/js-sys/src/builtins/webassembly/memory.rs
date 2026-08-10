@@ -89,7 +89,7 @@ extern "js-sys" {
 	pub type Memory;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Memory/Memory)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Memory)]
 	pub fn new(descriptor: &MemoryDescriptor) -> Result<Memory, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Memory/buffer)

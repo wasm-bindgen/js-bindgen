@@ -21,7 +21,7 @@ pub(super) struct FunctionOptions {
 /// The mutually exclusive JavaScript binding selected by the attributes.
 pub(super) enum BindingKind {
 	Call,
-	Constructor,
+	Constructor(ConstructorOwner),
 	Getter(String),
 	Setter(String),
 	IndexingGetter,
@@ -29,6 +29,11 @@ pub(super) enum BindingKind {
 	IndexingDeleter,
 	Embed(String),
 	Import,
+}
+
+pub(super) enum ConstructorOwner {
+	Infer,
+	Explicit(Path),
 }
 
 impl BindingKind {
@@ -42,7 +47,7 @@ struct RawFunctionOptions {
 	js_name: Option<String>,
 	static_of: Option<Path>,
 	variadic: bool,
-	constructor: bool,
+	constructor: Option<ConstructorOwner>,
 	getter: Option<String>,
 	setter: Option<String>,
 	indexing_getter: bool,
@@ -79,7 +84,21 @@ impl FunctionOptions {
 				} else if meta.path.is_ident("variadic") {
 					parse_flag(&meta, "variadic", &mut options.variadic)
 				} else if meta.path.is_ident("constructor") {
-					parse_flag(&meta, "constructor", &mut options.constructor)
+					let owner = if meta.input.peek(syn::Token![=]) {
+						ConstructorOwner::Explicit(meta.value()?.parse()?)
+					} else if meta.input.peek(syn::token::Paren) {
+						return Err(meta.error(
+							"`constructor` supports only `constructor` or `constructor = Owner`",
+						));
+					} else {
+						ConstructorOwner::Infer
+					};
+
+					if options.constructor.replace(owner).is_some() {
+						Err(meta.error("duplicate attribute"))
+					} else {
+						Ok(())
+					}
 				} else if meta.path.is_ident("getter") {
 					let name = if meta.input.is_empty() {
 						rust_name.to_string()
@@ -144,7 +163,7 @@ impl FunctionOptions {
 impl RawFunctionOptions {
 	fn validate(&self, rust_name: &Ident) -> Result<()> {
 		let source_count = usize::from(self.import) + usize::from(self.embed.is_some());
-		let operation_count = usize::from(self.constructor)
+		let operation_count = usize::from(self.constructor.is_some())
 			+ usize::from(self.getter.is_some())
 			+ usize::from(self.setter.is_some())
 			+ usize::from(self.indexing_getter)
@@ -176,7 +195,7 @@ impl RawFunctionOptions {
 				"JavaScript operations are mutually exclusive",
 			));
 		}
-		if self.constructor && self.static_of.is_some() {
+		if self.constructor.is_some() && self.static_of.is_some() {
 			return Err(Error::new_spanned(
 				rust_name,
 				"`constructor` cannot be combined with `static_of`",
@@ -218,8 +237,8 @@ impl RawFunctionOptions {
 			BindingKind::Import
 		} else if let Some(embed) = embed {
 			BindingKind::Embed(embed)
-		} else if constructor {
-			BindingKind::Constructor
+		} else if let Some(owner) = constructor {
+			BindingKind::Constructor(owner)
 		} else if let Some(getter) = getter {
 			BindingKind::Getter(getter)
 		} else if let Some(setter) = setter {

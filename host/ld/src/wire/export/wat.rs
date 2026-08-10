@@ -125,7 +125,10 @@ impl ExportRenderer<'_, '_> {
 			}
 			wat.push(')');
 		}
-		if let Some(ExportOutput::Direct { slot, .. }) = self.export.output.as_ref() {
+		if let Some(ExportOutput::Direct {
+			slot: Some(slot), ..
+		}) = self.export.output.as_ref()
+		{
 			write!(wat, " (result {})", slot.rust).expect("writing to a String cannot fail");
 		}
 		wat.push_str("))");
@@ -150,7 +153,10 @@ impl ExportRenderer<'_, '_> {
 			}
 			wat.push(')');
 		}
-		if let Some(ExportOutput::Direct { slot, .. }) = self.export.output.as_ref() {
+		if let Some(ExportOutput::Direct {
+			slot: Some(slot), ..
+		}) = self.export.output.as_ref()
+		{
 			write!(wat, " (result {})", slot.rust).expect("writing to a String cannot fail");
 		}
 		wat.push_str("))");
@@ -182,10 +188,13 @@ impl ExportRenderer<'_, '_> {
 		}
 		if let Some(output) = self.export.output.as_ref() {
 			match output {
-				ExportOutput::Direct { slot, .. } => {
+				ExportOutput::Direct {
+					slot: Some(slot), ..
+				} => {
 					write!(wat, " (result {})", slot.js())
 						.expect("writing to a String cannot fail");
 				}
+				ExportOutput::Direct { slot: None, .. } => {}
 				ExportOutput::Indirect { frame, .. } => {
 					wat.push_str(" (result");
 					for frame_slot in &frame.slots {
@@ -284,9 +293,12 @@ impl ExportRenderer<'_, '_> {
 	fn write_epilogue(&self, wat: &mut String) {
 		if let Some(output) = self.export.output.as_ref() {
 			match output {
-				ExportOutput::Direct { slot, .. } => {
+				ExportOutput::Direct {
+					slot: Some(slot), ..
+				} => {
 					write_conversion(wat, slot.instruction());
 				}
+				ExportOutput::Direct { slot: None, .. } => {}
 				ExportOutput::Indirect { frame, .. } => {
 					for frame_slot in &frame.slots {
 						write!(
@@ -327,7 +339,10 @@ fn for_each_conversion_slot<'export, 'wire>(
 	}
 	if let Some(output) = export.output.as_ref() {
 		match output {
-			ExportOutput::Direct { slot, .. } => visit(slot),
+			ExportOutput::Direct {
+				slot: Some(slot), ..
+			} => visit(slot),
+			ExportOutput::Direct { slot: None, .. } => {}
 			ExportOutput::Indirect { frame, .. } => {
 				for frame_slot in &frame.slots {
 					visit(&frame_slot.slot);
@@ -375,6 +390,33 @@ mod tests {
 	}
 
 	#[test]
+	fn void_output() {
+		let export = Export {
+			module: "test",
+			name: "unit",
+			pointer_width: PointerWidth::Wasm32,
+			inputs: Vec::new(),
+			output: Some(ExportOutput::Direct {
+				slot: None,
+				js_conversion: None,
+			}),
+			embeds: Vec::new(),
+			promising: false,
+			callee: Callee::Symbol { name: "unit.raw" },
+		};
+
+		let wat = render(core::slice::from_ref(&export)).expect("one export produces WAT");
+		assert_eq!(
+			wat,
+			r#"(import "env" "symbol" (func $js_sys.export.symbol.0 (@sym (name "unit.raw"))))
+(func $js_sys.export.0 (@sym (name "unit"))
+  call $js_sys.export.symbol.0 (@reloc)
+)"#,
+		);
+		js_bindgen_ld_shared::wat_to_object(false, &wat).expect("rendered WAT should parse");
+	}
+
+	#[test]
 	fn converted_slots_use_js_types_for_shim_and_rust_types_for_symbol() {
 		let input = Slot {
 			rust: WatType::I32,
@@ -404,7 +446,7 @@ mod tests {
 				conversion: None,
 			}],
 			output: Some(ExportOutput::Direct {
-				slot: output,
+				slot: Some(output),
 				js_conversion: None,
 			}),
 			embeds: Vec::new(),

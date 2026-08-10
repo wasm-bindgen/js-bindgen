@@ -8,7 +8,7 @@ extern "js-sys" {
 	pub type Suspending;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Suspending/Suspending)
-	#[js_sys(constructor)]
+	#[js_sys(constructor = Suspending)]
 	pub fn new(function: &Function) -> Result<Suspending, JsValue>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/promising_static)

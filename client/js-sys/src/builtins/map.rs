@@ -21,7 +21,7 @@ extern "js-sys" {
 	pub fn new_typed<K, V>() -> Map<K, V>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map/Map)
-	#[js_sys(constructor, return_abi = Result<Map, JsValue>)]
+	#[js_sys(constructor = Map<K, V>, return_abi = Result<Map, JsValue>)]
 	pub fn new_from_iterable<K, V, I: Iterable>(
 		#[js_sys(type = &JsValue)] entries: &I,
 	) -> Result<Map<K, V>, JsValue>;

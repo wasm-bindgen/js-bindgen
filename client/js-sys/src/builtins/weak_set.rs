@@ -21,7 +21,10 @@ extern "js-sys" {
 	pub fn new_typed<T>() -> WeakSet<T>;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakSet/WeakSet)
-	#[js_sys(constructor, return_abi = Result<WeakSet, JsValue>)]
+	#[js_sys(
+		constructor = WeakSet<T>,
+		return_abi = Result<WeakSet, JsValue>
+	)]
 	pub fn new_from_iterable<T: JsCast, I: Iterable<Item = T>>(
 		#[js_sys(type = &JsValue)] values: &I,
 	) -> Result<WeakSet<T>, JsValue>;

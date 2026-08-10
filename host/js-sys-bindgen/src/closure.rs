@@ -306,9 +306,6 @@ impl Signature {
 		};
 		let output = match &arguments.output {
 			ReturnType::Default => None,
-			ReturnType::Type(_, output) if matches!(&**output, Type::Tuple(tuple) if tuple.elems.is_empty()) => {
-				None
-			}
 			ReturnType::Type(_, output) => Some(*output.clone()),
 		};
 
