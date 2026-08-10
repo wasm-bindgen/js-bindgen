@@ -13,8 +13,8 @@ js_bindgen::embed_js!(
 	name = "future.jspi.suspend",
 	required_embeds = [("js_sys", "future.jspi.waits")],
 	"state => {{",
-	"	const waits = this.#jsEmbed.js_sys['future.jspi.waits']",
-	"	return new Promise(resolve => waits.set(state, resolve))",
+	"    const waits = this.#jsEmbed.js_sys['future.jspi.waits']",
+	"    return new Promise(resolve => waits.set(state, resolve))",
 	"}}",
 );
 
@@ -23,11 +23,11 @@ js_bindgen::embed_js!(
 	name = "future.jspi.notify",
 	required_embeds = [("js_sys", "future.jspi.waits")],
 	"state => {{",
-	"	const waits = this.#jsEmbed.js_sys['future.jspi.waits']",
-	"	const resolve = waits.get(state)",
-	"	if (resolve === undefined) return",
-	"	waits.delete(state)",
-	"	resolve()",
+	"    const waits = this.#jsEmbed.js_sys['future.jspi.waits']",
+	"    const resolve = waits.get(state)",
+	"    if (resolve === undefined) return",
+	"    waits.delete(state)",
+	"    resolve()",
 	"}}",
 );
 

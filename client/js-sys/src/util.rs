@@ -96,6 +96,20 @@ const PTR_INTO_JS_WAT_CONV: Option<WatConv> = Some(WatConv {
 	r#type: "f64",
 });
 
+// An aggregate conversion supplies its own JavaScript template, so the
+// pointer and length slots do not independently apply their `IntoJS`
+// conversions. On `wasm32`, normalize both raw `i32` slots here. On `wasm64`,
+// the WAT shim has already converted them to JavaScript numbers.
+#[cfg(target_arch = "wasm32")]
+pub(crate) const JS_PTR_LEN_ARGS: &str = "$slot1 >>> 0, $slot2 >>> 0";
+#[cfg(target_arch = "wasm64")]
+pub(crate) const JS_PTR_LEN_ARGS: &str = "$slot1, $slot2";
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) const JS_OPTION_PTR_LEN_ARGS: &str = "$slot2 >>> 0, $slot3 >>> 0";
+#[cfg(target_arch = "wasm64")]
+pub(crate) const JS_OPTION_PTR_LEN_ARGS: &str = "$slot2, $slot3";
+
 #[repr(transparent)]
 pub struct PtrConst<T> {
 	ptr: *const T,
@@ -112,6 +126,21 @@ impl<T> PtrConst<T> {
 		Self {
 			ptr: core::ptr::from_ref(value),
 		}
+	}
+
+	pub(crate) const fn from_raw(ptr: *const T) -> Self {
+		Self { ptr }
+	}
+
+	#[must_use]
+	pub(crate) const fn as_ptr(&self) -> *const T {
+		self.ptr
+	}
+}
+
+impl<T> Default for PtrConst<T> {
+	fn default() -> Self {
+		Self::from_raw(core::ptr::null())
 	}
 }
 
@@ -182,22 +211,33 @@ pub struct PtrLength<T> {
 
 impl<T> PtrLength<T> {
 	pub(crate) fn new(value: &[T]) -> Self {
-		Self::internal(value.len())
+		Self::from_len(value.len())
 	}
 
 	pub(crate) fn from_uninit_array<const N: usize>(_: &MaybeUninit<[T; N]>) -> Self {
-		Self::internal(N)
+		Self::from_len(N)
 	}
 
 	pub(crate) fn from_uninit_slice(value: &[MaybeUninit<T>]) -> Self {
-		Self::internal(value.len())
+		Self::from_len(value.len())
 	}
 
-	fn internal(len: usize) -> Self {
+	pub(crate) const fn from_len(len: usize) -> Self {
 		Self {
 			len,
 			_ty: PhantomData,
 		}
+	}
+
+	#[must_use]
+	pub(crate) const fn get(&self) -> usize {
+		self.len
+	}
+}
+
+impl<T> Default for PtrLength<T> {
+	fn default() -> Self {
+		Self::from_len(0)
 	}
 }
 
@@ -224,9 +264,9 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "isLittleEndian",
 	"(() => {{",
-	"	const buffer = new ArrayBuffer(2)",
-	"	new DataView(buffer).setInt16(0, 256, true)",
-	"	return new Int16Array(buffer)[0] === 256;",
+	"    const buffer = new ArrayBuffer(2)",
+	"    new DataView(buffer).setInt16(0, 256, true)",
+	"    return new Int16Array(buffer)[0] === 256;",
 	"}})()",
 );
 
@@ -263,23 +303,23 @@ macro_rules! buffer {
 			],
 			"(ptr, count) => {{",
 			#[cfg(debug_assertions)]
-			"	if (ptr % {size} !== 0)",
+			"    if (ptr % {size} !== 0)",
 			#[cfg(debug_assertions)]
-			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"        throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
-			"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
+			"    if (this.#jsEmbed.js_sys.isLittleEndian) {{",
 			#[cfg(js_sys_target_feature = "unstable-rab")]
-			"		const base = ptr / {size}",
-			"		const view = {buffer}",
-			"		return Array.from(view)",
-			"	}} else {{",
-			"		const out = new Array(count)",
-			"		const view = {data}",
-			"		for (let index = 0; index < count; index++) {{",
-			"			out[index] = view.get{type}(ptr + index * {size}, true)",
-			"		}}",
-			"		return out",
-			"	}}",
+			"        const base = ptr / {size}",
+			"        const view = {buffer}",
+			"        return view",
+			"    }} else {{",
+			"        const out = new {type}Array(count)",
+			"        const view = {data}",
+			"        for (let index = 0; index < count; index++) {{",
+			"            out[index] = view.get{type}(ptr + index * {size}, true)",
+			"        }}",
+			"        return out",
+			"    }}",
 			"}}",
 			size = const $size,
 			#[cfg(js_sys_target_feature = "unstable-rab")]
@@ -303,14 +343,14 @@ macro_rules! buffer {
 			],
 			"(ptr, count) => {{",
 			#[cfg(debug_assertions)]
-			"	if (ptr % {size} !== 0)",
+			"    if (ptr % {size} !== 0)",
 			#[cfg(debug_assertions)]
-			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"        throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
 			#[cfg(js_sys_target_feature = "unstable-rab")]
-			"	const base = ptr / {size}",
-			"	const view = {buffer}",
-			"	return Array.from(view)",
+			"    const base = ptr / {size}",
+			"    const view = {buffer}",
+			"    return view",
 			"}}",
 			size = const $size,
 			#[cfg(js_sys_target_feature = "unstable-rab")]
@@ -329,16 +369,16 @@ macro_rules! buffer {
 			],
 			"(ptr, count) => {{",
 			#[cfg(debug_assertions)]
-			"	if (ptr % {size} !== 0)",
+			"    if (ptr % {size} !== 0)",
 			#[cfg(debug_assertions)]
-			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"        throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
-			"	const out = new Array(count)",
-			"	const view = {data}",
-			"	for (let index = 0; index < count; index++) {{",
-			"		out[index] = view.get{type}(ptr + index * {size}, true)",
-			"	}}",
-			"	return out",
+			"    const out = new {type}Array(count)",
+			"    const view = {data}",
+			"    for (let index = 0; index < count; index++) {{",
+			"        out[index] = view.get{type}(ptr + index * {size}, true)",
+			"    }}",
+			"    return out",
 			"}}",
 			size = const $size,
 			#[cfg(js_sys_target_feature = "unstable-rab")]
@@ -359,26 +399,26 @@ macro_rules! buffer {
 				#[cfg(js_sys_target_feature = "unstable-rab")]
 				("js_sys", "view.DataView")
 			],
-			"(ptr, array) => {{",
+			"(ptr, array, count) => {{",
 			#[cfg(debug_assertions)]
-			"	if (ptr % {size} !== 0)",
+			"    if (ptr % {size} !== 0)",
 			#[cfg(debug_assertions)]
-			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"        throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
-			"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
-			"		{buffer}.set(array, ptr / {size})",
-			"	}} else {{",
-			"		const view = {data}",
-			"		for (let index = 0; index < array.length; index++) {{",
-			"			view.set{type}(ptr + index * {size}, array[index], true)",
-			"		}}",
-			"	}}",
+			"    if (this.#jsEmbed.js_sys.isLittleEndian) {{",
+			"        {buffer}.set(array)",
+			"    }} else {{",
+			"        const view = {data}",
+			"        for (let index = 0; index < count; index++) {{",
+			"            view.set{type}(ptr + index * {size}, array[index], true)",
+			"        }}",
+			"    }}",
 			"}}",
 			size = const $size,
 			#[cfg(js_sys_target_feature = "unstable-rab")]
-			buffer = interpolate concat!("this.#jsEmbed.js_sys['view.", $type, "']"),
+			buffer = interpolate concat!("this.#jsEmbed.js_sys['view.", $type, "'].subarray(ptr / ", $size, ", ptr / ", $size, " + count)"),
 			#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-			buffer = interpolate concat!("new ", $type, "Array(this.#memory.buffer)"),
+			buffer = interpolate concat!("new ", $type, "Array(this.#memory.buffer, ptr, count)"),
 			#[cfg(js_sys_target_feature = "unstable-rab")]
 			data = interpolate "this.#jsEmbed.js_sys['view.DataView']",
 			#[cfg(not(js_sys_target_feature = "unstable-rab"))]
@@ -394,19 +434,19 @@ macro_rules! buffer {
 				#[cfg(js_sys_target_feature = "unstable-rab")]
 				("js_sys", concat!("view.", $type)),
 			],
-			"(ptr, array) => {{",
+			"(ptr, array, count) => {{",
 			#[cfg(debug_assertions)]
-			"	if (ptr % {size} !== 0)",
+			"    if (ptr % {size} !== 0)",
 			#[cfg(debug_assertions)]
-			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"        throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
-			"	{buffer}.set(array, ptr / {size})",
+			"    {buffer}.set(array)",
 			"}}",
 			size = const $size,
 			#[cfg(js_sys_target_feature = "unstable-rab")]
-			buffer = interpolate concat!("this.#jsEmbed.js_sys['view.", $type, "']"),
+			buffer = interpolate concat!("this.#jsEmbed.js_sys['view.", $type, "'].subarray(ptr / ", $size, ", ptr / ", $size, " + count)"),
 			#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-			buffer = interpolate concat!("new ", $type, "Array(this.#memory.buffer)"),
+			buffer = interpolate concat!("new ", $type, "Array(this.#memory.buffer, ptr, count)"),
 		);
 
 		#[cfg(js_sys_assume_endianness = "big")]
@@ -417,16 +457,16 @@ macro_rules! buffer {
 				#[cfg(js_sys_target_feature = "unstable-rab")]
 				("js_sys", "view.DataView")
 			],
-			"(ptr, array) => {{",
+			"(ptr, array, count) => {{",
 			#[cfg(debug_assertions)]
-			"	if (ptr % {size} !== 0)",
+			"    if (ptr % {size} !== 0)",
 			#[cfg(debug_assertions)]
-			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"        throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
-			"	const view = {data}",
-			"	for (let index = 0; index < array.length; index++) {{",
-			"		view.set{type}(ptr + index * {size}, array[index], true)",
-			"	}}",
+			"    const view = {data}",
+			"    for (let index = 0; index < count; index++) {{",
+			"        view.set{type}(ptr + index * {size}, array[index], true)",
+			"    }}",
 			"}}",
 			size = const $size,
 			#[cfg(js_sys_target_feature = "unstable-rab")]
@@ -438,8 +478,13 @@ macro_rules! buffer {
 	};
 }
 
-buffer!("Uint32", 4_usize);
+buffer!("Int8", 1_usize);
+buffer!("Uint8", 1_usize);
+buffer!("Int16", 2_usize);
+buffer!("Uint16", 2_usize);
 buffer!("Int32", 4_usize);
+buffer!("Uint32", 4_usize);
+buffer!("Float32", 4_usize);
 buffer!("Float64", 8_usize);
 buffer!("BigUint64", 8_usize);
 buffer!("BigInt64", 8_usize);

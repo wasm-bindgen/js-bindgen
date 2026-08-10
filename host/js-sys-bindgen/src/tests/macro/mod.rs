@@ -15,66 +15,6 @@ use wasmparser::{Parser, Payload};
 
 use crate::r#macro;
 
-macro_rules! test {
-	($attr:tt, $input:tt, $expected:tt, $wat:literal, $js_import:expr $(,)?) => {
-		test!($attr, $input, $expected, wat: $wat, js: $js_import)
-	};
-	($attr:tt, $input:tt, $expected:tt, None, $js_import:expr $(,)?) => {
-		test!($attr, $input, $expected, js: $js_import)
-	};
-	($attr:tt, $input:tt, $expected:tt, $(wat: $wat:literal,)? js: $js_import:expr) => {{
-		use inline_snap::inline_snap;
-		use quote::quote;
-		use syn::File;
-
-		use crate::r#macro;
-
-		let attr = quote! $attr;
-		let input = quote! $input;
-
-		let foreign_mod = syn::parse2(input.clone()).unwrap();
-		let output = r#macro::expand_for_test(attr.clone(), foreign_mod, "test_crate")
-			.unwrap()
-			.into_items()
-			.unwrap();
-		let output = prettyplease::unparse(&File {
-			shebang: None,
-			attrs: Vec::new(),
-			items: output,
-		});
-
-		inline_snap!(output.clone(), $expected);
-
-		let dir = tempfile::tempdir().unwrap();
-		let (wat_output, js_import_output, _) =
-			crate::tests::r#macro::inner(dir.path(), &output).unwrap();
-
-		#[allow(clippy::allow_attributes, unused_assignments, unused_mut, reason = "depends on the input")]
-		let mut wat: Option<&str> = None;
-		$(wat = Some($wat);)?
-		match (wat, wat_output) {
-			$((Some(_), Some(wat_output)) => {
-				inline_snap!(wat_output, $wat);
-			})?
-			(None, None) => (),
-			(wat, wat_output) => {
-				similar_asserts::assert_eq!(wat, wat_output.as_deref());
-			}
-		}
-
-		let js_import = Option::from($js_import);
-		match (js_import, js_import_output) {
-			(Some(js_import), Some(js_import_output)) => {
-				similar_asserts::assert_eq!(js_import, js_import_output);
-			}
-			(None, None) => (),
-			(js_import, js_import_output) => {
-				similar_asserts::assert_eq!(js_import, js_import_output.as_deref());
-			}
-		}
-	}};
-}
-
 mod export;
 mod function;
 mod member;

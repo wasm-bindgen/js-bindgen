@@ -1,24 +1,24 @@
-#[cfg(any(feature = "file", feature = "web-idl", test))]
+#[cfg(any(feature = "file", feature = "web-idl"))]
 use foldhash::fast::FixedState;
-#[cfg(any(feature = "file", feature = "web-idl", test))]
+#[cfg(any(feature = "file", feature = "web-idl"))]
 use hashbrown::{HashMap, HashSet};
 use proc_macro2::{Span, TokenStream};
 use quote::{ToTokens, quote};
 use syn::{Attribute, Ident, Path, parse_quote_spanned};
-#[cfg(any(feature = "file", feature = "web-idl", test))]
+#[cfg(any(feature = "file", feature = "web-idl"))]
 use syn::{ItemUse, parse_quote};
 
 pub(crate) enum Hygiene<'a> {
 	/// File generation mode: emit short paths and record the required `use`
 	/// items.
-	#[cfg(any(feature = "file", feature = "web-idl", test))]
+	#[cfg(any(feature = "file", feature = "web-idl"))]
 	Imports(&'a mut ImportManager),
 	/// Procedural macro mode: emit paths qualified through the selected crate.
 	Qualified { js_sys: Option<&'a Path> },
 }
 
 #[cfg_attr(
-	not(any(feature = "file", feature = "web-idl", test)),
+	not(any(feature = "file", feature = "web-idl")),
 	expect(
 		unused_variables,
 		reason = "attributes are only consumed by source-generation hygiene"
@@ -43,7 +43,7 @@ impl Hygiene<'_> {
 
 	fn js_sys_item(&mut self, attrs: &[Attribute], ident: &Ident, span: Span) -> Path {
 		match self {
-			#[cfg(any(feature = "file", feature = "web-idl", test))]
+			#[cfg(any(feature = "file", feature = "web-idl"))]
 			Hygiene::Imports(imports) => {
 				imports.js_sys_push(attrs, ident.clone());
 				parse_quote_spanned!(span=> #ident)
@@ -56,7 +56,7 @@ impl Hygiene<'_> {
 
 	fn hazard_item(&mut self, attrs: &[Attribute], ident: &Ident, span: Span) -> Path {
 		match self {
-			#[cfg(any(feature = "file", feature = "web-idl", test))]
+			#[cfg(any(feature = "file", feature = "web-idl"))]
 			Hygiene::Imports(imports) => {
 				imports.hazard_push(attrs, ident.clone());
 				parse_quote_spanned!(span=> #ident)
@@ -69,7 +69,7 @@ impl Hygiene<'_> {
 
 	pub(crate) fn as_ref(&mut self, span: Span) -> Path {
 		match self {
-			#[cfg(any(feature = "file", feature = "web-idl", test))]
+			#[cfg(any(feature = "file", feature = "web-idl"))]
 			Hygiene::Imports(_) => {
 				parse_quote_spanned!(span=> AsRef)
 			}
@@ -81,7 +81,7 @@ impl Hygiene<'_> {
 
 	pub(crate) fn deref(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
-			#[cfg(any(feature = "file", feature = "web-idl", test))]
+			#[cfg(any(feature = "file", feature = "web-idl"))]
 			Hygiene::Imports(imports) => {
 				imports.deref.insert(attrs.to_vec());
 				parse_quote_spanned!(span=> Deref)
@@ -94,7 +94,7 @@ impl Hygiene<'_> {
 
 	pub(crate) fn phantom_data(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
-			#[cfg(any(feature = "file", feature = "web-idl", test))]
+			#[cfg(any(feature = "file", feature = "web-idl"))]
 			Hygiene::Imports(imports) => {
 				imports
 					.phantom_data
@@ -109,7 +109,7 @@ impl Hygiene<'_> {
 
 	pub(crate) fn from(&mut self, span: Span) -> Path {
 		match self {
-			#[cfg(any(feature = "file", feature = "web-idl", test))]
+			#[cfg(any(feature = "file", feature = "web-idl"))]
 			Hygiene::Imports(_) => {
 				parse_quote_spanned!(span=> From)
 			}
@@ -128,12 +128,12 @@ impl Hygiene<'_> {
 	}
 }
 
-#[cfg(any(feature = "file", feature = "web-idl", test))]
+#[cfg(any(feature = "file", feature = "web-idl"))]
 type FixedHashMap<K, V> = HashMap<K, V, FixedState>;
-#[cfg(any(feature = "file", feature = "web-idl", test))]
+#[cfg(any(feature = "file", feature = "web-idl"))]
 type FixedHashSet<T> = HashSet<T, FixedState>;
 
-#[cfg(any(feature = "file", feature = "web-idl", test))]
+#[cfg(any(feature = "file", feature = "web-idl"))]
 pub(crate) struct ImportManager {
 	js_sys: Path,
 	deref: FixedHashSet<Vec<Attribute>>,
@@ -142,7 +142,7 @@ pub(crate) struct ImportManager {
 	hazard_imports: FixedHashMap<Vec<Attribute>, FixedHashSet<Ident>>,
 }
 
-#[cfg(any(feature = "file", feature = "web-idl", test))]
+#[cfg(any(feature = "file", feature = "web-idl"))]
 impl ImportManager {
 	#[must_use]
 	pub(crate) fn new(js_sys: Option<Path>) -> Self {
@@ -207,7 +207,7 @@ impl ImportManager {
 	}
 }
 
-#[cfg(any(feature = "file", feature = "web-idl", test))]
+#[cfg(any(feature = "file", feature = "web-idl"))]
 impl ToTokens for ImportManager {
 	fn to_tokens(&self, tokens: &mut TokenStream) {
 		for item_use in self.iter() {

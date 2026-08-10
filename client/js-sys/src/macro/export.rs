@@ -1,3 +1,9 @@
+mod js;
+
+pub use js::*;
+
+use super::writer::Writer;
+
 // WAT shim generation.
 
 #[doc(hidden)]
@@ -183,232 +189,47 @@ macro_rules! wat_export {
 	}};
 }
 
-// JavaScript wrapper helpers.
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! js_export_input_arguments {
-	($par:literal, $ty:ty $(,)?) => {{
-		const SLOTS: [$crate::r#macro::WatSlot; 4] =
-			$crate::r#macro::from_js_wat_slots::<$ty>();
-		const TEMPLATES: [&::core::primitive::str; 4] =
-			$crate::r#macro::js_from_templates::<$ty>();
-		const VALUES: [&::core::primitive::str; 4] = [
-			$crate::r#macro::js_template!(TEMPLATES[0], value = $par),
-			$crate::r#macro::js_template!(TEMPLATES[1], value = $par),
-			$crate::r#macro::js_template!(TEMPLATES[2], value = $par),
-			$crate::r#macro::js_template!(TEMPLATES[3], value = $par),
-		];
-
-		$crate::r#macro::const_concat_if!(
-			!SLOTS[0].abi.is_empty() => [VALUES[0]],
-			!SLOTS[1].abi.is_empty() => [", ", VALUES[1]],
-			!SLOTS[2].abi.is_empty() => [", ", VALUES[2]],
-			!SLOTS[3].abi.is_empty() => [", ", VALUES[3]],
-		)
-	}};
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! js_export_parameters {
-	() => {
-		""
-	};
-	(($par:literal, $ty:ty) $(,)?) => {
-		$par
-	};
-	(($par:literal, $ty:ty), $(($rest_par:literal, $rest_ty:ty)),+ $(,)?) => {
-		$crate::r#macro::const_concat!(
-			$par,
-			", ",
-			$crate::r#macro::js_export_parameters!($(($rest_par, $rest_ty)),+)
-		)
-	};
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! js_export_arguments {
-	() => {
-		""
-	};
-	(($par:literal, $ty:ty) $(,)?) => {
-		$crate::r#macro::js_export_input_arguments!($par, $ty)
-	};
-	(($par:literal, $ty:ty), $(($rest_par:literal, $rest_ty:ty)),+ $(,)?) => {{
-		const FIRST: &::core::primitive::str =
-			$crate::r#macro::js_export_input_arguments!($par, $ty);
-		const REST: &::core::primitive::str =
-			$crate::r#macro::js_export_arguments!($(($rest_par, $rest_ty)),+);
-
-		$crate::r#macro::const_concat!(
-			FIRST,
-			$crate::r#macro::separator_between(FIRST, REST),
-			REST
-		)
-	}};
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! js_export_output_expression {
-	($ty:ty $(,)?) => {{
-		const DIRECT: ::core::primitive::bool = $crate::r#macro::return_into_js_is_direct::<$ty>();
-		const RESULT: ::core::primitive::bool = $crate::r#macro::return_into_js_is_result::<$ty>();
-		const VALUES: [&::core::primitive::str; 4] = if RESULT {
-			["ret[0]", "ret[1]", "", ""]
-		} else if DIRECT {
-			["ret", "", "", ""]
-		} else {
-			["ret[0]", "ret[1]", "ret[2]", "ret[3]"]
-		};
-
-		$crate::r#macro::js_template!(
-			$crate::r#macro::js_export_output_template::<$ty>(),
-			slots = VALUES,
-		)
-	}};
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! js_export_result_throw {
-	($indent:literal, $ty:ty $(,)?) => {{
-		const SLOTS: [$crate::r#macro::WatSlot; 4] =
-			$crate::r#macro::return_into_js_wat_slots::<$ty>();
-		const ERROR_DISCRIMINANT: &::core::primitive::str = if SLOTS[0].abi.is_empty() {
-			"ret[0]"
-		} else if SLOTS[1].abi.is_empty() {
-			"ret[1]"
-		} else {
-			"ret[2]"
-		};
-		const ERROR: &::core::primitive::str = if SLOTS[0].abi.is_empty() {
-			"ret[1]"
-		} else if SLOTS[1].abi.is_empty() {
-			"ret[2]"
-		} else {
-			"ret[3]"
-		};
-
-		if $crate::r#macro::return_into_js_is_result::<$ty>() {
-			$crate::r#macro::const_concat!(
-				$indent,
-				"if (",
-				ERROR_DISCRIMINANT,
-				" !== 0) throw ",
-				ERROR,
-				"\n",
-			)
-		} else {
-			""
-		}
-	}};
-}
-
 /// Generates the complete JavaScript wrapper for one Rust export.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! js_export {
 	($export:expr, ($(($par:literal, $input:ty)),*) $(,)?) => {{
-		const PARAMETERS: &::core::primitive::str =
-			$crate::r#macro::js_export_parameters!($(($par, $input)),*);
-		const ARGUMENTS: &::core::primitive::str =
-			$crate::r#macro::js_export_arguments!($(($par, $input)),*);
-		const PASSTHROUGH: ::core::primitive::bool = true
-			$(&& !$crate::r#macro::js_from_has_conversion::<$input>())*;
-		const RAW: &::core::primitive::str = $crate::r#macro::const_concat!(
-			"wasmExports['",
-			$export,
-			"']",
-		);
+		const INPUTS: &[$crate::r#macro::ExportInput] = &[
+			$($crate::r#macro::export_input::<$input>($par),)*
+		];
+		const DESCRIPTOR: $crate::r#macro::ExportDescriptor =
+			$crate::r#macro::ExportDescriptor::new(
+				$export,
+				INPUTS,
+				::core::option::Option::None,
+				$crate::r#macro::ExportMode::Sync,
+			);
+		const LEN: ::core::primitive::usize =
+			$crate::r#macro::export_js_len(&DESCRIPTOR);
+		const VALUE: [::core::primitive::u8; LEN] =
+			$crate::r#macro::render_export_js::<LEN>(&DESCRIPTOR);
 
-		$($crate::r#macro::validate_from_js::<$input>();)*
-
-		if PASSTHROUGH {
-			RAW
-		} else {
-			$crate::r#macro::const_concat!(
-				"(",
-				PARAMETERS,
-				") => {\n    ",
-				RAW,
-				"(",
-				ARGUMENTS,
-				")\n}"
-			)
-		}
+		// SAFETY: Rendering only concatenates and substitutes valid strings.
+		unsafe { ::core::str::from_utf8_unchecked(&VALUE) }
 	}};
 	($export:expr, ($(($par:literal, $input:ty)),*), $output:ty $(,)?) => {{
-		const PARAMETERS: &::core::primitive::str =
-			$crate::r#macro::js_export_parameters!($(($par, $input)),*);
-		const ARGUMENTS: &::core::primitive::str =
-			$crate::r#macro::js_export_arguments!($(($par, $input)),*);
-		const OUTPUT: &::core::primitive::str =
-			$crate::r#macro::js_export_output_expression!($output);
-		const THROW: &::core::primitive::str =
-			$crate::r#macro::js_export_result_throw!("    ", $output);
-		const PASSTHROUGH: ::core::primitive::bool =
-			!$crate::r#macro::js_return_has_conversion::<$output>()
-				&& !$crate::r#macro::return_into_js_is_result::<$output>()
-				$(&& !$crate::r#macro::js_from_has_conversion::<$input>())*;
-		const RAW: &::core::primitive::str = $crate::r#macro::const_concat!(
-			"wasmExports['",
-			$export,
-			"']",
-		);
+		const INPUTS: &[$crate::r#macro::ExportInput] = &[
+			$($crate::r#macro::export_input::<$input>($par),)*
+		];
+		const DESCRIPTOR: $crate::r#macro::ExportDescriptor =
+			$crate::r#macro::ExportDescriptor::new(
+				$export,
+				INPUTS,
+				::core::option::Option::Some($crate::r#macro::export_output::<$output>()),
+				$crate::r#macro::ExportMode::Sync,
+			);
+		const LEN: ::core::primitive::usize =
+			$crate::r#macro::export_js_len(&DESCRIPTOR);
+		const VALUE: [::core::primitive::u8; LEN] =
+			$crate::r#macro::render_export_js::<LEN>(&DESCRIPTOR);
 
-		$($crate::r#macro::validate_from_js::<$input>();)*
-		$crate::r#macro::validate_return_into_js::<$output>();
-
-		if PASSTHROUGH {
-			RAW
-		} else {
-			$crate::r#macro::const_concat!(
-				"(",
-				PARAMETERS,
-				") => {\n    const ret = ",
-				RAW,
-				"(",
-				ARGUMENTS,
-				")\n",
-				THROW,
-				"    return ",
-				OUTPUT,
-				"\n}"
-			)
-		}
-	}};
-}
-
-/// Generates handling for the value produced by a `promising` export.
-#[doc(hidden)]
-#[macro_export]
-macro_rules! js_export_promising_then {
-	() => {
-		""
-	};
-	($output:ty) => {{
-		const OUTPUT: &::core::primitive::str =
-			$crate::r#macro::js_export_output_expression!($output);
-		const POSTPROCESS: ::core::primitive::bool =
-			$crate::r#macro::js_return_has_conversion::<$output>()
-				|| $crate::r#macro::return_into_js_is_result::<$output>();
-		const THROW: &::core::primitive::str =
-			$crate::r#macro::js_export_result_throw!("        ", $output);
-
-		if POSTPROCESS {
-			$crate::r#macro::const_concat!(
-				".then(ret => {\n",
-				THROW,
-				"        return ",
-				OUTPUT,
-				"\n    })",
-			)
-		} else {
-			""
-		}
+		// SAFETY: Rendering only concatenates and substitutes valid strings.
+		unsafe { ::core::str::from_utf8_unchecked(&VALUE) }
 	}};
 }
 
@@ -416,40 +237,42 @@ macro_rules! js_export_promising_then {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! js_export_promising {
-	(
-		$export:expr,
-		($(($par:literal, $input:ty)),*)
-		$(, $output:ty)?
-		$(,)?
-	) => {{
-		const PARAMETERS: &::core::primitive::str =
-			$crate::r#macro::js_export_parameters!($(($par, $input)),*);
-		const ARGUMENTS: &::core::primitive::str =
-			$crate::r#macro::js_export_arguments!($(($par, $input)),*);
-		const THEN: &::core::primitive::str =
-			$crate::r#macro::js_export_promising_then!($($output)?);
-		const PASSTHROUGH: ::core::primitive::bool = THEN.is_empty()
-			$(&& !$crate::r#macro::js_from_has_conversion::<$input>())*;
-		const RAW: &::core::primitive::str = $crate::r#macro::const_concat!(
-			"WebAssembly.promising(wasmExports['",
-			$export,
-			"'])",
-		);
-		const WRAPPED: &::core::primitive::str = $crate::r#macro::const_concat!(
-			"(() => {\n    const $promising = ",
-			RAW,
-			"\n    return (",
-			PARAMETERS,
-			") => $promising(",
-			ARGUMENTS,
-			")",
-			THEN,
-			"\n})()",
-		);
+	($export:expr, ($(($par:literal, $input:ty)),*) $(,)?) => {{
+		const INPUTS: &[$crate::r#macro::ExportInput] = &[
+			$($crate::r#macro::export_input::<$input>($par),)*
+		];
+		const DESCRIPTOR: $crate::r#macro::ExportDescriptor =
+			$crate::r#macro::ExportDescriptor::new(
+				$export,
+				INPUTS,
+				::core::option::Option::None,
+				$crate::r#macro::ExportMode::Promising,
+			);
+		const LEN: ::core::primitive::usize =
+			$crate::r#macro::export_js_len(&DESCRIPTOR);
+		const VALUE: [::core::primitive::u8; LEN] =
+			$crate::r#macro::render_export_js::<LEN>(&DESCRIPTOR);
 
-		$($crate::r#macro::validate_from_js::<$input>();)*
-		$($crate::r#macro::validate_return_into_js::<$output>();)?
+		// SAFETY: Rendering only concatenates and substitutes valid strings.
+		unsafe { ::core::str::from_utf8_unchecked(&VALUE) }
+	}};
+	($export:expr, ($(($par:literal, $input:ty)),*), $output:ty $(,)?) => {{
+		const INPUTS: &[$crate::r#macro::ExportInput] = &[
+			$($crate::r#macro::export_input::<$input>($par),)*
+		];
+		const DESCRIPTOR: $crate::r#macro::ExportDescriptor =
+			$crate::r#macro::ExportDescriptor::new(
+				$export,
+				INPUTS,
+				::core::option::Option::Some($crate::r#macro::export_output::<$output>()),
+				$crate::r#macro::ExportMode::Promising,
+			);
+		const LEN: ::core::primitive::usize =
+			$crate::r#macro::export_js_len(&DESCRIPTOR);
+		const VALUE: [::core::primitive::u8; LEN] =
+			$crate::r#macro::render_export_js::<LEN>(&DESCRIPTOR);
 
-		if PASSTHROUGH { RAW } else { WRAPPED }
+		// SAFETY: Rendering only concatenates and substitutes valid strings.
+		unsafe { ::core::str::from_utf8_unchecked(&VALUE) }
 	}};
 }

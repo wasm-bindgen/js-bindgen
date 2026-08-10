@@ -4,7 +4,7 @@ pub const fn wat_conv_prefix(value: &str) -> &'static str {
 }
 
 #[must_use]
-const fn wat_line_end(value: &str, start: usize) -> usize {
+pub(super) const fn wat_line_end(value: &str, start: usize) -> usize {
 	let bytes = value.as_bytes();
 	let mut end = start;
 
@@ -15,7 +15,7 @@ const fn wat_line_end(value: &str, start: usize) -> usize {
 	end
 }
 
-const fn wat_lines_equal(
+pub(super) const fn wat_lines_equal(
 	left: &str,
 	left_start: usize,
 	left_end: usize,

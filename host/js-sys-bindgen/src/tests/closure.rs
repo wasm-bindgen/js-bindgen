@@ -8,7 +8,10 @@ fn expand(input: TokenStream) -> String {
 }
 
 #[test]
-fn package_version_disambiguates_symbols() {
+fn symbols_are_stable_and_disambiguated() {
+	let input = quote!(dyn FnMut(i32) -> i32, move |value| value + 1);
+	assert_eq!(expand(input.clone()), expand(input));
+
 	let first = crate::closure::closure_with(
 		quote!(dyn Fn(), || {}),
 		"test-crate",
@@ -27,12 +30,6 @@ fn package_version_disambiguates_symbols() {
 	.to_string();
 
 	assert_ne!(first, second);
-}
-
-#[test]
-fn expansion_is_deterministic() {
-	let input = quote!(dyn FnMut(i32) -> i32, move |value| value + 1);
-	assert_eq!(expand(input.clone()), expand(input));
 }
 
 #[test]

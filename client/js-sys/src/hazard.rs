@@ -41,8 +41,18 @@ impl IntoJsConv {
 #[derive(Clone, Copy)]
 pub struct FromJsConv {
 	pub(crate) embed: Option<(&'static str, &'static str)>,
+	pub(crate) prepare: Option<&'static str>,
 	pub(crate) templates: [&'static str; 4],
-	pub(crate) sret: Option<&'static str>,
+	pub(crate) sret: Option<Sret>,
+}
+
+/// Selects how an indirect JavaScript import result is written to Rust.
+#[derive(Clone, Copy)]
+pub enum Sret {
+	/// Converts the JavaScript value through the common slot templates first.
+	Slots(&'static str),
+	/// Passes the original JavaScript value directly to the writer.
+	Value(&'static str),
 }
 
 impl FromJsConv {
@@ -51,9 +61,20 @@ impl FromJsConv {
 	pub const fn slot1(template: &'static str) -> Self {
 		Self {
 			embed: None,
+			prepare: None,
 			templates: [template, "", "", ""],
 			sret: None,
 		}
+	}
+
+	/// Computes a value once before expanding the individual slot templates.
+	///
+	/// The template receives the JavaScript argument as `$value`; slot
+	/// templates can refer to its result as `$prepared`.
+	#[must_use]
+	pub const fn prepare(mut self, template: &'static str) -> Self {
+		self.prepare = Some(template);
+		self
 	}
 
 	#[must_use]
@@ -74,13 +95,10 @@ impl FromJsConv {
 		self
 	}
 
-	/// Stores the slots in an indirect return area.
-	///
-	/// The function receives every non-empty slot in order, followed by the
-	/// indirect return pointer.
+	/// Configures how an indirect JavaScript import result is written to Rust.
 	#[must_use]
-	pub const fn sret(mut self, function: &'static str) -> Self {
-		self.sret = Some(function);
+	pub const fn sret(mut self, sret: Sret) -> Self {
+		self.sret = Some(sret);
 		self
 	}
 

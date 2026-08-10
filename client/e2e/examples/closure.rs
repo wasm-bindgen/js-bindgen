@@ -67,7 +67,7 @@ js_sys::js_bindgen::embed_js!(
 	name = "save",
 	required_embeds = [("closure", "storage")],
 	"(callback) => {{",
-	"	this.#jsEmbed.closure.storage.callback = callback",
+	"    this.#jsEmbed.closure.storage.callback = callback",
 	"}}",
 );
 
@@ -76,13 +76,13 @@ js_sys::js_bindgen::embed_js!(
 	name = "is_invalid",
 	required_embeds = [("closure", "storage")],
 	"() => {{",
-	"	try {{",
-	"		this.#jsEmbed.closure.storage.callback()",
-	"		return false",
-	"	}} catch (error) {{",
-	"		return error instanceof Error",
-	"			&& error.message === 'closure invoked recursively or after being dropped'",
-	"	}}",
+	"    try {{",
+	"        this.#jsEmbed.closure.storage.callback()",
+	"        return false",
+	"    }} catch (error) {{",
+	"        return error instanceof Error",
+	"            && error.message === 'closure invoked recursively or after being dropped'",
+	"    }}",
 	"}}",
 );
 
@@ -104,8 +104,8 @@ js_sys::js_bindgen::embed_js!(
 	name = "release",
 	required_embeds = [("closure", "storage")],
 	"() => {{",
-	"	this.#jsEmbed.closure.storage.callback.unref()",
-	"	return true",
+	"    this.#jsEmbed.closure.storage.callback.unref()",
+	"    return true",
 	"}}",
 );
 
@@ -114,10 +114,10 @@ js_sys::js_bindgen::embed_js!(
 	name = "release.twice",
 	required_embeds = [("closure", "storage")],
 	"() => {{",
-	"	const callback = this.#jsEmbed.closure.storage.callback",
-	"	callback.unref()",
-	"	callback.unref()",
-	"	return true",
+	"    const callback = this.#jsEmbed.closure.storage.callback",
+	"    callback.unref()",
+	"    callback.unref()",
+	"    return true",
 	"}}",
 );
 

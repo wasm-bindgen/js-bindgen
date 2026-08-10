@@ -20,14 +20,14 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "future.observe",
 	"(promise, callback) => {{",
-	"	promise.then(",
-	"		value => {{",
-	"			try {{ callback(true, value) }} finally {{ callback.unref() }}",
-	"		}},",
-	"		error => {{",
-	"			try {{ callback(false, error) }} finally {{ callback.unref() }}",
-	"		}},",
-	"	)",
+	"    promise.then(",
+	"        value => {{",
+	"            try {{ callback(true, value) }} finally {{ callback.unref() }}",
+	"        }},",
+	"        error => {{",
+	"            try {{ callback(false, error) }} finally {{ callback.unref() }}",
+	"        }},",
+	"    )",
 	"}}",
 );
 
@@ -35,7 +35,7 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "future.settle",
 	"(resolvers, resolved, value) => {{",
-	"	resolvers[resolved ? 'resolve' : 'reject'](value)",
+	"    resolvers[resolved ? 'resolve' : 'reject'](value)",
 	"}}",
 );
 

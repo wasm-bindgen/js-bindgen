@@ -11,9 +11,8 @@ bench = false
 doctest = false
 
 [dependencies]
-foldhash = { workspace = true }
-hashbrown = { workspace = true }
-itertools = { workspace = true, features = ["use_alloc"] }
+foldhash = { workspace = true, optional = true }
+hashbrown = { workspace = true, optional = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true, features = [
@@ -29,17 +28,19 @@ xxhash-rust = { workspace = true }
 [dev-dependencies]
 anyhow = { workspace = true }
 cargo_metadata = { workspace = true }
+foldhash = { workspace = true }
+hashbrown = { workspace = true }
 indoc = { workspace = true }
 inline-snap = { workspace = true }
+itertools = { workspace = true, features = ["use_alloc"] }
 js-bindgen-ld-shared = { workspace = true }
 prettyplease = { workspace = true }
-similar-asserts = { workspace = true }
 tempfile = { workspace = true }
 wasmparser = { workspace = true }
 
 [features]
-file = []
-web-idl = ["dep:weedle2"]
+file = ["dep:foldhash", "dep:hashbrown"]
+web-idl = ["dep:foldhash", "dep:hashbrown", "dep:weedle2"]
 
 [lints]
 workspace = true

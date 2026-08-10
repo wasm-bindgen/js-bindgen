@@ -1,18 +1,21 @@
 mod js;
 mod wat;
-mod writer;
 
 use core::marker::PhantomData;
 
-use writer::Writer;
-
+use super::writer::Writer;
 use super::{
-	WatSlot, into_js_wat_slots, js_input_template, js_output_has_conversion, js_output_sret,
-	js_output_templates, js_result_catch, js_result_try, return_from_js_is_direct,
+	WatSlot, into_js_wat_slots, js_input_template, js_output_has_conversion, js_output_prepare,
+	js_output_sret, js_output_templates, js_result_catch, js_result_try, return_from_js_is_direct,
 	return_from_js_wat_slots, validate_into_js, validate_return_from_js, wat_result_catch,
 	wat_result_default, wat_result_imports, wat_result_locals, wat_result_try,
 };
-use crate::hazard::{IntoJS, ReturnFromJS};
+use crate::hazard::{IntoJS, ReturnFromJS, Sret};
+
+const JS_RETPTR_CONV: &str = crate::js_template!(
+	js_input_template::<crate::util::PtrMut<()>>(),
+	slots = ["$retptr", "", "", ""],
+);
 
 /// All target-dependent information needed to render one imported argument.
 #[doc(hidden)]
@@ -38,8 +41,9 @@ pub struct ImportOutput {
 	slots: [WatSlot; 4],
 	pointer: WatSlot,
 	has_js_conversion: bool,
+	js_prepare: &'static str,
 	js_templates: [&'static str; 4],
-	js_sret: &'static str,
+	js_sret: Option<Sret>,
 	js_try: &'static str,
 	js_catch: &'static str,
 	wat_result_imports: &'static str,
@@ -125,6 +129,7 @@ impl<T: ReturnFromJS> ImportOutputMetadata<T> {
 			slots,
 			pointer: into_js_wat_slots::<crate::util::PtrMut<()>>()[0],
 			has_js_conversion: js_output_has_conversion::<T>(),
+			js_prepare: js_output_prepare::<T>(),
 			js_templates: js_output_templates::<T>(),
 			js_sret: js_output_sret::<T>(),
 			js_try: js_result_try::<T>(),

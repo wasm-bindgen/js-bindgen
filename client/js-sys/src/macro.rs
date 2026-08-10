@@ -5,8 +5,10 @@ mod import;
 mod result;
 mod text;
 mod wat;
+mod writer;
 
 pub use abi::*;
+pub use export::*;
 pub use import::*;
 pub use result::*;
 pub use text::*;
@@ -15,10 +17,7 @@ pub use wat::*;
 // Text rendering.
 pub use crate::{const_concat, const_concat_if, const_integer_str, js_template};
 // JavaScript export shims.
-pub use crate::{
-	js_export, js_export_arguments, js_export_input_arguments, js_export_output_expression,
-	js_export_parameters, js_export_promising, js_export_promising_then, js_export_result_throw,
-};
+pub use crate::{js_export, js_export_promising};
 // WAT closure shims.
 pub use crate::{
 	wat_closure, wat_closure_call, wat_closure_direct, wat_closure_indirect,

@@ -4,7 +4,9 @@ use core::hint::black_box;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 
-use js_sys::{Closure, JsFuture, JsValue, Promise, closure, future_to_promise, js_sys};
+use js_sys::{
+	Closure, JsFuture, JsValue, Promise, Uint32Array, closure, future_to_promise, js_sys,
+};
 
 js_sys::js_bindgen::embed_js!(
 	module = "js_bindgen_benchmark",
@@ -26,6 +28,12 @@ js_sys::js_bindgen::embed_js!(
 
 js_sys::js_bindgen::embed_js!(
 	module = "js_bindgen_benchmark",
+	name = "string",
+	"() => 'js-bindgen benchmark'",
+);
+
+js_sys::js_bindgen::embed_js!(
+	module = "js_bindgen_benchmark",
 	name = "invoke_closure",
 	"(callback, value) => callback(value)",
 );
@@ -34,9 +42,9 @@ js_sys::js_bindgen::embed_js!(
 	module = "js_bindgen_benchmark",
 	name = "pending_promise",
 	"() => {{",
-	"	const {{ promise, resolve }} = Promise.withResolvers()",
-	"	globalThis.queueMicrotask(resolve)",
-	"	return promise",
+	"    const {{ promise, resolve }} = Promise.withResolvers()",
+	"    globalThis.queueMicrotask(resolve)",
+	"    return promise",
 	"}}",
 );
 
@@ -108,11 +116,41 @@ extern "js-sys" {
 	#[js_sys(js_embed = "identity")]
 	fn import_js_value_raw(value: JsValue) -> JsValue;
 
+	#[js_sys(js_embed = "identity")]
+	fn import_vec_js_value_raw(value: Vec<JsValue>) -> Vec<JsValue>;
+
+	#[js_sys(js_embed = "identity")]
+	fn import_vec_u32_raw(value: Vec<u32>) -> Vec<u32>;
+
+	#[js_sys(js_embed = "identity")]
+	fn import_vec_u8_raw(value: Vec<u8>) -> Vec<u8>;
+
+	#[js_sys(js_embed = "identity")]
+	fn import_vec_u64_raw(value: Vec<u64>) -> Vec<u64>;
+
+	#[js_sys(js_embed = "identity")]
+	fn import_vec_f64_raw(value: Vec<f64>) -> Vec<f64>;
+
+	#[js_sys(js_embed = "identity")]
+	fn import_vec_string_raw(value: Vec<String>) -> Vec<String>;
+
 	#[js_sys(js_embed = "length")]
 	fn import_str_raw(value: &str) -> u32;
 
 	#[js_sys(js_embed = "length")]
+	fn import_string_length_raw(value: String) -> u32;
+
+	#[js_sys(js_embed = "string")]
+	fn import_string_raw() -> String;
+
+	#[js_sys(js_embed = "identity")]
+	fn import_string_roundtrip_raw(value: String) -> String;
+
+	#[js_sys(js_embed = "length")]
 	fn import_u32_slice_raw(value: &[u32]) -> u32;
+
+	#[js_sys(js_embed = "length")]
+	fn import_u64_slice_raw(value: &[u64]) -> u32;
 
 	#[js_sys(js_embed = "length")]
 	fn import_js_value_slice_raw(value: &[JsValue]) -> u32;
@@ -132,7 +170,13 @@ std::thread_local! {
 		closure!(dyn FnMut(i32) -> i32, |value| value);
 	static CALLBACK_U128: Closure<dyn FnMut(u128) -> u128> =
 		closure!(dyn FnMut(u128) -> u128, |value| value);
+	static UINT32_ARRAY: Uint32Array = Uint32Array::from(&UINT32_VALUES);
 }
+
+const UINT32_VALUES: [u32; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+const UINT8_VALUES: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+const UINT64_VALUES: [u64; 8] = [1, 2, 3, 4, 5, 6, 7, u64::MAX];
+const FLOAT64_VALUES: [f64; 8] = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
 
 #[js_sys]
 fn bench_closure_call(value: i32) -> i32 {
@@ -349,6 +393,39 @@ fn bench_export_js_value_alloc(value: JsValue) -> i32 {
 }
 
 #[js_sys]
+fn bench_export_vec_js_value(value: JsValue) -> Vec<JsValue> {
+	vec![value]
+}
+
+#[js_sys]
+fn bench_export_vec_u32() -> Vec<u32> {
+	black_box(UINT32_VALUES).to_vec()
+}
+
+#[js_sys]
+fn bench_export_vec_u8() -> Vec<u8> {
+	black_box(UINT8_VALUES).to_vec()
+}
+
+#[js_sys]
+fn bench_export_vec_u64() -> Vec<u64> {
+	black_box(UINT64_VALUES).to_vec()
+}
+
+#[js_sys]
+fn bench_export_vec_f64() -> Vec<f64> {
+	black_box(FLOAT64_VALUES).to_vec()
+}
+
+#[js_sys]
+fn bench_export_vec_string() -> Vec<String> {
+	black_box(["js", "bindgen", "benchmark", "🦀"])
+		.into_iter()
+		.map(String::from)
+		.collect()
+}
+
+#[js_sys]
 fn bench_import_i32(value: i32) -> i32 {
 	import_i32_raw(value)
 }
@@ -489,16 +566,90 @@ fn bench_import_js_value(value: JsValue) -> JsValue {
 }
 
 #[js_sys]
+fn bench_import_vec_js_value(value: JsValue) -> usize {
+	import_vec_js_value_raw(vec![value]).len()
+}
+
+#[js_sys]
+fn bench_import_vec_u32() -> usize {
+	import_vec_u32_raw(black_box(UINT32_VALUES).to_vec()).len()
+}
+
+#[js_sys]
+fn bench_import_vec_u8() -> usize {
+	import_vec_u8_raw(black_box(UINT8_VALUES).to_vec()).len()
+}
+
+#[js_sys]
+fn bench_import_vec_u64() -> usize {
+	import_vec_u64_raw(black_box(UINT64_VALUES).to_vec()).len()
+}
+
+#[js_sys]
+fn bench_import_vec_f64() -> usize {
+	import_vec_f64_raw(black_box(FLOAT64_VALUES).to_vec()).len()
+}
+
+#[js_sys]
+fn bench_import_vec_string() -> usize {
+	let values = black_box(["js", "bindgen", "benchmark", "🦀"])
+		.into_iter()
+		.map(String::from)
+		.collect();
+	import_vec_string_raw(values).len()
+}
+
+#[js_sys]
 fn bench_import_str() -> u32 {
 	import_str_raw(black_box("js-bindgen benchmark"))
 }
 
 #[js_sys]
+fn bench_import_string_to_js() -> u32 {
+	import_string_length_raw(String::from(black_box("js-bindgen benchmark")))
+}
+
+#[js_sys]
+fn bench_import_string_from_js() -> usize {
+	import_string_raw().len()
+}
+
+#[js_sys]
+fn bench_import_string_roundtrip() -> usize {
+	import_string_roundtrip_raw(String::from(black_box("js-bindgen benchmark"))).len()
+}
+
+#[js_sys]
 fn bench_import_u32_slice() -> u32 {
-	import_u32_slice_raw(black_box(&[1, 2, 3, 4, 5, 6, 7, 8]))
+	import_u32_slice_raw(black_box(&UINT32_VALUES))
+}
+
+#[js_sys]
+fn bench_import_u64_slice() -> u32 {
+	import_u64_slice_raw(black_box(&UINT64_VALUES))
 }
 
 #[js_sys]
 fn bench_import_js_value_slice(value: JsValue) -> u32 {
 	import_js_value_slice_raw(core::slice::from_ref(&value))
+}
+
+#[js_sys]
+fn bench_typed_array_copy_to_u32() -> u32 {
+	let mut output = [0; UINT32_VALUES.len()];
+	UINT32_ARRAY.with(|array| array.copy_to(&mut output).unwrap());
+	black_box(output)[output.len() - 1]
+}
+
+#[js_sys]
+fn bench_typed_array_copy_from_u32() -> usize {
+	UINT32_ARRAY.with(|array| {
+		array.copy_from(black_box(&UINT32_VALUES)).unwrap();
+		array.length() as usize
+	})
+}
+
+#[js_sys]
+fn bench_typed_array_from_u32() -> usize {
+	Uint32Array::from(black_box(&UINT32_VALUES)).length() as usize
 }

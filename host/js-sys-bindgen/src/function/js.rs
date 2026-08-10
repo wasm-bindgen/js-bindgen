@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use syn::{Ident, Path};
 
 /// The final JavaScript binding selected for a foreign function.
@@ -45,7 +44,7 @@ impl ForeignItem {
 
 	pub(super) fn call(
 		owner: Option<Path>,
-		path: String,
+		path: &str,
 		receiver: bool,
 		variadic: bool,
 		namespace: Option<&str>,
@@ -61,7 +60,7 @@ impl ForeignItem {
 		let direct_call = if direct_wrapper {
 			indirect_call.clone()
 		} else {
-			path
+			path.to_owned()
 		};
 
 		Self::Generate {
@@ -85,12 +84,7 @@ impl ForeignItem {
 	}
 
 	pub(super) fn getter(owner: Option<Path>, path: String) -> Self {
-		Self::Generate {
-			owner,
-			direct_wrapper: true,
-			direct_call: path.clone(),
-			indirect_call: path,
-		}
+		Self::expression(owner, path)
 	}
 
 	pub(super) fn setter(
@@ -102,12 +96,25 @@ impl ForeignItem {
 		let arguments = Self::arguments(inputs, receiver, false);
 		let call = format!("{path} = {arguments}");
 
-		Self::Generate {
-			owner,
-			direct_wrapper: true,
-			direct_call: call.clone(),
-			indirect_call: call,
-		}
+		Self::expression(owner, call)
+	}
+
+	pub(super) fn indexing_getter(owner: Path, inputs: &[String]) -> Self {
+		let call = format!("{}[{}]", inputs[0], inputs[1]);
+
+		Self::expression(Some(owner), call)
+	}
+
+	pub(super) fn indexing_setter(owner: Path, inputs: &[String]) -> Self {
+		let call = format!("{}[{}] = {}", inputs[0], inputs[1], inputs[2]);
+
+		Self::expression(Some(owner), call)
+	}
+
+	pub(super) fn indexing_deleter(owner: Path, inputs: &[String]) -> Self {
+		let call = format!("delete {}[{}]", inputs[0], inputs[1]);
+
+		Self::expression(Some(owner), call)
 	}
 
 	pub(super) fn global_path(namespace: Option<&str>, name: &str) -> String {
@@ -125,6 +132,15 @@ impl ForeignItem {
 			.expect("static and instance bindings always have an owner")
 	}
 
+	fn expression(owner: Option<Path>, expression: String) -> Self {
+		Self::Generate {
+			owner,
+			direct_wrapper: true,
+			direct_call: expression.clone(),
+			indirect_call: expression,
+		}
+	}
+
 	fn arguments(inputs: &[String], receiver: bool, variadic: bool) -> String {
 		let inputs = if receiver { &inputs[1..] } else { inputs };
 
@@ -136,10 +152,10 @@ impl ForeignItem {
 			if inputs.is_empty() {
 				format!("...{last}")
 			} else {
-				format!("{}, ...{last}", inputs.iter().join(", "))
+				format!("{}, ...{last}", inputs.join(", "))
 			}
 		} else {
-			inputs.iter().join(", ")
+			inputs.join(", ")
 		}
 	}
 }

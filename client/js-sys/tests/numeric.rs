@@ -1,5 +1,5 @@
 use js_bindgen_test::test;
-use js_sys::{JsBigInt, JsNumber, JsString, js_sys};
+use js_sys::{BigInt, JsString, Number, js_sys};
 use paste::paste;
 
 js_bindgen::embed_js!(module = "numeric", name = "test", "(value) => value");
@@ -9,18 +9,18 @@ fn bool() {
 	#[js_sys]
 	extern "js-sys" {
 		#[js_sys(js_embed = "test")]
-		fn bool_input(value: bool) -> JsNumber;
+		fn bool_input(value: bool) -> Number;
 
 		#[js_sys(js_embed = "test")]
-		fn bool_output(value: &JsNumber) -> bool;
+		fn bool_output(value: &Number) -> bool;
 	}
 
 	let r#false = bool_input(false);
-	assert_eq!(JsString::new(r#false.as_ref()), "false");
+	assert_eq!(JsString::new(r#false.as_ref()).unwrap(), "false");
 	assert!(!bool_output(&r#false));
 
 	let r#true = bool_input(true);
-	assert_eq!(JsString::new(r#true.as_ref()), "true");
+	assert_eq!(JsString::new(r#true.as_ref()).unwrap(), "true");
 	assert!(bool_output(&r#true));
 }
 
@@ -40,7 +40,7 @@ macro_rules! signed {
             internal!($js, $ty);
 
             let null = [<$ty _input>](0);
-			assert_eq!(JsString::new(null.as_ref()), 0.to_string());
+			assert_eq!(JsString::new(null.as_ref()).unwrap(), 0.to_string());
 			assert_eq!([<$ty _output>](&null), 0);
         }
     })*};
@@ -59,28 +59,28 @@ macro_rules! internal {
 			}
 
 			let min = [<$ty _input>]($ty::MIN);
-			assert_eq!(JsString::new(min.as_ref()), $ty::MIN.to_string());
+			assert_eq!(JsString::new(min.as_ref()).unwrap(), $ty::MIN.to_string());
 			assert_eq!([<$ty _output>](&min), $ty::MIN);
 
 			let max = [<$ty _input>]($ty::MAX);
-			assert_eq!(JsString::new(max.as_ref()), $ty::MAX.to_string());
+			assert_eq!(JsString::new(max.as_ref()).unwrap(), $ty::MAX.to_string());
 			assert_eq!([<$ty _output>](&max), $ty::MAX);
 		}
 	};
 }
 
-unsigned!(JsNumber, u8, u16, u32);
-unsigned!(JsBigInt, u64, u128);
+unsigned!(Number, u8, u16, u32);
+unsigned!(BigInt, u64, u128);
 
 #[cfg(target_arch = "wasm32")]
-unsigned!(JsNumber, usize);
+unsigned!(Number, usize);
 #[cfg(target_arch = "wasm64")]
-unsigned!(JsBigInt, usize);
+unsigned!(BigInt, usize);
 
-signed!(JsNumber, i8, i16, i32);
-signed!(JsBigInt, i64, i128);
+signed!(Number, i8, i16, i32);
+signed!(BigInt, i64, i128);
 
 #[cfg(target_arch = "wasm32")]
-signed!(JsNumber, isize);
+signed!(Number, isize);
 #[cfg(target_arch = "wasm64")]
-signed!(JsBigInt, isize);
+signed!(BigInt, isize);

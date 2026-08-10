@@ -2,11 +2,17 @@
 #[macro_export]
 macro_rules! js_template {
 	($template:expr, value = $value:expr $(,)?) => {
-		$crate::r#macro::js_template!(@render $template, [$value, "", "", "", ""])
+		$crate::r#macro::js_template!(@render $template, [$value, "", "", "", "", ""])
+	};
+	($template:expr, value = $value:expr, prepared = $prepared:expr $(,)?) => {
+		$crate::r#macro::js_template!(@render $template, [
+			$value, $prepared, "", "", "", ""
+		])
 	};
 	($template:expr, slots = $slots:expr $(,)?) => {{
 		const JS_TEMPLATE_SLOTS: [&::core::primitive::str; 4] = $slots;
 		$crate::r#macro::js_template!(@render $template, [
+			"",
 			"",
 			JS_TEMPLATE_SLOTS[0],
 			JS_TEMPLATE_SLOTS[1],
@@ -14,9 +20,9 @@ macro_rules! js_template {
 			JS_TEMPLATE_SLOTS[3],
 		])
 	}};
-	(@render $template:expr, [$value:expr, $slot1:expr, $slot2:expr, $slot3:expr, $slot4:expr $(,)?]) => {{
-		const JS_TEMPLATE_REPLACEMENTS: [&::core::primitive::str; 5] =
-			[$value, $slot1, $slot2, $slot3, $slot4];
+	(@render $template:expr, [$value:expr, $prepared:expr, $slot1:expr, $slot2:expr, $slot3:expr, $slot4:expr $(,)?]) => {{
+		const JS_TEMPLATE_REPLACEMENTS: [&::core::primitive::str; 6] =
+			[$value, $prepared, $slot1, $slot2, $slot3, $slot4];
 		const JS_TEMPLATE_LEN: ::core::primitive::usize = $crate::r#macro::js_template_len(
 			$template,
 			&JS_TEMPLATE_REPLACEMENTS,
@@ -178,9 +184,16 @@ const fn append_str<const LEN: usize>(output: &mut [u8; LEN], offset: usize, val
 	end
 }
 
-const JS_TEMPLATE_PLACEHOLDERS: [&str; 5] = ["$value", "$slot1", "$slot2", "$slot3", "$slot4"];
+pub(super) const JS_TEMPLATE_PLACEHOLDERS: [&str; 6] = [
+	"$value",
+	"$prepared",
+	"$slot1",
+	"$slot2",
+	"$slot3",
+	"$slot4",
+];
 
-const fn js_template_placeholder(template: &[u8], index: usize) -> usize {
+pub(super) const fn js_template_placeholder(template: &[u8], index: usize) -> usize {
 	if template[index] != b'$' {
 		return JS_TEMPLATE_PLACEHOLDERS.len();
 	}
@@ -215,7 +228,7 @@ const fn js_template_placeholder(template: &[u8], index: usize) -> usize {
 }
 
 #[must_use]
-pub const fn js_template_len(template: &str, replacements: &[&str; 5]) -> usize {
+pub const fn js_template_len(template: &str, replacements: &[&str; 6]) -> usize {
 	let template = template.as_bytes();
 	let mut input = 0;
 	let mut output = 0;
@@ -238,7 +251,7 @@ pub const fn js_template_len(template: &str, replacements: &[&str; 5]) -> usize 
 #[must_use]
 pub const fn render_js_template<const LEN: usize>(
 	template: &str,
-	replacements: &[&str; 5],
+	replacements: &[&str; 6],
 ) -> [u8; LEN] {
 	let template = template.as_bytes();
 	let mut rendered = [0; LEN];

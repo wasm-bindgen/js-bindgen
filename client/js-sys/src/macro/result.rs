@@ -7,7 +7,7 @@ use crate::runtime::externref::{
 #[cfg(not(target_feature = "exception-handling"))]
 const DIRECT_CATCH: &str = "
     } catch ($error) {
-        const $index = this.#instance.exports['js_sys.exception.store']()
+        const $index = this.#jsExports['js_sys.exception.store']()
         this.#jsEmbed.js_sys['externref.table'].set($index, $error)
         return false
     }
@@ -15,7 +15,7 @@ const DIRECT_CATCH: &str = "
 #[cfg(not(target_feature = "exception-handling"))]
 const INDIRECT_CATCH: &str = "
     } catch ($error) {
-        const $index = this.#instance.exports['js_sys.exception.store']()
+        const $index = this.#jsExports['js_sys.exception.store']()
         this.#jsEmbed.js_sys['externref.table'].set($index, $error)
     }
 }";

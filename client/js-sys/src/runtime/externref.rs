@@ -2,10 +2,11 @@ use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::mem;
 
+use super::allocator;
 use super::panic::panic;
 use crate::JsValue;
 use crate::hazard::JsCast;
-use crate::util::PtrConst;
+use crate::util::{PtrConst, PtrLength};
 
 pub(crate) const WAT_TABLE_IMPORT: &str = "(import \"js_sys\" \"externref.table\" (table \
                                            $js_sys.import.externref.table (@sym (name \
@@ -75,9 +76,9 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "externref.table",
 	"(() => {{",
-	"	const table = new WebAssembly.Table({{ initial: 2, element: 'externref' }})",
-	"	table.set(1, null)",
-	"	return table",
+	"    const table = new WebAssembly.Table({{ initial: 2, element: 'externref' }})",
+	"    table.set(1, null)",
+	"    return table",
 	"}})()"
 );
 
@@ -194,8 +195,8 @@ impl ReservedSlots {
 		PtrConst::new(&self.slots)
 	}
 
-	pub(crate) fn len(&self) -> i32 {
-		self.slots.len().try_into().unwrap()
+	pub(crate) fn len(&self) -> PtrLength<i32> {
+		PtrLength::new(&self.slots)
 	}
 
 	pub(crate) fn commit(mut self) {
@@ -236,16 +237,48 @@ pub(crate) fn reserve_slots(count: usize) -> ReservedSlots {
 	slots
 		.try_reserve_exact(count)
 		.expect("failure to grow memory");
-
-	let mut slab = EXTERNREF_SLAB.0.borrow_mut();
-	while slots.len() < count {
-		slots.push(index_to_abi(slab.alloc()));
-	}
-
-	ReservedSlots {
+	let mut reserved = ReservedSlots {
 		slots,
 		committed: false,
+	};
+
+	let mut slab = EXTERNREF_SLAB.0.borrow_mut();
+	while reserved.slots.len() < count {
+		reserved.slots.push(index_to_abi(slab.alloc()));
 	}
+
+	reserved
+}
+
+#[unsafe(export_name = "js_sys.externref.reserve_slice")]
+extern "C" fn reserve_slice(len: usize) -> *mut i32 {
+	let ptr: *mut i32 = allocator::allocate_slice(len);
+	// SAFETY: The allocator provides writable storage for exactly `len` indices.
+	let slots =
+		unsafe { core::slice::from_raw_parts_mut(ptr.cast::<mem::MaybeUninit<i32>>(), len) };
+	let mut slab = EXTERNREF_SLAB.0.borrow_mut();
+	for slot in slots {
+		slot.write(index_to_abi(slab.alloc()));
+	}
+	ptr
+}
+
+#[unsafe(export_name = "js_sys.externref.recycle_slice")]
+unsafe extern "C" fn recycle_slice(ptr: *const i32, len: usize) {
+	// SAFETY: The caller provides exactly `len` initialized table indices and
+	// transfers ownership of each one.
+	let slots = unsafe { core::slice::from_raw_parts(ptr, len) };
+	let mut slab = EXTERNREF_SLAB.0.borrow_mut();
+	for &index in slots {
+		if u32::from_ne_bytes(index.to_ne_bytes()) >= 2 {
+			remove(index);
+			slab.dealloc(index_from_abi(index));
+		}
+	}
+	drop(slab);
+	// SAFETY: The caller transfers the exact allocation returned by
+	// `reserve_slice` or an owned `JsValue` slice with the same representation.
+	unsafe { allocator::release_slice(ptr.cast_mut(), len) };
 }
 
 #[cfg(not(target_feature = "exception-handling"))]

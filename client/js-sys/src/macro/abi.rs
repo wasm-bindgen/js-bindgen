@@ -1,5 +1,5 @@
 use crate::hazard::{
-	FromJS, IntoJS, ReturnAbi, ReturnFromJS, ReturnIntoJS, Slot, WasmAbi, WasmRet, WatConv,
+	FromJS, IntoJS, ReturnAbi, ReturnFromJS, ReturnIntoJS, Slot, Sret, WasmAbi, WasmRet, WatConv,
 };
 
 // Rust `ABI` shims used by generated import and export functions.
@@ -69,6 +69,30 @@ pub unsafe fn split_input_as<T: IntoJS>(
 #[must_use]
 #[inline]
 pub fn join_output<T: ReturnFromJS>(value: OutputRet<T>) -> T {
+	T::from_return_abi(value)
+}
+
+/// Lifts a return value whose JavaScript conversion is described by another
+/// type with the same `ABI`.
+///
+/// # Safety
+///
+/// The JavaScript value produced for `A` must have the semantics expected by
+/// `T`; sharing an `ABI` alone does not make the conversions interchangeable.
+#[must_use]
+#[inline]
+pub unsafe fn join_output_as<T, A>(value: OutputRet<A>) -> T
+where
+	T: ReturnFromJS<Abi = A::Abi>,
+	A: ReturnFromJS,
+{
+	const {
+		assert!(
+			T::JS_CONV.is_result() == A::JS_CONV.is_result(),
+			"return conversion overrides must preserve Result semantics",
+		);
+	}
+
 	T::from_return_abi(value)
 }
 
@@ -388,6 +412,17 @@ pub const fn js_output_templates<T: ReturnFromJS>() -> [&'static str; 4] {
 }
 
 #[must_use]
+pub const fn js_output_prepare<T: ReturnFromJS>() -> &'static str {
+	match T::JS_CONV.conversion() {
+		Some(conv) => match conv.prepare {
+			Some(prepare) => prepare,
+			None => "",
+		},
+		None => "",
+	}
+}
+
+#[must_use]
 pub const fn js_from_templates<T: FromJS>() -> [&'static str; 4] {
 	if let Some(conv) = T::JS_CONV {
 		conv.templates
@@ -397,17 +432,26 @@ pub const fn js_from_templates<T: FromJS>() -> [&'static str; 4] {
 }
 
 #[must_use]
+pub const fn js_from_prepare<T: FromJS>() -> &'static str {
+	if let Some(conv) = T::JS_CONV
+		&& let Some(prepare) = conv.prepare
+	{
+		prepare
+	} else {
+		""
+	}
+}
+
+#[must_use]
 pub const fn js_output_has_conversion<T: ReturnFromJS>() -> bool {
 	T::JS_CONV.conversion().is_some()
 }
 
 #[must_use]
-pub const fn js_output_sret<T: ReturnFromJS>() -> &'static str {
-	if let Some(conv) = T::JS_CONV.conversion()
-		&& let Some(sret) = conv.sret
-	{
-		sret
+pub const fn js_output_sret<T: ReturnFromJS>() -> Option<Sret> {
+	if let Some(conv) = T::JS_CONV.conversion() {
+		conv.sret
 	} else {
-		""
+		None
 	}
 }

@@ -1,4 +1,8 @@
-use super::{Capacity, ImportDescriptor, ImportInput, ImportJs, ImportOutput, Writer};
+use super::{
+	Capacity, ImportDescriptor, ImportInput, ImportJs, ImportOutput, JS_RETPTR_CONV, Writer,
+};
+use crate::hazard::Sret;
+use crate::r#macro::text::{JS_TEMPLATE_PLACEHOLDERS, js_template_placeholder};
 
 pub(super) const fn descriptor_capacity(descriptor: &ImportDescriptor) -> usize {
 	let Some(js) = descriptor.js else {
@@ -69,8 +73,9 @@ pub(super) const fn descriptor_capacity(descriptor: &ImportDescriptor) -> usize 
 		}
 		None => {
 			if wrapped {
+				capacity.add_str("    ");
 				if descriptor.suspending {
-					capacity.add_str("    return ");
+					capacity.add_str("return ");
 				}
 				capacity.add_str(js.indirect_call);
 				capacity.add_str("\n}");
@@ -119,7 +124,7 @@ const fn add_input_conversion_capacity(capacity: &mut Capacity, input: &ImportIn
 	capacity.add_str("    ");
 	add_slot_name_capacity(capacity, input.name);
 	capacity.add_str(" = ");
-	add_template_capacity(capacity, input.ty.js_template, "", Some(input.name));
+	add_template_capacity(capacity, input.ty.js_template, "", "", Some(input.name));
 	capacity.add(1);
 }
 
@@ -138,6 +143,12 @@ const fn add_output_capacity(
 	};
 	let indent = if catches_result { "        " } else { "    " };
 
+	if !output.direct && !JS_RETPTR_CONV.is_empty() {
+		capacity.add_str("    $retptr = ");
+		capacity.add_str(JS_RETPTR_CONV);
+		capacity.add(1);
+	}
+
 	capacity.add_str(output.js_try);
 
 	if convert_direct {
@@ -155,33 +166,64 @@ const fn add_output_capacity(
 	}
 
 	if output.direct && !convert_direct {
-		add_template_capacity(capacity, output.js_templates[0], call, None);
+		add_template_capacity(capacity, output.js_templates[0], call, "", None);
 	} else {
 		capacity.add_str(call);
 	}
 
 	if convert_direct {
+		if !output.js_prepare.is_empty() {
+			capacity.add(1);
+			capacity.add_str(indent);
+			capacity.add_str("const $prepared = ");
+			add_template_capacity(capacity, output.js_prepare, "$ret", "", None);
+		}
+
 		capacity.add(1);
 		capacity.add_str(indent);
 		capacity.add_str("return ");
-		add_template_capacity(capacity, output.js_templates[0], "$ret", None);
+		add_template_capacity(capacity, output.js_templates[0], "$ret", "$prepared", None);
 	}
 
 	if !output.direct {
-		capacity.add(1);
-		capacity.add_str(indent);
-		capacity.add_str(output.js_sret);
-		capacity.add(1);
-		add_template_capacity(capacity, output.js_templates[0], "$ret", None);
+		match output.js_sret {
+			Some(Sret::Slots(function)) => {
+				if !output.js_prepare.is_empty() {
+					capacity.add(1);
+					capacity.add_str(indent);
+					capacity.add_str("const $prepared = ");
+					add_template_capacity(capacity, output.js_prepare, "$ret", "", None);
+				}
 
-		let mut slot = 1;
-		while slot < output.js_templates.len() {
-			capacity.add_str(", ");
-			add_template_capacity(capacity, output.js_templates[slot], "$ret", None);
-			slot += 1;
+				capacity.add(1);
+				capacity.add_str(indent);
+				capacity.add_str(function);
+				capacity.add(1);
+				add_template_capacity(capacity, output.js_templates[0], "$ret", "$prepared", None);
+
+				let mut slot = 1;
+				while slot < output.js_templates.len() {
+					capacity.add_str(", ");
+					add_template_capacity(
+						capacity,
+						output.js_templates[slot],
+						"$ret",
+						"$prepared",
+						None,
+					);
+					slot += 1;
+				}
+
+				capacity.add_str(", $retptr)");
+			}
+			Some(Sret::Value(function)) => {
+				capacity.add(1);
+				capacity.add_str(indent);
+				capacity.add_str(function);
+				capacity.add_str("($ret, $retptr)");
+			}
+			None => panic!("indirect output missing sret"),
 		}
-
-		capacity.add_str(", $retptr)");
 	}
 
 	if catches_result {
@@ -200,9 +242,14 @@ const fn add_template_capacity(
 	capacity: &mut Capacity,
 	template: &str,
 	value: &str,
+	prepared: &str,
 	slots: Option<&str>,
 ) {
-	let mut maximum_replacement = value.len();
+	let mut maximum_replacement = if value.len() > prepared.len() {
+		value.len()
+	} else {
+		prepared.len()
+	};
 
 	if let Some(name) = slots {
 		let mut slot_len = name.len();
@@ -220,7 +267,7 @@ const fn add_template_capacity(
 	// placeholder is six bytes long, so at most `len / 6` are replaced.
 	capacity.add_str(template);
 	let Some(replacements) =
-		(template.len() / PLACEHOLDERS[0].len()).checked_mul(maximum_replacement)
+		(template.len() / JS_TEMPLATE_PLACEHOLDERS[0].len()).checked_mul(maximum_replacement)
 	else {
 		panic!("import section capacity overflows usize");
 	};
@@ -297,8 +344,9 @@ impl ImportDescriptor {
 			Some(output) => write_output(writer, output, js, wrapped, await_output),
 			None => {
 				if wrapped {
+					writer.write_str("    ");
 					if self.suspending {
-						writer.write_str("    return ");
+						writer.write_str("return ");
 					}
 					writer.write_str(js.indirect_call);
 					writer.write_str("\n}");
@@ -352,7 +400,7 @@ const fn write_input_conversion<const LEN: usize>(writer: &mut Writer<LEN>, inpu
 	writer.write_str("    ");
 	write_slot_name(writer, input.name, 0);
 	writer.write_str(" = ");
-	write_template(writer, input.ty.js_template, "", Some(input.name));
+	write_template(writer, input.ty.js_template, "", "", Some(input.name));
 	writer.write_byte(b'\n');
 }
 
@@ -377,6 +425,12 @@ const fn write_output<const LEN: usize>(
 	};
 	let indent = if catches_result { "        " } else { "    " };
 
+	if !output.direct && !JS_RETPTR_CONV.is_empty() {
+		writer.write_str("    $retptr = ");
+		writer.write_str(JS_RETPTR_CONV);
+		writer.write_byte(b'\n');
+	}
+
 	writer.write_str(output.js_try);
 
 	if convert_direct {
@@ -397,7 +451,7 @@ const fn write_output<const LEN: usize>(
 		if await_output {
 			writer.write_str("await (");
 		}
-		write_template(writer, output.js_templates[0], template_value, None);
+		write_template(writer, output.js_templates[0], template_value, "", None);
 	} else {
 		if await_output {
 			writer.write_str("await (");
@@ -409,30 +463,61 @@ const fn write_output<const LEN: usize>(
 	}
 
 	if convert_direct {
+		if !output.js_prepare.is_empty() {
+			writer.write_byte(b'\n');
+			writer.write_str(indent);
+			writer.write_str("const $prepared = ");
+			write_template(writer, output.js_prepare, "$ret", "", None);
+		}
+
 		writer.write_byte(b'\n');
 		writer.write_str(indent);
 		writer.write_str("return ");
-		write_template(writer, output.js_templates[0], "$ret", None);
+		write_template(writer, output.js_templates[0], "$ret", "$prepared", None);
 	}
 
 	if !output.direct {
-		writer.write_byte(b'\n');
-		writer.write_str(indent);
-		writer.write_str(output.js_sret);
-		writer.write_byte(b'(');
-		write_template(writer, output.js_templates[0], "$ret", None);
+		match output.js_sret {
+			Some(Sret::Slots(function)) => {
+				if !output.js_prepare.is_empty() {
+					writer.write_byte(b'\n');
+					writer.write_str(indent);
+					writer.write_str("const $prepared = ");
+					write_template(writer, output.js_prepare, "$ret", "", None);
+				}
 
-		let mut slot = 1;
-		while slot < output.js_templates.len() {
-			if template_len(output.js_templates[slot], "$ret", None) != 0 {
-				writer.write_str(", ");
-				write_template(writer, output.js_templates[slot], "$ret", None);
+				writer.write_byte(b'\n');
+				writer.write_str(indent);
+				writer.write_str(function);
+				writer.write_byte(b'(');
+				write_template(writer, output.js_templates[0], "$ret", "$prepared", None);
+
+				let mut slot = 1;
+				while slot < output.js_templates.len() {
+					if template_len(output.js_templates[slot], "$ret", "$prepared", None) != 0 {
+						writer.write_str(", ");
+						write_template(
+							writer,
+							output.js_templates[slot],
+							"$ret",
+							"$prepared",
+							None,
+						);
+					}
+
+					slot += 1;
+				}
+
+				writer.write_str(", $retptr)");
 			}
-
-			slot += 1;
+			Some(Sret::Value(function)) => {
+				writer.write_byte(b'\n');
+				writer.write_str(indent);
+				writer.write_str(function);
+				writer.write_str("($ret, $retptr)");
+			}
+			None => panic!("indirect output missing sret"),
 		}
-
-		writer.write_str(", $retptr)");
 	}
 
 	if catches_result {
@@ -449,29 +534,31 @@ const fn write_slot_name<const LEN: usize>(writer: &mut Writer<LEN>, name: &str,
 	writer.write_byte(b"0123"[slot]);
 }
 
-const PLACEHOLDERS: [&[u8]; 5] = [b"$value", b"$slot1", b"$slot2", b"$slot3", b"$slot4"];
-
 const fn write_template<const LEN: usize>(
 	writer: &mut Writer<LEN>,
 	template: &str,
 	value: &str,
+	prepared: &str,
 	slots: Option<&str>,
 ) {
 	let bytes = template.as_bytes();
 	let mut input = 0;
 
 	while input < bytes.len() {
-		let placeholder = template_placeholder(bytes, input);
+		let placeholder = js_template_placeholder(bytes, input);
 
 		if placeholder == 0 {
 			writer.write_str(value);
-			input += PLACEHOLDERS[placeholder].len();
-		} else if placeholder < PLACEHOLDERS.len() {
+			input += JS_TEMPLATE_PLACEHOLDERS[placeholder].len();
+		} else if placeholder == 1 {
+			writer.write_str(prepared);
+			input += JS_TEMPLATE_PLACEHOLDERS[placeholder].len();
+		} else if placeholder < JS_TEMPLATE_PLACEHOLDERS.len() {
 			if let Some(name) = slots {
-				write_slot_name(writer, name, placeholder - 1);
+				write_slot_name(writer, name, placeholder - 2);
 			}
 
-			input += PLACEHOLDERS[placeholder].len();
+			input += JS_TEMPLATE_PLACEHOLDERS[placeholder].len();
 		} else {
 			let start = input;
 			input += 1;
@@ -485,23 +572,26 @@ const fn write_template<const LEN: usize>(
 	}
 }
 
-const fn template_len(template: &str, value: &str, slots: Option<&str>) -> usize {
+const fn template_len(template: &str, value: &str, prepared: &str, slots: Option<&str>) -> usize {
 	let bytes = template.as_bytes();
 	let mut input = 0;
 	let mut output = 0;
 
 	while input < bytes.len() {
-		let placeholder = template_placeholder(bytes, input);
+		let placeholder = js_template_placeholder(bytes, input);
 
 		if placeholder == 0 {
 			output += value.len();
-			input += PLACEHOLDERS[placeholder].len();
-		} else if placeholder < PLACEHOLDERS.len() {
+			input += JS_TEMPLATE_PLACEHOLDERS[placeholder].len();
+		} else if placeholder == 1 {
+			output += prepared.len();
+			input += JS_TEMPLATE_PLACEHOLDERS[placeholder].len();
+		} else if placeholder < JS_TEMPLATE_PLACEHOLDERS.len() {
 			if let Some(name) = slots {
 				output += name.len() + 2;
 			}
 
-			input += PLACEHOLDERS[placeholder].len();
+			input += JS_TEMPLATE_PLACEHOLDERS[placeholder].len();
 		} else {
 			let start = input;
 			input += 1;
@@ -515,37 +605,4 @@ const fn template_len(template: &str, value: &str, slots: Option<&str>) -> usize
 	}
 
 	output
-}
-
-const fn template_placeholder(template: &[u8], index: usize) -> usize {
-	if template[index] != b'$' {
-		return PLACEHOLDERS.len();
-	}
-
-	let mut placeholder = 0;
-	while placeholder < PLACEHOLDERS.len() {
-		let candidate = PLACEHOLDERS[placeholder];
-
-		if index + candidate.len() <= template.len() {
-			let mut byte = 0;
-			let mut matches = true;
-
-			while byte < candidate.len() {
-				if template[index + byte] != candidate[byte] {
-					matches = false;
-					break;
-				}
-
-				byte += 1;
-			}
-
-			if matches {
-				return placeholder;
-			}
-		}
-
-		placeholder += 1;
-	}
-
-	PLACEHOLDERS.len()
 }

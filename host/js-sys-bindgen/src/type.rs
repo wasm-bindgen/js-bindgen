@@ -57,7 +57,7 @@ impl TypeOptions {
 }
 
 impl Type {
-	#[cfg(any(feature = "web-idl", test))]
+	#[cfg(feature = "web-idl")]
 	#[must_use]
 	pub(crate) fn new(hygiene: &mut Hygiene<'_>, item: ForeignItemType) -> Self {
 		Self::with_extends(hygiene, item, &[])

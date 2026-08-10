@@ -1,5 +1,6 @@
 use super::{Capacity, ImportDescriptor, ImportOutput, WatInputCapacity, Writer};
 use crate::r#macro::WatSlot;
+use crate::r#macro::wat::{wat_line_end, wat_lines_equal};
 
 pub(super) const fn descriptor_capacity(descriptor: &ImportDescriptor) -> usize {
 	let mut capacity = Capacity::new();
@@ -184,7 +185,7 @@ pub(super) const fn write_wat_support_imports<const LEN: usize>(
 			let mut line_start = 0;
 
 			while line_start < bytes.len() {
-				let line_end = line_end(source, line_start);
+				let line_end = wat_line_end(source, line_start);
 
 				if line_end != line_start {
 					let mut was_seen = false;
@@ -193,7 +194,7 @@ pub(super) const fn write_wat_support_imports<const LEN: usize>(
 					while seen_index < seen_len {
 						let candidate = seen[seen_index];
 
-						if lines_equal(
+						if wat_lines_equal(
 							source,
 							line_start,
 							line_end,
@@ -275,10 +276,10 @@ const fn previous_line_was_seen(
 			let mut candidate_start = 0;
 
 			while candidate_start < limit {
-				let candidate_end = line_end(candidate, candidate_start);
+				let candidate_end = wat_line_end(candidate, candidate_start);
 
 				if candidate_end != candidate_start
-					&& lines_equal(
+					&& wat_lines_equal(
 						value,
 						line_start,
 						current_line_end,
@@ -441,7 +442,7 @@ impl ImportDescriptor {
 			let mut line_start = 0;
 
 			while line_start < bytes.len() {
-				let line_end = line_end(source, line_start);
+				let line_end = wat_line_end(source, line_start);
 
 				if line_end != line_start {
 					let mut was_seen = false;
@@ -450,7 +451,7 @@ impl ImportDescriptor {
 					while seen_index < seen_len {
 						let candidate = seen[seen_index];
 
-						if lines_equal(
+						if wat_lines_equal(
 							source,
 							line_start,
 							line_end,
@@ -540,10 +541,10 @@ impl ImportDescriptor {
 			let mut candidate_start = 0;
 
 			while candidate_start < limit {
-				let candidate_end = line_end(candidate, candidate_start);
+				let candidate_end = wat_line_end(candidate, candidate_start);
 
 				if candidate_end != candidate_start
-					&& lines_equal(
+					&& wat_lines_equal(
 						value,
 						line_start,
 						current_line_end,
@@ -715,41 +716,4 @@ const fn get_suffix(slot: usize) -> &'static str {
 		3 => "_3",
 		_ => panic!("a Wasm ABI has exactly four slots"),
 	}
-}
-
-const fn line_end(value: &str, start: usize) -> usize {
-	let bytes = value.as_bytes();
-	let mut end = start;
-
-	while end < bytes.len() && bytes[end] != b'\n' {
-		end += 1;
-	}
-
-	end
-}
-
-const fn lines_equal(
-	left: &str,
-	left_start: usize,
-	left_end: usize,
-	right: &str,
-	right_start: usize,
-	right_end: usize,
-) -> bool {
-	if left_end - left_start != right_end - right_start {
-		return false;
-	}
-
-	let left = left.as_bytes();
-	let right = right.as_bytes();
-	let mut offset = 0;
-
-	while left_start + offset < left_end {
-		if left[left_start + offset] != right[right_start + offset] {
-			return false;
-		}
-		offset += 1;
-	}
-
-	true
 }

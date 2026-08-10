@@ -1,6 +1,6 @@
 use crate::hazard::{
 	EmptySlot, FromJS, FromJsConv, IntoJS, IntoJsConv, OptionFromAbi, OptionIntoAbi, ReturnAbi,
-	ReturnMode, Slot, WasmAbi,
+	ReturnMode, Slot, Sret, WasmAbi,
 };
 use crate::r#macro::const_concat;
 
@@ -52,11 +52,11 @@ macro_rules! sentinel_option {
 		carrier: $carrier:ty,
 		sentinel: $sentinel:expr,
 		js_sentinel: $js_sentinel:literal,
-		types: [$([$($ty:ident),+ $(,)?] => {
-			to_js: $to_js:literal,
-			from_js: $from_js:literal,
-		}),+ $(,)?],
-	) => {$($(
+		into_carrier: $into_carrier:ident,
+		to_js: $to_js:literal,
+		from_js: $from_js:literal,
+		types: [$($ty:ident),+ $(,)?],
+	) => {$(
 		// SAFETY: The sentinel lies outside the value range of this type.
 		unsafe impl OptionIntoAbi<$ty> for $ty {
 			const JS_CONV: Option<IntoJsConv> = Some(IntoJsConv::new(const_concat!(
@@ -70,7 +70,7 @@ macro_rules! sentinel_option {
 
 			fn into_option_abi(value: Option<$ty>) -> Self::Abi {
 				value.map_or($sentinel, |value| {
-					sentinel_option!(@into_abi value, $ty, $carrier)
+					sentinel_option!(@into_carrier $into_carrier, value, $carrier)
 				})
 			}
 		}
@@ -88,7 +88,7 @@ macro_rules! sentinel_option {
 
 			#[expect(
 				clippy::allow_attributes,
-				reason = "the generic expansion covers both signed and unsigned carriers"
+				reason = "one macro body covers carriers with different cast lints"
 			)]
 			#[allow(
 				clippy::cast_possible_truncation,
@@ -99,50 +99,29 @@ macro_rules! sentinel_option {
 				if raw == $sentinel {
 					None
 				} else {
-					Some(sentinel_option!(@from_abi raw, $ty))
+					Some(raw as $ty)
 				}
 			}
 		}
-	)+)+};
-	(@into_abi $value:ident, bool, $carrier:ty) => {
+	)+};
+	(@into_carrier widen, $value:ident, $carrier:ty) => {
 		<$carrier>::from($value)
 	};
-	(@into_abi $value:ident, usize, $carrier:ty) => {
-		{
-			#[expect(
-				clippy::cast_precision_loss,
-				reason = "wasm32 usize values are exactly representable by f64"
-			)]
-			let carrier = $value as $carrier;
-			carrier
-		}
-	};
-	(@into_abi $value:ident, isize, $carrier:ty) => {
-		{
-			#[expect(
-				clippy::cast_precision_loss,
-				reason = "wasm32 isize values are exactly representable by f64"
-			)]
-			let carrier = $value as $carrier;
-			carrier
-		}
-	};
-	(@into_abi $value:ident, $ty:ident, $carrier:ty) => {
-		$value as $carrier
-	};
-	(@from_abi $raw:ident, bool) => {
-		$raw != 0
-	};
-	(@from_abi $raw:ident, $ty:ident) => {
-		$raw as $ty
-	};
+	(@into_carrier pointer, $value:ident, $carrier:ty) => {{
+		#[expect(
+			clippy::cast_precision_loss,
+			reason = "wasm32 pointer-sized values are exactly representable by f64"
+		)]
+		let carrier = $value as $carrier;
+		carrier
+	}};
 }
 
 macro_rules! indirect_option {
-	($($ty:ty => {
-		decode: $decode:literal,
+	($($ty:ident => {
+		decode: ($decode:literal, $decode_arguments:literal),
 		encode: $encode:literal,
-		slots: [$($slot:literal),+ $(,)?],
+		slots: $slots:expr,
 	}),+ $(,)?) => {$(
 		// SAFETY: The optional value is represented by a presence tag followed by
 		// its payload slots and is returned through a hidden pointer.
@@ -154,8 +133,13 @@ macro_rules! indirect_option {
 		// optional JavaScript value.
 		unsafe impl OptionIntoAbi<$ty> for $ty {
 			const JS_CONV: Option<IntoJsConv> = Some(
-				IntoJsConv::new(indirect_option!(@decode $decode, [$($slot),+]))
-					.with_embed(("js_sys", $decode)),
+				IntoJsConv::new(const_concat!(
+					"this.#jsEmbed.js_sys['",
+					$decode,
+					"']",
+					$decode_arguments,
+				))
+				.with_embed(("js_sys", $decode)),
 			);
 
 			type Abi = Option<$ty>;
@@ -168,11 +152,22 @@ macro_rules! indirect_option {
 		// SAFETY: The encoder writes a JavaScript value as a presence tag and the
 		// payload slots expected by `Option<$ty>`.
 		unsafe impl OptionFromAbi<$ty> for $ty {
-			const JS_CONV: Option<FromJsConv> = Some(
-				indirect_option!(@output [$($slot),+])
-					.sret(const_concat!("this.#jsEmbed.js_sys['", $encode, "']"))
-					.with_embed(("js_sys", $encode)),
-			);
+			const JS_CONV: Option<FromJsConv> = {
+				const SLOTS: [&str; 4] = $slots;
+
+				Some(
+					FromJsConv::slot1(SLOTS[0])
+						.slot2(SLOTS[1])
+						.slot3(SLOTS[2])
+						.slot4(SLOTS[3])
+						.sret(Sret::Slots(const_concat!(
+							"this.#jsEmbed.js_sys['",
+							$encode,
+							"']"
+						)))
+						.with_embed(("js_sys", $encode)),
+				)
+			};
 
 			type Abi = Option<$ty>;
 
@@ -181,18 +176,6 @@ macro_rules! indirect_option {
 			}
 		}
 	)+};
-	(@decode $decode:literal, [$slot1:literal, $slot2:literal]) => {
-		const_concat!("this.#jsEmbed.js_sys['", $decode, "']($slot1, $slot2)")
-	};
-	(@decode $decode:literal, [$slot1:literal, $slot2:literal, $slot3:literal]) => {
-		const_concat!("this.#jsEmbed.js_sys['", $decode, "']($slot1, $slot2, $slot3)")
-	};
-	(@output [$slot1:literal, $slot2:literal]) => {
-		FromJsConv::slot1($slot1).slot2($slot2)
-	};
-	(@output [$slot1:literal, $slot2:literal, $slot3:literal]) => {
-		FromJsConv::slot1($slot1).slot2($slot2).slot3($slot3)
-	};
 }
 
 slot!("i32", bool, u8, u16, u32, i8, i16, i32);
@@ -364,7 +347,7 @@ unsafe impl FromJS for u128 {
 	const JS_CONV: Option<FromJsConv> = Some(
 		FromJsConv::slot1("$value")
 			.slot2("$value >> 64n")
-			.sret("this.#jsEmbed.js_sys['numeric.128.encode']")
+			.sret(Sret::Slots("this.#jsEmbed.js_sys['numeric.128.encode']"))
 			.with_embed(("js_sys", "numeric.128.encode")),
 	);
 
@@ -428,7 +411,7 @@ unsafe impl FromJS for i128 {
 	const JS_CONV: Option<FromJsConv> = Some(
 		FromJsConv::slot1("$value")
 			.slot2("$value >> 64n")
-			.sret("this.#jsEmbed.js_sys['numeric.128.encode']")
+			.sret(Sret::Slots("this.#jsEmbed.js_sys['numeric.128.encode']"))
 			.with_embed(("js_sys", "numeric.128.encode")),
 	);
 
@@ -443,7 +426,7 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "numeric.u128.decode",
 	"(lo, hi) => {{",
-	"	return BigInt.asUintN(64, lo) | (BigInt.asUintN(64, hi) << 64n)",
+	"    return BigInt.asUintN(64, lo) | (BigInt.asUintN(64, hi) << 64n)",
 	"}}",
 );
 
@@ -451,7 +434,7 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "numeric.i128.decode",
 	"(lo, hi) => {{",
-	"	return BigInt.asUintN(64, lo) | (hi << 64n)",
+	"    return BigInt.asUintN(64, lo) | (hi << 64n)",
 	"}}",
 );
 
@@ -459,17 +442,17 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "numeric.128.encode",
 	"(() => {{",
-	"	const memory = this.#memory",
-	"	let buffer = memory.buffer",
-	"	let view = new DataView(buffer)",
-	"	return (lo, hi, out) => {{",
-	"		if (out + 16 > buffer.byteLength) {{",
-	"			buffer = memory.buffer",
-	"			view = new DataView(buffer)",
-	"		}}",
-	"		view.setBigInt64(out, lo, true)",
-	"		view.setBigInt64(out + 8, hi, true)",
-	"	}}",
+	"    const memory = this.#memory",
+	"    let buffer = memory.buffer",
+	"    let view = new DataView(buffer)",
+	"    return (lo, hi, out) => {{",
+	"        if (out + 16 > buffer.byteLength) {{",
+	"            buffer = memory.buffer",
+	"            view = new DataView(buffer)",
+	"        }}",
+	"        view.setBigInt64(out, lo, true)",
+	"        view.setBigInt64(out + 8, hi, true)",
+	"    }}",
 	"}})()",
 );
 
@@ -479,40 +462,75 @@ const I32_OPTION_SENTINEL: i32 = 0x00ff_ffff;
 // `u32`, or widened `f32` value.
 const F64_OPTION_SENTINEL: f64 = 9_007_199_254_740_991.0;
 
+// SAFETY: The sentinel is outside the Boolean carrier range.
+unsafe impl OptionIntoAbi<Self> for bool {
+	const JS_CONV: Option<IntoJsConv> = Some(IntoJsConv::new(
+		"$slot1 === 0x00ff_ffff ? undefined : $slot1 !== 0",
+	));
+
+	type Abi = i32;
+
+	fn into_option_abi(value: Option<Self>) -> Self::Abi {
+		value.map_or(I32_OPTION_SENTINEL, i32::from)
+	}
+}
+
+// SAFETY: The sentinel is decoded before the carrier is converted back to a
+// Boolean.
+unsafe impl OptionFromAbi<Self> for bool {
+	const JS_CONV: Option<FromJsConv> = Some(FromJsConv::slot1(
+		"$value == null ? 0x00ff_ffff : $value ? 1 : 0",
+	));
+
+	type Abi = i32;
+
+	fn from_option_abi(raw: Self::Abi) -> Option<Self> {
+		if raw == I32_OPTION_SENTINEL {
+			None
+		} else {
+			Some(raw != 0)
+		}
+	}
+}
+
 sentinel_option! {
 	carrier: i32,
 	sentinel: I32_OPTION_SENTINEL,
 	js_sentinel: "0x00ff_ffff",
-	types: [
-		[i8, u8, i16, u16] => {
-			to_js: "$slot1",
-			from_js: "$value",
-		},
-		[bool] => {
-			to_js: "$slot1 !== 0",
-			from_js: "$value ? 1 : 0",
-		},
-	],
+	into_carrier: widen,
+	to_js: "$slot1",
+	from_js: "$value",
+	types: [i8, u8, i16, u16],
 }
 
 sentinel_option! {
 	carrier: f64,
 	sentinel: F64_OPTION_SENTINEL,
 	js_sentinel: "Number.MAX_SAFE_INTEGER",
-	types: [
-		[i32] => {
-			to_js: "$slot1",
-			from_js: "$value >> 0",
-		},
-		[u32] => {
-			to_js: "$slot1",
-			from_js: "$value >>> 0",
-		},
-		[f32] => {
-			to_js: "$slot1",
-			from_js: "Math.fround($value)",
-		},
-	],
+	into_carrier: widen,
+	to_js: "$slot1",
+	from_js: "$value >> 0",
+	types: [i32],
+}
+
+sentinel_option! {
+	carrier: f64,
+	sentinel: F64_OPTION_SENTINEL,
+	js_sentinel: "Number.MAX_SAFE_INTEGER",
+	into_carrier: widen,
+	to_js: "$slot1",
+	from_js: "$value >>> 0",
+	types: [u32],
+}
+
+sentinel_option! {
+	carrier: f64,
+	sentinel: F64_OPTION_SENTINEL,
+	js_sentinel: "Number.MAX_SAFE_INTEGER",
+	into_carrier: widen,
+	to_js: "$slot1",
+	from_js: "Math.fround($value)",
+	types: [f32],
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -520,67 +538,74 @@ sentinel_option! {
 	carrier: f64,
 	sentinel: F64_OPTION_SENTINEL,
 	js_sentinel: "Number.MAX_SAFE_INTEGER",
-	types: [
-		[isize] => {
-			to_js: "$slot1",
-			from_js: "$value >> 0",
-		},
-		[usize] => {
-			to_js: "$slot1",
-			from_js: "$value >>> 0",
-		},
-	],
+	into_carrier: pointer,
+	to_js: "$slot1",
+	from_js: "$value >> 0",
+	types: [isize],
+}
+
+#[cfg(target_arch = "wasm32")]
+sentinel_option! {
+	carrier: f64,
+	sentinel: F64_OPTION_SENTINEL,
+	js_sentinel: "Number.MAX_SAFE_INTEGER",
+	into_carrier: pointer,
+	to_js: "$slot1",
+	from_js: "$value >>> 0",
+	types: [usize],
 }
 
 indirect_option! {
 	f64 => {
-		decode: "optional.f64.decode",
+		decode: ("optional.f64.decode", "($slot1, $slot2)"),
 		encode: "optional.f64.encode",
-		slots: ["$value == null ? 0 : 1", "$value == null ? 0 : $value"],
+		slots: ["$value == null ? 0 : 1", "$value == null ? 0 : $value", "", ""],
 	},
 	i64 => {
-		decode: "optional.i64.decode",
+		decode: ("optional.i64.decode", "($slot1, $slot2)"),
 		encode: "optional.i64.encode",
-		slots: ["$value == null ? 0 : 1", "$value == null ? 0n : $value"],
+		slots: ["$value == null ? 0 : 1", "$value == null ? 0n : $value", "", ""],
 	},
 	u64 => {
-		decode: "optional.u64.decode",
+		decode: ("optional.u64.decode", "($slot1, $slot2)"),
 		encode: "optional.u64.encode",
-		slots: ["$value == null ? 0 : 1", "$value == null ? 0n : $value"],
+		slots: ["$value == null ? 0 : 1", "$value == null ? 0n : $value", "", ""],
 	},
 }
 
 #[cfg(target_arch = "wasm64")]
 indirect_option! {
 	isize => {
-		decode: "optional.i64.decode",
+		decode: ("optional.i64.decode", "($slot1, $slot2)"),
 		encode: "optional.i64.encode",
-		slots: ["$value == null ? 0 : 1", "$value == null ? 0n : $value"],
+		slots: ["$value == null ? 0 : 1", "$value == null ? 0n : $value", "", ""],
 	},
 	usize => {
-		decode: "optional.u64.decode",
+		decode: ("optional.u64.decode", "($slot1, $slot2)"),
 		encode: "optional.u64.encode",
-		slots: ["$value == null ? 0 : 1", "$value == null ? 0n : $value"],
+		slots: ["$value == null ? 0 : 1", "$value == null ? 0n : $value", "", ""],
 	},
 }
 
 indirect_option! {
 	u128 => {
-		decode: "optional.u128.decode",
+		decode: ("optional.u128.decode", "($slot1, $slot2, $slot3)"),
 		encode: "optional.128.encode",
 		slots: [
 			"$value == null ? 0 : 1",
 			"$value == null ? 0n : $value",
 			"$value == null ? 0n : $value >> 64n",
+			"",
 		],
 	},
 	i128 => {
-		decode: "optional.i128.decode",
+		decode: ("optional.i128.decode", "($slot1, $slot2, $slot3)"),
 		encode: "optional.128.encode",
 		slots: [
 			"$value == null ? 0 : 1",
 			"$value == null ? 0n : $value",
 			"$value == null ? 0n : $value >> 64n",
+			"",
 		],
 	},
 }
@@ -589,8 +614,8 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "optional.f64.decode",
 	"(isSome, value) => {{",
-	"	if (isSome === 0) return undefined",
-	"	return value",
+	"    if (isSome === 0) return undefined",
+	"    return value",
 	"}}",
 );
 
@@ -598,17 +623,17 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "optional.f64.encode",
 	"(() => {{",
-	"	const memory = this.#memory",
-	"	let buffer = memory.buffer",
-	"	let view = new DataView(buffer)",
-	"	return (isSome, value, out) => {{",
-	"		if (out + 16 > buffer.byteLength) {{",
-	"			buffer = memory.buffer",
-	"			view = new DataView(buffer)",
-	"		}}",
-	"		view.setUint32(out, isSome, true)",
-	"		view.setFloat64(out + 8, value, true)",
-	"	}}",
+	"    const memory = this.#memory",
+	"    let buffer = memory.buffer",
+	"    let view = new DataView(buffer)",
+	"    return (isSome, value, out) => {{",
+	"        if (out + 16 > buffer.byteLength) {{",
+	"            buffer = memory.buffer",
+	"            view = new DataView(buffer)",
+	"        }}",
+	"        view.setUint32(out, isSome, true)",
+	"        view.setFloat64(out + 8, value, true)",
+	"    }}",
 	"}})()",
 );
 
@@ -616,8 +641,8 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "optional.i64.decode",
 	"(isSome, value) => {{",
-	"	if (isSome === 0) return undefined",
-	"	return value",
+	"    if (isSome === 0) return undefined",
+	"    return value",
 	"}}",
 );
 
@@ -625,17 +650,17 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "optional.i64.encode",
 	"(() => {{",
-	"	const memory = this.#memory",
-	"	let buffer = memory.buffer",
-	"	let view = new DataView(buffer)",
-	"	return (isSome, value, out) => {{",
-	"		if (out + 16 > buffer.byteLength) {{",
-	"			buffer = memory.buffer",
-	"			view = new DataView(buffer)",
-	"		}}",
-	"		view.setUint32(out, isSome, true)",
-	"		view.setBigInt64(out + 8, value, true)",
-	"	}}",
+	"    const memory = this.#memory",
+	"    let buffer = memory.buffer",
+	"    let view = new DataView(buffer)",
+	"    return (isSome, value, out) => {{",
+	"        if (out + 16 > buffer.byteLength) {{",
+	"            buffer = memory.buffer",
+	"            view = new DataView(buffer)",
+	"        }}",
+	"        view.setUint32(out, isSome, true)",
+	"        view.setBigInt64(out + 8, value, true)",
+	"    }}",
 	"}})()",
 );
 
@@ -643,8 +668,8 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "optional.u64.decode",
 	"(isSome, value) => {{",
-	"	if (isSome === 0) return undefined",
-	"	return BigInt.asUintN(64, value)",
+	"    if (isSome === 0) return undefined",
+	"    return BigInt.asUintN(64, value)",
 	"}}",
 );
 
@@ -652,17 +677,17 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "optional.u64.encode",
 	"(() => {{",
-	"	const memory = this.#memory",
-	"	let buffer = memory.buffer",
-	"	let view = new DataView(buffer)",
-	"	return (isSome, value, out) => {{",
-	"		if (out + 16 > buffer.byteLength) {{",
-	"			buffer = memory.buffer",
-	"			view = new DataView(buffer)",
-	"		}}",
-	"		view.setUint32(out, isSome, true)",
-	"		view.setBigUint64(out + 8, value, true)",
-	"	}}",
+	"    const memory = this.#memory",
+	"    let buffer = memory.buffer",
+	"    let view = new DataView(buffer)",
+	"    return (isSome, value, out) => {{",
+	"        if (out + 16 > buffer.byteLength) {{",
+	"            buffer = memory.buffer",
+	"            view = new DataView(buffer)",
+	"        }}",
+	"        view.setUint32(out, isSome, true)",
+	"        view.setBigUint64(out + 8, value, true)",
+	"    }}",
 	"}})()",
 );
 
@@ -670,8 +695,8 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "optional.u128.decode",
 	"(isSome, lo, hi) => {{",
-	"	if (isSome === 0) return undefined",
-	"	return BigInt.asUintN(64, lo) | (BigInt.asUintN(64, hi) << 64n)",
+	"    if (isSome === 0) return undefined",
+	"    return BigInt.asUintN(64, lo) | (BigInt.asUintN(64, hi) << 64n)",
 	"}}",
 );
 
@@ -679,8 +704,8 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "optional.i128.decode",
 	"(isSome, lo, hi) => {{",
-	"	if (isSome === 0) return undefined",
-	"	return BigInt.asUintN(64, lo) | (hi << 64n)",
+	"    if (isSome === 0) return undefined",
+	"    return BigInt.asUintN(64, lo) | (hi << 64n)",
 	"}}",
 );
 
@@ -688,17 +713,17 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "optional.128.encode",
 	"(() => {{",
-	"	const memory = this.#memory",
-	"	let buffer = memory.buffer",
-	"	let view = new DataView(buffer)",
-	"	return (isSome, lo, hi, out) => {{",
-	"		if (out + 24 > buffer.byteLength) {{",
-	"			buffer = memory.buffer",
-	"			view = new DataView(buffer)",
-	"		}}",
-	"		view.setUint32(out, isSome, true)",
-	"		view.setBigInt64(out + 8, lo, true)",
-	"		view.setBigInt64(out + 16, hi, true)",
-	"	}}",
+	"    const memory = this.#memory",
+	"    let buffer = memory.buffer",
+	"    let view = new DataView(buffer)",
+	"    return (isSome, lo, hi, out) => {{",
+	"        if (out + 24 > buffer.byteLength) {{",
+	"            buffer = memory.buffer",
+	"            view = new DataView(buffer)",
+	"        }}",
+	"        view.setUint32(out, isSome, true)",
+	"        view.setBigInt64(out + 8, lo, true)",
+	"        view.setBigInt64(out + 16, hi, true)",
+	"    }}",
 	"}})()",
 );

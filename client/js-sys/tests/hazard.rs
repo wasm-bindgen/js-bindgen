@@ -1,5 +1,5 @@
 use js_bindgen_test::test;
-use js_sys::hazard::{EmptySlot, FromJS, IntoJS, IntoJsConv, Slot, WasmAbi, WatConv};
+use js_sys::hazard::{EmptySlot, IntoJS, IntoJsConv, Slot, WasmAbi, WatConv};
 use js_sys::js_sys;
 
 js_bindgen::embed_js!(
@@ -31,23 +31,6 @@ unsafe impl Slot for NumberSlot {
 struct Pair(u32, u32);
 
 struct Quad(u32, u32, u32, u32);
-
-#[derive(Clone, Copy)]
-struct ExportInput(u32);
-
-// SAFETY: `ExportInput` is reconstructed directly from one `NumberSlot`.
-unsafe impl FromJS for ExportInput {
-	type Abi = NumberSlot;
-
-	fn from_abi(raw: Self::Abi) -> Self {
-		Self(raw.0)
-	}
-}
-
-#[js_sys]
-fn from_js_only(value: ExportInput) -> u32 {
-	value.0
-}
 
 // SAFETY: `Pair` is represented by its two `u32` fields in order.
 unsafe impl WasmAbi for Pair {

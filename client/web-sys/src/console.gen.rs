@@ -73,7 +73,7 @@ pub fn error(data: &JsValue) {
 	};
 }
 const _: () = {
-	const IMPORTS: &[r#macro::ImportDescriptor] = &[
+	static IMPORTS: &[r#macro::ImportDescriptor] = &[
 		r#macro::ImportDescriptor::new(
 			"web_sys",
 			"console.log0",

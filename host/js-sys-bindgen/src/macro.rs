@@ -287,7 +287,7 @@ fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream {
 			output.extend(quote::quote! {
 				#(#cfg_attrs)*
 				const _: () = {
-					const IMPORTS: &[#macro_path::ImportDescriptor] = &[#(#descriptors),*];
+					static IMPORTS: &[#macro_path::ImportDescriptor] = &[#(#descriptors),*];
 					const WAT_CAPACITY: ::core::primitive::usize =
 						#macro_path::import_wat_capacity(IMPORTS);
 

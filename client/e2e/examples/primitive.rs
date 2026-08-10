@@ -75,7 +75,7 @@ js_sys::js_bindgen::embed_js!(
 	module = "primitive",
 	name = "result.unit",
 	"(ok) => {{",
-	"	if (!ok) throw 'unit error'",
+	"    if (!ok) throw 'unit error'",
 	"}}",
 );
 
@@ -83,10 +83,10 @@ js_sys::js_bindgen::embed_js!(
 	module = "primitive",
 	name = "result.i64",
 	"(value) => {{",
-	"	if (value === -2n) throw undefined",
-	"	if (value === -3n) throw null",
-	"	if (value < 0n) throw 'i64 error'",
-	"	return value + 1n",
+	"    if (value === -2n) throw undefined",
+	"    if (value === -3n) throw null",
+	"    if (value < 0n) throw 'i64 error'",
+	"    return value + 1n",
 	"}}",
 );
 
@@ -94,8 +94,8 @@ js_sys::js_bindgen::embed_js!(
 	module = "primitive",
 	name = "result.u128",
 	"(value) => {{",
-	"	if (value === (1n << 128n) - 1n) throw 'u128 error'",
-	"	return value + 1n",
+	"    if (value === (1n << 128n) - 1n) throw 'u128 error'",
+	"    return value + 1n",
 	"}}",
 );
 

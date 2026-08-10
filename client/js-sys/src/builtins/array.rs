@@ -1,373 +1,615 @@
-use core::error::Error;
-use core::fmt::{self, Display, Formatter};
-use core::mem::MaybeUninit;
-use core::ptr;
+use core::fmt::{self, Formatter};
 
-use super::Object;
+use super::{Function, Iterable, JsIterator, Number, Object, Promise};
 use crate::JsValue;
-use crate::hazard::{IntoJS, IntoJsConv, JsCast};
-use crate::runtime::externref;
-use crate::util::{ExternSlice, PtrConst, PtrLength, PtrMut};
+use crate::hazard::JsCast;
 
 #[crate::js_sys(js_sys = crate)]
 extern "js-sys" {
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
+	///
+	/// `T` is an unchecked marker for the intended element type; JavaScript
+	/// arrays remain dynamic and may contain holes or values of another type.
 	#[js_sys(js_name = "Array", extends = Object)]
-	pub type JsArray<T = JsValue>;
+	pub type Array<T = JsValue>;
 
-	#[js_sys(getter)]
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Array)
 	#[must_use]
-	pub fn length<T>(self: &JsArray<T>) -> u32;
+	#[js_sys(constructor)]
+	pub fn new() -> Array;
 
-	#[js_sys(js_embed = "array.js_value.decode")]
-	// SAFETY: The pointer and length must describe a valid `JsValue` slice.
-	#[expect(
-		clippy::allow_attributes,
-		reason = "the macro emits an unsafe ABI call"
-	)]
-	#[allow(
-		clippy::undocumented_unsafe_blocks,
-		reason = "the safety requirement is documented on this declaration"
-	)]
-	unsafe fn array_js_value_decode(
-		array: PtrConst<JsValue>,
-		len: PtrLength<JsValue>,
-	) -> JsArray<JsValue>;
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Array)
+	#[must_use]
+	#[js_sys(constructor)]
+	pub fn new_with_length(length: u32) -> Array;
 
-	#[js_sys(js_embed = "array.js_value.encode")]
-	// SAFETY: Every pointer and length pair must describe its matching output slice.
-	#[expect(
-		clippy::allow_attributes,
-		reason = "the macro emits an unsafe ABI call"
-	)]
-	#[allow(
-		clippy::undocumented_unsafe_blocks,
-		reason = "the safety requirement is documented on this declaration"
-	)]
-	unsafe fn array_js_value_encode(
-		array: &JsArray,
-		array_ptr: PtrMut<JsValue>,
-		array_len: PtrLength<JsValue>,
-		externref_ptr: PtrConst<i32>,
-		externref_len: i32,
-		write_output: bool,
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Array)
+	#[must_use]
+	#[js_sys(constructor, return_abi = Array)]
+	pub fn new_typed<T>() -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Array)
+	#[must_use]
+	#[js_sys(constructor, return_abi = Array)]
+	pub fn new_typed_with_length<T>(length: u32) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/from)
+	#[js_sys(static_of = Array, js_name = "from")]
+	pub fn from_value(value: &JsValue) -> Result<Array, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/from)
+	#[js_sys(static_of = Array, js_name = "from")]
+	pub fn from_value_with_map(value: &JsValue, map: &Function) -> Result<Array, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/from)
+	#[js_sys(static_of = Array, js_name = "from")]
+	pub fn from_value_with_map_and_this(
+		value: &JsValue,
+		map: &Function,
+		this: &JsValue,
+	) -> Result<Array, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/fromAsync)
+	#[js_sys(static_of = Array, js_name = "fromAsync")]
+	pub fn from_async(value: &JsValue) -> Result<Promise<Array>, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/fromAsync)
+	#[js_sys(static_of = Array, js_name = "fromAsync")]
+	pub fn from_async_with_map(value: &JsValue, map: &Function) -> Result<Promise<Array>, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/fromAsync)
+	#[js_sys(static_of = Array, js_name = "fromAsync")]
+	pub fn from_async_with_map_and_this(
+		value: &JsValue,
+		map: &Function,
+		this: &JsValue,
+	) -> Result<Promise<Array>, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray)
+	#[must_use]
+	#[js_sys(static_of = Array, js_name = "isArray")]
+	pub fn is_array(value: &JsValue) -> bool;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/of)
+	#[must_use]
+	#[js_sys(static_of = Array<T>, variadic, return_abi = Array)]
+	pub fn of<T: JsCast>(#[js_sys(type = &[JsValue])] values: &[T]) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/constructor)
+	#[must_use]
+	#[js_sys(getter)]
+	pub fn constructor<T>(self: &Array<T>) -> Function;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/length)
+	#[must_use]
+	#[js_sys(getter)]
+	pub fn length<T>(self: &Array<T>) -> u32;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/length)
+	#[js_sys(setter)]
+	pub fn set_length<T>(self: &Array<T>, length: u32);
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/at)
+	#[must_use]
+	pub fn at<T>(self: &Array<T>, index: f64) -> JsValue;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/concat)
+	#[must_use]
+	#[js_sys(return_abi = Array)]
+	pub fn concat<T>(self: &Array<T>, #[js_sys(type = &JsValue)] value: &Array<T>) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/concat)
+	#[must_use]
+	#[js_sys(js_name = "concat", variadic, return_abi = Array)]
+	pub fn concat_many<T>(
+		self: &Array<T>,
+		#[js_sys(type = &[JsValue])] values: &[Array<T>],
+	) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/copyWithin)
+	#[must_use]
+	#[js_sys(js_name = "copyWithin", return_abi = Array)]
+	pub fn copy_within<T>(self: &Array<T>, target: f64, start: f64) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/copyWithin)
+	#[must_use]
+	#[js_sys(js_name = "copyWithin", return_abi = Array)]
+	pub fn copy_within_range<T>(self: &Array<T>, target: f64, start: f64, end: f64) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/entries)
+	#[must_use]
+	pub fn entries<T>(self: &Array<T>) -> JsIterator<Array>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/every)
+	pub fn every<T>(self: &Array<T>, callback: &Function) -> Result<bool, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/every)
+	#[js_sys(js_name = "every")]
+	pub fn every_with_this<T>(
+		self: &Array<T>,
+		callback: &Function,
+		this: &JsValue,
 	) -> Result<bool, JsValue>;
 
-	#[js_sys(js_embed = "view.getUint32")]
-	// SAFETY: The pointer and length must describe a valid `u32` slice.
-	#[expect(
-		clippy::allow_attributes,
-		reason = "the macro emits an unsafe ABI call"
-	)]
-	#[allow(
-		clippy::undocumented_unsafe_blocks,
-		reason = "the safety requirement is documented on this declaration"
-	)]
-	unsafe fn array_u32_decode(array: PtrConst<u32>, len: PtrLength<u32>) -> JsArray<u32>;
-
-	#[js_sys(js_embed = "array.u32.encode")]
-	// SAFETY: The pointer and length must describe a valid `u32` output slice.
-	#[expect(
-		clippy::allow_attributes,
-		reason = "the macro emits an unsafe ABI call"
-	)]
-	#[allow(
-		clippy::undocumented_unsafe_blocks,
-		reason = "the safety requirement is documented on this declaration"
-	)]
-	unsafe fn array_u32_encode(array: &JsArray<u32>, ptr: PtrMut<u32>, len: PtrLength<u32>)
-	-> bool;
-}
-
-impl<T> JsArray<T> {
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/fill)
 	#[must_use]
-	pub fn as_any(&self) -> &JsArray {
-		JsArray::unchecked_from_ref(self.as_ref())
-	}
+	#[js_sys(return_abi = Array)]
+	pub fn fill<T: JsCast>(self: &Array<T>, #[js_sys(type = &JsValue)] value: &T) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/fill)
+	#[must_use]
+	#[js_sys(js_name = "fill", return_abi = Array)]
+	pub fn fill_from<T: JsCast>(
+		self: &Array<T>,
+		#[js_sys(type = &JsValue)] value: &T,
+		start: f64,
+	) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/fill)
+	#[must_use]
+	#[js_sys(js_name = "fill", return_abi = Array)]
+	pub fn fill_range<T: JsCast>(
+		self: &Array<T>,
+		#[js_sys(type = &JsValue)] value: &T,
+		start: f64,
+		end: f64,
+	) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter)
+	#[js_sys(return_abi = Result<Array, JsValue>)]
+	pub fn filter<T>(self: &Array<T>, callback: &Function) -> Result<Array<T>, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter)
+	#[js_sys(js_name = "filter", return_abi = Result<Array, JsValue>)]
+	pub fn filter_with_this<T>(
+		self: &Array<T>,
+		callback: &Function,
+		this: &JsValue,
+	) -> Result<Array<T>, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/find)
+	pub fn find<T>(self: &Array<T>, callback: &Function) -> Result<JsValue, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/find)
+	#[js_sys(js_name = "find")]
+	pub fn find_with_this<T>(
+		self: &Array<T>,
+		callback: &Function,
+		this: &JsValue,
+	) -> Result<JsValue, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/findIndex)
+	#[js_sys(js_name = "findIndex")]
+	pub fn find_index<T>(self: &Array<T>, callback: &Function) -> Result<f64, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/findIndex)
+	#[js_sys(js_name = "findIndex")]
+	pub fn find_index_with_this<T>(
+		self: &Array<T>,
+		callback: &Function,
+		this: &JsValue,
+	) -> Result<f64, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/findLast)
+	#[js_sys(js_name = "findLast")]
+	pub fn find_last<T>(self: &Array<T>, callback: &Function) -> Result<JsValue, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/findLast)
+	#[js_sys(js_name = "findLast")]
+	pub fn find_last_with_this<T>(
+		self: &Array<T>,
+		callback: &Function,
+		this: &JsValue,
+	) -> Result<JsValue, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/findLastIndex)
+	#[js_sys(js_name = "findLastIndex")]
+	pub fn find_last_index<T>(self: &Array<T>, callback: &Function) -> Result<f64, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/findLastIndex)
+	#[js_sys(js_name = "findLastIndex")]
+	pub fn find_last_index_with_this<T>(
+		self: &Array<T>,
+		callback: &Function,
+		this: &JsValue,
+	) -> Result<f64, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/flat)
+	#[must_use]
+	pub fn flat<T>(self: &Array<T>) -> Array;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/flat)
+	#[must_use]
+	#[js_sys(js_name = "flat")]
+	pub fn flat_with_depth<T>(self: &Array<T>, depth: f64) -> Array;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/flatMap)
+	#[js_sys(js_name = "flatMap")]
+	pub fn flat_map<T>(self: &Array<T>, callback: &Function) -> Result<Array, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/flatMap)
+	#[js_sys(js_name = "flatMap")]
+	pub fn flat_map_with_this<T>(
+		self: &Array<T>,
+		callback: &Function,
+		this: &JsValue,
+	) -> Result<Array, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach)
+	#[js_sys(js_name = "forEach")]
+	pub fn for_each<T>(self: &Array<T>, callback: &Function) -> Result<(), JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach)
+	#[js_sys(js_name = "forEach")]
+	pub fn for_each_with_this<T>(
+		self: &Array<T>,
+		callback: &Function,
+		this: &JsValue,
+	) -> Result<(), JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/includes)
+	#[must_use]
+	pub fn includes<T: JsCast>(self: &Array<T>, #[js_sys(type = &JsValue)] value: &T) -> bool;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/includes)
+	#[must_use]
+	#[js_sys(js_name = "includes")]
+	pub fn includes_from<T: JsCast>(
+		self: &Array<T>,
+		#[js_sys(type = &JsValue)] value: &T,
+		from_index: f64,
+	) -> bool;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/indexOf)
+	#[must_use]
+	#[js_sys(js_name = "indexOf")]
+	pub fn index_of<T: JsCast>(self: &Array<T>, #[js_sys(type = &JsValue)] value: &T) -> f64;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/indexOf)
+	#[must_use]
+	#[js_sys(js_name = "indexOf")]
+	pub fn index_of_from<T: JsCast>(
+		self: &Array<T>,
+		#[js_sys(type = &JsValue)] value: &T,
+		from_index: f64,
+	) -> f64;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/join)
+	#[must_use]
+	pub fn join<T>(self: &Array<T>) -> crate::JsString;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/join)
+	#[must_use]
+	#[js_sys(js_name = "join")]
+	pub fn join_with<T>(self: &Array<T>, separator: &str) -> crate::JsString;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/keys)
+	#[must_use]
+	pub fn keys<T>(self: &Array<T>) -> JsIterator<Number<u32>>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/lastIndexOf)
+	#[must_use]
+	#[js_sys(js_name = "lastIndexOf")]
+	pub fn last_index_of<T: JsCast>(self: &Array<T>, #[js_sys(type = &JsValue)] value: &T) -> f64;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/lastIndexOf)
+	#[must_use]
+	#[js_sys(js_name = "lastIndexOf")]
+	pub fn last_index_of_from<T: JsCast>(
+		self: &Array<T>,
+		#[js_sys(type = &JsValue)] value: &T,
+		from_index: f64,
+	) -> f64;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map)
+	pub fn map<T>(self: &Array<T>, callback: &Function) -> Result<Array, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map)
+	#[js_sys(js_name = "map")]
+	pub fn map_with_this<T>(
+		self: &Array<T>,
+		callback: &Function,
+		this: &JsValue,
+	) -> Result<Array, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/pop)
+	#[must_use]
+	pub fn pop<T>(self: &Array<T>) -> JsValue;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/push)
+	#[must_use]
+	pub fn push<T: JsCast>(self: &Array<T>, #[js_sys(type = &JsValue)] value: &T) -> u32;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/push)
+	#[must_use]
+	#[js_sys(js_name = "push", variadic)]
+	pub fn push_many<T: JsCast>(self: &Array<T>, #[js_sys(type = &[JsValue])] values: &[T]) -> u32;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce)
+	pub fn reduce<T>(self: &Array<T>, callback: &Function) -> Result<JsValue, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce)
+	#[js_sys(js_name = "reduce")]
+	pub fn reduce_with_initial<T>(
+		self: &Array<T>,
+		callback: &Function,
+		initial: &JsValue,
+	) -> Result<JsValue, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduceRight)
+	#[js_sys(js_name = "reduceRight")]
+	pub fn reduce_right<T>(self: &Array<T>, callback: &Function) -> Result<JsValue, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduceRight)
+	#[js_sys(js_name = "reduceRight")]
+	pub fn reduce_right_with_initial<T>(
+		self: &Array<T>,
+		callback: &Function,
+		initial: &JsValue,
+	) -> Result<JsValue, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reverse)
+	#[must_use]
+	#[js_sys(return_abi = Array)]
+	pub fn reverse<T>(self: &Array<T>) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/shift)
+	#[must_use]
+	pub fn shift<T>(self: &Array<T>) -> JsValue;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice)
+	#[must_use]
+	#[js_sys(return_abi = Array)]
+	pub fn slice<T>(self: &Array<T>) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice)
+	#[must_use]
+	#[js_sys(js_name = "slice", return_abi = Array)]
+	pub fn slice_from<T>(self: &Array<T>, start: f64) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice)
+	#[must_use]
+	#[js_sys(js_name = "slice", return_abi = Array)]
+	pub fn slice_range<T>(self: &Array<T>, start: f64, end: f64) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/some)
+	pub fn some<T>(self: &Array<T>, callback: &Function) -> Result<bool, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/some)
+	#[js_sys(js_name = "some")]
+	pub fn some_with_this<T>(
+		self: &Array<T>,
+		callback: &Function,
+		this: &JsValue,
+	) -> Result<bool, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort)
+	#[must_use]
+	#[js_sys(return_abi = Array)]
+	pub fn sort<T>(self: &Array<T>) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort)
+	#[js_sys(js_name = "sort", return_abi = Result<Array, JsValue>)]
+	pub fn sort_by<T>(self: &Array<T>, callback: &Function) -> Result<Array<T>, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/splice)
+	#[must_use]
+	#[js_sys(return_abi = Array)]
+	pub fn splice<T>(self: &Array<T>, start: f64) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/splice)
+	#[must_use]
+	#[js_sys(js_name = "splice", return_abi = Array)]
+	pub fn splice_delete<T>(self: &Array<T>, start: f64, delete_count: f64) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/splice)
+	#[must_use]
+	#[js_sys(js_name = "splice", variadic, return_abi = Array)]
+	pub fn splice_many<T: JsCast>(
+		self: &Array<T>,
+		start: f64,
+		delete_count: f64,
+		#[js_sys(type = &[JsValue])] values: &[T],
+	) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/toLocaleString)
+	#[must_use]
+	#[js_sys(js_name = "toLocaleString")]
+	pub fn to_locale_string<T>(self: &Array<T>) -> crate::JsString;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/toLocaleString)
+	#[must_use]
+	#[js_sys(js_name = "toLocaleString")]
+	pub fn to_locale_string_with_locales<T>(self: &Array<T>, locales: &JsValue) -> crate::JsString;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/toLocaleString)
+	#[must_use]
+	#[js_sys(js_name = "toLocaleString")]
+	pub fn to_locale_string_with_options<T>(
+		self: &Array<T>,
+		locales: &JsValue,
+		options: &JsValue,
+	) -> crate::JsString;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/toReversed)
+	#[must_use]
+	#[js_sys(js_name = "toReversed", return_abi = Array)]
+	pub fn to_reversed<T>(self: &Array<T>) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/toSorted)
+	#[must_use]
+	#[js_sys(js_name = "toSorted", return_abi = Array)]
+	pub fn to_sorted<T>(self: &Array<T>) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/toSorted)
+	#[js_sys(js_name = "toSorted", return_abi = Result<Array, JsValue>)]
+	pub fn to_sorted_by<T>(self: &Array<T>, callback: &Function) -> Result<Array<T>, JsValue>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/toSpliced)
+	#[must_use]
+	#[js_sys(js_name = "toSpliced", return_abi = Array)]
+	pub fn to_spliced<T>(self: &Array<T>, start: f64) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/toSpliced)
+	#[must_use]
+	#[js_sys(js_name = "toSpliced", return_abi = Array)]
+	pub fn to_spliced_delete<T>(self: &Array<T>, start: f64, delete_count: f64) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/toSpliced)
+	#[must_use]
+	#[js_sys(js_name = "toSpliced", variadic, return_abi = Array)]
+	pub fn to_spliced_many<T: JsCast>(
+		self: &Array<T>,
+		start: f64,
+		delete_count: f64,
+		#[js_sys(type = &[JsValue])] values: &[T],
+	) -> Array<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/toString)
+	#[must_use]
+	#[js_sys(js_name = "toString")]
+	pub fn to_string<T>(self: &Array<T>) -> crate::JsString;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/unshift)
+	#[must_use]
+	pub fn unshift<T: JsCast>(self: &Array<T>, #[js_sys(type = &JsValue)] value: &T) -> u32;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/unshift)
+	#[must_use]
+	#[js_sys(js_name = "unshift", variadic)]
+	pub fn unshift_many<T: JsCast>(
+		self: &Array<T>,
+		#[js_sys(type = &[JsValue])] values: &[T],
+	) -> u32;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/values)
+	#[must_use]
+	#[js_sys(return_abi = JsIterator)]
+	pub fn values<T: JsCast>(self: &Array<T>) -> JsIterator<T>;
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/with)
+	#[js_sys(js_name = "with", return_abi = Result<Array, JsValue>)]
+	pub fn with<T: JsCast>(
+		self: &Array<T>,
+		index: f64,
+		#[js_sys(type = &JsValue)] value: &T,
+	) -> Result<Array<T>, JsValue>;
+}
+
+#[crate::js_sys(js_sys = crate)]
+extern "js-sys" {
+	#[must_use]
+	#[js_sys(indexing_getter)]
+	pub fn get<T>(self: &Array<T>, index: u32) -> JsValue;
 
 	#[must_use]
-	pub fn into_any(self) -> JsArray {
-		JsArray::unchecked_from(self.into())
+	#[js_sys(indexing_getter, return_abi = JsValue)]
+	pub fn get_unchecked<T: JsCast>(self: &Array<T>, index: u32) -> T;
+
+	#[js_sys(indexing_setter)]
+	pub fn set<T: JsCast>(self: &Array<T>, index: u32, #[js_sys(type = &JsValue)] value: &T);
+
+	#[js_sys(indexing_setter)]
+	pub fn try_set<T: JsCast>(
+		self: &Array<T>,
+		index: u32,
+		#[js_sys(type = &JsValue)] value: &T,
+	) -> Result<(), JsValue>;
+
+	#[must_use]
+	#[js_sys(indexing_deleter)]
+	pub fn delete<T>(self: &Array<T>, index: u32) -> bool;
+
+	#[js_sys(indexing_deleter)]
+	pub fn try_delete<T>(self: &Array<T>, index: u32) -> Result<bool, JsValue>;
+}
+
+#[crate::js_sys(js_sys = crate)]
+extern "js-sys" {
+	#[js_sys(js_embed = "array.species")]
+	fn array_species() -> Function;
+
+	#[js_sys(js_embed = "array.symbol_iterator")]
+	fn array_symbol_iterator(array: &Array) -> JsIterator;
+
+	#[js_sys(js_embed = "array.symbol_unscopables")]
+	fn array_symbol_unscopables(array: &Array) -> JsValue;
+}
+
+impl<T> Clone for Array<T> {
+	fn clone(&self) -> Self {
+		Self::unchecked_from(<Self as AsRef<JsValue>>::as_ref(self).clone())
 	}
 }
 
-impl<T, const N: usize> From<&[T; N]> for JsArray<T>
-where
-	Self: for<'a> From<&'a [T]>,
-{
-	fn from(value: &[T; N]) -> Self {
-		value.as_slice().into()
-	}
-}
-
-// SAFETY: The array delegates to the slice implementation with the same
-// element representation.
-unsafe impl<'a, T, const N: usize> IntoJS for &'a [T; N]
-where
-	&'a [T]: IntoJS,
-{
-	const JS_CONV: Option<IntoJsConv> = <&[T] as IntoJS>::JS_CONV;
-
-	type Abi = <&'a [T] as IntoJS>::Abi;
-
-	fn into_abi(self) -> Self::Abi {
-		self.as_slice().into_abi()
-	}
-}
-
-#[derive(Debug)]
-#[non_exhaustive]
-pub struct TryFromJsArrayError;
-
-impl Display for TryFromJsArrayError {
+impl<T> fmt::Debug for Array<T> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.write_str("failed to copy array")
+		fmt::Debug::fmt(<Self as AsRef<JsValue>>::as_ref(self), f)
 	}
 }
 
-impl Error for TryFromJsArrayError {}
+impl<T> Default for Array<T> {
+	fn default() -> Self {
+		Self::new_typed()
+	}
+}
 
-impl<T: JsCast> JsArray<T> {
-	pub fn to_slice(&self, slice: &mut [T]) -> Result<(), TryFromJsArrayError> {
-		let slots = externref::reserve_slots(slice.len());
-
-		let result = {
-			let js_slice = JsValue::from_slice_mut(slice);
-			// SAFETY: Parameters are correct. `write_output` is false, so JavaScript
-			// does not write through the destination pointer.
-			unsafe {
-				array_js_value_encode(
-					self.as_any(),
-					PtrMut::new(js_slice),
-					PtrLength::new(js_slice),
-					slots.ptr(),
-					slots.len(),
-					false,
-				)
-			}
-		};
-
-		if matches!(result, Ok(true)) {
-			slots.replace(slice);
-			Ok(())
-		} else {
-			Err(TryFromJsArrayError)
-		}
+impl<T: JsCast> Array<T> {
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Symbol.iterator)
+	#[must_use]
+	pub fn symbol_iterator(&self) -> JsIterator<T> {
+		JsIterator::unchecked_from(array_symbol_iterator(self.as_untyped()).into())
 	}
 
-	pub fn to_uninit_slice<'slice>(
-		&self,
-		slice: &'slice mut [MaybeUninit<T>],
-	) -> Result<&'slice mut [T], TryFromJsArrayError> {
-		let js_slice = JsValue::from_uninit_slice_mut(slice);
-		let slots = externref::reserve_slots(js_slice.len());
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Symbol.unscopables)
+	#[must_use]
+	pub fn symbol_unscopables(&self) -> JsValue {
+		array_symbol_unscopables(self.as_untyped())
+	}
+}
 
-		// SAFETY: Parameters are correct.
-		let result = unsafe {
-			array_js_value_encode(
-				self.as_any(),
-				PtrMut::from_uninit_slice(js_slice),
-				PtrLength::from_uninit_slice(js_slice),
-				slots.ptr(),
-				slots.len(),
-				true,
-			)
-		};
-
-		if matches!(result, Ok(true)) {
-			slots.commit();
-			// SAFETY: Correctly initialized in JS.
-			Ok(unsafe { assume_init_mut(slice) })
-		} else {
-			Err(TryFromJsArrayError)
-		}
+impl<T> Array<T> {
+	#[must_use]
+	pub fn as_untyped(&self) -> &Array {
+		Array::unchecked_from_ref(self.as_ref())
 	}
 
-	pub fn to_array<const N: usize>(&self) -> Result<[T; N], TryFromJsArrayError> {
-		let mut array: MaybeUninit<[T; N]> = MaybeUninit::uninit();
-		let slots = externref::reserve_slots(N);
-		let js_array = JsValue::from_mut_uninit_array(&mut array);
-
-		// SAFETY: Parameters are correct.
-		let result = unsafe {
-			array_js_value_encode(
-				self.as_any(),
-				PtrMut::from_uninit_array(js_array),
-				PtrLength::from_uninit_array(js_array),
-				slots.ptr(),
-				slots.len(),
-				true,
-			)
-		};
-
-		if matches!(result, Ok(true)) {
-			slots.commit();
-			// SAFETY: Correctly initialized in JS.
-			Ok(unsafe { array.assume_init() })
-		} else {
-			Err(TryFromJsArrayError)
-		}
+	#[must_use]
+	pub fn into_untyped(self) -> Array {
+		Array::unchecked_from(self.into())
 	}
+}
+
+impl Array {
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/from)
+	pub fn from_iterable<I: Iterable>(value: &I) -> Result<Array<I::Item>, JsValue> {
+		let array = Self::from_value(value.as_ref())?;
+		Ok(Array::unchecked_from(array.into()))
+	}
+
+	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Symbol.species)
+	#[must_use]
+	pub fn species() -> Function {
+		array_species()
+	}
+}
+
+impl<T: JsCast> Iterable for Array<T> {
+	type Item = T;
 }
 
 js_bindgen::embed_js!(
 	module = "js_sys",
-	name = "array.js_value.encode",
-	required_embeds = [("js_sys", "view.getInt32"), ("js_sys", "view.setInt32")],
-	"(array, arrPtr, arrLen, refPtr, refLen, writeOutput) => {{",
-	"	if (array.length !== arrLen) return false",
-	"",
-	"	const table = this.#jsEmbed.js_sys['externref.table']",
-	"	const refIndices = this.#jsEmbed.js_sys['view.getInt32'](",
-	"		refPtr,",
-	"		refLen,",
-	"	)",
-	"	if (writeOutput) {{",
-	"		const elemIndices = new Array(arrLen)",
-	"		for (let arrayIndex = 0; arrayIndex < arrLen; arrayIndex++) {{",
-	"			const elemIndex = refIndices[arrayIndex]",
-	"			table.set(elemIndex, array[arrayIndex])",
-	"			elemIndices[arrayIndex] = elemIndex",
-	"		}}",
-	"		this.#jsEmbed.js_sys['view.setInt32'](arrPtr, elemIndices)",
-	"	}} else {{",
-	"		for (let arrayIndex = 0; arrayIndex < arrLen; arrayIndex++) {{",
-	"			table.set(refIndices[arrayIndex], array[arrayIndex])",
-	"		}}",
-	"	}}",
-	"	return true",
-	"}}",
+	name = "array.symbol_iterator",
+	"(array) => array[Symbol.iterator]()",
 );
-
 js_bindgen::embed_js!(
 	module = "js_sys",
-	name = "array.js_value.decode",
-	required_embeds = [("js_sys", "view.getInt32")],
-	"(ptr, len) => {{",
-	"	const array = new Array(len)",
-	"	const table = this.#jsEmbed.js_sys['externref.table']",
-	"	const refIndices = this.#jsEmbed.js_sys['view.getInt32'](ptr, len)",
-	"	for (let arrayIndex = 0; arrayIndex < len; arrayIndex++) {{",
-	"		array[arrayIndex] = table.get(refIndices[arrayIndex])",
-	"	}}",
-	"	return array",
-	"}}",
+	name = "array.species",
+	"() => Array[Symbol.species]",
 );
-
-impl<T: JsCast> From<&[T]> for JsArray<T> {
-	fn from(value: &[T]) -> Self {
-		let slice = JsValue::from_slice(value);
-		// SAFETY: Parameters are correct.
-		let result = unsafe { array_js_value_decode(PtrConst::new(slice), PtrLength::new(slice)) };
-
-		Self::unchecked_from(result.into())
-	}
-}
-
-// SAFETY: The two slots point to borrowed `JsValue` table indices, which the
-// JavaScript decoder resolves before the import is called.
-unsafe impl<T: JsCast> IntoJS for &[T] {
-	const JS_CONV: Option<IntoJsConv> = Some(
-		IntoJsConv::new("this.#jsEmbed.js_sys['array.js_value.decode']($slot1, $slot2)")
-			.with_embed(("js_sys", "array.js_value.decode")),
-	);
-
-	type Abi = ExternSlice<JsValue>;
-
-	fn into_abi(self) -> Self::Abi {
-		ExternSlice::new(JsValue::from_slice(self))
-	}
-}
-
-impl JsArray<u32> {
-	pub fn to_slice(&self, slice: &mut [u32]) -> Result<(), TryFromJsArrayError> {
-		// SAFETY: Parameters are correct.
-		let result = unsafe { array_u32_encode(self, PtrMut::new(slice), PtrLength::new(slice)) };
-
-		if result {
-			Ok(())
-		} else {
-			Err(TryFromJsArrayError)
-		}
-	}
-
-	pub fn to_uninit_slice<'slice>(
-		&self,
-		slice: &'slice mut [MaybeUninit<u32>],
-	) -> Result<&'slice mut [u32], TryFromJsArrayError> {
-		// SAFETY: Parameters are correct.
-		let result = unsafe {
-			array_u32_encode(
-				self,
-				PtrMut::from_uninit_slice(slice),
-				PtrLength::from_uninit_slice(slice),
-			)
-		};
-
-		if result {
-			// SAFETY: Correctly initialized in JS.
-			Ok(unsafe { assume_init_mut(slice) })
-		} else {
-			Err(TryFromJsArrayError)
-		}
-	}
-
-	pub fn to_array<const N: usize>(&self) -> Result<[u32; N], TryFromJsArrayError> {
-		let mut array: MaybeUninit<[u32; N]> = MaybeUninit::uninit();
-
-		// SAFETY: Parameters are correct.
-		let result = unsafe {
-			array_u32_encode(
-				self,
-				PtrMut::from_uninit_array(&mut array),
-				PtrLength::from_uninit_array(&array),
-			)
-		};
-
-		if result {
-			// SAFETY: Correctly initialized in JS.
-			Ok(unsafe { array.assume_init() })
-		} else {
-			Err(TryFromJsArrayError)
-		}
-	}
-}
-
 js_bindgen::embed_js!(
 	module = "js_sys",
-	name = "array.u32.encode",
-	required_embeds = [("js_sys", "view.setInt32")],
-	"(array, ptr, len) => {{",
-	"	if (array.length !== len) return false",
-	"",
-	"	this.#jsEmbed.js_sys['view.setInt32'](ptr, array)",
-	"	return true",
-	"}}",
+	name = "array.symbol_unscopables",
+	"(array) => array[Symbol.unscopables]",
 );
-
-impl From<&[u32]> for JsArray<u32> {
-	fn from(value: &[u32]) -> Self {
-		// SAFETY: Parameters are correct.
-		unsafe { array_u32_decode(PtrConst::new(value), PtrLength::new(value)) }
-	}
-}
-
-// SAFETY: The two slots describe a borrowed `u32` slice, which JavaScript
-// copies into an array before the import is called.
-unsafe impl IntoJS for &[u32] {
-	const JS_CONV: Option<IntoJsConv> = Some(
-		IntoJsConv::new("this.#jsEmbed.js_sys['view.getUint32']($slot1, $slot2)")
-			.with_embed(("js_sys", "view.getUint32")),
-	);
-
-	type Abi = ExternSlice<u32>;
-
-	fn into_abi(self) -> Self::Abi {
-		ExternSlice::new(self)
-	}
-}
-
-// MSRV: Stable on v1.93.
-const unsafe fn assume_init_mut<T>(slice: &mut [MaybeUninit<T>]) -> &mut [T] {
-	// SAFETY: copied from Std.
-	unsafe { &mut *(ptr::from_mut::<[MaybeUninit<T>]>(slice) as *mut [T]) }
-}

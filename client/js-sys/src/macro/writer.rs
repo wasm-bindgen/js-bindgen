@@ -1,4 +1,4 @@
-/// A const writer that renders directly into a custom section allocation.
+/// A const writer that either counts bytes or renders into a fixed allocation.
 pub(super) struct Writer<const LEN: usize> {
 	bytes: [u8; LEN],
 	position: usize,

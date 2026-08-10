@@ -189,6 +189,11 @@ function compareBenchmarks(left, right) {
 	return left.localeCompare(right)
 }
 
+function benchmarkDifference(expected, actual) {
+	const actualSet = new Set(actual)
+	return expected.filter(name => !actualSet.has(name))
+}
+
 // Wasm functions expose their arity but not their parameter types. Start with
 // Number and retry the parameter that rejected it as BigInt. Parameters that
 // never coerce the probe are reference values.
@@ -376,12 +381,12 @@ async function runWorker() {
 	const { debug: _, samples: __, ...stats } = measurement.stats
 	process.stdout.write(
 		JSON.stringify({
-				context: {
-					arch: result.context.arch,
-					cpu: result.context.cpu,
-					exceptionHandling,
-					runtime: result.context.runtime,
-					version: result.context.version,
+			context: {
+				arch: result.context.arch,
+				cpu: result.context.cpu,
+				exceptionHandling,
+				runtime: result.context.runtime,
+				version: result.context.version,
 			},
 			implementation: implementation.name,
 			asynchronous,
@@ -517,8 +522,16 @@ async function runCoordinator() {
 
 	for (let index = 1; index < discoveredBenchmarks.length; index++) {
 		if (benchmarks.join("\n") !== discoveredBenchmarks[index].join("\n")) {
+			const missing = benchmarkDifference(benchmarks, discoveredBenchmarks[index])
+			const extra = benchmarkDifference(discoveredBenchmarks[index], benchmarks)
 			throw new Error(
-				`${implementations[index].name} exports do not match ${implementations[0].name}`
+				[
+					`${implementations[index].name} exports do not match ${implementations[0].name}`,
+					missing.length === 0 ? undefined : `missing: ${missing.join(", ")}`,
+					extra.length === 0 ? undefined : `extra: ${extra.join(", ")}`,
+				]
+					.filter(Boolean)
+					.join("\n")
 			)
 		}
 	}

@@ -3,7 +3,6 @@ use std::mem;
 use std::ops::DerefMut;
 use std::string::ToString;
 
-use itertools::Itertools;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
@@ -19,7 +18,7 @@ mod js;
 mod options;
 
 use js::ForeignItem;
-use options::FunctionOptions;
+use options::{BindingKind, FunctionOptions};
 
 pub(crate) struct FunctionImport {
 	pub(crate) cfg_attrs: Vec<Attribute>,
@@ -31,6 +30,7 @@ pub(crate) struct FunctionImport {
 struct FunctionPlan {
 	inputs: Vec<InputArg>,
 	output_ty: Option<Type>,
+	output_abi_override: Option<Type>,
 	impl_generic_params: TokenStream,
 	binding: ForeignItem,
 	suspending: bool,
@@ -58,6 +58,21 @@ impl InputArg {
 			uses_abi_override,
 		}
 	}
+}
+
+fn join_input_slots(inputs: &[InputArg]) -> String {
+	let mut inputs = inputs.iter();
+	let Some(first) = inputs.next() else {
+		return String::new();
+	};
+	let mut output = first.slot_names[0].to_string();
+
+	for input in inputs {
+		output.push_str(", ");
+		output.push_str(&input.slot_names[0].to_string());
+	}
+
+	output
 }
 
 pub(crate) fn expand(
@@ -123,6 +138,7 @@ pub(crate) fn expand(
 	let FunctionPlan {
 		inputs,
 		output_ty,
+		output_abi_override,
 		impl_generic_params,
 		binding,
 		..
@@ -162,7 +178,8 @@ pub(crate) fn expand(
 			]
 		})
 		.collect();
-	let foreign_output = output_ty.as_ref().map_or_else(
+	let output_abi_ty = output_abi_override.as_ref().or(output_ty.as_ref());
+	let foreign_output = output_abi_ty.map_or_else(
 		TokenStream::new,
 		|ty| quote_spanned!(span=> -> #macro_path::OutputRet<#ty>),
 	);
@@ -171,7 +188,14 @@ pub(crate) fn expand(
 		#(#split_inputs)*
 		unsafe { #ident(#(#foreign_input_names),*) }
 	}};
-	let foreign_call = if output_ty.is_some() {
+	let foreign_call = if let Some(output_abi_ty) = output_abi_override.as_ref() {
+		let output_ty = output_ty.as_ref().expect("validated during parsing");
+
+		quote_spanned!(span=> {
+			let value = #foreign_call;
+			unsafe { #macro_path::join_output_as::<#output_ty, #output_abi_ty>(value) }
+		})
+	} else if output_ty.is_some() {
 		quote_spanned!(span=> #macro_path::join_output(#foreign_call))
 	} else {
 		quote_spanned!(span=> #foreign_call;)
@@ -213,7 +237,8 @@ impl FunctionPlan {
 		span: Span,
 	) -> Result<Self> {
 		let suspending = options.suspending;
-		let external_implementation = options.import || options.embed.is_some();
+		let external_implementation = options.binding.is_external();
+		let output_abi_override = options.return_abi.clone();
 		let (inputs, self_ty) =
 			Self::parse_inputs(hygiene, sig, cfg_attrs, span, external_implementation)?;
 		let binding =
@@ -222,12 +247,16 @@ impl FunctionPlan {
 			ReturnType::Default => None,
 			ReturnType::Type(_, ty) => Some(*ty.clone()),
 		};
+		if output_abi_override.is_some() && output_ty.is_none() {
+			return Err(Error::new(span, "`return_abi` requires a return value"));
+		}
 
 		let impl_generic_params = Self::impl_generic_params(&binding, &mut sig.generics);
 
 		Ok(Self {
 			inputs,
 			output_ty,
+			output_abi_override,
 			impl_generic_params,
 			binding,
 			suspending,
@@ -340,20 +369,16 @@ impl FunctionPlan {
 			js_name,
 			static_of,
 			variadic,
-			constructor,
-			getter,
-			setter,
-			embed,
-			import,
+			binding,
+			return_abi: _,
 			suspending: _,
 		} = options;
 
-		if import {
-			return Ok(ForeignItem::Import);
-		}
-		if let Some(embed) = embed {
-			return Ok(ForeignItem::Embed(embed));
-		}
+		let binding = match binding {
+			BindingKind::Import => return Ok(ForeignItem::Import),
+			BindingKind::Embed(embed) => return Ok(ForeignItem::Embed(embed)),
+			binding => binding,
+		};
 
 		let js_inputs: Vec<_> = inputs
 			.iter()
@@ -361,7 +386,7 @@ impl FunctionPlan {
 			.collect();
 		let argument_count = sig.inputs.len() - usize::from(self_ty.is_some());
 
-		if constructor && self_ty.is_some() {
+		if matches!(&binding, BindingKind::Constructor) && self_ty.is_some() {
 			return Err(Error::new(
 				span,
 				"`constructor` cannot be used with a `self` parameter",
@@ -379,48 +404,98 @@ impl FunctionPlan {
 				"`variadic` requires at least one argument",
 			));
 		}
-
-		if constructor {
-			// `constructor` applies to this foreign function. Its return type
-			// selects the Rust `impl` owner and JavaScript invokes it with `new`.
-			let owner = Self::constructor_type(&sig.output)?;
-			let name = js_name.unwrap_or_else(|| Self::type_js_name(&owner, js_names));
-			let path = ForeignItem::global_path(namespace, &name);
-
-			return Ok(ForeignItem::constructor(owner, &path, variadic, &js_inputs));
+		if matches!(
+			&binding,
+			BindingKind::IndexingGetter
+				| BindingKind::IndexingSetter
+				| BindingKind::IndexingDeleter
+		) && self_ty.is_none()
+		{
+			return Err(Error::new(
+				span,
+				"indexing operations require a `self` parameter",
+			));
 		}
 
-		let name = getter
-			.as_ref()
-			.or(setter.as_ref())
-			.cloned()
-			.or(js_name)
-			.unwrap_or_else(|| sig.ident.to_string());
-		let (owner, path, receiver) =
-			Self::member_path(static_of, self_ty, &name, namespace, js_names, &js_inputs);
+		match binding {
+			BindingKind::Constructor => {
+				// `constructor` applies to this foreign function. Its return type
+				// selects the Rust `impl` owner and JavaScript invokes it with `new`.
+				let owner = Self::constructor_type(&sig.output)?;
+				let name = js_name.unwrap_or_else(|| Self::type_js_name(&owner, js_names));
+				let path = ForeignItem::global_path(namespace, &name);
 
-		if getter.is_some() {
-			if argument_count != 0 || !matches!(&sig.output, ReturnType::Type(..)) {
-				return Err(Error::new(
-					span,
-					"`getter` requires no arguments and a return value",
-				));
+				Ok(ForeignItem::constructor(owner, &path, variadic, &js_inputs))
 			}
+			BindingKind::IndexingGetter => {
+				if argument_count != 1 || !matches!(&sig.output, ReturnType::Type(..)) {
+					return Err(Error::new(
+						span,
+						"`indexing_getter` requires one argument and a return value",
+					));
+				}
 
-			Ok(ForeignItem::getter(owner, path))
-		} else if setter.is_some() {
-			if argument_count != 1 || !matches!(&sig.output, ReturnType::Default) {
-				return Err(Error::new(
-					span,
-					"`setter` requires one argument and no return value",
-				));
+				Ok(ForeignItem::indexing_getter(
+					self_ty.expect("validated above"),
+					&js_inputs,
+				))
 			}
+			BindingKind::IndexingSetter => {
+				if argument_count != 2 {
+					return Err(Error::new(span, "`indexing_setter` requires two arguments"));
+				}
 
-			Ok(ForeignItem::setter(owner, &path, receiver, &js_inputs))
-		} else {
-			Ok(ForeignItem::call(
-				owner, path, receiver, variadic, namespace, &js_inputs,
-			))
+				Ok(ForeignItem::indexing_setter(
+					self_ty.expect("validated above"),
+					&js_inputs,
+				))
+			}
+			BindingKind::IndexingDeleter => {
+				if argument_count != 1 {
+					return Err(Error::new(span, "`indexing_deleter` requires one argument"));
+				}
+
+				Ok(ForeignItem::indexing_deleter(
+					self_ty.expect("validated above"),
+					&js_inputs,
+				))
+			}
+			BindingKind::Getter(name) => {
+				if argument_count != 0 || !matches!(&sig.output, ReturnType::Type(..)) {
+					return Err(Error::new(
+						span,
+						"`getter` requires no arguments and a return value",
+					));
+				}
+				let (owner, path, _) =
+					Self::member_path(static_of, self_ty, &name, namespace, js_names, &js_inputs);
+
+				Ok(ForeignItem::getter(owner, path))
+			}
+			BindingKind::Setter(name) => {
+				if argument_count != 1 || !matches!(&sig.output, ReturnType::Default) {
+					return Err(Error::new(
+						span,
+						"`setter` requires one argument and no return value",
+					));
+				}
+				let (owner, path, receiver) =
+					Self::member_path(static_of, self_ty, &name, namespace, js_names, &js_inputs);
+
+				Ok(ForeignItem::setter(owner, &path, receiver, &js_inputs))
+			}
+			BindingKind::Call => {
+				let name = js_name.unwrap_or_else(|| sig.ident.to_string());
+				let (owner, path, receiver) =
+					Self::member_path(static_of, self_ty, &name, namespace, js_names, &js_inputs);
+
+				Ok(ForeignItem::call(
+					owner, &path, receiver, variadic, namespace, &js_inputs,
+				))
+			}
+			BindingKind::Embed(_) | BindingKind::Import => {
+				unreachable!("external bindings returned above")
+			}
 		}
 	}
 
@@ -558,10 +633,12 @@ impl FunctionPlan {
 		let Self {
 			inputs,
 			output_ty,
+			output_abi_override,
 			binding,
 			suspending,
 			..
 		} = self;
+		let output_abi_ty = output_abi_override.as_ref().or(output_ty.as_ref());
 		let input_descriptors = inputs.iter().map(|input| {
 			let name = &input.descriptor_name;
 			let ty = &input.abi_type;
@@ -588,7 +665,7 @@ impl FunctionPlan {
 			required_embeds.push(quote_spanned!(span=> #macro_path::js_input_embed::<#ty>()));
 		}
 
-		if let Some(ty) = output_ty {
+		if let Some(ty) = output_abi_ty {
 			required_embeds.push(quote_spanned!(span=> #macro_path::js_output_embed::<#ty>()));
 			required_embeds.push(quote_spanned!(span=> #macro_path::js_result_embed::<#ty>()));
 		}
@@ -609,10 +686,7 @@ impl FunctionPlan {
 			}),
 			ForeignItem::Embed(name) => {
 				let path = format!("this.#jsEmbed.{crate_}['{name}']");
-				let arguments = inputs
-					.iter()
-					.map(|input| input.slot_names[0].to_string())
-					.join(", ");
+				let arguments = join_input_slots(inputs);
 				let indirect_call = format!("{path}({arguments})");
 
 				Some(quote_spanned! {span=>
@@ -631,7 +705,7 @@ impl FunctionPlan {
 		} else {
 			quote_spanned!(span=> ::core::option::Option::None)
 		};
-		let output = if let Some(output) = output_ty {
+		let output = if let Some(output) = output_abi_ty {
 			quote_spanned!(span=>
 				::core::option::Option::Some(#macro_path::import_output::<#output>())
 			)

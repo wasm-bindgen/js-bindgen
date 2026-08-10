@@ -1,3 +1,4 @@
+mod allocator;
 pub(crate) mod closure;
 pub(crate) mod exception;
 pub(crate) mod externref;

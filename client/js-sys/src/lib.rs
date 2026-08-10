@@ -16,15 +16,30 @@ mod builtins;
 mod runtime;
 
 pub mod hazard;
-// Implementations for passing Rust standard types across the JavaScript
-// boundary.
+// JavaScript `ABI` implementations for Rust types and Rust-facing APIs for
+// JavaScript values.
 mod interop;
 #[doc(hidden)]
 pub mod r#macro;
 
 pub use builtins::{
-	Error, ErrorOptions, Function, JsArray, JsBigInt, JsNumber, JsString, Object, Promise,
-	PromiseWithResolvers, TryFromJsArrayError,
+	AggregateError, Array, ArrayBuffer, ArrayBufferOptions, AsyncDisposableStack, AsyncFunction,
+	AsyncGenerator, AsyncGeneratorFunction, AsyncIterable, AsyncIterator, Atomics, Base64Alphabet,
+	Base64DecodeOptions, Base64EncodeOptions, Base64LastChunkHandling, BigInt, BigInt64Array,
+	BigUint64Array, Boolean, DataView, Date, DisposableStack, Error, ErrorOptions, EvalError,
+	FinalizationRegistry, Float16Array, Float32Array, Float64Array, Function, Generator,
+	GeneratorFunction, Int8Array, Int16Array, Int32Array, Intl, Iterable, IteratorResult,
+	IteratorZipKeyedOptions, IteratorZipMode, IteratorZipOptions, JSON, JsIterator, JsString, Map,
+	Math, Number, Object, Promise, PromiseWithResolvers, PropertyDescriptor, Proxy, ProxyRevocable,
+	RangeError, ReferenceError, Reflect, RegExp, RegExpIndicesArray, RegExpMatchArray, Set,
+	SharedArrayBuffer, SuppressedError, Symbol, SyntaxError, Temporal, TypeError, Uint8Array,
+	Uint8ArraySetResult, Uint8ClampedArray, Uint16Array, Uint32Array, UriError, WeakMap, WeakRef,
+	WeakSet, WebAssembly, decode_uri, decode_uri_component, encode_uri, encode_uri_component, eval,
+	global_this, is_finite, is_nan, parse_float, parse_int, parse_int_with_radix,
+};
+pub use interop::{
+	ArrayIntoIter, ArrayIter, AsyncIter, JsIntoIter, JsIter, TryFromArrayError, TypedArray,
+	TypedArrayCopyError, TypedArrayIntoIter, TypedArrayIter, try_async_iter, try_iter,
 };
 pub use js_bindgen;
 pub use js_sys_macro::{closure, js_sys};

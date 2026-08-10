@@ -1,10 +1,12 @@
 use alloc::boxed::Box;
 use core::marker::PhantomData;
 use core::mem::{self, ManuallyDrop};
+use core::ops::Deref;
 use core::ptr;
 
 use crate::JsValue;
-use crate::hazard::{IntoJS, IntoJsConv};
+use crate::builtins::Function;
+use crate::hazard::{IntoJS, IntoJsConv, JsCast};
 
 #[crate::js_sys(js_sys = crate)]
 extern "js-sys" {
@@ -136,14 +138,14 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "closure.finalization",
 	"typeof FinalizationRegistry === 'undefined'",
-	"	? {{ register: () => {{}}, unregister: () => {{}} }}",
-	"	: new FinalizationRegistry(state => {{",
+	"    ? {{ register: () => {{}}, unregister: () => {{}} }}",
+	"    : new FinalizationRegistry(state => {{",
 	// The `unref` function can outlive its callback. Clear the pointer before
 	// releasing it so a later call cannot release the allocation twice.
-	"		const data = state.data",
-	"		state.data = 0",
-	"		if (data) this.#jsExports.closure_drop(data)",
-	"	}})",
+	"        const data = state.data",
+	"        state.data = 0",
+	"        if (data) this.#jsExports.closure_drop(data)",
+	"    }})",
 );
 
 js_bindgen::embed_js!(
@@ -151,25 +153,25 @@ js_bindgen::embed_js!(
 	name = "closure.own",
 	required_embeds = [("js_sys", "closure.finalization")],
 	"(callback, state) => {{",
-	"	let owned = true",
-	"	const release = () => {{",
-	"		state.references -= 1",
-	"		if (state.references === 0) {{",
-	"			const data = state.data",
-	"			state.data = 0",
-	"			this.#jsEmbed.js_sys['closure.finalization'].unregister(state)",
-	"			if (data) this.#jsExports.closure_drop(data)",
-	"		}}",
-	"	}}",
-	"	callback.unref = () => {{",
-	"		if (!owned) return",
-	"		owned = false",
-	"		release()",
-	"	}}",
-	"	this.#jsEmbed.js_sys['closure.finalization'].register(",
-	"		callback, state, state",
-	"	)",
-	"	return release",
+	"    let owned = true",
+	"    const release = () => {{",
+	"        state.references -= 1",
+	"        if (state.references === 0) {{",
+	"            const data = state.data",
+	"            state.data = 0",
+	"            this.#jsEmbed.js_sys['closure.finalization'].unregister(state)",
+	"            if (data) this.#jsExports.closure_drop(data)",
+	"        }}",
+	"    }}",
+	"    callback.unref = () => {{",
+	"        if (!owned) return",
+	"        owned = false",
+	"        release()",
+	"    }}",
+	"    this.#jsEmbed.js_sys['closure.finalization'].register(",
+	"        callback, state, state",
+	"    )",
+	"    return release",
 	"}}",
 );
 
@@ -178,20 +180,20 @@ js_bindgen::embed_js!(
 	name = "closure.make",
 	required_embeds = [("js_sys", "closure.own")],
 	"(data, call) => {{",
-	"	const state = {{ data, references: 1 }}",
-	"	const callback = (...args) => {{",
-	"		if (!state.data) {{",
-	"			throw new Error('closure invoked after being dropped')",
-	"		}}",
-	"		state.references += 1",
-	"		try {{",
-	"			return call(state.data, ...args)",
-	"		}} finally {{",
-	"			release()",
-	"		}}",
-	"	}}",
-	"	const release = this.#jsEmbed.js_sys['closure.own'](callback, state)",
-	"	return callback",
+	"    const state = {{ data, references: 1 }}",
+	"    const callback = (...args) => {{",
+	"        if (!state.data) {{",
+	"            throw new Error('closure invoked after being dropped')",
+	"        }}",
+	"        state.references += 1",
+	"        try {{",
+	"            return call(state.data, ...args)",
+	"        }} finally {{",
+	"            release()",
+	"        }}",
+	"    }}",
+	"    const release = this.#jsEmbed.js_sys['closure.own'](callback, state)",
+	"    return callback",
 	"}}",
 );
 
@@ -200,23 +202,23 @@ js_bindgen::embed_js!(
 	name = "closure.make_mut",
 	required_embeds = [("js_sys", "closure.own")],
 	"(data, call) => {{",
-	"	const state = {{ data, references: 1 }}",
-	"	const callback = (...args) => {{",
-	"		if (!state.data) {{",
-	"			throw new Error('closure invoked recursively or after being dropped')",
-	"		}}",
-	"		state.references += 1",
-	"		const data = state.data",
-	"		state.data = 0",
-	"		try {{",
-	"			return call(data, ...args)",
-	"		}} finally {{",
-	"			state.data = data",
-	"			release()",
-	"		}}",
-	"	}}",
-	"	const release = this.#jsEmbed.js_sys['closure.own'](callback, state)",
-	"	return callback",
+	"    const state = {{ data, references: 1 }}",
+	"    const callback = (...args) => {{",
+	"        if (!state.data) {{",
+	"            throw new Error('closure invoked recursively or after being dropped')",
+	"        }}",
+	"        state.references += 1",
+	"        const data = state.data",
+	"        state.data = 0",
+	"        try {{",
+	"            return call(data, ...args)",
+	"        }} finally {{",
+	"            state.data = data",
+	"            release()",
+	"        }}",
+	"    }}",
+	"    const release = this.#jsEmbed.js_sys['closure.own'](callback, state)",
+	"    return callback",
 	"}}",
 );
 
@@ -225,27 +227,27 @@ js_bindgen::embed_js!(
 	name = "closure.make_once",
 	required_embeds = [("js_sys", "closure.own")],
 	"(data, call) => {{",
-	"	const state = {{ data, references: 1, called: false }}",
-	"	const callback = (...args) => {{",
-	"		if (!state.data) {{",
-	"			throw new Error('closure invoked recursively or after being dropped')",
-	"		}}",
-	"		if (state.called) {{",
-	"			throw new Error('FnOnce called more than once')",
-	"		}}",
-	"		state.called = true",
-	"		state.references += 1",
-	"		const data = state.data",
-	"		state.data = 0",
-	"		try {{",
-	"			return call(data, ...args)",
-	"		}} finally {{",
-	"			state.data = data",
-	"			release()",
-	"		}}",
-	"	}}",
-	"	const release = this.#jsEmbed.js_sys['closure.own'](callback, state)",
-	"	return callback",
+	"    const state = {{ data, references: 1, called: false }}",
+	"    const callback = (...args) => {{",
+	"        if (!state.data) {{",
+	"            throw new Error('closure invoked recursively or after being dropped')",
+	"        }}",
+	"        if (state.called) {{",
+	"            throw new Error('FnOnce called more than once')",
+	"        }}",
+	"        state.called = true",
+	"        state.references += 1",
+	"        const data = state.data",
+	"        state.data = 0",
+	"        try {{",
+	"            return call(data, ...args)",
+	"        }} finally {{",
+	"            state.data = data",
+	"            release()",
+	"        }}",
+	"    }}",
+	"    const release = this.#jsEmbed.js_sys['closure.own'](callback, state)",
+	"    return callback",
 	"}}",
 );
 
@@ -254,6 +256,22 @@ js_bindgen::embed_js!(
 pub struct Closure<T: ?Sized> {
 	value: JsValue,
 	_type: PhantomData<Box<T>>,
+}
+
+impl<T: ?Sized> Deref for Closure<T> {
+	type Target = Function;
+
+	#[inline]
+	fn deref(&self) -> &Self::Target {
+		Function::unchecked_from_ref(self.as_js_value())
+	}
+}
+
+impl<T: ?Sized> From<Closure<T>> for Function {
+	#[inline]
+	fn from(value: Closure<T>) -> Self {
+		Self::unchecked_from(value.into_js_value())
+	}
 }
 
 impl<T: ?Sized> Closure<T> {
