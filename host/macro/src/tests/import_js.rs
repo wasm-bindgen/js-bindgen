@@ -17,10 +17,20 @@ fn basic() {
 			};
 
 			#[repr(C)]
-			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; 18]);
+			struct Layout(
+				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 18],
+			);
 
 			#[unsafe(link_section = "js_bindgen.import")]
-			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
+			static CUSTOM_SECTION: Layout = Layout(
+				::core::primitive::u32::to_le_bytes(LEN + 4),
+				::core::primitive::u32::to_le_bytes(LEN + 4),
+				::core::primitive::u32::to_le_bytes(LEN),
+				ARR_0,
+			);
 		};
 	});
 }
@@ -61,6 +71,8 @@ fn required_embeds() {
 			#[repr(C)]
 			struct Layout(
 				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 4],
 				[::core::primitive::u8; 11],
 				[::core::primitive::u8; 2],
 				[::core::primitive::u8; LEN_1],
@@ -70,6 +82,8 @@ fn required_embeds() {
 
 			#[unsafe(link_section = "js_bindgen.import")]
 			static CUSTOM_SECTION: Layout = Layout(
+				::core::primitive::u32::to_le_bytes(LEN + 4),
+				::core::primitive::u32::to_le_bytes(LEN + 4),
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
 				VAL_1_LEN,
@@ -117,6 +131,8 @@ fn required_embeds_expr() {
 			#[repr(C)]
 			struct Layout(
 				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 4],
 				[::core::primitive::u8; 11],
 				[::core::primitive::u8; 2],
 				[::core::primitive::u8; LEN_1],
@@ -126,6 +142,8 @@ fn required_embeds_expr() {
 
 			#[unsafe(link_section = "js_bindgen.import")]
 			static CUSTOM_SECTION: Layout = Layout(
+				::core::primitive::u32::to_le_bytes(LEN + 4),
+				::core::primitive::u32::to_le_bytes(LEN + 4),
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
 				VAL_1_LEN,
@@ -199,6 +217,8 @@ fn required_embeds_cfg() {
 			#[repr(C)]
 			struct Layout(
 				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 4],
 				[::core::primitive::u8; 10],
 				[::core::primitive::u8; 1],
 				#[cfg(test)] [::core::primitive::u8; 2],
@@ -209,6 +229,8 @@ fn required_embeds_cfg() {
 
 			#[unsafe(link_section = "js_bindgen.import")]
 			static CUSTOM_SECTION: Layout = Layout(
+				::core::primitive::u32::to_le_bytes(LEN + 4),
+				::core::primitive::u32::to_le_bytes(LEN + 4),
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
 				[TUPLE_COUNT],
@@ -278,6 +300,8 @@ fn required_embeds_multiple() {
 			#[repr(C)]
 			struct Layout(
 				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 4],
 				[::core::primitive::u8; 11],
 				[::core::primitive::u8; 2],
 				[::core::primitive::u8; LEN_1],
@@ -291,6 +315,8 @@ fn required_embeds_multiple() {
 
 			#[unsafe(link_section = "js_bindgen.import")]
 			static CUSTOM_SECTION: Layout = Layout(
+				::core::primitive::u32::to_le_bytes(LEN + 4),
+				::core::primitive::u32::to_le_bytes(LEN + 4),
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
 				VAL_1_LEN,
@@ -336,10 +362,20 @@ fn required_embeds_empty() {
 			};
 
 			#[repr(C)]
-			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; 11]);
+			struct Layout(
+				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 11],
+			);
 
 			#[unsafe(link_section = "js_bindgen.import")]
-			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
+			static CUSTOM_SECTION: Layout = Layout(
+				::core::primitive::u32::to_le_bytes(LEN + 4),
+				::core::primitive::u32::to_le_bytes(LEN + 4),
+				::core::primitive::u32::to_le_bytes(LEN),
+				ARR_0,
+			);
 		};
 	});
 }
@@ -488,6 +524,8 @@ fn required_embeds_mixed() {
 			#[repr(C)]
 			struct Layout(
 				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 4],
+				[::core::primitive::u8; 4],
 				[::core::primitive::u8; 10],
 				[::core::primitive::u8; 1],
 				[::core::primitive::u8; 2],
@@ -510,6 +548,8 @@ fn required_embeds_mixed() {
 
 			#[unsafe(link_section = "js_bindgen.import")]
 			static CUSTOM_SECTION: Layout = Layout(
+				::core::primitive::u32::to_le_bytes(LEN + 4),
+				::core::primitive::u32::to_le_bytes(LEN + 4),
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
 				[TUPLE_COUNT],

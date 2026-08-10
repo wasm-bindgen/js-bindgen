@@ -24,6 +24,7 @@ syn = { workspace = true, features = [
 	"printing",
 ] }
 weedle2 = { workspace = true, optional = true }
+xxhash-rust = { workspace = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }
@@ -37,8 +38,7 @@ tempfile = { workspace = true }
 wasmparser = { workspace = true }
 
 [features]
-file = ["macro"]
-macro = []
+file = []
 web-idl = ["dep:weedle2"]
 
 [lints]

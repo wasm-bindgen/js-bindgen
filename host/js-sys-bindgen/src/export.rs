@@ -16,6 +16,8 @@ pub(crate) fn r#macro(
 
 	meta::parser(|meta| {
 		if meta.path.is_ident("js_sys") {
+			// On an exported Rust function, `js_sys` only overrides the crate
+			// path used by generated support code.
 			if js_sys.is_some() {
 				Err(meta.error("duplicate `js_sys` argument"))
 			} else {
@@ -32,8 +34,8 @@ pub(crate) fn r#macro(
 
 	let span = function.span();
 	let js_sys: Path = js_sys.unwrap_or_else(|| parse_quote!(::js_sys));
-	let js_bindgen: Path = parse_quote!(#js_sys::js_bindgen);
-	let r#macro: Path = parse_quote!(#js_sys::r#macro);
+	let js_bindgen_path: Path = parse_quote!(#js_sys::js_bindgen);
+	let macro_path: Path = parse_quote!(#js_sys::r#macro);
 	let ident = &function.sig.ident;
 	let export_name_value = ident.unraw().to_string();
 	let export_name = LitStr::new(&export_name_value, ident.span());
@@ -88,7 +90,7 @@ pub(crate) fn r#macro(
 			let slot_alias = format_ident!("FromJsSlot{slot}", span = input.span());
 
 			raw_inputs.push(quote_spanned! {input.span()=>
-				#slot_ident: #r#macro::#slot_alias<#js_ty>
+				#slot_ident: #macro_path::#slot_alias<#js_ty>
 			});
 			slots.push(slot_ident);
 		}
@@ -98,17 +100,17 @@ pub(crate) fn r#macro(
 			let ty = &reference.elem;
 
 			join_inputs.push(quote_spanned! {input.span()=>
-				let #anchor = #r#macro::join_from_js::<#js_ty>(#(#slots),*);
+				let #anchor = #macro_path::join_from_js::<#js_ty>(#(#slots),*);
 				let #argument = ::core::borrow::Borrow::<#ty>::borrow(&#anchor);
 			});
 		} else {
 			join_inputs.push(quote_spanned! {input.span()=>
-				let #argument = #r#macro::join_from_js::<#js_ty>(#(#slots),*);
+				let #argument = #macro_path::join_from_js::<#js_ty>(#(#slots),*);
 			});
 		}
 
 		codegen_inputs.push(quote_spanned! {input.span()=> (#parameter, #js_ty) });
-		required_embeds.push(quote_spanned!(input.span()=> #r#macro::js_from_embed::<#js_ty>()));
+		required_embeds.push(quote_spanned!(input.span()=> #macro_path::js_from_embed::<#js_ty>()));
 		arguments.push(argument);
 	}
 
@@ -117,7 +119,7 @@ pub(crate) fn r#macro(
 	} else {
 		quote_spanned!(span=> #ident(#(#arguments),*))
 	};
-	let raw_name = LitStr::new(&format!("__export_{export_name_value}"), ident.span());
+	let raw_export_name = LitStr::new(&format!("__export_{export_name_value}"), ident.span());
 	let (raw_output, output_argument) = if let Some(output_ty) = output_ty {
 		(
 			quote_spanned! {output_ty.span()=>
@@ -133,7 +135,7 @@ pub(crate) fn r#macro(
 	let raw_body = if output_ty.is_some() {
 		quote_spanned! {span=>
 			#(#join_inputs)*
-			#r#macro::return_to_js(#call)
+			#macro_path::return_to_js(#call)
 		}
 	} else {
 		quote_spanned! {span=>
@@ -143,38 +145,38 @@ pub(crate) fn r#macro(
 	};
 	if let Some(output_ty) = output_ty {
 		required_embeds
-			.push(quote_spanned!(output_ty.span()=> #r#macro::js_return_embed::<#output_ty>()));
+			.push(quote_spanned!(output_ty.span()=> #macro_path::js_return_embed::<#output_ty>()));
 	}
 
 	Ok(quote_spanned! {span=>
 		#function
 
 		const _: () = {
-			#[unsafe(export_name = #raw_name)]
+			#[unsafe(export_name = #raw_export_name)]
 			extern "C" fn export_raw(
 				#(#raw_inputs),*
 			) #raw_output {
 				#raw_body
 			}
 
-			#js_bindgen::unsafe_global_wat! {
+			#js_bindgen_path::unsafe_global_wat! {
 				"{}",
-				interpolate #r#macro::wat_export!(
-					#raw_name,
+				interpolate #macro_path::wat_export!(
+					#raw_export_name,
 					#export_name,
 					(#(#codegen_inputs),*)
 					#output_argument,
 				),
 			}
 
-			#js_bindgen::export_js! {
+			#js_bindgen_path::export_js! {
 				module = #crate_name,
 				name = #export_name,
 				required_embeds = [
 					#(#required_embeds),*
 				],
 				"{}",
-				interpolate #r#macro::js_export!(
+				interpolate #macro_path::js_export!(
 					#export_name,
 					(#(#codegen_inputs),*)
 					#output_argument,

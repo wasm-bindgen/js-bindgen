@@ -1,8 +1,8 @@
 use core::cell::Cell;
 
-use crate::JsValue;
 #[cfg(not(target_feature = "exception-handling"))]
-use crate::externref;
+use super::externref;
+use crate::JsValue;
 
 #[cfg(target_feature = "exception-handling")]
 js_bindgen::import_js!(

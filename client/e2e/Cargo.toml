@@ -6,7 +6,7 @@ license = { workspace = true }
 publish = false
 
 [dev-dependencies]
-js-sys = { workspace = true, features = ["macro"] }
+js-sys = { workspace = true }
 
 [lints]
 workspace = true

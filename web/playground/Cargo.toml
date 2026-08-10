@@ -9,10 +9,12 @@ license.workspace = true
 harness = false
 name = "conv"
 
+[dependencies]
+js-sys = { workspace = true }
+
 [dev-dependencies]
 criterion = { workspace = true }
 js-bindgen = { workspace = true }
-js-sys = { workspace = true, features = ["macro"] }
 
 [lints]
 workspace = true

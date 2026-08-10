@@ -2,7 +2,7 @@ use core::mem::{ManuallyDrop, MaybeUninit};
 use core::ptr;
 
 use crate::JsValue;
-use crate::externref::{WAT_INDEX_LOCAL, WAT_TAKE_IMPORTS};
+use crate::runtime::externref::{WAT_INDEX_LOCAL, WAT_TAKE_IMPORTS};
 
 // Conversion `metadata`.
 
@@ -609,7 +609,7 @@ where
 	type Abi = T::Abi;
 
 	fn from_return_abi(raw: MaybeUninit<WasmRet<Self::Abi>>) -> Self {
-		if let Some(error) = crate::exception::take() {
+		if let Some(error) = crate::runtime::exception::take() {
 			#[cfg(not(target_feature = "exception-handling"))]
 			if <T::Abi as ReturnAbi>::MODE.is_direct() {
 				// SAFETY: A direct Wasm return is always initialized. On the

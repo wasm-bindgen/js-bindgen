@@ -1,7 +1,7 @@
 use std::env;
 
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote_spanned};
+use quote::{ToTokens, format_ident, quote_spanned};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
@@ -9,21 +9,27 @@ use syn::{
 	Error, Expr, Path, PathArguments, ReturnType, Token, TraitBound, TraitBoundModifier, Type,
 	TypeParamBound, TypeTraitObject, parse_quote_spanned,
 };
+use xxhash_rust::xxh3::xxh3_128;
 
 mod keyword {
 	syn::custom_keyword!(js_sys);
 }
 
-pub fn closure(input: TokenStream, id: usize) -> Result<TokenStream, Error> {
+pub fn closure(input: TokenStream) -> Result<TokenStream, Error> {
 	let crate_name = env::var("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` not found");
-	closure_with_crate_name(input, id, &crate_name)
+	let package_name = env::var("CARGO_PKG_NAME").expect("`CARGO_PKG_NAME` not found");
+	let package_version = env::var("CARGO_PKG_VERSION").expect("`CARGO_PKG_VERSION` not found");
+
+	closure_with(input, &crate_name, &package_name, &package_version)
 }
 
-fn closure_with_crate_name(
+pub(crate) fn closure_with(
 	input: TokenStream,
-	id: usize,
 	crate_name: &str,
+	package_name: &str,
+	package_version: &str,
 ) -> Result<TokenStream, Error> {
+	let input_text = input.to_string();
 	let ClosureInput {
 		js_sys,
 		trait_object,
@@ -32,7 +38,16 @@ fn closure_with_crate_name(
 	let signature = Signature::parse(&trait_object)?;
 	let span = trait_object.span();
 	let js_sys = js_sys.unwrap_or_else(|| parse_quote_spanned!(span=> ::js_sys));
-	let symbol_id = format!("{}_{}", crate_name.replace('-', "_"), id);
+	// The package identity is part of the descriptor, so the hash is deterministic
+	// and does not depend on macro expansion order or parallel compilation.
+	let symbol_id = closure_symbol_hash(
+		crate_name,
+		package_name,
+		package_version,
+		&input_text,
+		&trait_object,
+		&expression,
+	);
 	let call_ident = format_ident!("closure_call_{symbol_id}", span = span);
 	let factory_ident = format_ident!("closure_new_{symbol_id}", span = span);
 	let factory_name = syn::LitStr::new(&format!("closure.new.{symbol_id}"), span);
@@ -51,31 +66,35 @@ fn closure_with_crate_name(
 		.enumerate()
 		.map(|(index, ty)| format_ident!("arg{index}", span = ty.span()))
 		.collect();
-	let output = &signature.output;
-	let output_decl = if signature.returns_unit {
-		TokenStream::new()
-	} else {
-		quote_spanned!(output.span()=> -> #output)
-	};
-	let call_shim_type = format_ident!("ClosureCallShim{id}", span = span);
-	let call_impl = format_ident!("closure_call_impl_{symbol_id}", span = span);
-	let allocate = format_ident!("closure_alloc_{symbol_id}", span = span);
+	let output = signature.output.as_ref();
+	let output_decl = output.map_or_else(
+		TokenStream::new,
+		|output| quote_spanned!(output.span()=> -> #output),
+	);
 	let closure_bound = if signature.kind == ClosureKind::Shared {
-		quote_spanned!(span=> ::core::ops::Fn(#(#inputs),*) -> #output)
+		if let Some(output) = output {
+			quote_spanned!(span=> ::core::ops::Fn(#(#inputs),*) -> #output)
+		} else {
+			quote_spanned!(span=> ::core::ops::Fn(#(#inputs),*))
+		}
 	} else {
-		quote_spanned!(span=> ::core::ops::FnMut(#(#inputs),*) -> #output)
+		if let Some(output) = output {
+			quote_spanned!(span=> ::core::ops::FnMut(#(#inputs),*) -> #output)
+		} else {
+			quote_spanned!(span=> ::core::ops::FnMut(#(#inputs),*))
+		}
 	};
 	let call_body = if signature.kind == ClosureKind::Shared {
 		quote_spanned! {span=>
 			let callback = unsafe {
-				&*#js_sys::r#macro::ClosureHeader::callback::<F, #call_shim_type>(pointer)
+				&*#js_sys::ClosureHeader::callback::<F, CallShim>(pointer)
 			};
 			callback(#(#arguments),*)
 		}
 	} else {
 		quote_spanned! {span=>
 			let callback = unsafe {
-				&mut *#js_sys::r#macro::ClosureHeader::callback::<F, #call_shim_type>(pointer)
+				&mut *#js_sys::ClosureHeader::callback::<F, CallShim>(pointer)
 			};
 			callback(#(#arguments),*)
 		}
@@ -97,14 +116,14 @@ fn closure_with_crate_name(
 
 	Ok(quote_spanned! {span=>
 		{
-			type #call_shim_type = unsafe fn(
-				*mut #js_sys::r#macro::ClosureHeader,
+			type CallShim = unsafe fn(
+				*mut #js_sys::ClosureHeader,
 				#(#inputs),*
 			) #output_decl;
 
 			#[allow(clippy::undocumented_unsafe_blocks)]
-			unsafe fn #call_impl<F>(
-				pointer: *mut #js_sys::r#macro::ClosureHeader,
+			unsafe fn call_impl<F>(
+				pointer: *mut #js_sys::ClosureHeader,
 				#(#arguments: #inputs),*
 			) #output_decl
 			where
@@ -113,15 +132,15 @@ fn closure_with_crate_name(
 				#call_body
 			}
 
-			fn #allocate<F>(
+			fn allocate<F>(
 				callback: F,
-			) -> #js_sys::r#macro::ClosureAllocation
+			) -> #js_sys::ClosureAllocation
 			where
 				F: #closure_bound + 'static,
 			{
-				#js_sys::r#macro::ClosureAllocation::new(
+				#js_sys::ClosureAllocation::new(
 					callback,
-					#call_impl::<F> as #call_shim_type,
+					call_impl::<F> as CallShim,
 				)
 			}
 
@@ -133,7 +152,7 @@ fn closure_with_crate_name(
 			) #output_decl {
 				let pointer = ::core::ptr::with_exposed_provenance_mut(data);
 				let call_shim = unsafe {
-					#js_sys::r#macro::ClosureHeader::call_shim::<#call_shim_type>(pointer)
+					#js_sys::ClosureHeader::call_shim::<CallShim>(pointer)
 				};
 				unsafe { call_shim(pointer.cast(), #(#arguments),*) }
 			}
@@ -153,12 +172,37 @@ fn closure_with_crate_name(
 				) -> #js_sys::JsValue;
 			}
 
-			let allocation = #allocate(#expression);
+			let allocation = allocate(#expression);
 			let value = #factory_ident(allocation.data());
 			allocation.forget();
-			#js_sys::Closure::<#closure>::from_js_value(value)
+			// SAFETY: `value` is created by the matching closure factory above.
+			unsafe { #js_sys::Closure::<#closure>::from_js_value(value) }
 		}
 	})
+}
+
+fn closure_symbol_hash(
+	crate_name: &str,
+	package_name: &str,
+	package_version: &str,
+	input: &str,
+	trait_object: &TypeTraitObject,
+	expression: &Expr,
+) -> String {
+	let mut descriptor = String::from("closure-v1\0");
+	for value in [
+		crate_name,
+		package_name,
+		package_version,
+		input,
+		&trait_object.to_token_stream().to_string(),
+		&expression.to_token_stream().to_string(),
+	] {
+		descriptor.push_str(value);
+		descriptor.push('\0');
+	}
+
+	format!("{:032x}", xxh3_128(descriptor.as_bytes()))
 }
 
 struct ClosureInput {
@@ -169,6 +213,8 @@ struct ClosureInput {
 
 impl Parse for ClosureInput {
 	fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+		// The optional leading `js_sys = path` controls macro hygiene. It is not
+		// part of the closure trait object or the captured expression.
 		let js_sys = if input.peek(keyword::js_sys) && input.peek2(Token![=]) {
 			input.parse::<keyword::js_sys>()?;
 			input.parse::<Token![=]>()?;
@@ -197,8 +243,7 @@ impl Parse for ClosureInput {
 struct Signature {
 	kind: ClosureKind,
 	inputs: Punctuated<Type, Token![,]>,
-	output: Type,
-	returns_unit: bool,
+	output: Option<Type>,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -262,17 +307,18 @@ impl Signature {
 				"expected parenthesized closure arguments",
 			));
 		};
-		let output: Type = match &arguments.output {
-			ReturnType::Default => parse_quote_spanned!(trait_object.span()=> ()),
-			ReturnType::Type(_, output) => *output.clone(),
+		let output = match &arguments.output {
+			ReturnType::Default => None,
+			ReturnType::Type(_, output) if matches!(&**output, Type::Tuple(tuple) if tuple.elems.is_empty()) => {
+				None
+			}
+			ReturnType::Type(_, output) => Some(*output.clone()),
 		};
-		let returns_unit = matches!(&output, Type::Tuple(tuple) if tuple.elems.is_empty());
 
 		Ok(Self {
 			kind,
 			inputs: arguments.inputs.clone(),
 			output,
-			returns_unit,
 		})
 	}
 

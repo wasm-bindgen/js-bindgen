@@ -68,18 +68,30 @@ fn generate_wat(spec: &Spec) -> String {
 		 <dir>`.\n;; Do not edit by hand.\n\n",
 	);
 
-	format_section(&mut output, "js_bindgen.import", &spec.imports);
-	format_section(&mut output, "js_bindgen.embed", &spec.embeds);
+	format_section(&mut output, "js_bindgen.import", &spec.imports, true);
+	format_section(&mut output, "js_bindgen.embed", &spec.embeds, false);
 
 	output
 }
 
-fn format_section(output: &mut String, section: &str, entries: &[JsEntry]) {
+fn format_section(output: &mut String, section: &str, entries: &[JsEntry], framed: bool) {
 	if entries.is_empty() {
 		return;
 	}
 
 	writeln!(output, "(@custom {section:?}").unwrap();
+
+	if framed {
+		let used = entries.iter().fold(0u32, |used, entry| {
+			used.checked_add(4)
+				.and_then(|used| used.checked_add(record_len(entry)))
+				.expect("JS section is too large")
+		});
+		writeln!(output, "  ;; block capacity and used length: {used}").unwrap();
+		write_binary_string(output, &used.to_le_bytes());
+		write_binary_string(output, &used.to_le_bytes());
+		writeln!(output).unwrap();
+	}
 
 	for entry in entries {
 		format_entry(output, entry);

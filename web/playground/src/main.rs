@@ -2,8 +2,11 @@
 use std::random::random;
 use std::time::Instant;
 
+use js_sys::Error;
+
 fn main() {
 	let ins = Instant::now();
+	let err = Error::new("hahah");
 
 	let bits: u128 = random(..);
 	let g1 = (bits >> 96) as u32;
@@ -14,6 +17,7 @@ fn main() {
 	let uuid = format!("{g1:08x}-{g2:04x}-{g3:04x}-{g4:04x}-{g5:012x}");
 
 	let elapsed = ins.elapsed();
+	println!("JS {}", err.to_string());
 	println!("result: {uuid}, cost: {elapsed:?}");
 }
 

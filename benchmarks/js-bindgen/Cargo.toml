@@ -8,4 +8,4 @@ publish = { workspace = true }
 crate-type = ["cdylib"]
 
 [dependencies]
-js-sys = { path = "../../client/js-sys", features = ["macro"] }
+js-sys = { path = "../../client/js-sys" }

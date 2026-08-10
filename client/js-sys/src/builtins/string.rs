@@ -1,19 +1,69 @@
-#[rustfmt::skip]
-#[path ="string.gen.rs"]
-mod string;
-
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::{self, Display, Formatter};
 
-pub use self::string::JsString;
+use js_sys_macro::js_sys;
+
+use super::object::Object;
 use crate::JsValue;
 use crate::util::{PtrConst, PtrLength, PtrMut};
+
+#[js_sys(js_sys = crate)]
+extern "js-sys" {
+	#[js_sys(js_name = "String", extends = Object)]
+	#[derive(Debug, Clone, PartialEq, Eq)]
+	pub type JsString;
+}
+
+#[js_sys(js_sys = crate)]
+extern "js-sys" {
+	#[js_sys(js_name = "String")]
+	fn string_constructor(value: &JsValue) -> JsString;
+
+	#[js_sys(js_embed = "string.eq")]
+	// SAFETY: The pointer and length must describe a valid UTF-8 byte slice.
+	#[expect(
+		clippy::allow_attributes,
+		reason = "the macro emits an unsafe ABI call"
+	)]
+	#[allow(
+		clippy::undocumented_unsafe_blocks,
+		reason = "the safety requirement is documented on this declaration"
+	)]
+	unsafe fn string_eq(string: &JsString, array: PtrConst<u8>, len: PtrLength<u8>) -> bool;
+
+	#[js_sys(js_embed = "string.decode")]
+	// SAFETY: The pointer and length must describe a valid UTF-8 byte slice.
+	#[expect(
+		clippy::allow_attributes,
+		reason = "the macro emits an unsafe ABI call"
+	)]
+	#[allow(
+		clippy::undocumented_unsafe_blocks,
+		reason = "the safety requirement is documented on this declaration"
+	)]
+	unsafe fn string_decode(array: PtrConst<u8>, len: PtrLength<u8>) -> JsString;
+
+	#[js_sys(js_embed = "string.utf8_length")]
+	fn string_utf8_length(string: &JsString) -> f64;
+
+	#[js_sys(js_embed = "string.encode")]
+	// SAFETY: The pointer and length must describe a valid output byte slice.
+	#[expect(
+		clippy::allow_attributes,
+		reason = "the macro emits an unsafe ABI call"
+	)]
+	#[allow(
+		clippy::undocumented_unsafe_blocks,
+		reason = "the safety requirement is documented on this declaration"
+	)]
+	unsafe fn string_encode(string: &JsString, array: PtrMut<u8>, len: PtrLength<u8>);
+}
 
 impl JsString {
 	#[must_use]
 	pub fn new(value: &JsValue) -> Self {
-		string::string_constructor(value)
+		string_constructor(value)
 	}
 }
 
@@ -37,7 +87,7 @@ impl PartialEq<&str> for JsString {
 
 		// SAFETY: Parameters are correct.
 		unsafe {
-			string::string_eq(
+			string_eq(
 				self,
 				PtrConst::new(other.as_bytes()),
 				PtrLength::new(other.as_bytes()),
@@ -56,7 +106,7 @@ impl From<&str> for JsString {
 	fn from(value: &str) -> Self {
 		// SAFETY: Parameters are correct.
 		unsafe {
-			string::string_decode(
+			string_decode(
 				PtrConst::new(value.as_bytes()),
 				PtrLength::new(value.as_bytes()),
 			)
@@ -106,7 +156,7 @@ impl From<&JsString> for String {
 			"}}",
 		);
 
-		let len = string::string_utf8_length(value);
+		let len = string_utf8_length(value);
 		#[cfg(target_arch = "wasm32")]
 		assert!(
 			len < f64::from(u32::MAX),
@@ -122,7 +172,7 @@ impl From<&JsString> for String {
 		let mut vec = Vec::with_capacity(len);
 		// SAFETY: Parameters are correct.
 		unsafe {
-			string::string_encode(
+			string_encode(
 				value,
 				PtrMut::new(&mut vec),
 				PtrLength::from_uninit_slice(vec.spare_capacity_mut()),

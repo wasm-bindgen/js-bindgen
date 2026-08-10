@@ -3,7 +3,7 @@
 #[macro_export]
 macro_rules! js_import {
 	(
-		direct_open = $direct_open:expr,
+		direct_wrapper = $direct_wrapper:expr,
 		direct_call = $direct_call:expr,
 		indirect_call = $indirect_call:expr,
 		inputs = [$(($par:literal, $input:ty)),* $(,)?],
@@ -12,8 +12,10 @@ macro_rules! js_import {
 			$crate::r#macro::js_needs_shim!(($($input),*));
 		const OPEN: &::core::primitive::str = if WRAPPED {
 			$crate::r#macro::js_function!("(", ") => {\n", $(($par, $input)),*)
+		} else if $direct_wrapper {
+			$crate::r#macro::js_function!("(", ") => ", $(($par, $input)),*)
 		} else {
-			$direct_open
+			""
 		};
 		const BODY: &::core::primitive::str = if WRAPPED {
 			$crate::r#macro::const_concat!($indirect_call, "\n}")
@@ -28,7 +30,7 @@ macro_rules! js_import {
 		)
 	}};
 	(
-		direct_open = $direct_open:expr,
+		direct_wrapper = $direct_wrapper:expr,
 		direct_call = $direct_call:expr,
 		indirect_call = $indirect_call:expr,
 		inputs = [$(($par:literal, $input:ty)),* $(,)?],
@@ -43,8 +45,10 @@ macro_rules! js_import {
 				($output),
 				$(($par, $input)),*
 			)
+		} else if $direct_wrapper {
+			$crate::r#macro::js_function!("(", ") => ", $(($par, $input)),*)
 		} else {
-			$direct_open
+			""
 		};
 
 		$crate::r#macro::const_concat!(

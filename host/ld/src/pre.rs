@@ -5,7 +5,7 @@ use std::time::SystemTime;
 
 use anyhow::Result;
 use js_bindgen_cli_lib::MainMemory;
-use js_bindgen_ld_shared::JsBindgenWatSectionParser;
+use js_bindgen_ld_shared::{IMPORT_SECTION, JsBindgenWatSectionParser, WAT_SECTION};
 use js_bindgen_shared::ReadFile;
 use wasmparser::{Parser, Payload};
 
@@ -120,7 +120,7 @@ fn process_object(
 
 		// We are only interested in reading custom sections with our name.
 		match &payload {
-			Payload::CustomSection(c) if c.name() == "js_bindgen.wat" => {
+			Payload::CustomSection(c) if c.name() == WAT_SECTION => {
 				for wat in JsBindgenWatSectionParser::new(c) {
 					file_counter += 1;
 					let wasm_path =
@@ -175,7 +175,7 @@ fn process_object(
 				}
 			}
 			// Extract all JS imports.
-			Payload::CustomSection(c) if c.name() == "js_bindgen.import" => {
+			Payload::CustomSection(c) if c.name() == IMPORT_SECTION => {
 				js_store.add_js_imports(c)?;
 			}
 			// Extract all JS embeds.

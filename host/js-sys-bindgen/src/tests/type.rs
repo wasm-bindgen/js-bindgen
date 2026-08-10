@@ -1,6 +1,7 @@
 use syn::parse_quote;
 
-use crate::{Hygiene, ImportManager, Type};
+use crate::hygiene::{Hygiene, ImportManager};
+use crate::r#type::Type;
 
 #[test]
 fn basic() {
@@ -97,6 +98,82 @@ fn generic() {
 
 				fn into_abi(self) -> Self::Abi {
 					IntoJS::into_abi(JsValue::from(self))
+				}
+			}
+
+		},
+	);
+}
+
+#[test]
+fn extends() {
+	let mut imports = ImportManager::new(None);
+	let items = Type::with_extends(
+		&mut Hygiene::Imports(&mut imports),
+		parse_quote!(
+			type Test;
+		),
+		&[parse_quote!(Base)],
+	);
+
+	test!(
+		{
+			#imports
+
+			#items
+		},
+		{
+			use core::ops::Deref;
+			use js_sys::JsValue;
+			use js_sys::hazard::{IntoJS, JsCast};
+
+			#[repr(transparent)]
+			struct Test(JsValue);
+
+			impl AsRef<JsValue> for Test {
+				fn as_ref(&self) -> &JsValue {
+					&self.0
+				}
+			}
+
+			impl From<Test> for JsValue {
+				fn from(value: Test) -> Self {
+					value.0
+				}
+			}
+
+			unsafe impl JsCast for Test {}
+
+			unsafe impl IntoJS for Test {
+				type Abi = <JsValue as IntoJS>::Abi;
+
+				fn into_abi(self) -> Self::Abi {
+					IntoJS::into_abi(JsValue::from(self))
+				}
+			}
+
+			impl Deref for Test {
+				type Target = Base;
+
+				#[inline]
+				fn deref(&self) -> &Self::Target {
+					<Test as AsRef<Base>>::as_ref(self)
+				}
+			}
+
+			impl AsRef<Base> for Test {
+				#[inline]
+				fn as_ref(&self) -> &Base {
+					<Base as JsCast>::unchecked_from_ref(
+						<Test as AsRef<JsValue>>::as_ref(self),
+					)
+				}
+			}
+
+			impl From<Test> for Base {
+				#[inline]
+				fn from(value: Test) -> Self {
+					<Base as JsCast>::unchecked_from(JsValue::from(value))
 				}
 			}
 

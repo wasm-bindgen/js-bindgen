@@ -1,16 +1,79 @@
-#[rustfmt::skip]
-#[path ="array.gen.rs"]
-mod array;
-
 use core::error::Error;
 use core::fmt::{self, Display, Formatter};
 use core::mem::MaybeUninit;
 use core::ptr;
 
-pub use self::array::JsArray;
+use crate::JsValue;
 use crate::hazard::{IntoJS, IntoJsConv, JsCast};
+use crate::runtime::externref;
 use crate::util::{ExternSlice, PtrConst, PtrLength, PtrMut};
-use crate::{JsValue, externref};
+
+#[crate::js_sys(js_sys = crate)]
+extern "js-sys" {
+	pub type JsArray<T = JsValue>;
+
+	#[js_sys(getter)]
+	#[must_use]
+	pub fn length<T>(self: &JsArray<T>) -> u32;
+
+	#[js_sys(js_embed = "array.js_value.decode")]
+	// SAFETY: The pointer and length must describe a valid `JsValue` slice.
+	#[expect(
+		clippy::allow_attributes,
+		reason = "the macro emits an unsafe ABI call"
+	)]
+	#[allow(
+		clippy::undocumented_unsafe_blocks,
+		reason = "the safety requirement is documented on this declaration"
+	)]
+	unsafe fn array_js_value_decode(
+		array: PtrConst<JsValue>,
+		len: PtrLength<JsValue>,
+	) -> JsArray<JsValue>;
+
+	#[js_sys(js_embed = "array.js_value.encode")]
+	// SAFETY: Every pointer and length pair must describe its matching output slice.
+	#[expect(
+		clippy::allow_attributes,
+		reason = "the macro emits an unsafe ABI call"
+	)]
+	#[allow(
+		clippy::undocumented_unsafe_blocks,
+		reason = "the safety requirement is documented on this declaration"
+	)]
+	unsafe fn array_js_value_encode(
+		array: &JsArray,
+		array_ptr: PtrMut<JsValue>,
+		array_len: PtrLength<JsValue>,
+		externref_ptr: PtrConst<i32>,
+		externref_len: i32,
+	) -> bool;
+
+	#[js_sys(js_embed = "view.getUint32")]
+	// SAFETY: The pointer and length must describe a valid `u32` slice.
+	#[expect(
+		clippy::allow_attributes,
+		reason = "the macro emits an unsafe ABI call"
+	)]
+	#[allow(
+		clippy::undocumented_unsafe_blocks,
+		reason = "the safety requirement is documented on this declaration"
+	)]
+	unsafe fn array_u32_decode(array: PtrConst<u32>, len: PtrLength<u32>) -> JsArray<u32>;
+
+	#[js_sys(js_embed = "array.u32.encode")]
+	// SAFETY: The pointer and length must describe a valid `u32` output slice.
+	#[expect(
+		clippy::allow_attributes,
+		reason = "the macro emits an unsafe ABI call"
+	)]
+	#[allow(
+		clippy::undocumented_unsafe_blocks,
+		reason = "the safety requirement is documented on this declaration"
+	)]
+	unsafe fn array_u32_encode(array: &JsArray<u32>, ptr: PtrMut<u32>, len: PtrLength<u32>)
+	-> bool;
+}
 
 impl<T> JsArray<T> {
 	#[must_use]
@@ -67,7 +130,7 @@ impl<T: JsCast> JsArray<T> {
 
 		// SAFETY: Parameters are correct.
 		let result = unsafe {
-			array::array_js_value_encode(
+			array_js_value_encode(
 				self.as_any(),
 				PtrMut::new(slice),
 				PtrLength::new(slice),
@@ -93,7 +156,7 @@ impl<T: JsCast> JsArray<T> {
 
 		// SAFETY: Parameters are correct.
 		let result = unsafe {
-			array::array_js_value_encode(
+			array_js_value_encode(
 				self.as_any(),
 				PtrMut::from_uninit_slice(js_slice),
 				PtrLength::from_uninit_slice(js_slice),
@@ -118,7 +181,7 @@ impl<T: JsCast> JsArray<T> {
 
 		// SAFETY: Parameters are correct.
 		let result = unsafe {
-			array::array_js_value_encode(
+			array_js_value_encode(
 				self.as_any(),
 				PtrMut::from_uninit_array(js_array),
 				PtrLength::from_uninit_array(js_array),
@@ -180,8 +243,7 @@ impl<T: JsCast> From<&[T]> for JsArray<T> {
 	fn from(value: &[T]) -> Self {
 		let slice = JsValue::from_slice(value);
 		// SAFETY: Parameters are correct.
-		let result =
-			unsafe { array::array_js_value_decode(PtrConst::new(slice), PtrLength::new(slice)) };
+		let result = unsafe { array_js_value_decode(PtrConst::new(slice), PtrLength::new(slice)) };
 
 		Self::unchecked_from(result.into())
 	}
@@ -205,8 +267,7 @@ unsafe impl<T: JsCast> IntoJS for &[T] {
 impl JsArray<u32> {
 	pub fn to_slice(&self, slice: &mut [u32]) -> Result<(), TryFromJsArrayError> {
 		// SAFETY: Parameters are correct.
-		let result =
-			unsafe { array::array_u32_encode(self, PtrMut::new(slice), PtrLength::new(slice)) };
+		let result = unsafe { array_u32_encode(self, PtrMut::new(slice), PtrLength::new(slice)) };
 
 		if result {
 			Ok(())
@@ -221,7 +282,7 @@ impl JsArray<u32> {
 	) -> Result<&'slice mut [u32], TryFromJsArrayError> {
 		// SAFETY: Parameters are correct.
 		let result = unsafe {
-			array::array_u32_encode(
+			array_u32_encode(
 				self,
 				PtrMut::from_uninit_slice(slice),
 				PtrLength::from_uninit_slice(slice),
@@ -242,7 +303,7 @@ impl JsArray<u32> {
 
 		// SAFETY: Parameters are correct.
 		let result = unsafe {
-			array::array_u32_encode(
+			array_u32_encode(
 				self,
 				PtrMut::from_uninit_array(&mut array),
 				PtrLength::from_uninit_array(&array),
@@ -273,7 +334,7 @@ js_bindgen::embed_js!(
 impl From<&[u32]> for JsArray<u32> {
 	fn from(value: &[u32]) -> Self {
 		// SAFETY: Parameters are correct.
-		unsafe { array::array_u32_decode(PtrConst::new(value), PtrLength::new(value)) }
+		unsafe { array_u32_decode(PtrConst::new(value), PtrLength::new(value)) }
 	}
 }
 

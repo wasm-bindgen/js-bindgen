@@ -1,5 +1,6 @@
 use anyhow::{Context, Result, bail};
 use js_bindgen_cli_lib::{JS_OUTPUT_SECTION, MainMemory};
+use js_bindgen_ld_shared::{IMPORT_SECTION, WAT_SECTION};
 use js_bindgen_shared::{IS_COMPAT_SECTION, IS_TEST_SECTION};
 use wasm_encoder::{
 	CustomSection, EntityType, ExportSection, ImportSection, Module, ProducersField,
@@ -73,8 +74,7 @@ pub fn processing(
 				export_section.append_to(&mut wasm_output);
 			}
 			// Don't write back our own custom sections.
-			Payload::CustomSection(c) if c.name() == "js_bindgen.wat" => (),
-			Payload::CustomSection(c) if c.name() == "js_bindgen.import" => (),
+			Payload::CustomSection(c) if matches!(c.name(), WAT_SECTION | IMPORT_SECTION) => {}
 			Payload::CustomSection(c) if c.name() == "js_bindgen.embed" => (),
 			Payload::CustomSection(c) if c.name() == "js_bindgen.export" => (),
 			// Register ourselves in the producer section.

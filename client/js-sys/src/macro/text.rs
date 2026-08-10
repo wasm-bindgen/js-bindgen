@@ -38,26 +38,8 @@ macro_rules! const_concat {
 	($($value:expr),* $(,)?) => {{
 		const VALUES: &[&::core::primitive::str] = &[$($value),*];
 		const LEN: ::core::primitive::usize = $crate::r#macro::const_concat_len(VALUES);
-		const VALUE: [::core::primitive::u8; LEN] = {
-			let mut value = [0; LEN];
-			let mut index = 0;
-			let mut value_index = 0;
-
-			while value_index < VALUES.len() {
-				let mut local_index = 0;
-				let bytes = ::core::primitive::str::as_bytes(VALUES[value_index]);
-
-				while local_index < bytes.len() {
-					value[index] = bytes[local_index];
-					index += 1;
-					local_index += 1;
-				}
-
-				value_index += 1;
-			}
-
-			value
-		};
+		const VALUE: [::core::primitive::u8; LEN] =
+			$crate::r#macro::render_concat::<LEN>(VALUES);
 
 		// SAFETY: Joining valid strings keeps the result valid.
 		unsafe { ::core::str::from_utf8_unchecked(&VALUE) }
@@ -73,35 +55,8 @@ macro_rules! const_concat_if {
 		];
 		const LEN: ::core::primitive::usize =
 			$crate::r#macro::const_concat_if_len(GROUPS);
-		const VALUE: [::core::primitive::u8; LEN] = {
-			let mut value = [0; LEN];
-			let mut index = 0;
-			let mut group_index = 0;
-
-			while group_index < GROUPS.len() {
-				if GROUPS[group_index].0 {
-					let values = GROUPS[group_index].1;
-					let mut value_index = 0;
-
-					while value_index < values.len() {
-						let bytes = ::core::primitive::str::as_bytes(values[value_index]);
-						let mut byte_index = 0;
-
-						while byte_index < bytes.len() {
-							value[index] = bytes[byte_index];
-							index += 1;
-							byte_index += 1;
-						}
-
-						value_index += 1;
-					}
-				}
-
-				group_index += 1;
-			}
-
-			value
-		};
+		const VALUE: [::core::primitive::u8; LEN] =
+			$crate::r#macro::render_concat_if::<LEN>(GROUPS);
 
 		// SAFETY: Joining valid strings keeps the result valid.
 		unsafe { ::core::str::from_utf8_unchecked(&VALUE) }
@@ -164,6 +119,63 @@ pub const fn const_concat_if_len(groups: &[(bool, &[&str])]) -> usize {
 	}
 
 	len
+}
+
+#[must_use]
+pub const fn render_concat<const LEN: usize>(values: &[&str]) -> [u8; LEN] {
+	let mut output = [0; LEN];
+	let mut offset = 0;
+	let mut index = 0;
+
+	while index < values.len() {
+		offset = append_str(&mut output, offset, values[index]);
+		index += 1;
+	}
+
+	output
+}
+
+#[must_use]
+pub const fn render_concat_if<const LEN: usize>(groups: &[(bool, &[&str])]) -> [u8; LEN] {
+	let mut output = [0; LEN];
+	let mut offset = 0;
+	let mut group_index = 0;
+
+	while group_index < groups.len() {
+		if groups[group_index].0 {
+			let values = groups[group_index].1;
+			let mut value_index = 0;
+
+			while value_index < values.len() {
+				offset = append_str(&mut output, offset, values[value_index]);
+				value_index += 1;
+			}
+		}
+
+		group_index += 1;
+	}
+
+	output
+}
+
+const fn append_str<const LEN: usize>(output: &mut [u8; LEN], offset: usize, value: &str) -> usize {
+	let bytes = value.as_bytes();
+	let Some(end) = offset.checked_add(bytes.len()) else {
+		panic!("string append overflows usize");
+	};
+	assert!(end <= LEN);
+
+	// SAFETY: `end <= LEN` proves that the destination range is in bounds.
+	// The source is a valid string slice and cannot overlap the output array.
+	unsafe {
+		core::ptr::copy_nonoverlapping(
+			bytes.as_ptr(),
+			output.as_mut_ptr().add(offset),
+			bytes.len(),
+		);
+	}
+
+	end
 }
 
 const JS_TEMPLATE_PLACEHOLDERS: [&str; 5] = ["$value", "$slot1", "$slot2", "$slot3", "$slot4"];
@@ -237,14 +249,7 @@ pub const fn render_js_template<const LEN: usize>(
 		let placeholder = js_template_placeholder(template, input);
 
 		if placeholder < JS_TEMPLATE_PLACEHOLDERS.len() {
-			let replacement = replacements[placeholder].as_bytes();
-			let mut byte = 0;
-
-			while byte < replacement.len() {
-				rendered[output] = replacement[byte];
-				output += 1;
-				byte += 1;
-			}
+			output = append_str(&mut rendered, output, replacements[placeholder]);
 
 			input += JS_TEMPLATE_PLACEHOLDERS[placeholder].len();
 		} else {

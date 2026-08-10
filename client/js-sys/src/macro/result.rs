@@ -1,8 +1,8 @@
+use crate::hazard::ReturnFromJS;
 #[cfg(target_feature = "exception-handling")]
-use crate::externref::{
+use crate::runtime::externref::{
 	WAT_INDEX_LOCAL, WAT_INSERT_CONV, WAT_NEXT_IMPORT, WAT_TABLE_IMPORT, WAT_VALUE_LOCAL,
 };
-use crate::hazard::ReturnFromJS;
 
 #[cfg(not(target_feature = "exception-handling"))]
 const DIRECT_CATCH: &str = "

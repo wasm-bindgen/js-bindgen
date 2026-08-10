@@ -2,26 +2,11 @@
 
 #![allow(warnings)]
 
-use js_sys::{js_bindgen, r#macro};
+use js_sys::r#macro;
 use js_sys::JsValue;
 use js_sys::hazard::JsCast;
 
 pub fn log0() {
-	js_bindgen::unsafe_global_wat! {
-		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.log0", shim =
-		"web_sys.console.log0", inputs = [],),
-	}
-
-	js_bindgen::import_js! {
-		module = "web_sys",
-		name = "console.log0",
-		"{}",
-		interpolate r#macro::js_import!(
-			direct_open = "", direct_call = "globalThis.console.log", indirect_call =
-			"globalThis.console.log()", inputs = [],
-		),
-	}
-
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.log0"]
 		fn log0();
@@ -31,22 +16,6 @@ pub fn log0() {
 }
 
 pub fn log<T: JsCast>(data: &[T]) {
-	js_bindgen::unsafe_global_wat! {
-		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.log", shim =
-		"web_sys.console.log", inputs = [("arg0", & [JsValue])],),
-	}
-
-	js_bindgen::import_js! {
-		module = "web_sys",
-		name = "console.log",
-		required_embeds = [r#macro::js_input_embed::<&[JsValue]>()],
-		"{}",
-		interpolate r#macro::js_import!(
-			direct_open = "", direct_call = "globalThis.console.log", indirect_call =
-			"globalThis.console.log(arg0_0)", inputs = [("arg0", & [JsValue])],
-		),
-	}
-
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.log"]
 		fn log(
@@ -66,23 +35,6 @@ pub fn log<T: JsCast>(data: &[T]) {
 }
 
 pub fn log2(data1: &JsValue, data2: &JsValue) {
-	js_bindgen::unsafe_global_wat! {
-		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.log2", shim =
-		"web_sys.console.log2", inputs = [("arg0", & JsValue), ("arg1", & JsValue)],),
-	}
-
-	js_bindgen::import_js! {
-		module = "web_sys",
-		name = "console.log2",
-		required_embeds = [r#macro::js_input_embed::<&JsValue>()],
-		"{}",
-		interpolate r#macro::js_import!(
-			direct_open = "", direct_call = "globalThis.console.log", indirect_call =
-			"globalThis.console.log(arg0_0, arg1_0)", inputs = [("arg0", & JsValue), ("arg1", &
-			JsValue)],
-		),
-	}
-
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.log2"]
 		fn log2(
@@ -105,22 +57,6 @@ pub fn log2(data1: &JsValue, data2: &JsValue) {
 }
 
 pub fn error(data: &JsValue) {
-	js_bindgen::unsafe_global_wat! {
-		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.error", shim =
-		"web_sys.console.error", inputs = [("arg0", & JsValue)],),
-	}
-
-	js_bindgen::import_js! {
-		module = "web_sys",
-		name = "console.error",
-		required_embeds = [r#macro::js_input_embed::<&JsValue>()],
-		"{}",
-		interpolate r#macro::js_import!(
-			direct_open = "", direct_call = "globalThis.console.error", indirect_call =
-			"globalThis.console.error(arg0_0)", inputs = [("arg0", & JsValue)],
-		),
-	}
-
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.error"]
 		fn error(
@@ -136,3 +72,72 @@ pub fn error(data: &JsValue) {
 		unsafe { error(arg0_0, arg0_1, arg0_2, arg0_3) }
 	};
 }
+const _: () = {
+	const IMPORTS: &[r#macro::ImportDescriptor] = &[
+		r#macro::ImportDescriptor::new(
+			"web_sys",
+			"console.log0",
+			"web_sys.console.log0",
+			&[],
+			::core::option::Option::None,
+			::core::option::Option::Some(r#macro::ImportJs {
+				direct_wrapper: true,
+				direct_call: "globalThis.console.log()",
+				indirect_call: "globalThis.console.log()",
+				required_embeds: &[],
+			}),
+		),
+		r#macro::ImportDescriptor::new(
+			"web_sys",
+			"console.log",
+			"web_sys.console.log",
+			&[r#macro::import_input::<&[JsValue]>("arg0")],
+			::core::option::Option::None,
+			::core::option::Option::Some(r#macro::ImportJs {
+				direct_wrapper: true,
+				direct_call: "globalThis.console.log(arg0_0)",
+				indirect_call: "globalThis.console.log(arg0_0)",
+				required_embeds: &[r#macro::js_input_embed::<&[JsValue]>()],
+			}),
+		),
+		r#macro::ImportDescriptor::new(
+			"web_sys",
+			"console.log2",
+			"web_sys.console.log2",
+			&[r#macro::import_input::<&JsValue>("arg0"), r#macro::import_input::<&JsValue>("arg1")],
+			::core::option::Option::None,
+			::core::option::Option::Some(r#macro::ImportJs {
+				direct_wrapper: true,
+				direct_call: "globalThis.console.log(arg0_0, arg1_0)",
+				indirect_call: "globalThis.console.log(arg0_0, arg1_0)",
+				required_embeds: &[r#macro::js_input_embed::<&JsValue>()],
+			}),
+		),
+		r#macro::ImportDescriptor::new(
+			"web_sys",
+			"console.error",
+			"web_sys.console.error",
+			&[r#macro::import_input::<&JsValue>("arg0")],
+			::core::option::Option::None,
+			::core::option::Option::Some(r#macro::ImportJs {
+				direct_wrapper: true,
+				direct_call: "globalThis.console.error(arg0_0)",
+				indirect_call: "globalThis.console.error(arg0_0)",
+				required_embeds: &[r#macro::js_input_embed::<&JsValue>()],
+			}),
+		),
+	];
+	const WAT_CAPACITY: ::core::primitive::usize = r#macro::import_wat_capacity(IMPORTS);
+
+	#[used]
+	#[unsafe(link_section = "js_bindgen.wat")]
+	static WAT_SECTION: r#macro::ImportSection<WAT_CAPACITY> = r#macro::import_wat::<
+		WAT_CAPACITY,
+	>(IMPORTS);
+	const JS_CAPACITY: ::core::primitive::usize = r#macro::import_js_capacity(IMPORTS);
+	#[used]
+	#[unsafe(link_section = "js_bindgen.import")]
+	static JS_SECTION: r#macro::ImportSection<JS_CAPACITY> = r#macro::import_js::<
+		JS_CAPACITY,
+	>(IMPORTS);
+};

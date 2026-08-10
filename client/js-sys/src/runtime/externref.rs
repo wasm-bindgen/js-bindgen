@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
-use crate::panic::panic;
+use super::panic::panic;
 use crate::util::PtrConst;
 
 pub(crate) const WAT_TABLE_IMPORT: &str = "(import \"js_sys\" \"externref.table\" (table \

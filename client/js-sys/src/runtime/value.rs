@@ -1,12 +1,8 @@
-#[rustfmt::skip]
-#[path ="value.gen.rs"]
-mod value;
-
 use core::marker::PhantomData;
 use core::mem::{ManuallyDrop, MaybeUninit};
 use core::slice;
 
-use crate::externref::{
+use super::externref::{
 	WAT_GET_CONV, WAT_INDEX_LOCAL, WAT_INSERT_CONV, WAT_INSERT_IMPORTS, WAT_INSERT_LOCALS,
 	WAT_OPTIONAL_INSERT_CONV, WAT_TABLE_IMPORT, WAT_TAKE_CONV, WAT_TAKE_IMPORTS, release,
 };
@@ -20,6 +16,12 @@ use crate::hazard::{
 pub struct JsValue {
 	index: i32,
 	_local: PhantomData<*const ()>,
+}
+
+#[crate::js_sys(js_sys = crate)]
+extern "js-sys" {
+	#[js_sys(js_embed = "js_value.partial_eq")]
+	fn js_value_partial_eq(value1: &JsValue, value2: &JsValue) -> bool;
 }
 
 /// The Wasm `ABI` carrier for an owned `externref` table index.
@@ -276,6 +278,8 @@ impl PartialEq for JsValue {
 			"(value1, value2) => value1 === value2",
 		);
 
-		value::js_value_partial_eq(self, other)
+		js_value_partial_eq(self, other)
 	}
 }
+
+impl Eq for JsValue {}
