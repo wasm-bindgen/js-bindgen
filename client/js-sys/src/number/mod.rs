@@ -1,5 +1,4 @@
-#[rustfmt::skip]
-#[path ="number.gen.rs"]
-mod number;
-
-pub use self::number::JsNumber;
+#[crate::js_sys(js_sys = crate)]
+extern "js-sys" {
+	pub type JsNumber<T = f64>;
+}

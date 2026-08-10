@@ -9,7 +9,7 @@ use clap::builder::PossibleValue;
 use clap::{Args, ValueEnum};
 use strum::{EnumIter, IntoEnumIterator};
 
-use crate::client::{self, Client, ClientTool};
+use crate::client::Client;
 use crate::command;
 use crate::host::{self, Host, HostTool};
 
@@ -26,7 +26,6 @@ enum_with_all!(enum Tools, Tool(Tool), "tools");
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Tool {
 	Shared(CheckTool),
-	Client(ClientTool),
 	Host(HostTool),
 	Zizmor,
 }
@@ -75,14 +74,13 @@ impl Check {
 			match tool {
 				Tool::Shared(tool) => match tool {
 					CheckTool::Clippy | CheckTool::RustSec => {
-						client_tools.push(client::Tool::Shared(tool));
+						client_tools.push(tool);
 						host_tools.push(host::Tool::Shared(tool));
 					}
 					CheckTool::Tombi => root_tools.push(RootTool::Tombi),
 					CheckTool::CargoSpellcheck => root_tools.push(RootTool::CargoSpellcheck),
 					CheckTool::Typos => root_tools.push(RootTool::Typos),
 				},
-				Tool::Client(tool) => client_tools.push(client::Tool::Client(tool)),
 				Tool::Host(tool) => host_tools.push(host::Tool::Host(tool)),
 				Tool::Zizmor => root_tools.push(RootTool::Zizmor),
 			}
@@ -150,7 +148,6 @@ impl ValueEnum for Tool {
 		static VALUES: LazyLock<Vec<Tool>> = LazyLock::new(|| {
 			CheckTool::iter()
 				.map(Tool::Shared)
-				.chain(ClientTool::iter().map(Tool::Client))
 				.chain(HostTool::iter().map(Tool::Host))
 				.chain(iter::once(Tool::Zizmor))
 				.collect()
@@ -162,7 +159,6 @@ impl ValueEnum for Tool {
 	fn to_possible_value(&self) -> Option<PossibleValue> {
 		match self {
 			Self::Shared(tool) => tool.to_possible_value(),
-			Self::Client(tool) => tool.to_possible_value(),
 			Self::Host(tool) => tool.to_possible_value(),
 			Self::Zizmor => Some(PossibleValue::new("zizmor")),
 		}

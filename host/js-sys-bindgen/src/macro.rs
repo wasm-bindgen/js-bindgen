@@ -5,16 +5,12 @@ use quote::ToTokens;
 use syn::parse::Parser;
 use syn::{Error, ForeignItem, Item, ItemForeignMod, LitStr, Path, meta};
 
-use crate::{Function, FunctionJsOutput, Hygiene, ImportManager, Type};
+use crate::{Function, FunctionJsOutput, Hygiene, Type};
 
-pub fn r#macro(
-	attr: TokenStream,
-	item: TokenStream,
-	imports: Option<&mut ImportManager>,
-) -> Result<TokenStream, TokenStream> {
+pub fn r#macro(attr: TokenStream, item: TokenStream) -> Result<TokenStream, TokenStream> {
 	let foreign_mod: ItemForeignMod = syn::parse2(item).map_err(Error::into_compile_error)?;
 
-	internal(attr, foreign_mod, None, imports)
+	internal(attr, foreign_mod, None)
 		.map(|items| items.into_iter().map(Item::into_token_stream).collect())
 		.map_err(|(output, error)| {
 			let error = error.into_compile_error();
@@ -34,7 +30,6 @@ pub(crate) fn internal(
 	attr: TokenStream,
 	mut foreign_mod: ItemForeignMod,
 	crate_: Option<&str>,
-	imports: Option<&mut ImportManager>,
 ) -> Result<Vec<Item>, (Option<Vec<Item>>, Error)> {
 	let mut error = ErrorStack::new();
 
@@ -43,9 +38,7 @@ pub(crate) fn internal(
 
 	if let Err(e) = meta::parser(|meta| {
 		if meta.path.is_ident("js_sys") {
-			if imports.is_some() {
-				Err(meta.error("`js_sys` attribute only allowed with proc-macro hygiene"))
-			} else if js_sys.is_some() {
+			if js_sys.is_some() {
 				Err(meta.error("duplicate attribute"))
 			} else {
 				js_sys = Some(meta.value()?.parse()?);
@@ -67,12 +60,8 @@ pub(crate) fn internal(
 		error.push(e);
 	}
 
-	let mut hygiene = if let Some(imports) = imports {
-		Hygiene::Imports(imports)
-	} else {
-		Hygiene::Hygiene {
-			js_sys: js_sys.as_ref(),
-		}
+	let mut hygiene = Hygiene::Hygiene {
+		js_sys: js_sys.as_ref(),
 	};
 
 	for attr in foreign_mod

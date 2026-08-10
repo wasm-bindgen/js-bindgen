@@ -1,8 +1,5 @@
-#[cfg(feature = "file")]
-mod file;
 mod function;
 mod hygiene;
-#[cfg(feature = "macro")]
 mod r#macro;
 #[cfg(test)]
 mod tests;
@@ -14,11 +11,8 @@ pub use proc_macro2;
 pub use quote;
 pub use syn;
 
-#[cfg(feature = "file")]
-pub use crate::file::file;
 pub use crate::function::{Function, FunctionJsOutput};
 pub use crate::hygiene::{Hygiene, ImportManager};
-#[cfg(feature = "macro")]
 pub use crate::r#macro::r#macro;
 pub use crate::r#type::Type;
 #[cfg(feature = "web-idl")]

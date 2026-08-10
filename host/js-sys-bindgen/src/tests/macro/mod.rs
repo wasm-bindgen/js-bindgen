@@ -32,8 +32,7 @@ macro_rules! test {
 		let input = quote! $input;
 
 		let foreign_mod = syn::parse2(input.clone()).unwrap();
-		let output =
-			r#macro::internal(attr.clone(), foreign_mod, Some("test_crate"), None).unwrap();
+		let output = r#macro::internal(attr.clone(), foreign_mod, Some("test_crate")).unwrap();
 		let output = prettyplease::unparse(&File {
 			shebang: None,
 			attrs: Vec::new(),
@@ -100,7 +99,6 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>)> {
 		TokenStream::new(),
 		parse_quote! { extern "js-sys" { pub type JsTest; } },
 		Some("test_crate"),
-		None,
 	)
 	.unwrap();
 	let js_test: TokenStream = js_test.into_iter().fold(TokenStream::new(), |mut acc, x| {

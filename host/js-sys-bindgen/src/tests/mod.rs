@@ -7,7 +7,6 @@ macro_rules! test {
 	};
 }
 
-#[cfg(feature = "macro")]
 mod r#macro;
 mod r#type;
 #[cfg(feature = "web-idl")]

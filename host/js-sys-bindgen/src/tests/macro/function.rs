@@ -37,7 +37,7 @@ fn basic() {
 					fn log(data: <&JsValue as ::js_sys::hazard::Input>::Type);
 				}
 
-				unsafe { log(::js_sys::hazard::Input::into_raw(data)) };
+				unsafe { log(::js_sys::hazard::Input::into_raw(data)) }
 			}
 		},
 		"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
@@ -92,7 +92,7 @@ fn namespace() {
 					fn log(data: <&JsValue as ::js_sys::hazard::Input>::Type);
 				}
 
-				unsafe { log(::js_sys::hazard::Input::into_raw(data)) };
+				unsafe { log(::js_sys::hazard::Input::into_raw(data)) }
 			}
 		},
 		"(import \"test_crate\" \"console.log\" (func $test_crate.import.console.log (@sym (name \
@@ -147,7 +147,7 @@ fn js_sys() {
 					fn log(data: <&JsValue as js_sys::hazard::Input>::Type);
 				}
 
-				unsafe { log(js_sys::hazard::Input::into_raw(data)) };
+				unsafe { log(js_sys::hazard::Input::into_raw(data)) }
 			}
 		},
 		"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
@@ -214,7 +214,7 @@ fn two_parameters() {
 						::js_sys::hazard::Input::into_raw(data1),
 						::js_sys::hazard::Input::into_raw(data2),
 					)
-				};
+				}
 			}
 		},
 		"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
@@ -259,7 +259,7 @@ fn empty() {
 					fn log();
 				}
 
-				unsafe { log() };
+				unsafe { log() }
 			}
 		},
 		"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
@@ -311,7 +311,7 @@ fn js_name() {
 					fn logx(data: <&JsValue as ::js_sys::hazard::Input>::Type);
 				}
 
-				unsafe { logx(::js_sys::hazard::Input::into_raw(data)) };
+				unsafe { logx(::js_sys::hazard::Input::into_raw(data)) }
 			}
 		},
 		"(import \"test_crate\" \"logx\" (func $test_crate.import.logx (@sym (name \
@@ -353,7 +353,7 @@ fn js_import() {
 					fn log(data: <&JsValue as ::js_sys::hazard::Input>::Type);
 				}
 
-				unsafe { log(::js_sys::hazard::Input::into_raw(data)) };
+				unsafe { log(::js_sys::hazard::Input::into_raw(data)) }
 			}
 		},
 		"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
@@ -412,7 +412,7 @@ fn js_embed() {
 					fn log(data: <&JsValue as ::js_sys::hazard::Input>::Type);
 				}
 
-				unsafe { log(::js_sys::hazard::Input::into_raw(data)) };
+				unsafe { log(::js_sys::hazard::Input::into_raw(data)) }
 			}
 		},
 		"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
@@ -513,7 +513,7 @@ fn cfg() {
 					fn log();
 				}
 
-				unsafe { log() };
+				unsafe { log() }
 			}
 		},
 		"(import \"test_crate\" \"log\" (func $test_crate.import.log (@sym (name \
