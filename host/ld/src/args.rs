@@ -173,7 +173,7 @@ impl<'args> Arguments<'args> {
 
 #[cfg(test)]
 mod tests {
-	use std::ffi::OsString;
+	use std::ffi::OsStr;
 
 	use crate::args::Arguments;
 
@@ -183,8 +183,12 @@ mod tests {
 		let args = Arguments::new(args);
 		assert!(args.web());
 
-		let mut iter = args.pass_args().iter();
-		assert_eq!(iter.next().copied(), Some(&OsString::from("--no-entry")));
+		let pass_args = args.pass_args();
+		let mut iter = pass_args.iter();
+		assert_eq!(
+			iter.next().map(|value| value.as_os_str()),
+			Some(OsStr::new("--no-entry"))
+		);
 		assert!(iter.next().is_none());
 	}
 }

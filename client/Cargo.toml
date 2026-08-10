@@ -28,6 +28,7 @@ js-bindgen = { path = "js-bindgen", default-features = false }
 js-bindgen-macro = { path = "../host/macro" }
 js-bindgen-test = { path = "test" }
 js-bindgen-test-macro = { path = "../host/test-macro" }
+js-bindgen-wire = { path = "../host/wire" }
 js-sys = { path = "js-sys" }
 js-sys-macro = { path = "../host/js-sys-macro" }
 mini-alloc = "1"

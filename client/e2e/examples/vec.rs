@@ -15,6 +15,8 @@ fn main() {
 	// ;; (() => { const bits = exports["pointer_width"](); const input = bits === 64 ? new BigUint64Array([0n, 0xffffffffffffffffn]) : new Uint32Array([0, 0xffffffff]); const result = exports["usize_roundtrip"](input); const Constructor = bits === 64 ? BigUint64Array : Uint32Array; return result !== input && result instanceof Constructor && result.length === 2 && result[0] === input[0] && result[1] === input[1] })()
 	// ;; (() => { const input = ['first', '', '第三个 🦀']; const result = exports["string_roundtrip"](input); return result !== input && Array.isArray(result) && result.join('|') === 'first||第三个 🦀' })()
 	// ;; (() => { try { exports["string_roundtrip"](['valid', 42]); return false } catch (error) { return error instanceof TypeError } })()
+	// ;; exports["sum_u32_slice"](new Uint32Array([1, 2, 3, 0xffffffff])) === 5
+	// ;; exports["join_string_slice"](['first', '', '第三个 🦀']) === 'first||第三个 🦀'
 }
 
 use js_sys::{JsValue, js_sys};
@@ -72,4 +74,14 @@ fn pointer_width() -> u32 {
 #[js_sys]
 fn string_roundtrip(value: Vec<String>) -> Vec<String> {
 	value
+}
+
+#[js_sys]
+fn sum_u32_slice(value: &[u32]) -> u32 {
+	value.iter().fold(0, |sum, value| sum.wrapping_add(*value))
+}
+
+#[js_sys]
+fn join_string_slice(value: &[String]) -> String {
+	value.join("|")
 }

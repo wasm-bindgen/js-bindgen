@@ -5,24 +5,47 @@ use core::mem;
 use super::allocator;
 use super::panic::panic;
 use crate::JsValue;
-use crate::hazard::JsCast;
+use crate::hazard::{JsCast, RefType, WatImport, WatImportKind, WatIndexType, WatLocal, WatType};
 use crate::util::{PtrConst, PtrLength};
 
-pub(crate) const WAT_TABLE_IMPORT: &str = "(import \"js_sys\" \"externref.table\" (table \
-                                           $js_sys.import.externref.table (@sym (name \
-                                           \"js_sys.externref.table\")) 2 externref))";
-pub(crate) const WAT_NEXT_IMPORT: &str =
-	"(import \"env\" \"js_sys.externref.next\" (func $js_sys.externref.next (@sym) (result i32)))";
-pub(crate) const WAT_RELEASE_IMPORT: &str = "(import \"env\" \"js_sys.externref.release\" (func \
-                                             $js_sys.externref.release (@sym) (param i32)))";
-pub(crate) const WAT_VALUE_LOCAL: &str = "  (local $js_sys.externref.value externref)";
-pub(crate) const WAT_INDEX_LOCAL: &str = "  (local $js_sys.externref.index i32)";
-pub(crate) const WAT_INSERT_IMPORTS: &str =
-	crate::const_concat!(WAT_TABLE_IMPORT, "\n", WAT_NEXT_IMPORT);
-pub(crate) const WAT_TAKE_IMPORTS: &str =
-	crate::const_concat!(WAT_TABLE_IMPORT, "\n", WAT_RELEASE_IMPORT);
-pub(crate) const WAT_INSERT_LOCALS: &str =
-	crate::const_concat!(WAT_VALUE_LOCAL, "\n", WAT_INDEX_LOCAL);
+pub(crate) const WAT_TABLE_IMPORT: WatImport = WatImport::new(
+	"js_sys",
+	"externref.table",
+	"js_sys.import.externref.table",
+	Some("js_sys.externref.table"),
+	WatImportKind::Table {
+		index_type: WatIndexType::I32,
+		minimum: 2,
+		maximum: None,
+		element: RefType::ExternRef,
+	},
+);
+pub(crate) const WAT_NEXT_IMPORT: WatImport = WatImport::new(
+	"env",
+	"js_sys.externref.next",
+	"js_sys.externref.next",
+	None,
+	WatImportKind::Function {
+		parameters: &[],
+		results: &[WatType::I32],
+	},
+);
+const WAT_RELEASE_IMPORT: WatImport = WatImport::new(
+	"env",
+	"js_sys.externref.release",
+	"js_sys.externref.release",
+	None,
+	WatImportKind::Function {
+		parameters: &[WatType::I32],
+		results: &[],
+	},
+);
+const WAT_VALUE_LOCAL: WatLocal = WatLocal::new("js_sys.externref.value", WatType::ExternRef);
+pub(crate) const WAT_INDEX_LOCAL: WatLocal = WatLocal::new("js_sys.externref.index", WatType::I32);
+pub(crate) const WAT_TABLE_IMPORTS: &[WatImport] = &[WAT_TABLE_IMPORT];
+pub(crate) const WAT_INSERT_IMPORTS: &[WatImport] = &[WAT_TABLE_IMPORT, WAT_NEXT_IMPORT];
+pub(crate) const WAT_TAKE_IMPORTS: &[WatImport] = &[WAT_TABLE_IMPORT, WAT_RELEASE_IMPORT];
+pub(crate) const WAT_INSERT_LOCALS: &[WatLocal] = &[WAT_VALUE_LOCAL, WAT_INDEX_LOCAL];
 pub(crate) const WAT_INSERT_CONV: &str = "\
   local.set $js_sys.externref.value
   call $js_sys.externref.next (@reloc)

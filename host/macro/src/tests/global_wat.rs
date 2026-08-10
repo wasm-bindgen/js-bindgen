@@ -14,20 +14,10 @@ fn basic() {
 			};
 
 			#[repr(C)]
-			struct Layout(
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 7],
-			);
+			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; 7]);
 
 			#[unsafe(link_section = "js_bindgen.wat")]
-			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN),
-				ARR_0,
-			);
+			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 		};
 	});
 }
@@ -43,18 +33,10 @@ fn minimum() {
 				len as _
 			};
 			#[repr(C)]
-			struct Layout(
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-			);
+			struct Layout([::core::primitive::u8; 4]);
 
 			#[unsafe(link_section = "js_bindgen.wat")]
-			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN),
-			);
+			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN));
 		};
 	});
 }
@@ -73,20 +55,10 @@ fn no_newline() {
 			};
 
 			#[repr(C)]
-			struct Layout(
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 3],
-			);
+			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; 3]);
 
 			#[unsafe(link_section = "js_bindgen.wat")]
-			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN),
-				ARR_0,
-			);
+			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 		};
 	});
 }
@@ -125,8 +97,6 @@ fn merge_strings() {
 			#[repr(C)]
 			struct Layout(
 				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
 				[::core::primitive::u8; 12],
 				#[cfg(test)] [::core::primitive::u8; 4],
 				[::core::primitive::u8; 17],
@@ -134,8 +104,6 @@ fn merge_strings() {
 
 			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
 				#[cfg(test)]
@@ -183,8 +151,6 @@ fn merge_edge_1() {
 			#[repr(C)]
 			struct Layout(
 				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
 				[::core::primitive::u8; 1],
 				#[cfg(test)] [::core::primitive::u8; 1],
 				[::core::primitive::u8; 4],
@@ -193,8 +159,6 @@ fn merge_edge_1() {
 
 			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
 				#[cfg(test)]
@@ -232,15 +196,11 @@ fn merge_edge_2() {
 			#[repr(C)]
 			struct Layout(
 				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
 				#[cfg(test)] [::core::primitive::u8; 1],
 			);
 
 			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
 				::core::primitive::u32::to_le_bytes(LEN),
 				#[cfg(test)]
 				ARR_0,
@@ -279,8 +239,6 @@ fn cfg() {
 			#[repr(C)]
 			struct Layout(
 				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
 				[::core::primitive::u8; 6],
 				#[cfg(test)] [::core::primitive::u8; 6],
 				[::core::primitive::u8; 5],
@@ -288,8 +246,6 @@ fn cfg() {
 
 			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
 				#[cfg(test)]
@@ -314,20 +270,10 @@ fn escape() {
 			};
 
 			#[repr(C)]
-			struct Layout(
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 6],
-			);
+			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; 6]);
 
 			#[unsafe(link_section = "js_bindgen.wat")]
-			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN),
-				ARR_0,
-			);
+			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 		};
 	});
 }
@@ -348,20 +294,10 @@ fn escape_newline() {
 			};
 
 			#[repr(C)]
-			struct Layout(
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 8],
-			);
+			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; 8]);
 
 			#[unsafe(link_section = "js_bindgen.wat")]
-			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN),
-				ARR_0,
-			);
+			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 		};
 	});
 }
@@ -383,20 +319,10 @@ fn interpolate() {
 			};
 
 			#[repr(C)]
-			struct Layout(
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; LEN_0],
-			);
+			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; LEN_0]);
 
 			#[unsafe(link_section = "js_bindgen.wat")]
-			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN),
-				ARR_0,
-			);
+			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 		};
 	});
 }
@@ -418,20 +344,10 @@ fn r#const() {
 			};
 
 			#[repr(C)]
-			struct Layout(
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; LEN_0],
-			);
+			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; LEN_0]);
 
 			#[unsafe(link_section = "js_bindgen.wat")]
-			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN),
-				ARR_0,
-			);
+			static CUSTOM_SECTION: Layout = Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_0);
 		};
 	});
 }
@@ -468,8 +384,6 @@ fn interpolate_macro() {
 			#[repr(C)]
 			struct Layout(
 				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
 				[::core::primitive::u8; LEN_0],
 				[::core::primitive::u8; 1],
 				[::core::primitive::u8; LEN_2],
@@ -477,8 +391,6 @@ fn interpolate_macro() {
 
 			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_0,
 				ARR_1,
@@ -505,20 +417,11 @@ fn named_const() {
 			};
 
 			#[repr(C)]
-			struct Layout(
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; LEN_par],
-			);
+			struct Layout([::core::primitive::u8; 4], [::core::primitive::u8; LEN_par]);
 
 			#[unsafe(link_section = "js_bindgen.wat")]
-			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN),
-				ARR_par,
-			);
+			static CUSTOM_SECTION: Layout =
+				Layout(::core::primitive::u32::to_le_bytes(LEN), ARR_par);
 		};
 	});
 }
@@ -554,15 +457,11 @@ fn named_cfg() {
 			#[repr(C)]
 			struct Layout(
 				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
 				#[cfg(test)] [::core::primitive::u8; LEN_par],
 			);
 
 			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
 				::core::primitive::u32::to_le_bytes(LEN),
 				#[cfg(test)]
 				ARR_par,
@@ -615,8 +514,6 @@ fn named_cfg_2() {
 			#[repr(C)]
 			struct Layout(
 				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
 				[::core::primitive::u8; LEN_par_1],
 				[::core::primitive::u8; 1],
 				#[cfg(test)] [::core::primitive::u8; LEN_par_2],
@@ -624,8 +521,6 @@ fn named_cfg_2() {
 
 			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
 				::core::primitive::u32::to_le_bytes(LEN),
 				ARR_par_1,
 				ARR_0,
@@ -681,16 +576,12 @@ fn named_cfg_same() {
 			#[repr(C)]
 			struct Layout(
 				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
 				#[cfg(test)] [::core::primitive::u8; LEN_par],
 				#[cfg(not(test))] [::core::primitive::u8; LEN_par],
 			);
 
 			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
 				::core::primitive::u32::to_le_bytes(LEN),
 				#[cfg(test)]
 				ARR_par,
@@ -742,16 +633,12 @@ fn named_const_cfg_same() {
 			#[repr(C)]
 			struct Layout(
 				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
 				#[cfg(test)] [::core::primitive::u8; LEN_par],
 				#[cfg(not(test))] [::core::primitive::u8; LEN_par],
 			);
 
 			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout = Layout(
-				::core::primitive::u32::to_le_bytes(LEN + 4),
-				::core::primitive::u32::to_le_bytes(LEN + 4),
 				::core::primitive::u32::to_le_bytes(LEN),
 				#[cfg(test)]
 				ARR_par,

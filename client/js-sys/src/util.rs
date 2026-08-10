@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
-use crate::hazard::{EmptySlot, IntoJS, IntoJsConv, Slot, WasmAbi, WatConv};
+use crate::hazard::{EmptySlot, IntoJS, IntoJsConv, Slot, WasmAbi, WatConv, WatType};
 
 macro_rules! thread_local {
 	($($vis:vis static $name:ident: $ty:ty = $value:expr;)*) => {
@@ -83,18 +83,14 @@ type JsPointerType = u32;
 #[cfg(target_arch = "wasm64")]
 type JsPointerType = f64;
 
-pub(crate) const WAT_PTR_TYPE: &str = <usize as Slot>::WAT_TYPE;
+pub(crate) const WAT_PTR_TYPE: Option<WatType> = <usize as Slot>::WAT_TYPE;
 
 #[cfg(target_arch = "wasm32")]
 const PTR_INTO_JS_WAT_CONV: Option<WatConv> = None;
 
 #[cfg(target_arch = "wasm64")]
-const PTR_INTO_JS_WAT_CONV: Option<WatConv> = Some(WatConv {
-	imports: None,
-	locals: None,
-	conv: "f64.convert_i64_u",
-	r#type: "f64",
-});
+const PTR_INTO_JS_WAT_CONV: Option<WatConv> =
+	Some(WatConv::new(&[], &[], "f64.convert_i64_u", WatType::F64));
 
 // An aggregate conversion supplies its own JavaScript template, so the
 // pointer and length slots do not independently apply their `IntoJS`
@@ -147,7 +143,7 @@ impl<T> Default for PtrConst<T> {
 // SAFETY: `PtrConst` is transparent over a native Wasm pointer. On `wasm64`,
 // the WAT shim converts it to `f64` without losing precision.
 unsafe impl<T> Slot for PtrConst<T> {
-	const WAT_TYPE: &'static str = WAT_PTR_TYPE;
+	const WAT_TYPE: Option<WatType> = WAT_PTR_TYPE;
 	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
 }
 
@@ -188,7 +184,7 @@ impl<T> PtrMut<T> {
 // SAFETY: `PtrMut` is transparent over a native Wasm pointer. On `wasm64`,
 // the WAT shim converts it to `f64` without losing precision.
 unsafe impl<T> Slot for PtrMut<T> {
-	const WAT_TYPE: &'static str = WAT_PTR_TYPE;
+	const WAT_TYPE: Option<WatType> = WAT_PTR_TYPE;
 	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
 }
 
@@ -244,7 +240,7 @@ impl<T> Default for PtrLength<T> {
 // SAFETY: `PtrLength` is transparent over `usize`. On `wasm64`, the WAT
 // shim converts it to `f64` without losing precision.
 unsafe impl<T> Slot for PtrLength<T> {
-	const WAT_TYPE: &'static str = WAT_PTR_TYPE;
+	const WAT_TYPE: Option<WatType> = WAT_PTR_TYPE;
 	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
 }
 

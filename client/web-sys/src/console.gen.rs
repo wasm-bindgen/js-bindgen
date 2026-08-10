@@ -2,7 +2,7 @@
 
 #![allow(warnings)]
 
-use js_sys::r#macro;
+use js_sys::wire;
 use js_sys::JsValue;
 use js_sys::hazard::JsCast;
 
@@ -19,17 +19,15 @@ pub fn log<T: JsCast>(data: &[T]) {
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.log"]
 		fn log(
-			arg0_0: r#macro::InputSlot1<&[JsValue]>,
-			arg0_1: r#macro::InputSlot2<&[JsValue]>,
-			arg0_2: r#macro::InputSlot3<&[JsValue]>,
-			arg0_3: r#macro::InputSlot4<&[JsValue]>,
+			arg0_0: wire::InputSlot1<&[JsValue]>,
+			arg0_1: wire::InputSlot2<&[JsValue]>,
+			arg0_2: wire::InputSlot3<&[JsValue]>,
+			arg0_3: wire::InputSlot4<&[JsValue]>,
 		);
 	}
 
 	{
-		let (arg0_0, arg0_1, arg0_2, arg0_3) = unsafe {
-			r#macro::split_input_as::<&[JsValue]>(data)
-		};
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = unsafe { wire::split_input_as::<&[JsValue]>(data) };
 		unsafe { log(arg0_0, arg0_1, arg0_2, arg0_3) }
 	};
 }
@@ -38,20 +36,20 @@ pub fn log2(data1: &JsValue, data2: &JsValue) {
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.log2"]
 		fn log2(
-			arg0_0: r#macro::InputSlot1<&JsValue>,
-			arg0_1: r#macro::InputSlot2<&JsValue>,
-			arg0_2: r#macro::InputSlot3<&JsValue>,
-			arg0_3: r#macro::InputSlot4<&JsValue>,
-			arg1_0: r#macro::InputSlot1<&JsValue>,
-			arg1_1: r#macro::InputSlot2<&JsValue>,
-			arg1_2: r#macro::InputSlot3<&JsValue>,
-			arg1_3: r#macro::InputSlot4<&JsValue>,
+			arg0_0: wire::InputSlot1<&JsValue>,
+			arg0_1: wire::InputSlot2<&JsValue>,
+			arg0_2: wire::InputSlot3<&JsValue>,
+			arg0_3: wire::InputSlot4<&JsValue>,
+			arg1_0: wire::InputSlot1<&JsValue>,
+			arg1_1: wire::InputSlot2<&JsValue>,
+			arg1_2: wire::InputSlot3<&JsValue>,
+			arg1_3: wire::InputSlot4<&JsValue>,
 		);
 	}
 
 	{
-		let (arg0_0, arg0_1, arg0_2, arg0_3) = r#macro::split_input::<&JsValue>(data1);
-		let (arg1_0, arg1_1, arg1_2, arg1_3) = r#macro::split_input::<&JsValue>(data2);
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = wire::split_input::<&JsValue>(data1);
+		let (arg1_0, arg1_1, arg1_2, arg1_3) = wire::split_input::<&JsValue>(data2);
 		unsafe { log2(arg0_0, arg0_1, arg0_2, arg0_3, arg1_0, arg1_1, arg1_2, arg1_3) }
 	};
 }
@@ -60,84 +58,123 @@ pub fn error(data: &JsValue) {
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.error"]
 		fn error(
-			arg0_0: r#macro::InputSlot1<&JsValue>,
-			arg0_1: r#macro::InputSlot2<&JsValue>,
-			arg0_2: r#macro::InputSlot3<&JsValue>,
-			arg0_3: r#macro::InputSlot4<&JsValue>,
+			arg0_0: wire::InputSlot1<&JsValue>,
+			arg0_1: wire::InputSlot2<&JsValue>,
+			arg0_2: wire::InputSlot3<&JsValue>,
+			arg0_3: wire::InputSlot4<&JsValue>,
 		);
 	}
 
 	{
-		let (arg0_0, arg0_1, arg0_2, arg0_3) = r#macro::split_input::<&JsValue>(data);
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = wire::split_input::<&JsValue>(data);
 		unsafe { error(arg0_0, arg0_1, arg0_2, arg0_3) }
 	};
 }
+
+pub fn error1(data: &JsValue) -> u128 {
+	unsafe extern "C" {
+		#[link_name = "web_sys.console.error1"]
+		fn error1(
+			arg0_0: wire::InputSlot1<&JsValue>,
+			arg0_1: wire::InputSlot2<&JsValue>,
+			arg0_2: wire::InputSlot3<&JsValue>,
+			arg0_3: wire::InputSlot4<&JsValue>,
+		) -> wire::OutputRet<u128>;
+	}
+
+	wire::join_output({
+		let (arg0_0, arg0_1, arg0_2, arg0_3) = wire::split_input::<&JsValue>(data);
+		unsafe { error1(arg0_0, arg0_1, arg0_2, arg0_3) }
+	})
+}
 const _: () = {
-	static IMPORTS: &[r#macro::ImportDescriptor] = &[
-		r#macro::ImportDescriptor::new(
-			"web_sys",
-			"console.log0",
-			"web_sys.console.log0",
-			&[],
-			::core::option::Option::None,
-			::core::option::Option::Some(r#macro::ImportJs {
-				direct_wrapper: true,
-				direct_call: "globalThis.console.log()",
-				indirect_call: "globalThis.console.log()",
-				required_embeds: &[],
-			}),
-		),
-		r#macro::ImportDescriptor::new(
-			"web_sys",
-			"console.log",
-			"web_sys.console.log",
-			&[r#macro::import_input::<&[JsValue]>("arg0")],
-			::core::option::Option::None,
-			::core::option::Option::Some(r#macro::ImportJs {
-				direct_wrapper: true,
-				direct_call: "globalThis.console.log(arg0_0)",
-				indirect_call: "globalThis.console.log(arg0_0)",
-				required_embeds: &[r#macro::js_input_embed::<&[JsValue]>()],
-			}),
-		),
-		r#macro::ImportDescriptor::new(
-			"web_sys",
-			"console.log2",
-			"web_sys.console.log2",
-			&[r#macro::import_input::<&JsValue>("arg0"), r#macro::import_input::<&JsValue>("arg1")],
-			::core::option::Option::None,
-			::core::option::Option::Some(r#macro::ImportJs {
-				direct_wrapper: true,
-				direct_call: "globalThis.console.log(arg0_0, arg1_0)",
-				indirect_call: "globalThis.console.log(arg0_0, arg1_0)",
-				required_embeds: &[r#macro::js_input_embed::<&JsValue>()],
-			}),
-		),
-		r#macro::ImportDescriptor::new(
-			"web_sys",
-			"console.error",
-			"web_sys.console.error",
-			&[r#macro::import_input::<&JsValue>("arg0")],
-			::core::option::Option::None,
-			::core::option::Option::Some(r#macro::ImportJs {
-				direct_wrapper: true,
-				direct_call: "globalThis.console.error(arg0_0)",
-				indirect_call: "globalThis.console.error(arg0_0)",
-				required_embeds: &[r#macro::js_input_embed::<&JsValue>()],
-			}),
-		),
-	];
-	const WAT_CAPACITY: ::core::primitive::usize = r#macro::import_wat_capacity(IMPORTS);
+	const TABLE: &wire::WireImportTypeTable = &wire::WireImportTypeTable::new(
+		wire::wire_import_retptr_type(),
+		&[wire::wire_import_input_type::<&[JsValue]>(), wire::wire_import_input_type::<&JsValue>()],
+		&[wire::wire_import_output_type::<u128>()],
+		wire::wire_import_catch(),
+	);
+	pub const WIRE: wire::Wire = wire::Wire::imports(
+		TABLE,
+		&[
+			wire::WireImport::new(
+				"web_sys",
+				"console.log0",
+				&[],
+				::core::option::Option::None,
+				::core::option::Option::Some(
+					wire::WireImportBinding::new(
+						::core::option::Option::None,
+						"globalThis.console.log()",
+						&[],
+					),
+				),
+				false,
+			),
+			wire::WireImport::new(
+				"web_sys",
+				"console.log",
+				&[wire::WireImportInput::new("arg0", 0usize)],
+				::core::option::Option::None,
+				::core::option::Option::Some(
+					wire::WireImportBinding::new(
+						::core::option::Option::None,
+						"globalThis.console.log(arg0_0)",
+						&[],
+					),
+				),
+				false,
+			),
+			wire::WireImport::new(
+				"web_sys",
+				"console.log2",
+				&[
+					wire::WireImportInput::new("arg0", 1usize),
+					wire::WireImportInput::new("arg1", 1usize),
+				],
+				::core::option::Option::None,
+				::core::option::Option::Some(
+					wire::WireImportBinding::new(
+						::core::option::Option::None,
+						"globalThis.console.log(arg0_0, arg1_0)",
+						&[],
+					),
+				),
+				false,
+			),
+			wire::WireImport::new(
+				"web_sys",
+				"console.error",
+				&[wire::WireImportInput::new("arg0", 1usize)],
+				::core::option::Option::None,
+				::core::option::Option::Some(
+					wire::WireImportBinding::new(
+						::core::option::Option::None,
+						"globalThis.console.error(arg0_0)",
+						&[],
+					),
+				),
+				false,
+			),
+			wire::WireImport::new(
+				"web_sys",
+				"console.error1",
+				&[wire::WireImportInput::new("arg0", 1usize)],
+				::core::option::Option::Some(wire::WireImportOutput::new(0usize)),
+				::core::option::Option::Some(
+					wire::WireImportBinding::new(
+						::core::option::Option::None,
+						"globalThis.console.error1(arg0_0)",
+						&[],
+					),
+				),
+				false,
+			),
+		],
+	);
+	pub const LEN: ::core::primitive::usize = wire::wire_blob_len(&WIRE);
 
 	#[used]
-	#[unsafe(link_section = "js_bindgen.wat")]
-	static WAT_SECTION: r#macro::ImportSection<WAT_CAPACITY> = r#macro::import_wat::<
-		WAT_CAPACITY,
-	>(IMPORTS);
-	const JS_CAPACITY: ::core::primitive::usize = r#macro::import_js_capacity(IMPORTS);
-	#[used]
-	#[unsafe(link_section = "js_bindgen.import")]
-	static JS_SECTION: r#macro::ImportSection<JS_CAPACITY> = r#macro::import_js::<
-		JS_CAPACITY,
-	>(IMPORTS);
+	#[unsafe(link_section = "js_bindgen.wire")]
+	pub static WIRE_SECTION: wire::WireBlob<LEN> = wire::WireBlob::new(&WIRE);
 };

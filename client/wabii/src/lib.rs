@@ -5,22 +5,12 @@ macro_rules! include_wat {
 		#[expect(unused, reason = "link_section")]
 		const _: () = {
 			const WAT: &[u8] = include_bytes!($path);
-			const USED: ::core::primitive::usize = WAT.len() + 4;
 
 			#[repr(C)]
-			struct Layout<const N: usize>(
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; 4],
-				[::core::primitive::u8; N],
-			);
+			struct Layout<const N: usize>([::core::primitive::u8; 4], [::core::primitive::u8; N]);
 
 			#[unsafe(link_section = "js_bindgen.wat")]
 			static CUSTOM_SECTION: Layout<{ WAT.len() }> = Layout(
-				#[expect(clippy::cast_possible_truncation, reason = "link_section")]
-				::core::primitive::u32::to_le_bytes(USED as ::core::primitive::u32),
-				#[expect(clippy::cast_possible_truncation, reason = "link_section")]
-				::core::primitive::u32::to_le_bytes(USED as ::core::primitive::u32),
 				#[expect(clippy::cast_possible_truncation, reason = "link_section")]
 				::core::primitive::u32::to_le_bytes(WAT.len() as ::core::primitive::u32),
 				*include_bytes!($path),

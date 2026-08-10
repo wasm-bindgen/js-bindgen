@@ -18,6 +18,7 @@ hashbrown = { workspace = true, features = ["default-hasher"] }
 js-bindgen-cli-lib = { workspace = true }
 js-bindgen-ld-shared = { workspace = true }
 js-bindgen-shared = { workspace = true, features = ["memmap"] }
+js-bindgen-wire = { workspace = true, features = ["alloc"] }
 postcard = { workspace = true, features = ["alloc"] }
 wasm-encoder = { workspace = true }
 wasmparser = { workspace = true }

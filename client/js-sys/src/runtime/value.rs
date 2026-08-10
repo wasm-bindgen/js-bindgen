@@ -4,11 +4,11 @@ use core::slice;
 
 use super::externref::{
 	WAT_GET_CONV, WAT_INDEX_LOCAL, WAT_INSERT_CONV, WAT_INSERT_IMPORTS, WAT_INSERT_LOCALS,
-	WAT_OPTIONAL_INSERT_CONV, WAT_TABLE_IMPORT, WAT_TAKE_CONV, WAT_TAKE_IMPORTS, release,
+	WAT_OPTIONAL_INSERT_CONV, WAT_TABLE_IMPORTS, WAT_TAKE_CONV, WAT_TAKE_IMPORTS, release,
 };
 use crate::hazard::{
 	FromJS, FromJsConv, IntoJS, IntoJsConv, JsCast, OptionFromAbi, OptionIntoAbi, ReturnAbi,
-	ReturnMode, Slot, WatConv,
+	ReturnMode, Slot, WatConv, WatType,
 };
 
 #[derive(Debug)]
@@ -48,19 +48,19 @@ impl Default for JsValueAbi {
 // SAFETY: `JsValueAbi` transfers ownership of an `i32` table index across the
 // JS boundary.
 unsafe impl Slot for JsValueAbi {
-	const WAT_TYPE: &'static str = "i32";
-	const INTO_JS_WAT_CONV: Option<WatConv> = Some(WatConv {
-		imports: Some(WAT_TAKE_IMPORTS),
-		locals: Some(WAT_INDEX_LOCAL),
-		conv: WAT_TAKE_CONV,
-		r#type: "externref",
-	});
-	const FROM_JS_WAT_CONV: Option<WatConv> = Some(WatConv {
-		imports: Some(WAT_INSERT_IMPORTS),
-		locals: Some(WAT_INSERT_LOCALS),
-		conv: WAT_INSERT_CONV,
-		r#type: "externref",
-	});
+	const WAT_TYPE: Option<WatType> = Some(WatType::I32);
+	const INTO_JS_WAT_CONV: Option<WatConv> = Some(WatConv::new(
+		WAT_TAKE_IMPORTS,
+		&[WAT_INDEX_LOCAL],
+		WAT_TAKE_CONV,
+		WatType::ExternRef,
+	));
+	const FROM_JS_WAT_CONV: Option<WatConv> = Some(WatConv::new(
+		WAT_INSERT_IMPORTS,
+		WAT_INSERT_LOCALS,
+		WAT_INSERT_CONV,
+		WatType::ExternRef,
+	));
 }
 
 // SAFETY: A transparent `i32` carrier is returned directly.
@@ -71,32 +71,32 @@ unsafe impl ReturnAbi for JsValueAbi {
 // SAFETY: `JsValueRefAbi` borrows an `externref` table entry for the duration
 // of the JS call.
 unsafe impl Slot for JsValueRefAbi {
-	const WAT_TYPE: &'static str = "i32";
-	const INTO_JS_WAT_CONV: Option<WatConv> = Some(WatConv {
-		imports: Some(WAT_TABLE_IMPORT),
-		locals: None,
-		conv: WAT_GET_CONV,
-		r#type: "externref",
-	});
+	const WAT_TYPE: Option<WatType> = Some(WatType::I32);
+	const INTO_JS_WAT_CONV: Option<WatConv> = Some(WatConv::new(
+		WAT_TABLE_IMPORTS,
+		&[],
+		WAT_GET_CONV,
+		WatType::ExternRef,
+	));
 }
 
 // SAFETY: `OptionalJsValueAbi` is an `i32` table index. At the JS boundary,
 // null is represented by index zero and non-null `externref` values are
 // inserted into the `externref` table.
 unsafe impl Slot for OptionalJsValueAbi {
-	const WAT_TYPE: &'static str = "i32";
-	const INTO_JS_WAT_CONV: Option<WatConv> = Some(WatConv {
-		imports: Some(WAT_TAKE_IMPORTS),
-		locals: Some(WAT_INDEX_LOCAL),
-		conv: WAT_TAKE_CONV,
-		r#type: "externref",
-	});
-	const FROM_JS_WAT_CONV: Option<WatConv> = Some(WatConv {
-		imports: Some(WAT_INSERT_IMPORTS),
-		locals: Some(WAT_INSERT_LOCALS),
-		conv: WAT_OPTIONAL_INSERT_CONV,
-		r#type: "externref",
-	});
+	const WAT_TYPE: Option<WatType> = Some(WatType::I32);
+	const INTO_JS_WAT_CONV: Option<WatConv> = Some(WatConv::new(
+		WAT_TAKE_IMPORTS,
+		&[WAT_INDEX_LOCAL],
+		WAT_TAKE_CONV,
+		WatType::ExternRef,
+	));
+	const FROM_JS_WAT_CONV: Option<WatConv> = Some(WatConv::new(
+		WAT_INSERT_IMPORTS,
+		WAT_INSERT_LOCALS,
+		WAT_OPTIONAL_INSERT_CONV,
+		WatType::ExternRef,
+	));
 }
 
 // SAFETY: A transparent `i32` carrier is returned directly.

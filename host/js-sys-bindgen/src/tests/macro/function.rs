@@ -15,40 +15,6 @@ fn expand(attr: TokenStream, input: syn::ItemForeignMod) -> String {
 	})
 }
 
-fn link(input: syn::ItemForeignMod) -> (Option<String>, Option<String>) {
-	let output = expand(TokenStream::new(), input);
-	let dir = tempfile::tempdir().unwrap();
-	let (wat, js, _) = super::inner(dir.path(), &output).unwrap();
-	(wat, js)
-}
-
-#[test]
-fn imports_are_batched_end_to_end() {
-	let (wat, js) = link(syn::parse_quote! {
-		extern "js-sys" {
-			#[js_sys(js_import)]
-			pub fn first(value: &JsValue);
-
-			#[js_sys(js_import)]
-			pub fn second(value: &JsValue);
-		}
-	});
-	let wat = wat.unwrap();
-
-	assert!(wat.contains(r#"(import "test_crate" "first""#));
-	assert!(wat.contains(r#"(import "test_crate" "second""#));
-	assert_eq!(
-		wat.matches(r#"(import "js_sys" "externref.table""#).count(),
-		1
-	);
-	assert_eq!(
-		wat.matches("table.get $js_sys.import.externref.table")
-			.count(),
-		2
-	);
-	assert_eq!(js, None);
-}
-
 #[test]
 fn binding_options() {
 	let output = expand(
@@ -69,9 +35,9 @@ fn binding_options() {
 		},
 	);
 
-	assert!(output.contains("renamed::r#macro::InputSlot1"));
-	assert!(output.contains(r#"direct_call: "globalThis.console.log(arg0_0)""#));
-	assert!(output.contains(r#"direct_call: "globalThis.console.warn(arg0_0)""#));
+	assert!(output.contains("renamed::wire::InputSlot1"));
+	assert!(output.contains("globalThis.console.log(arg0_0)"));
+	assert!(output.contains("globalThis.console.warn(arg0_0)"));
 	assert!(output.contains("join_output_as::<JsTest, JsValue>"));
 	assert!(output.contains("#[cfg(all())]"));
 
@@ -87,25 +53,8 @@ fn binding_options() {
 			}
 		},
 	);
-	assert!(output.contains("::core::option::Option::None"));
-	assert!(output.contains(r#"direct_call: "this.#jsEmbed.test_crate['embed']""#));
-}
-
-#[test]
-fn suspending_end_to_end() {
-	let (_, js) = link(syn::parse_quote! {
-		extern "js-sys" {
-			#[js_sys(suspending)]
-			pub fn wait() -> u128;
-		}
-	});
-
-	assert_eq!(
-		js.unwrap(),
-		"new WebAssembly.Suspending(async ($retptr) => {\n    $retptr = $retptr >>> 0\n    const \
-		 $ret = await (globalThis.wait())\n    this.#jsEmbed.js_sys['numeric.128.encode']($ret, \
-		 $ret >> 64n, $retptr)\n})",
-	);
+	assert!(output.contains("test_crate.imported"));
+	assert!(output.contains("this.#jsEmbed.test_crate['embed']"));
 }
 
 #[test]

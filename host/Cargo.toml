@@ -18,6 +18,7 @@ members = [
 	"test-macro",
 	"wasm-ld-opt",
 	"web-driver",
+	"wire",
 ]
 default-members = ["dev"]
 
@@ -56,6 +57,7 @@ itertools = { version = "0.15", default-features = false }
 js-bindgen-cli-lib = { path = "cli-lib" }
 js-bindgen-ld-shared = { path = "ld-shared" }
 js-bindgen-shared = { path = "shared" }
+js-bindgen-wire = { version = "0.1.0", path = "wire" }
 js-sys-bindgen = { path = "js-sys-bindgen" }
 memmap2 = "0.9"
 mime = "0.3"

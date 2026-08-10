@@ -2,6 +2,7 @@ mod args;
 mod js;
 mod post;
 mod pre;
+mod wire;
 
 use std::process::{self, Command};
 use std::{env, fs};
@@ -12,7 +13,6 @@ use crate::args::Arguments;
 use crate::pre::PreOutput;
 
 fn main() {
-	// Read arguments.
 	let args = argfile::expand_args_from(env::args_os(), argfile::parse_response, argfile::PREFIX)
 		.unwrap();
 	let args = Arguments::new(&args[1..]);

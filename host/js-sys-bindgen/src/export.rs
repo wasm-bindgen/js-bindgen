@@ -52,8 +52,7 @@ pub(crate) fn r#macro(
 
 	let span = function.span();
 	let js_sys: Path = js_sys.unwrap_or_else(|| parse_quote!(::js_sys));
-	let js_bindgen_path: Path = parse_quote!(#js_sys::js_bindgen);
-	let macro_path: Path = parse_quote!(#js_sys::r#macro);
+	let macro_path: Path = parse_quote!(#js_sys::wire);
 	let ident = &function.sig.ident;
 	let export_name = js_name.map_or_else(
 		|| {
@@ -84,10 +83,9 @@ pub(crate) fn r#macro(
 		raw_inputs,
 		join_inputs,
 		arguments,
-		codegen_inputs,
-		required_embeds,
+		wire_inputs,
 		raw_output,
-		output_argument,
+		wire_output,
 		..
 	} = lower_abi(inputs, output_ty, &js_sys)?;
 
@@ -108,10 +106,10 @@ pub(crate) fn r#macro(
 			#call;
 		}
 	};
-	let js_export = if promising {
-		quote_spanned!(span=> #macro_path::js_export_promising!)
+	let descriptor_constructor = if promising {
+		format_ident!("new_symbol_promising", span = span)
 	} else {
-		quote_spanned!(span=> #macro_path::js_export!)
+		format_ident!("new_symbol", span = span)
 	};
 
 	Ok(quote_spanned! {span=>
@@ -125,29 +123,24 @@ pub(crate) fn r#macro(
 				#raw_body
 			}
 
-			#js_bindgen_path::unsafe_global_wat! {
-				"{}",
-				interpolate #macro_path::wat_export!(
-					#raw_export_name,
-					#export_name,
-					(#(#codegen_inputs),*)
-					#output_argument,
-				),
-			}
+			#[expect(dead_code, reason = "stored in a custom section")]
+			pub const WIRE: #macro_path::Wire =
+				#macro_path::Wire::exports(&[
+					#macro_path::WireExport::#descriptor_constructor(
+						#crate_name,
+						#export_name,
+						#raw_export_name,
+						&[#(#wire_inputs),*],
+						#wire_output,
+					),
+				]);
+			#[expect(dead_code, reason = "stored in a custom section")]
+			pub const LEN: ::core::primitive::usize = #macro_path::wire_blob_len(&WIRE);
 
-			#js_bindgen_path::export_js! {
-				module = #crate_name,
-				name = #export_name,
-				required_embeds = [
-					#(#required_embeds),*
-				],
-				"{}",
-				interpolate #js_export(
-					#export_name,
-					(#(#codegen_inputs),*)
-					#output_argument,
-				),
-			}
+			#[expect(dead_code, reason = "stored in a custom section")]
+			#[unsafe(link_section = "js_bindgen.wire")]
+			pub static WIRE_SECTION: #macro_path::WireBlob<LEN> =
+				#macro_path::WireBlob::new(&WIRE);
 		};
 	})
 }
@@ -157,10 +150,9 @@ pub(crate) struct ExportAbi {
 	pub raw_inputs: Vec<TokenStream>,
 	pub join_inputs: Vec<TokenStream>,
 	pub arguments: Vec<syn::Ident>,
-	pub codegen_inputs: Vec<TokenStream>,
-	pub required_embeds: Vec<TokenStream>,
+	pub wire_inputs: Vec<TokenStream>,
 	pub raw_output: TokenStream,
-	pub output_argument: TokenStream,
+	pub wire_output: TokenStream,
 }
 
 pub(crate) fn lower_abi<'a>(
@@ -172,8 +164,7 @@ pub(crate) fn lower_abi<'a>(
 	let mut raw_inputs = Vec::new();
 	let mut join_inputs = Vec::new();
 	let mut arguments = Vec::new();
-	let mut codegen_inputs = Vec::new();
-	let mut required_embeds = Vec::new();
+	let mut wire_inputs = Vec::new();
 
 	for (index, ty) in inputs.into_iter().enumerate() {
 		let span = ty.span();
@@ -203,7 +194,7 @@ pub(crate) fn lower_abi<'a>(
 		for slot in 1_usize..=4 {
 			let slot_ident = format_ident!("arg{index}_{}", slot - 1, span = span);
 			let slot_alias = format_ident!("FromJsSlot{slot}", span = span);
-			let raw_type = quote_spanned!(span=> #js_sys::r#macro::#slot_alias<#js_ty>);
+			let raw_type = quote_spanned!(span=> #js_sys::wire::#slot_alias<#js_ty>);
 
 			raw_types.push(raw_type.clone());
 			raw_inputs.push(quote_spanned!(span=> #slot_ident: #raw_type));
@@ -215,22 +206,28 @@ pub(crate) fn lower_abi<'a>(
 			let ty = &reference.elem;
 
 			join_inputs.push(quote_spanned! {span=>
-				let #anchor = #js_sys::r#macro::join_from_js::<#js_ty>(#(#slots),*);
+				let #anchor = #js_sys::wire::join_from_js::<#js_ty>(#(#slots),*);
 				let #argument = ::core::borrow::Borrow::<#ty>::borrow(&#anchor);
 			});
 		} else {
 			join_inputs.push(quote_spanned! {span=>
-				let #argument = #js_sys::r#macro::join_from_js::<#js_ty>(#(#slots),*);
+				let #argument = #js_sys::wire::join_from_js::<#js_ty>(#(#slots),*);
 			});
 		}
 
-		codegen_inputs.push(quote_spanned!(span=> (#parameter, #js_ty)));
-		required_embeds.push(quote_spanned!(span=> #js_sys::r#macro::js_from_embed::<#js_ty>()));
+		wire_inputs.push(quote_spanned! {span=>
+			#js_sys::wire::wire_export_input::<#js_ty>(#parameter)
+		});
 		arguments.push(argument);
 	}
 
-	let (raw_output, output_argument) = output.map_or_else(
-		|| (TokenStream::new(), TokenStream::new()),
+	let (raw_output, wire_output) = output.map_or_else(
+		|| {
+			(
+				TokenStream::new(),
+				quote_spanned!(js_sys.span()=> ::core::option::Option::None),
+			)
+		},
 		|output| {
 			(
 				quote_spanned! {output.span()=>
@@ -238,25 +235,23 @@ pub(crate) fn lower_abi<'a>(
 						<#output as #js_sys::hazard::ReturnIntoJS>::Abi
 					>
 				},
-				quote_spanned!(output.span()=> , #output),
+				quote_spanned! {output.span()=>
+					::core::option::Option::Some(
+						#js_sys::wire::wire_export_output::<#output>()
+					)
+				},
 			)
 		},
 	);
-
-	if let Some(output) = output {
-		required_embeds
-			.push(quote_spanned!(output.span()=> #js_sys::r#macro::js_return_embed::<#output>()));
-	}
 
 	Ok(ExportAbi {
 		raw_types,
 		raw_inputs,
 		join_inputs,
 		arguments,
-		codegen_inputs,
-		required_embeds,
+		wire_inputs,
 		raw_output,
-		output_argument,
+		wire_output,
 	})
 }
 

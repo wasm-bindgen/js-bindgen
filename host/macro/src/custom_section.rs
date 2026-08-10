@@ -738,69 +738,71 @@ impl CustomSection {
 		.flatten()
 	}
 
-	/// When `framed` is true, the block capacity and used length precede the
-	/// record length. Otherwise, the layout contains only the record length.
-	fn output_layout(&self, framed: bool) -> impl Iterator<Item = TokenTree> {
+	/// ```"not rust"
+	/// #[repr(C)]
+	/// struct Layout([u8; 4], #([u8; LEN_<name>]),*);
+	/// ```
+	fn output_layout(&self) -> impl Iterator<Item = TokenTree> {
 		let span = Span::mixed_site();
-		let header_fields = if framed { 3 } else { 1 };
 
-		let tys = (0..header_fields)
-			.flat_map(move |_| {
-				[
+		// ```
+		// [u8; 4], #([u8; LEN_<name>]),*
+		// ```
+		let tys = [
+			group(
+				Delimiter::Bracket,
+				path(["core", "primitive", "u8"], span).chain([
+					Punct::new(';', Spacing::Alone).into(),
+					Literal::usize_unsuffixed(4).into(),
+				]),
+			),
+			Punct::new(',', Spacing::Alone).into(),
+		]
+		.into_iter()
+		.chain(self.flattened_values().flat_map(move |value| {
+			value
+				.cfg_iter()
+				.chain([
 					group(
 						Delimiter::Bracket,
 						path(["core", "primitive", "u8"], span).chain([
 							Punct::new(';', Spacing::Alone).into(),
-							Literal::usize_unsuffixed(4).into(),
+							match value.kind {
+								FlattenedValueKind::Bytes(bytes) => {
+									Literal::usize_unsuffixed(bytes.len()).into()
+								}
+								FlattenedValueKind::Const | FlattenedValueKind::Interpolate => {
+									ident(&format!("LEN_{}", value.name))
+								}
+								FlattenedValueKind::InterpolateWithLength => {
+									Literal::usize_unsuffixed(2).into()
+								}
+								FlattenedValueKind::TupleCount => {
+									Literal::usize_unsuffixed(1).into()
+								}
+							},
 						]),
 					),
 					Punct::new(',', Spacing::Alone).into(),
-				]
-			})
-			.chain(self.flattened_values().flat_map(move |value| {
-				value
-					.cfg_iter()
-					.chain([
-						group(
-							Delimiter::Bracket,
-							path(["core", "primitive", "u8"], span).chain([
-								Punct::new(';', Spacing::Alone).into(),
-								match value.kind {
-									FlattenedValueKind::Bytes(bytes) => {
-										Literal::usize_unsuffixed(bytes.len()).into()
-									}
-									FlattenedValueKind::Const | FlattenedValueKind::Interpolate => {
-										ident(&format!("LEN_{}", value.name))
-									}
-									FlattenedValueKind::InterpolateWithLength => {
-										Literal::usize_unsuffixed(2).into()
-									}
-									FlattenedValueKind::TupleCount => {
-										Literal::usize_unsuffixed(1).into()
-									}
-								},
-							]),
-						),
-						Punct::new(',', Spacing::Alone).into(),
-					])
-					.chain(
-						matches!(value.kind, FlattenedValueKind::InterpolateWithLength)
-							.then(|| {
-								value.cfg_iter().chain([
-									group(
-										Delimiter::Bracket,
-										path(["core", "primitive", "u8"], span).chain([
-											Punct::new(';', Spacing::Alone).into(),
-											ident(&format!("LEN_{}", value.name)),
-										]),
-									),
-									Punct::new(',', Spacing::Alone).into(),
-								])
-							})
-							.into_iter()
-							.flatten(),
-					)
-			}));
+				])
+				.chain(
+					matches!(value.kind, FlattenedValueKind::InterpolateWithLength)
+						.then(|| {
+							value.cfg_iter().chain([
+								group(
+									Delimiter::Bracket,
+									path(["core", "primitive", "u8"], span).chain([
+										Punct::new(';', Spacing::Alone).into(),
+										ident(&format!("LEN_{}", value.name)),
+									]),
+								),
+								Punct::new(',', Spacing::Alone).into(),
+							])
+						})
+						.into_iter()
+						.flatten(),
+				)
+		}));
 
 		// ```
 		// #[repr(C)]
@@ -823,7 +825,11 @@ impl CustomSection {
 		.into_iter()
 	}
 
-	fn output_custom_section(&self, name: &str, framed: bool) -> impl Iterator<Item = TokenTree> {
+	/// ```"not rust"
+	/// #[link_section = name]
+	/// static CUSTOM_SECTION: Layout = Layout(...(u32::to_le_bytes(LEN), #(ARR_<name>),*));
+	/// ```
+	fn output_custom_section(&self, name: &str) -> impl Iterator<Item = TokenTree> {
 		let span = Span::mixed_site();
 
 		// ```
@@ -847,23 +853,12 @@ impl CustomSection {
 			),
 		];
 
+		// ```
+		// (u32::to_le_bytes(LEN), #(ARR_<name>),*)
+		// ```
 		let values = group(
 			Delimiter::Parenthesis,
-			(0..if framed { 2 } else { 0 })
-				.flat_map(move |_| {
-					path(["core", "primitive", "u32", "to_le_bytes"], span).chain([
-						group(
-							Delimiter::Parenthesis,
-							[
-								ident("LEN"),
-								Punct::new('+', Spacing::Alone).into(),
-								Literal::u32_unsuffixed(4).into(),
-							],
-						),
-						Punct::new(',', Spacing::Alone).into(),
-					])
-				})
-				.chain(path(["core", "primitive", "u32", "to_le_bytes"], span))
+			path(["core", "primitive", "u32", "to_le_bytes"], span)
 				.chain([
 					group(Delimiter::Parenthesis, iter::once(ident("LEN"))),
 					Punct::new(',', Spacing::Alone).into(),
@@ -906,7 +901,22 @@ impl CustomSection {
 		link_section.into_iter().chain(custom_section)
 	}
 
-	fn output_inner(self, name: &str, framed: bool) -> TokenStream {
+	/// ```"not rust"
+	/// const _: () = {
+	/// 	const LEN: u32 = {
+	/// 		let mut len: usize = 0;
+	/// 		#(len += LEN_<index>;)*
+	/// 		len as _
+	/// 	};
+	///
+	/// 	#[repr(C)]
+	/// 	struct Layout([u8; 4], #([u8; LEN_<index>]),*);
+	///
+	/// 	#[link_section = name]
+	/// 	static CUSTOM_SECTION: Layout = Layout(u32::to_le_bytes(LEN), #(ARR_<index>),*);
+	/// };
+	/// ```
+	pub fn output(self, name: &str) -> TokenStream {
 		r#const(
 			"_",
 			iter::once(group(Delimiter::Parenthesis, iter::empty())),
@@ -915,19 +925,11 @@ impl CustomSection {
 				self.output_values()
 					.chain(self.output_len())
 					.chain(self.output_tuple_count())
-					.chain(self.output_layout(framed))
-					.chain(self.output_custom_section(name, framed)),
+					.chain(self.output_layout())
+					.chain(self.output_custom_section(name)),
 			)),
 		)
 		.collect()
-	}
-
-	pub fn output(self, name: &str) -> TokenStream {
-		self.output_inner(name, false)
-	}
-
-	pub fn output_framed(self, name: &str) -> TokenStream {
-		self.output_inner(name, true)
 	}
 }
 

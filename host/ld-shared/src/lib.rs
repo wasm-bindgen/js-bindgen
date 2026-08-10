@@ -11,6 +11,7 @@ use wasmparser::CustomSectionReader;
 
 pub const WAT_SECTION: &str = "js_bindgen.wat";
 pub const IMPORT_SECTION: &str = "js_bindgen.import";
+pub const WIRE_SECTION: &str = "js_bindgen.wire";
 
 /// Creates a relocatable Wasm object from the WAT input.
 pub fn wat_to_object(wasm64: bool, wat: &str) -> rwat::Result<Vec<u8>> {
@@ -120,7 +121,7 @@ pub struct JsBindgenWatSectionParser<'cs>(CustomSectionParser<'cs>);
 impl<'cs> JsBindgenWatSectionParser<'cs> {
 	#[must_use]
 	pub fn new(custom_section: &CustomSectionReader<'cs>) -> Self {
-		Self(CustomSectionParser::new(custom_section, true))
+		Self(CustomSectionParser::new(custom_section))
 	}
 }
 
@@ -147,6 +148,34 @@ impl<'cs> Iterator for JsBindgenWatSectionParser<'cs> {
 }
 
 #[derive(Clone)]
+pub struct JsBindgenWireSectionParser<'cs>(CustomSectionParser<'cs>);
+
+impl<'cs> JsBindgenWireSectionParser<'cs> {
+	#[must_use]
+	pub fn new(custom_section: &CustomSectionReader<'cs>) -> Self {
+		Self(CustomSectionParser::new(custom_section))
+	}
+}
+
+impl Debug for JsBindgenWireSectionParser<'_> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		let rest: Vec<_> = self.clone().collect();
+
+		f.debug_tuple("JsBindgenWireSectionParser")
+			.field(&rest.as_slice())
+			.finish()
+	}
+}
+
+impl<'cs> Iterator for JsBindgenWireSectionParser<'cs> {
+	type Item = &'cs [u8];
+
+	fn next(&mut self) -> Option<Self::Item> {
+		self.0.next()
+	}
+}
+
+#[derive(Clone)]
 pub struct JsBindgenJsSectionParser<'cs>(CustomSectionParser<'cs>);
 
 #[derive(Debug)]
@@ -166,10 +195,7 @@ pub struct JsRequiredEmbed<'cs> {
 impl<'cs> JsBindgenJsSectionParser<'cs> {
 	#[must_use]
 	pub fn new(custom_section: &CustomSectionReader<'cs>) -> Self {
-		Self(CustomSectionParser::new(
-			custom_section,
-			custom_section.name() == IMPORT_SECTION,
-		))
+		Self(CustomSectionParser::new(custom_section))
 	}
 }
 
@@ -253,71 +279,14 @@ impl<'cs> Iterator for JsBindgenJsSectionParser<'cs> {
 #[derive(Clone)]
 struct CustomSectionParser<'cs> {
 	name: &'cs str,
-	data: SectionData<'cs>,
-}
-
-#[derive(Clone)]
-enum SectionData<'cs> {
-	Records(&'cs [u8]),
-	Framed {
-		blocks: &'cs [u8],
-		records: &'cs [u8],
-	},
+	data: &'cs [u8],
 }
 
 impl<'cs> CustomSectionParser<'cs> {
-	fn new(custom_section: &CustomSectionReader<'cs>, framed: bool) -> Self {
-		let data = if framed {
-			// `Linkers` concatenate statics assigned to the same custom section.
-			// Each block carries its allocated and initialized lengths, followed
-			// by length-prefixed records and any trailing padding.
-			SectionData::Framed {
-				blocks: custom_section.data(),
-				records: &[],
-			}
-		} else {
-			SectionData::Records(custom_section.data())
-		};
-
+	fn new(custom_section: &CustomSectionReader<'cs>) -> Self {
 		Self {
 			name: custom_section.name(),
-			data,
-		}
-	}
-
-	fn next_record(&mut self) -> Option<&'cs [u8]> {
-		let name = self.name;
-
-		match &mut self.data {
-			SectionData::Records(records) => take_record(name, records),
-			SectionData::Framed { blocks, records } => loop {
-				if !records.is_empty() {
-					return take_record(name, records);
-				}
-				if blocks.is_empty() {
-					return None;
-				}
-
-				let header = blocks.split_off(..8).unwrap_or_else(|| {
-					panic!("found incomplete block header in custom section `{name}`")
-				});
-				let capacity = u32::from_le_bytes(header[..4].try_into().unwrap()) as usize;
-				let used = u32::from_le_bytes(header[4..].try_into().unwrap()) as usize;
-
-				assert!(
-					used <= capacity,
-					"block uses {used} bytes but has capacity {capacity} in custom section \
-					 `{name}`"
-				);
-
-				let block = blocks.split_off(..capacity).unwrap_or_else(|| {
-					panic!(
-						"block has capacity {capacity}, but not enough bytes remain in custom \
-						 section `{name}`"
-					)
-				});
-				*records = &block[..used];
-			},
+			data: custom_section.data(),
 		}
 	}
 }
@@ -326,21 +295,19 @@ impl<'cs> Iterator for CustomSectionParser<'cs> {
 	type Item = &'cs [u8];
 
 	fn next(&mut self) -> Option<Self::Item> {
-		self.next_record()
-	}
-}
+		if let Some(length) = self.data.split_off(..4) {
+			let length = u32::from_le_bytes(length.try_into().unwrap()) as usize;
 
-fn take_record<'data>(name: &str, data: &mut &'data [u8]) -> Option<&'data [u8]> {
-	if let Some(length) = data.split_off(..4) {
-		let length = u32::from_le_bytes(length.try_into().unwrap()) as usize;
-
-		Some(
-			data.split_off(..length)
-				.unwrap_or_else(|| panic!("invalid length encoding in custom section `{name}`")),
-		)
-	} else if data.is_empty() {
-		None
-	} else {
-		panic!("found left over bytes in custom section `{name}`: {data:?}");
+			Some(self.data.split_off(..length).unwrap_or_else(|| {
+				panic!("invalid length encoding in custom section `{}`", self.name)
+			}))
+		} else if self.data.is_empty() {
+			None
+		} else {
+			panic!(
+				"found left over bytes in custom section `{}`: {:?}",
+				self.name, self.data
+			);
+		}
 	}
 }

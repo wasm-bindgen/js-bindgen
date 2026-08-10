@@ -2,10 +2,6 @@
 ;; Do not edit by hand.
 
 (@custom "js_bindgen.import"
-  ;; block capacity and used length: 278
-  "\16\01\00\00"
-  "\16\01\00\00"
-
   ;; wabii:time.performance_now
   ;; record length: 64
   "\40\00\00\00"

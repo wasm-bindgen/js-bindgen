@@ -1,28 +1,27 @@
-#![feature(random)]
-use std::random::random;
 use std::time::Instant;
 
-use js_sys::{Error, Uint8Array};
+use js_sys::hazard::JsCast;
+use js_sys::{Function, JsString, JsValue, Promise, closure};
 
 fn main() {
 	let ins = Instant::now();
-	let err = Error::new("hahah");
 
-	let bits: u128 = random(..);
-	let g1 = (bits >> 96) as u32;
-	let g2 = (bits >> 80) as u16;
-	let g3 = (0x4000 | (bits >> 64) & 0x0fff) as u16;
-	let g4 = (0x8000 | (bits >> 48) & 0x3fff) as u16;
-	let g5 = (bits & 0xffffffffffff) as u64;
-	let uuid = format!("{g1:08x}-{g2:04x}-{g3:04x}-{g4:04x}-{g5:012x}");
+	let value = JsString::from("hahaha").into();
+	let executor = closure!(dyn FnMut(Function, Function), move |resolve, _reject| {
+		resolve
+			.call(&JsValue::UNDEFINED, core::slice::from_ref(&value))
+			.unwrap();
+	});
+	let f1 = async {
+		let ret = Promise::new(&executor).await.unwrap();
+		String::from(&JsString::unchecked_from(ret))
+	};
+	let f2 = async move { 1 };
 
-	for v in Uint8Array::from(&[0, 1, 2, 3]) {
-		println!("{v}");
-	}
+	let f1 = js_sys::block_on(f1);
+	let f2 = js_sys::block_on(f2);
 
-	let elapsed = ins.elapsed();
-	println!("JS {}", err.to_string());
-	println!("result: {uuid}, cost: {elapsed:?}");
+	println!("future1: {f1}, future2: {f2:?}, cost: {:?}", ins.elapsed());
 }
 
 #[cfg(test)]

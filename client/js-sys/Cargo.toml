@@ -12,6 +12,7 @@ test = false
 
 [dependencies]
 js-bindgen = { workspace = true }
+js-bindgen-wire = { workspace = true }
 js-sys-macro = { workspace = true }
 
 [dev-dependencies]

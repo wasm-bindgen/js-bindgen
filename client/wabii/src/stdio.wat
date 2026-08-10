@@ -2,10 +2,6 @@
 ;; Do not edit by hand.
 
 (@custom "js_bindgen.import"
-  ;; block capacity and used length: 252
-  "\fc\00\00\00"
-  "\fc\00\00\00"
-
   ;; wabii:stdio.stdout
   ;; record length: 121
   "\79\00\00\00"

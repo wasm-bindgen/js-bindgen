@@ -20,7 +20,7 @@ pub mod hazard;
 // JavaScript values.
 mod interop;
 #[doc(hidden)]
-pub mod r#macro;
+pub mod wire;
 
 pub use builtins::{
 	AggregateError, Array, ArrayBuffer, ArrayBufferOptions, AsyncDisposableStack, AsyncFunction,

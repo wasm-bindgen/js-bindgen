@@ -1,14 +1,14 @@
 use crate::hazard::{
 	EmptySlot, FromJS, FromJsConv, IntoJS, IntoJsConv, OptionFromAbi, OptionIntoAbi, ReturnAbi,
-	ReturnMode, Slot, Sret, WasmAbi,
+	ReturnMode, Slot, Sret, WasmAbi, WatType,
 };
-use crate::r#macro::const_concat;
+use crate::wire::const_concat;
 
 macro_rules! slot {
-	($wat:literal, $($ty:ty),+ $(,)?) => {$(
+	($wat:expr, $($ty:ty),+ $(,)?) => {$(
 		// SAFETY: The declared WAT type describes this primitive `ABI` slot.
 		unsafe impl Slot for $ty {
-			const WAT_TYPE: &'static str = $wat;
+			const WAT_TYPE: Option<WatType> = Some($wat);
 		}
 
 		// SAFETY: Primitive scalar values are returned directly.
@@ -119,7 +119,7 @@ macro_rules! sentinel_option {
 
 macro_rules! indirect_option {
 	($($ty:ident => {
-		decode: ($decode:literal, $decode_arguments:literal),
+		decode: $decode:expr,
 		encode: $encode:literal,
 		slots: $slots:expr,
 	}),+ $(,)?) => {$(
@@ -132,15 +132,7 @@ macro_rules! indirect_option {
 		// SAFETY: The decoder combines the presence tag and payload slots into one
 		// optional JavaScript value.
 		unsafe impl OptionIntoAbi<$ty> for $ty {
-			const JS_CONV: Option<IntoJsConv> = Some(
-				IntoJsConv::new(const_concat!(
-					"this.#jsEmbed.js_sys['",
-					$decode,
-					"']",
-					$decode_arguments,
-				))
-				.with_embed(("js_sys", $decode)),
-			);
+			const JS_CONV: Option<IntoJsConv> = Some($decode);
 
 			type Abi = Option<$ty>;
 
@@ -153,21 +145,28 @@ macro_rules! indirect_option {
 		// payload slots expected by `Option<$ty>`.
 		unsafe impl OptionFromAbi<$ty> for $ty {
 			const JS_CONV: Option<FromJsConv> = {
-				const SLOTS: [&str; 4] = $slots;
+				const SLOTS: [Option<&str>; 4] = $slots;
 
-				Some(
-					FromJsConv::slot1(SLOTS[0])
-						.slot2(SLOTS[1])
-						.slot3(SLOTS[2])
-						.slot4(SLOTS[3])
-						.sret(Sret::Slots(const_concat!(
-							"this.#jsEmbed.js_sys['",
-							$encode,
-							"']"
-						)))
-						.with_embed(("js_sys", $encode)),
-				)
+				let Some(slot1) = SLOTS[0] else {
+					panic!("an indirect option requires a presence slot");
+				};
+				let mut conversion = FromJsConv::slot1(slot1);
+				if let Some(slot2) = SLOTS[1] {
+					conversion = conversion.slot2(slot2);
+				}
+				if let Some(slot3) = SLOTS[2] {
+					conversion = conversion.slot3(slot3);
+				}
+				if let Some(slot4) = SLOTS[3] {
+					conversion = conversion.slot4(slot4);
+				}
+				Some(conversion.with_embed("js_sys", $encode))
 			};
+			const JS_SRET: Option<Sret> = Some(Sret::Slots(const_concat!(
+				"this.#jsEmbed.js_sys['",
+				$encode,
+				"']"
+			)));
 
 			type Abi = Option<$ty>;
 
@@ -178,14 +177,14 @@ macro_rules! indirect_option {
 	)+};
 }
 
-slot!("i32", bool, u8, u16, u32, i8, i16, i32);
-slot!("i64", u64, i64);
-slot!("f32", f32);
-slot!("f64", f64);
+slot!(WatType::I32, bool, u8, u16, u32, i8, i16, i32);
+slot!(WatType::I64, u64, i64);
+slot!(WatType::F32, f32);
+slot!(WatType::F64, f64);
 #[cfg(target_arch = "wasm32")]
-slot!("i32", isize, usize);
+slot!(WatType::I32, isize, usize);
 #[cfg(target_arch = "wasm64")]
-slot!("i64", isize, usize);
+slot!(WatType::I64, isize, usize);
 
 // SAFETY: Unit has no Rust-to-JavaScript payload and becomes `undefined`.
 unsafe impl IntoJS for () {
@@ -331,7 +330,7 @@ unsafe impl ReturnAbi for u128 {
 unsafe impl IntoJS for u128 {
 	const JS_CONV: Option<IntoJsConv> = Some(
 		IntoJsConv::new("this.#jsEmbed.js_sys['numeric.u128.decode']($slot1, $slot2)")
-			.with_embed(("js_sys", "numeric.u128.decode")),
+			.with_embed("js_sys", "numeric.u128.decode"),
 	);
 
 	type Abi = Self;
@@ -347,9 +346,11 @@ unsafe impl FromJS for u128 {
 	const JS_CONV: Option<FromJsConv> = Some(
 		FromJsConv::slot1("$value")
 			.slot2("$value >> 64n")
-			.sret(Sret::Slots("this.#jsEmbed.js_sys['numeric.128.encode']"))
-			.with_embed(("js_sys", "numeric.128.encode")),
+			.with_embed("js_sys", "numeric.128.encode"),
 	);
+	const JS_SRET: Option<Sret> = Some(Sret::Slots(
+		"this.#jsEmbed.js_sys['numeric.128.encode']",
+	));
 
 	type Abi = Self;
 
@@ -395,7 +396,7 @@ unsafe impl ReturnAbi for i128 {
 unsafe impl IntoJS for i128 {
 	const JS_CONV: Option<IntoJsConv> = Some(
 		IntoJsConv::new("this.#jsEmbed.js_sys['numeric.i128.decode']($slot1, $slot2)")
-			.with_embed(("js_sys", "numeric.i128.decode")),
+			.with_embed("js_sys", "numeric.i128.decode"),
 	);
 
 	type Abi = Self;
@@ -411,9 +412,11 @@ unsafe impl FromJS for i128 {
 	const JS_CONV: Option<FromJsConv> = Some(
 		FromJsConv::slot1("$value")
 			.slot2("$value >> 64n")
-			.sret(Sret::Slots("this.#jsEmbed.js_sys['numeric.128.encode']"))
-			.with_embed(("js_sys", "numeric.128.encode")),
+			.with_embed("js_sys", "numeric.128.encode"),
 	);
+	const JS_SRET: Option<Sret> = Some(Sret::Slots(
+		"this.#jsEmbed.js_sys['numeric.128.encode']",
+	));
 
 	type Abi = Self;
 
@@ -506,7 +509,7 @@ sentinel_option! {
 sentinel_option! {
 	carrier: f64,
 	sentinel: F64_OPTION_SENTINEL,
-	js_sentinel: "Number.MAX_SAFE_INTEGER",
+	js_sentinel: "9007199254740991",
 	into_carrier: widen,
 	to_js: "$slot1",
 	from_js: "$value >> 0",
@@ -516,7 +519,7 @@ sentinel_option! {
 sentinel_option! {
 	carrier: f64,
 	sentinel: F64_OPTION_SENTINEL,
-	js_sentinel: "Number.MAX_SAFE_INTEGER",
+	js_sentinel: "9007199254740991",
 	into_carrier: widen,
 	to_js: "$slot1",
 	from_js: "$value >>> 0",
@@ -526,7 +529,7 @@ sentinel_option! {
 sentinel_option! {
 	carrier: f64,
 	sentinel: F64_OPTION_SENTINEL,
-	js_sentinel: "Number.MAX_SAFE_INTEGER",
+	js_sentinel: "9007199254740991",
 	into_carrier: widen,
 	to_js: "$slot1",
 	from_js: "Math.fround($value)",
@@ -537,7 +540,7 @@ sentinel_option! {
 sentinel_option! {
 	carrier: f64,
 	sentinel: F64_OPTION_SENTINEL,
-	js_sentinel: "Number.MAX_SAFE_INTEGER",
+	js_sentinel: "9007199254740991",
 	into_carrier: pointer,
 	to_js: "$slot1",
 	from_js: "$value >> 0",
@@ -548,7 +551,7 @@ sentinel_option! {
 sentinel_option! {
 	carrier: f64,
 	sentinel: F64_OPTION_SENTINEL,
-	js_sentinel: "Number.MAX_SAFE_INTEGER",
+	js_sentinel: "9007199254740991",
 	into_carrier: pointer,
 	to_js: "$slot1",
 	from_js: "$value >>> 0",
@@ -557,67 +560,89 @@ sentinel_option! {
 
 indirect_option! {
 	f64 => {
-		decode: ("optional.f64.decode", "($slot1, $slot2)"),
+		decode: IntoJsConv::new("$slot1 === 0 ? undefined : $slot2"),
 		encode: "optional.f64.encode",
-		slots: ["$value == null ? 0 : 1", "$value == null ? 0 : $value", "", ""],
+		slots: [
+			Some("$value == null ? 0 : 1"),
+			Some("$value == null ? 0 : $value"),
+			None,
+			None,
+		],
 	},
 	i64 => {
-		decode: ("optional.i64.decode", "($slot1, $slot2)"),
+		decode: IntoJsConv::new("$slot1 === 0 ? undefined : $slot2"),
 		encode: "optional.i64.encode",
-		slots: ["$value == null ? 0 : 1", "$value == null ? 0n : $value", "", ""],
+		slots: [
+			Some("$value == null ? 0 : 1"),
+			Some("$value == null ? 0n : $value"),
+			None,
+			None,
+		],
 	},
 	u64 => {
-		decode: ("optional.u64.decode", "($slot1, $slot2)"),
+		decode: IntoJsConv::new("$slot1 === 0 ? undefined : BigInt.asUintN(64, $slot2)"),
 		encode: "optional.u64.encode",
-		slots: ["$value == null ? 0 : 1", "$value == null ? 0n : $value", "", ""],
+		slots: [
+			Some("$value == null ? 0 : 1"),
+			Some("$value == null ? 0n : $value"),
+			None,
+			None,
+		],
 	},
 }
 
 #[cfg(target_arch = "wasm64")]
 indirect_option! {
 	isize => {
-		decode: ("optional.i64.decode", "($slot1, $slot2)"),
+		decode: IntoJsConv::new("$slot1 === 0 ? undefined : $slot2"),
 		encode: "optional.i64.encode",
-		slots: ["$value == null ? 0 : 1", "$value == null ? 0n : $value", "", ""],
+		slots: [
+			Some("$value == null ? 0 : 1"),
+			Some("$value == null ? 0n : $value"),
+			None,
+			None,
+		],
 	},
 	usize => {
-		decode: ("optional.u64.decode", "($slot1, $slot2)"),
+		decode: IntoJsConv::new("$slot1 === 0 ? undefined : BigInt.asUintN(64, $slot2)"),
 		encode: "optional.u64.encode",
-		slots: ["$value == null ? 0 : 1", "$value == null ? 0n : $value", "", ""],
+		slots: [
+			Some("$value == null ? 0 : 1"),
+			Some("$value == null ? 0n : $value"),
+			None,
+			None,
+		],
 	},
 }
 
 indirect_option! {
 	u128 => {
-		decode: ("optional.u128.decode", "($slot1, $slot2, $slot3)"),
+		decode: IntoJsConv::new(
+			"this.#jsEmbed.js_sys['optional.u128.decode']($slot1, $slot2, $slot3)",
+		)
+		.with_embed("js_sys", "optional.u128.decode"),
 		encode: "optional.128.encode",
 		slots: [
-			"$value == null ? 0 : 1",
-			"$value == null ? 0n : $value",
-			"$value == null ? 0n : $value >> 64n",
-			"",
+			Some("$value == null ? 0 : 1"),
+			Some("$value == null ? 0n : $value"),
+			Some("$value == null ? 0n : $value >> 64n"),
+			None,
 		],
 	},
 	i128 => {
-		decode: ("optional.i128.decode", "($slot1, $slot2, $slot3)"),
+		decode: IntoJsConv::new(
+			"this.#jsEmbed.js_sys['optional.i128.decode']($slot1, $slot2, $slot3)",
+		)
+		.with_embed("js_sys", "optional.i128.decode"),
 		encode: "optional.128.encode",
 		slots: [
-			"$value == null ? 0 : 1",
-			"$value == null ? 0n : $value",
-			"$value == null ? 0n : $value >> 64n",
-			"",
+			Some("$value == null ? 0 : 1"),
+			Some("$value == null ? 0n : $value"),
+			Some("$value == null ? 0n : $value >> 64n"),
+			None,
 		],
 	},
 }
-
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "optional.f64.decode",
-	"(isSome, value) => {{",
-	"    if (isSome === 0) return undefined",
-	"    return value",
-	"}}",
-);
 
 js_bindgen::embed_js!(
 	module = "js_sys",
@@ -639,15 +664,6 @@ js_bindgen::embed_js!(
 
 js_bindgen::embed_js!(
 	module = "js_sys",
-	name = "optional.i64.decode",
-	"(isSome, value) => {{",
-	"    if (isSome === 0) return undefined",
-	"    return value",
-	"}}",
-);
-
-js_bindgen::embed_js!(
-	module = "js_sys",
 	name = "optional.i64.encode",
 	"(() => {{",
 	"    const memory = this.#memory",
@@ -662,15 +678,6 @@ js_bindgen::embed_js!(
 	"        view.setBigInt64(out + 8, value, true)",
 	"    }}",
 	"}})()",
-);
-
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "optional.u64.decode",
-	"(isSome, value) => {{",
-	"    if (isSome === 0) return undefined",
-	"    return BigInt.asUintN(64, value)",
-	"}}",
 );
 
 js_bindgen::embed_js!(

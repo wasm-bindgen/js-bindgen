@@ -57,10 +57,15 @@ name = "js-bindgen-macro"
 version = "0.1.0"
 
 [[package]]
+name = "js-bindgen-wire"
+version = "0.1.0"
+
+[[package]]
 name = "js-sys"
 version = "0.0.0"
 dependencies = [
  "js-bindgen",
+ "js-bindgen-wire",
  "js-sys-macro",
 ]
 

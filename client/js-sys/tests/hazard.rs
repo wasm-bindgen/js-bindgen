@@ -1,5 +1,5 @@
 use js_bindgen_test::test;
-use js_sys::hazard::{EmptySlot, IntoJS, IntoJsConv, Slot, WasmAbi, WatConv};
+use js_sys::hazard::{EmptySlot, IntoJS, IntoJsConv, Slot, WasmAbi, WatConv, WatType};
 use js_sys::js_sys;
 
 js_bindgen::embed_js!(
@@ -19,13 +19,9 @@ struct NumberSlot(u32);
 
 // SAFETY: `NumberSlot` is an i32 carrier converted to a JS Number on input.
 unsafe impl Slot for NumberSlot {
-	const WAT_TYPE: &'static str = "i32";
-	const INTO_JS_WAT_CONV: Option<WatConv> = Some(WatConv {
-		imports: None,
-		locals: None,
-		conv: "f64.convert_i32_u",
-		r#type: "f64",
-	});
+	const WAT_TYPE: Option<WatType> = Some(WatType::I32);
+	const INTO_JS_WAT_CONV: Option<WatConv> =
+		Some(WatConv::new(&[], &[], "f64.convert_i32_u", WatType::F64));
 }
 
 struct Pair(u32, u32);

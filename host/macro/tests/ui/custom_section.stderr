@@ -21,19 +21,28 @@ error[E0308]: mismatched types
  --> tests/ui/custom_section.rs:6:50
   |
 6 | js_bindgen::unsafe_global_wat!("{}", interpolate Bar);
-  |                                                  ^^^ expected `&str`, found `Bar`
+  | -------------------------------------------------^^^-
+  | |                                                |
+  | |                                                expected `&str`, found `Bar`
+  | expected because of the type of the constant
 
 error[E0308]: mismatched types
  --> tests/ui/custom_section.rs:9:50
   |
 9 | js_bindgen::unsafe_global_wat!("{}", interpolate 42);
-  |                                                  ^^ expected `&str`, found integer
+  | -------------------------------------------------^^-
+  | |                                                |
+  | |                                                expected `&str`, found integer
+  | expected because of the type of the constant
 
 error[E0308]: mismatched types
   --> tests/ui/custom_section.rs:12:73
    |
 12 | js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = [42], "");
-   |                                                                         ^^ expected `(&str, &str)`, found integer
+   | ------------------------------------------------------------------------^^------
+   | |                                                                       |
+   | |                                                                       expected `(&str, &str)`, found integer
+   | expected because of the type of the constant
    |
    = note: expected tuple `(&'static str, &'static str)`
                found type `{integer}`
@@ -42,7 +51,10 @@ error[E0308]: mismatched types
   --> tests/ui/custom_section.rs:15:72
    |
 15 | js_bindgen::embed_js!(module = "foo", name = "bar", required_embeds = [42], "");
-   |                                                                        ^^ expected `(&str, &str)`, found integer
+   | -----------------------------------------------------------------------^^------
+   | |                                                                      |
+   | |                                                                      expected `(&str, &str)`, found integer
+   | expected because of the type of the constant
    |
    = note: expected tuple `(&'static str, &'static str)`
                found type `{integer}`
@@ -51,7 +63,10 @@ error[E0308]: mismatched types
   --> tests/ui/custom_section.rs:18:73
    |
 18 | js_bindgen::import_js!(module = "foo", name = "bar", required_embeds = ["qux"], "");
-   |                                                                         ^^^^^ expected `(&str, &str)`, found `&str`
+   | ------------------------------------------------------------------------^^^^^------
+   | |                                                                       |
+   | |                                                                       expected `(&str, &str)`, found `&str`
+   | expected because of the type of the constant
    |
    = note:  expected tuple `(&'static str, &'static str)`
            found reference `&'static str`
@@ -59,8 +74,14 @@ error[E0308]: mismatched types
 error[E0308]: mismatched types
   --> tests/ui/custom_section.rs:24:21
    |
-24 |     required_embeds = [("qux")],
-   |                        ^^^^^^^ expected `(&str, &str)`, found `&str`
+21 | / js_bindgen::import_js!(
+22 | |     module = "foo",
+23 | |     name = "bar",
+24 | |     required_embeds = [("qux")],
+   | |                        ^^^^^^^ expected `(&str, &str)`, found `&str`
+25 | |     ""
+26 | | );
+   | |_- expected because of the type of the constant
    |
    = note:  expected tuple `(&'static str, &'static str)`
            found reference `&'static str`
@@ -68,8 +89,14 @@ error[E0308]: mismatched types
 error[E0308]: mismatched types
   --> tests/ui/custom_section.rs:32:21
    |
-32 |     required_embeds = [("qux",)],
-   |                        ^^^^^^^^ expected a tuple with 2 elements, found one with 1 element
+29 | / js_bindgen::import_js!(
+30 | |     module = "foo",
+31 | |     name = "bar",
+32 | |     required_embeds = [("qux",)],
+   | |                        ^^^^^^^^ expected a tuple with 2 elements, found one with 1 element
+33 | |     ""
+34 | | );
+   | |_- expected because of the type of the constant
    |
    = note: expected tuple `(&'static str, &'static str)`
               found tuple `(&'static str,)`

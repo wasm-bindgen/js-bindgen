@@ -2,10 +2,6 @@
 ;; Do not edit by hand.
 
 (@custom "js_bindgen.import"
-  ;; block capacity and used length: 393
-  "\89\01\00\00"
-  "\89\01\00\00"
-
   ;; wabii:random.atomics_fill
   ;; record length: 224
   "\e0\00\00\00"

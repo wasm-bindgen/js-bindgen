@@ -38,7 +38,7 @@ impl Hygiene<'_> {
 	}
 
 	pub(crate) fn r#macro(&mut self, attrs: &[Attribute], span: Span) -> Path {
-		self.js_sys_item(attrs, &parse_quote_spanned!(span=> r#macro), span)
+		self.js_sys_item(attrs, &parse_quote_spanned!(span=> wire), span)
 	}
 
 	fn js_sys_item(&mut self, attrs: &[Attribute], ident: &Ident, span: Span) -> Path {

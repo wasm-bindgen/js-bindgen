@@ -235,8 +235,7 @@ impl GeneratedItems {
 
 struct ImportGroup {
 	cfg_attrs: Vec<Attribute>,
-	descriptors: Vec<TokenStream>,
-	needs_js_section: bool,
+	imports: Vec<FunctionImport>,
 	macro_path: Path,
 }
 
@@ -251,14 +250,12 @@ fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream {
 			.iter_mut()
 			.find(|group| group.cfg_attrs == import.cfg_attrs)
 		{
-			group.descriptors.push(import.descriptor);
-			group.needs_js_section |= import.needs_js_section;
+			group.imports.push(import);
 		} else {
 			groups.push(ImportGroup {
-				cfg_attrs: import.cfg_attrs,
-				descriptors: vec![import.descriptor],
-				needs_js_section: import.needs_js_section,
-				macro_path: import.macro_path,
+				cfg_attrs: import.cfg_attrs.clone(),
+				macro_path: import.macro_path.clone(),
+				imports: vec![import],
 			});
 		}
 	}
@@ -268,35 +265,113 @@ fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream {
 		.fold(TokenStream::new(), |mut output, group| {
 			let ImportGroup {
 				cfg_attrs,
-				descriptors,
-				needs_js_section,
+				imports,
 				macro_path,
 			} = group;
-			let js = needs_js_section.then(|| {
-				quote::quote! {
-					const JS_CAPACITY: ::core::primitive::usize =
-						#macro_path::import_js_capacity(IMPORTS);
-
-					#[used]
-					#[unsafe(link_section = "js_bindgen.import")]
-					static JS_SECTION: #macro_path::ImportSection<JS_CAPACITY> =
-						#macro_path::import_js::<JS_CAPACITY>(IMPORTS);
+			let mut input_types = Vec::<syn::Type>::new();
+			let mut output_types = Vec::<syn::Type>::new();
+			for import in &imports {
+				for ty in &import.input_types {
+					if !input_types.contains(ty) {
+						input_types.push(ty.clone());
+					}
 				}
-			});
+				if let Some(ty) = &import.output_type
+					&& !output_types.contains(ty)
+				{
+					output_types.push(ty.clone());
+				}
+			}
+			let mut wire_descriptors = Vec::new();
+			for import in &imports {
+				let module = &import.module;
+				let name = &import.name;
+				let input_names = &import.input_names;
+				let suspending = import.suspending;
+				let input_indices: Vec<_> = import
+					.input_types
+					.iter()
+					.map(|ty| {
+						input_types
+							.iter()
+							.position(|candidate| candidate == ty)
+							.expect("every input type was collected")
+					})
+					.collect();
+				let output_index = if let Some(ty) = &import.output_type {
+					let index = output_types
+						.iter()
+						.position(|candidate| candidate == ty)
+						.expect("every output type was collected");
+					quote::quote!(::core::option::Option::Some(
+						#macro_path::WireImportOutput::new(#index)
+					))
+				} else {
+					quote::quote!(::core::option::Option::None)
+				};
+				let wire_inputs = input_names.iter().zip(input_indices).map(|(name, index)| {
+					quote::quote!(
+						#macro_path::WireImportInput::new(#name, #index)
+					)
+				});
+				let binding = if let Some(binding) = &import.binding {
+					let direct = if let Some(direct) = &binding.direct {
+						let direct = LitStr::new(direct, module.span());
+						quote::quote!(::core::option::Option::Some(#direct))
+					} else {
+						quote::quote!(::core::option::Option::None)
+					};
+					let call = LitStr::new(&binding.call, module.span());
+					let embeds = &binding.required_embeds;
+					quote::quote! {
+						::core::option::Option::Some(#macro_path::WireImportBinding::new(
+							#direct,
+							#call,
+							&[#(#embeds),*],
+						))
+					}
+				} else {
+					quote::quote!(::core::option::Option::None)
+				};
 
+				wire_descriptors.push(quote::quote! {
+					#macro_path::WireImport::new(
+						#module,
+						#name,
+						&[#(#wire_inputs),*],
+						#output_index,
+						#binding,
+						#suspending,
+					)
+				});
+			}
+			let input_type_descriptors = input_types
+				.iter()
+				.map(|ty| quote::quote!(#macro_path::wire_import_input_type::<#ty>()))
+				.collect::<Vec<_>>();
+			let output_type_descriptors = output_types
+				.iter()
+				.map(|ty| quote::quote!(#macro_path::wire_import_output_type::<#ty>()))
+				.collect::<Vec<_>>();
 			output.extend(quote::quote! {
 				#(#cfg_attrs)*
 				const _: () = {
-					static IMPORTS: &[#macro_path::ImportDescriptor] = &[#(#descriptors),*];
-					const WAT_CAPACITY: ::core::primitive::usize =
-						#macro_path::import_wat_capacity(IMPORTS);
+					const TABLE: &#macro_path::WireImportTypeTable =
+						&#macro_path::WireImportTypeTable::new(
+							#macro_path::wire_import_retptr_type(),
+							&[#(#input_type_descriptors),*],
+							&[#(#output_type_descriptors),*],
+							#macro_path::wire_import_catch(),
+						);
+					pub const WIRE: #macro_path::Wire =
+						#macro_path::Wire::imports(TABLE, &[#(#wire_descriptors),*]);
+					pub const LEN: ::core::primitive::usize =
+						#macro_path::wire_blob_len(&WIRE);
 
 					#[used]
-					#[unsafe(link_section = "js_bindgen.wat")]
-					static WAT_SECTION: #macro_path::ImportSection<WAT_CAPACITY> =
-						#macro_path::import_wat::<WAT_CAPACITY>(IMPORTS);
-
-					#js
+					#[unsafe(link_section = "js_bindgen.wire")]
+					pub static WIRE_SECTION: #macro_path::WireBlob<LEN> =
+						#macro_path::WireBlob::new(&WIRE);
 				};
 			});
 			output

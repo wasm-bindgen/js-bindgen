@@ -73,7 +73,7 @@ macro_rules! primitive_slices {
 						JS_PTR_LEN_ARGS,
 						"))"
 					))
-					.with_embed(("js_sys", concat!("view.get", $view))),
+					.with_embed("js_sys", concat!("view.get", $view)),
 				);
 
 				type Abi = ExternSlice<$ty>;
@@ -234,7 +234,7 @@ unsafe impl<T: JsCast> IntoJS for &[T] {
 			JS_PTR_LEN_ARGS,
 			")"
 		))
-		.with_embed(("js_sys", "array.js_value.decode")),
+		.with_embed("js_sys", "array.js_value.decode"),
 	);
 
 	type Abi = ExternSlice<JsValue>;

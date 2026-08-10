@@ -7,9 +7,9 @@ use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{
-	Attribute, Error, FnArg, ForeignItemFn, GenericArgument, GenericParam, Generics, Ident, Pat,
-	PatIdent, PatType, Path, PathArguments, Receiver, Result, ReturnType, Signature, Token, Type,
-	TypePath, TypeReference, parse_quote,
+	Attribute, Error, FnArg, ForeignItemFn, GenericArgument, GenericParam, Generics, Ident, LitStr,
+	Pat, PatIdent, PatType, Path, PathArguments, Receiver, Result, ReturnType, Signature, Token,
+	Type, TypePath, TypeReference, parse_quote,
 };
 
 use crate::hygiene::Hygiene;
@@ -20,11 +20,24 @@ mod options;
 use js::ForeignItem;
 use options::{BindingKind, FunctionOptions};
 
+/// Backend-independent description of one JavaScript import.
 pub(crate) struct FunctionImport {
 	pub(crate) cfg_attrs: Vec<Attribute>,
-	pub(crate) descriptor: TokenStream,
-	pub(crate) needs_js_section: bool,
+	pub(crate) module: LitStr,
+	pub(crate) name: LitStr,
+	pub(crate) input_names: Vec<LitStr>,
+	pub(crate) input_types: Vec<Type>,
+	pub(crate) output_type: Option<Type>,
+	pub(crate) binding: Option<FunctionBinding>,
+	pub(crate) suspending: bool,
 	pub(crate) macro_path: Path,
+}
+
+/// JavaScript binding data shared by the flat and direct Wire emitters.
+pub(crate) struct FunctionBinding {
+	pub(crate) direct: Option<String>,
+	pub(crate) call: String,
+	pub(crate) required_embeds: Vec<TokenStream>,
 }
 
 struct FunctionPlan {
@@ -127,14 +140,7 @@ pub(crate) fn expand(
 	let import_name = plan.binding.import_name(namespace, &sig.ident);
 	let link_name = format!("{crate_}.{import_name}");
 	let macro_path = hygiene.r#macro(&cfg_attrs, span);
-	let import = plan.import_descriptor(
-		&macro_path,
-		crate_,
-		&import_name,
-		&link_name,
-		&cfg_attrs,
-		span,
-	);
+	let import = plan.import_descriptor(&macro_path, crate_, &import_name, &cfg_attrs, span);
 	let FunctionPlan {
 		inputs,
 		output_ty,
@@ -626,7 +632,6 @@ impl FunctionPlan {
 		macro_path: &Path,
 		crate_: &str,
 		import_name: &str,
-		link_name: &str,
 		cfg_attrs: &[Attribute],
 		span: Span,
 	) -> FunctionImport {
@@ -639,100 +644,52 @@ impl FunctionPlan {
 			..
 		} = self;
 		let output_abi_ty = output_abi_override.as_ref().or(output_ty.as_ref());
-		let input_descriptors = inputs.iter().map(|input| {
-			let name = &input.descriptor_name;
-			let ty = &input.abi_type;
-
-			quote_spanned!(span=> #macro_path::import_input::<#ty>(#name))
-		});
 		let input_tys: Vec<_> = inputs.iter().map(|input| &input.abi_type).collect();
-
-		let mut unique_inputs = Vec::new();
-
-		for &ty in &input_tys {
-			if !unique_inputs.contains(&ty) {
-				unique_inputs.push(ty);
-			}
-		}
 
 		let mut required_embeds = Vec::new();
 
 		if let ForeignItem::Embed(name) = binding {
-			required_embeds.push(quote_spanned!(span=> (#crate_, #name)));
+			required_embeds.push(quote_spanned!(span=>
+				#macro_path::JsEmbed::new(#crate_, #name)
+			));
 		}
 
-		for ty in &unique_inputs {
-			required_embeds.push(quote_spanned!(span=> #macro_path::js_input_embed::<#ty>()));
-		}
-
-		if let Some(ty) = output_abi_ty {
-			required_embeds.push(quote_spanned!(span=> #macro_path::js_output_embed::<#ty>()));
-			required_embeds.push(quote_spanned!(span=> #macro_path::js_result_embed::<#ty>()));
-		}
-
-		let js = match binding {
+		let binding = match binding {
 			ForeignItem::Generate {
 				direct_wrapper,
 				direct_call,
 				indirect_call,
 				..
-			} => Some(quote_spanned! {span=>
-				#macro_path::ImportJs {
-					direct_wrapper: #direct_wrapper,
-					direct_call: #direct_call,
-					indirect_call: #indirect_call,
-					required_embeds: &[#(#required_embeds),*],
-				}
+			} => Some(FunctionBinding {
+				direct: (!direct_wrapper).then(|| direct_call.clone()),
+				call: indirect_call.clone(),
+				required_embeds,
 			}),
 			ForeignItem::Embed(name) => {
 				let path = format!("this.#jsEmbed.{crate_}['{name}']");
 				let arguments = join_input_slots(inputs);
 				let indirect_call = format!("{path}({arguments})");
 
-				Some(quote_spanned! {span=>
-					#macro_path::ImportJs {
-						direct_wrapper: false,
-						direct_call: #path,
-						indirect_call: #indirect_call,
-						required_embeds: &[#(#required_embeds),*],
-					}
+				Some(FunctionBinding {
+					direct: Some(path),
+					call: indirect_call,
+					required_embeds,
 				})
 			}
 			ForeignItem::Import => None,
 		};
-		let js_value = if let Some(js) = &js {
-			quote_spanned!(span=> ::core::option::Option::Some(#js))
-		} else {
-			quote_spanned!(span=> ::core::option::Option::None)
-		};
-		let output = if let Some(output) = output_abi_ty {
-			quote_spanned!(span=>
-				::core::option::Option::Some(#macro_path::import_output::<#output>())
-			)
-		} else {
-			quote_spanned!(span=> ::core::option::Option::None)
-		};
-		let needs_js_section = js.is_some();
-		let descriptor_constructor = if *suspending {
-			quote_spanned!(span=> #macro_path::ImportDescriptor::new_suspending)
-		} else {
-			quote_spanned!(span=> #macro_path::ImportDescriptor::new)
-		};
-		let descriptor = quote_spanned! {span=>
-			#descriptor_constructor(
-				#crate_,
-				#import_name,
-				#link_name,
-				&[#(#input_descriptors),*],
-				#output,
-				#js_value,
-			)
-		};
-
 		FunctionImport {
 			cfg_attrs: cfg_attrs.to_vec(),
-			descriptor,
-			needs_js_section,
+			module: LitStr::new(crate_, span),
+			name: LitStr::new(import_name, span),
+			input_names: inputs
+				.iter()
+				.map(|input| input.descriptor_name.clone())
+				.collect(),
+			input_types: input_tys.into_iter().cloned().collect(),
+			output_type: output_abi_ty.cloned(),
+			binding,
+			suspending: *suspending,
 			macro_path: macro_path.clone(),
 		}
 	}

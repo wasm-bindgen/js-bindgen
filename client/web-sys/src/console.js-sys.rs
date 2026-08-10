@@ -12,4 +12,6 @@ extern "js-sys" {
 	pub fn log2(data1: &JsValue, data2: &JsValue);
 
 	pub fn error(data: &JsValue);
+
+	pub fn error1(data: &JsValue) -> u128;
 }

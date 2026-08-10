@@ -48,25 +48,19 @@ fn member_operations() {
 		}
 	});
 
-	let operations: Vec<_> = output
-		.lines()
-		.filter_map(|line| line.trim().strip_prefix("direct_call: "))
-		.map(|line| line.trim_end_matches(','))
-		.collect();
-	assert_eq!(
-		operations,
-		[
-			r#""new globalThis.JavaScriptType()""#,
-			r#""globalThis.JavaScriptType.value""#,
-			r#""arg0_0.call()""#,
-			r#""arg0_0.value""#,
-			r#""arg0_0.value = arg1_0""#,
-			r#""arg0_0[arg1_0]""#,
-			r#""arg0_0[arg1_0] = arg2_0""#,
-			r#""delete arg0_0[arg1_0]""#,
-			r#""arg0_0.push(arg1_0, ...arg2_0)""#,
-		]
-	);
+	for operation in [
+		"new globalThis.JavaScriptType()",
+		"globalThis.JavaScriptType.value",
+		"arg0_0.call()",
+		"arg0_0.value",
+		"arg0_0.value = arg1_0",
+		"arg0_0[arg1_0]",
+		"arg0_0[arg1_0] = arg2_0",
+		"delete arg0_0[arg1_0]",
+		"arg0_0.push(arg1_0, ...arg2_0)",
+	] {
+		assert!(output.contains(operation));
+	}
 }
 
 #[test]

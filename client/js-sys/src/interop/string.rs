@@ -361,7 +361,7 @@ unsafe impl IntoJS for &str {
 			JS_PTR_LEN_ARGS,
 			")"
 		))
-		.with_embed(("js_sys", "string.decode")),
+		.with_embed("js_sys", "string.decode"),
 	);
 
 	type Abi = ExternSlice<u8>;
@@ -380,7 +380,7 @@ unsafe impl IntoJS for String {
 			JS_PTR_LEN_ARGS,
 			")"
 		))
-		.with_embed(("js_sys", "string.take")),
+		.with_embed("js_sys", "string.take"),
 	);
 
 	type Abi = StringAbi;
@@ -406,7 +406,7 @@ unsafe impl OptionIntoAbi<String> for StringAbi {
 			JS_OPTION_PTR_LEN_ARGS,
 			")"
 		))
-		.with_embed(("js_sys", "string.take")),
+		.with_embed("js_sys", "string.take"),
 	);
 
 	type Abi = Option<Self>;
@@ -423,9 +423,11 @@ unsafe impl FromJS for String {
 		FromJsConv::slot1("$prepared[0]")
 			.slot2("$prepared[1]")
 			.prepare("this.#jsEmbed.js_sys['string.from_js'].slots($value)")
-			.sret(Sret::Value("this.#jsEmbed.js_sys['string.from_js'].sret"))
-			.with_embed(("js_sys", "string.from_js")),
+			.with_embed("js_sys", "string.from_js"),
 	);
+	const JS_SRET: Option<Sret> = Some(Sret::Value(
+		"this.#jsEmbed.js_sys['string.from_js'].sret",
+	));
 
 	type Abi = StringAbi;
 
@@ -449,11 +451,11 @@ unsafe impl OptionFromAbi<String> for StringAbi {
 			.slot2("$prepared[1]")
 			.slot3("$prepared[2]")
 			.prepare("this.#jsEmbed.js_sys['string.option.from_js'].slots($value)")
-			.sret(Sret::Value(
-				"this.#jsEmbed.js_sys['string.option.from_js'].sret",
-			))
-			.with_embed(("js_sys", "string.option.from_js")),
+			.with_embed("js_sys", "string.option.from_js"),
 	);
+	const JS_SRET: Option<Sret> = Some(Sret::Value(
+		"this.#jsEmbed.js_sys['string.option.from_js'].sret",
+	));
 
 	type Abi = Option<Self>;
 

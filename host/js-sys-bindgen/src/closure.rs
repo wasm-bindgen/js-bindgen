@@ -62,16 +62,15 @@ pub(crate) fn closure_with(
 		raw_inputs,
 		join_inputs,
 		arguments,
-		codegen_inputs,
-		mut required_embeds,
+		mut wire_inputs,
 		raw_output,
-		output_argument,
+		wire_output,
 	} = lower_abi(inputs.iter().copied(), output, &js_sys)?;
-	let mut js_codegen_inputs = vec![quote_spanned!(span=> ("data", ::core::primitive::usize))];
-	js_codegen_inputs.extend(codegen_inputs.iter().cloned());
-	required_embeds.insert(
+	wire_inputs.insert(
 		0,
-		quote_spanned!(span=> #js_sys::r#macro::js_from_embed::<::core::primitive::usize>()),
+		quote_spanned! {span=>
+			#js_sys::wire::wire_export_input::<::core::primitive::usize>("data")
+		},
 	);
 	let closure_bound = if signature.kind == ClosureKind::Shared {
 		if let Some(output) = output {
@@ -104,7 +103,7 @@ pub(crate) fn closure_with(
 	let call_body = if output.is_some() {
 		quote_spanned! {span=>
 			#(#join_inputs)*
-			#js_sys::r#macro::return_to_js({
+			#js_sys::wire::return_to_js({
 				#callback_call
 			})
 		}
@@ -159,29 +158,23 @@ pub(crate) fn closure_with(
 				)
 			}
 
-			#js_sys::js_bindgen::unsafe_global_wat! {
-				"{}",
-				interpolate #js_sys::r#macro::wat_closure!(
-					#call_name,
-					CallShim,
-					(#(#codegen_inputs),*)
-					#output_argument,
-				),
-			}
+			#[expect(dead_code, reason = "stored in a custom section")]
+			pub const WIRE: #js_sys::wire::Wire =
+				#js_sys::wire::Wire::exports(&[
+					#js_sys::wire::wire_closure_export::<CallShim>(
+						#crate_name,
+						#call_name,
+						&[#(#wire_inputs),*],
+						#wire_output,
+					),
+				]);
+			#[expect(dead_code, reason = "stored in a custom section")]
+			pub const LEN: ::core::primitive::usize = #js_sys::wire::wire_blob_len(&WIRE);
 
-			#js_sys::js_bindgen::export_js! {
-				module = #crate_name,
-				name = #call_name,
-				required_embeds = [
-					#(#required_embeds),*
-				],
-				"{}",
-				interpolate #js_sys::r#macro::js_export!(
-					#call_name,
-					(#(#js_codegen_inputs),*)
-					#output_argument,
-				),
-			}
+			#[expect(dead_code, reason = "stored in a custom section")]
+			#[unsafe(link_section = "js_bindgen.wire")]
+			pub static WIRE_SECTION: #js_sys::wire::WireBlob<LEN> =
+				#js_sys::wire::WireBlob::new(&WIRE);
 
 			#js_sys::js_bindgen::embed_js! {
 				module = #crate_name,
