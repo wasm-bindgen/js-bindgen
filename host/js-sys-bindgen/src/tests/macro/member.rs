@@ -1,66 +1,42 @@
-use proc_macro2::TokenStream;
+use std::collections::HashMap;
 
-fn generated_rust(input: syn::ItemForeignMod) -> String {
-	let items = crate::r#macro::expand_for_test(TokenStream::new(), input, "test_crate")
-		.unwrap()
-		.into_items()
-		.unwrap();
-
-	prettyplease::unparse(&syn::File {
-		shebang: None,
-		attrs: Vec::new(),
-		items,
-	})
-}
+use proc_macro2::Span;
 
 #[test]
-fn member_operations() {
-	let output = generated_rust(syn::parse_quote! {
-		extern "js-sys" {
-			#[js_sys(js_name = "JavaScriptType")]
-			pub type RustType;
-
-			#[js_sys(constructor)]
-			pub fn new() -> RustType;
-
+fn static_getter_uses_the_javascript_type_name() {
+	let mut js_names = HashMap::new();
+	js_names.insert("RustType".to_owned(), "JavaScriptType".to_owned());
+	let mut hygiene = crate::hygiene::Hygiene::Qualified { js_sys: None };
+	let (_, import) = crate::function::expand(
+		&mut hygiene,
+		None,
+		"test_crate",
+		&js_names,
+		syn::parse_quote! {
 			#[js_sys(static_of = RustType, getter = "value")]
 			pub fn static_value() -> i32;
+		},
+	)
+	.unwrap();
 
-			pub fn call(self: &RustType);
-
-			#[js_sys(getter = "value")]
-			pub fn value(self: &RustType) -> i32;
-
-			#[js_sys(setter)]
-			pub fn set_value(self: &RustType, value: i32);
-
-			#[js_sys(indexing_getter)]
-			pub fn get(self: &RustType, index: u32) -> JsValue;
-
-			#[js_sys(indexing_setter)]
-			pub fn set(self: &RustType, index: u32, value: &JsValue);
-
-			#[js_sys(indexing_deleter)]
-			pub fn delete(self: &RustType, index: u32);
-
-			#[js_sys(variadic)]
-			pub fn push(self: &RustType, first: &JsValue, rest: &[JsValue]);
-		}
-	});
-
-	for operation in [
-		"new globalThis.JavaScriptType()",
-		"globalThis.JavaScriptType.value",
-		"arg0_0.call()",
-		"arg0_0.value",
-		"arg0_0.value = arg1_0",
-		"arg0_0[arg1_0]",
-		"arg0_0[arg1_0] = arg2_0",
-		"delete arg0_0[arg1_0]",
-		"arg0_0.push(arg1_0, ...arg2_0)",
-	] {
-		super::assert_javascript(&output, operation);
-	}
+	let binding: syn::Expr = syn::parse2(
+		import
+			.binding
+			.as_ref()
+			.expect("generated member has a binding")
+			.wire(&import.macro_path, Span::call_site()),
+	)
+	.unwrap();
+	let expected: syn::Expr = syn::parse_quote! {
+		::js_sys::wire::WireImportBinding::GetGlobal(
+			::js_sys::wire::WireGlobalPath::new(
+				::core::option::Option::None,
+				::core::option::Option::Some("JavaScriptType"),
+				"value"
+			)
+		)
+	};
+	assert_eq!(binding, expected);
 }
 
 #[test]

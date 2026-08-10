@@ -1,17 +1,19 @@
+mod closure;
 mod export;
 mod import;
 mod r#macro;
 
 use core::mem::MaybeUninit;
 
+pub use closure::*;
 pub use export::*;
 pub use import::*;
 pub use js_bindgen_wire::abi::{JsCatch, JsEmbed, WatCatch};
 pub use js_bindgen_wire::{
-	Wire, WireBlob, WireExport, WireExportInput, WireExportInputType, WireExportOutput,
-	WireExportOutputType, WireImport, WireImportBinding, WireImportCatch, WireImportInput,
-	WireImportInputType, WireImportOutput, WireImportOutputType, WireImportTypeTable,
-	wire_blob_len,
+	Wire, WireBlob, WireClosure, WireClosureFactory, WireExport, WireExportInput,
+	WireExportInputType, WireExportOutput, WireExportOutputType, WireGlobalPath, WireImport,
+	WireImportBinding, WireImportCatch, WireImportInput, WireImportInputType, WireImportOutput,
+	WireImportOutputType, WireImportTypeTable, WireReturnFrame, wire_blob_len,
 };
 pub use r#macro::*;
 

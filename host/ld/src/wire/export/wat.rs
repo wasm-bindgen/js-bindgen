@@ -3,17 +3,13 @@ use std::fmt::Write;
 use js_bindgen_wire::abi::WatType;
 use js_bindgen_wire::model::{Callee, Export, ExportInput, ExportInputKind, ExportOutput, Slot};
 
-use crate::wire::wat::{WatImports, WatLocals, quote_string, write_conversion};
+use crate::wire::wat::{WatImports, WatLocals, quoted, write_conversion};
+
+use super::input_names;
 
 struct ExportRenderer<'export, 'wire> {
 	index: usize,
 	export: &'export Export<'wire>,
-}
-
-impl<'export, 'wire> ExportRenderer<'export, 'wire> {
-	fn new(index: usize, export: &'export Export<'wire>) -> Self {
-		Self { index, export }
-	}
 }
 
 /// Renders one WAT module fragment containing all decoded exports.
@@ -23,16 +19,19 @@ pub(super) fn render(exports: &[Export<'_>]) -> Option<String> {
 	}
 
 	let pointer_type = exports[0].pointer_type();
-	let mut items = Vec::with_capacity(exports.len() * 2 + 2);
 	let mut imports = WatImports::default();
+	let mut has_closure = false;
+	let mut has_indirect = false;
+	// WAT requires imports before the types and functions which use them.
 	for (index, export) in exports.iter().enumerate() {
-		let renderer = ExportRenderer::new(index, export);
+		let renderer = ExportRenderer { index, export };
+		has_closure |= renderer.is_closure();
+		has_indirect |= renderer.is_indirect();
 		for_each_conversion_slot(export, |slot| {
 			imports.extend(slot.imports());
 		});
 		if let Callee::Symbol { name } = renderer.export.callee {
-			let mut identifier = String::new();
-			renderer.write_symbol_identifier(&mut identifier);
+			let identifier = format!("js_sys.export.symbol.{index}");
 			imports.insert(
 				&identifier,
 				renderer.render_symbol_import(&identifier, name),
@@ -40,10 +39,7 @@ pub(super) fn render(exports: &[Export<'_>]) -> Option<String> {
 		}
 	}
 
-	if exports
-		.iter()
-		.any(|export| matches!(export.callee, Callee::Closure { .. }))
-	{
+	if has_closure {
 		imports.insert(
 			"js_sys.closure.table",
 			format!(
@@ -53,12 +49,7 @@ pub(super) fn render(exports: &[Export<'_>]) -> Option<String> {
 		);
 	}
 
-	if exports.iter().any(|export| {
-		export
-			.output
-			.as_ref()
-			.is_some_and(|output| !output.is_direct())
-	}) {
+	if has_indirect {
 		imports.insert(
 			"__stack_pointer",
 			format!(
@@ -68,23 +59,26 @@ pub(super) fn render(exports: &[Export<'_>]) -> Option<String> {
 		);
 	}
 
-	let imports = imports.render();
-	if !imports.is_empty() {
-		items.push(imports);
-	}
+	let mut wat = imports.render();
 
 	for (index, export) in exports.iter().enumerate() {
-		let renderer = ExportRenderer::new(index, export);
+		let renderer = ExportRenderer { index, export };
 		if renderer.is_closure() {
-			items.push(renderer.render_closure_type());
+			if !wat.is_empty() {
+				wat.push('\n');
+			}
+			renderer.write_closure_type(&mut wat);
 		}
 	}
 
 	for (index, export) in exports.iter().enumerate() {
-		items.push(ExportRenderer::new(index, export).render_shim());
+		if !wat.is_empty() {
+			wat.push('\n');
+		}
+		ExportRenderer { index, export }.write_shim(&mut wat);
 	}
 
-	Some(items.join("\n"))
+	Some(wat)
 }
 
 impl ExportRenderer<'_, '_> {
@@ -112,116 +106,101 @@ impl ExportRenderer<'_, '_> {
 			.expect("a closure export has one data slot")
 	}
 
-	fn write_symbol_identifier(&self, output: &mut String) {
-		write!(output, "js_sys.export.symbol.{}", self.index)
-			.expect("writing to a String cannot fail");
-	}
-
 	fn render_symbol_import(&self, identifier: &str, symbol: &str) -> String {
-		let retptr = if self.is_indirect() {
-			format!(" (param {})", self.pointer_type())
-		} else {
-			String::new()
-		};
-		let mut parameters = String::new();
+		let mut wat = format!(
+			"(import \"env\" \"symbol\" (func ${identifier} (@sym (name {}))",
+			quoted(symbol),
+		);
+		if self.is_indirect() {
+			write!(wat, " (param {})", self.pointer_type())
+				.expect("writing to a String cannot fail");
+		}
 		for input in &self.export.inputs {
 			if input.slots.is_empty() {
 				continue;
 			}
-			parameters.push_str(" (param");
+			wat.push_str(" (param");
 			for slot in &input.slots {
-				write!(parameters, " {}", slot.rust).expect("writing to a String cannot fail");
+				write!(wat, " {}", slot.rust).expect("writing to a String cannot fail");
 			}
-			parameters.push(')');
+			wat.push(')');
 		}
-		let result = match self.export.output.as_ref() {
-			Some(ExportOutput::Direct { slot, .. }) => format!(" (result {})", slot.rust),
-			_ => String::new(),
-		};
-
-		format!(
-			"(import \"env\" \"symbol\" (func ${identifier} (@sym (name \
-			 {})){retptr}{parameters}{result}))",
-			quote_string(symbol),
-		)
+		if let Some(ExportOutput::Direct { slot, .. }) = self.export.output.as_ref() {
+			write!(wat, " (result {})", slot.rust).expect("writing to a String cannot fail");
+		}
+		wat.push_str("))");
+		wat
 	}
 
-	fn render_closure_type(&self) -> String {
-		let retptr = if self.is_indirect() {
-			format!(" (param {})", self.pointer_type())
-		} else {
-			String::new()
-		};
-		let mut parameters = String::new();
+	fn write_closure_type(&self, wat: &mut String) {
+		write!(wat, "(type $js_sys.closure.call.{} (func", self.index)
+			.expect("writing to a String cannot fail");
+		if self.is_indirect() {
+			write!(wat, " (param {})", self.pointer_type())
+				.expect("writing to a String cannot fail");
+		}
+		write!(wat, " (param {})", self.pointer_type()).expect("writing to a String cannot fail");
 		for input in &self.export.inputs {
 			if input.kind != ExportInputKind::Value || input.slots.is_empty() {
 				continue;
 			}
-			parameters.push_str(" (param");
+			wat.push_str(" (param");
 			for slot in &input.slots {
-				write!(parameters, " {}", slot.rust).expect("writing to a String cannot fail");
+				write!(wat, " {}", slot.rust).expect("writing to a String cannot fail");
 			}
-			parameters.push(')');
+			wat.push(')');
 		}
-		let result = match self.export.output.as_ref() {
-			Some(ExportOutput::Direct { slot, .. }) => format!(" (result {})", slot.rust),
-			_ => String::new(),
-		};
-
-		format!(
-			"(type $js_sys.closure.call.{} (func{retptr} (param {}){parameters}{result}))",
-			self.index,
-			self.pointer_type(),
-		)
+		if let Some(ExportOutput::Direct { slot, .. }) = self.export.output.as_ref() {
+			write!(wat, " (result {})", slot.rust).expect("writing to a String cannot fail");
+		}
+		wat.push_str("))");
 	}
 
-	fn render_shim(&self) -> String {
-		let parameters = self
-			.export
-			.inputs
-			.iter()
-			.flat_map(|input| {
-				input.slots.iter().enumerate().map(|(slot_index, slot)| {
-					let js = slot.js();
-					if input.kind == ExportInputKind::ClosureData {
-						format!(" (param $data {js})")
-					} else {
-						format!(" (param ${}_{slot_index} {js})", input.name)
-					}
-				})
-			})
-			.collect::<String>();
-		let result = self
-			.export
-			.output
-			.as_ref()
-			.map_or_else(String::new, |output| match output {
-				ExportOutput::Direct { slot, .. } => format!(" (result {})", slot.js()),
-				ExportOutput::Indirect { frame, .. } => {
-					let types = frame
-						.slots
-						.iter()
-						.map(|frame_slot| frame_slot.slot.js().as_str())
-						.collect::<Vec<_>>()
-						.join(" ");
-					if types.is_empty() {
-						" (result)".to_owned()
-					} else {
-						format!(" (result {types})")
-					}
-				}
-			});
-
-		let mut wat = format!(
-			"(func $js_sys.export.{} (@sym (name {})){parameters}{result}",
+	fn write_shim(&self, wat: &mut String) {
+		let names = input_names(&self.export.inputs);
+		write!(
+			wat,
+			"(func $js_sys.export.{} (@sym (name {}))",
 			self.index,
-			quote_string(self.export.name),
-		);
-		self.write_prologue(&mut wat);
-		self.write_call(&mut wat);
-		self.write_epilogue(&mut wat);
+			quoted(self.export.name),
+		)
+		.expect("writing to a String cannot fail");
+		if self.is_closure() {
+			let comdat = closure_comdat(self.export.name);
+			write!(wat, " (@comdat {})", quoted(&comdat)).expect("writing to a String cannot fail");
+		}
+		for (input, name) in self.export.inputs.iter().zip(&names) {
+			for (slot_index, slot) in input.slots.iter().enumerate() {
+				let js = slot.js();
+				if input.kind == ExportInputKind::ClosureData {
+					write!(wat, " (param ${name} {js})")
+				} else {
+					write!(wat, " (param ${name}_{slot_index} {js})")
+				}
+				.expect("writing to a String cannot fail");
+			}
+		}
+		if let Some(output) = self.export.output.as_ref() {
+			match output {
+				ExportOutput::Direct { slot, .. } => {
+					write!(wat, " (result {})", slot.js())
+						.expect("writing to a String cannot fail");
+				}
+				ExportOutput::Indirect { frame, .. } => {
+					wat.push_str(" (result");
+					for frame_slot in &frame.slots {
+						write!(wat, " {}", frame_slot.slot.js())
+							.expect("writing to a String cannot fail");
+					}
+					wat.push(')');
+				}
+			}
+		}
+
+		self.write_prologue(wat);
+		self.write_call(wat, &names);
+		self.write_epilogue(wat);
 		wat.push_str("\n)");
-		wat
 	}
 
 	fn write_prologue(&self, wat: &mut String) {
@@ -242,18 +221,12 @@ impl ExportRenderer<'_, '_> {
 		for_each_conversion_slot(self.export, |slot| {
 			locals.extend(slot.locals());
 		});
-		let locals = locals.render();
-		if !locals.is_empty() {
-			wat.push('\n');
-			wat.push_str(&locals);
-		}
+		locals.write_into(wat);
 
 		if self.is_closure() {
 			let slot = self.closure_data_slot();
 			wat.push_str("\n  local.get $data");
-			if let Some(instruction) = slot.instruction() {
-				write_conversion(wat, instruction);
-			}
+			write_conversion(wat, slot.instruction());
 			wat.push_str("\n  local.set $js_sys.closure.data");
 		}
 
@@ -270,31 +243,31 @@ impl ExportRenderer<'_, '_> {
 		}
 	}
 
-	fn write_call(&self, wat: &mut String) {
+	fn write_call(&self, wat: &mut String, names: &[String]) {
 		match self.export.callee {
 			Callee::Symbol { .. } => {
 				if self.is_indirect() {
 					wat.push_str("\n  local.get $retptr");
 				}
-				for input in &self.export.inputs {
-					write_abi_arguments(wat, input);
+				for (input, name) in self.export.inputs.iter().zip(names) {
+					write_abi_arguments(wat, input, name);
 				}
-				wat.push_str("\n  call $");
-				self.write_symbol_identifier(wat);
-				wat.push_str(" (@reloc)");
+				write!(
+					wat,
+					"\n  call $js_sys.export.symbol.{} (@reloc)",
+					self.index,
+				)
+				.expect("writing to a String cannot fail");
 			}
 			Callee::Closure { call_shim_offset } => {
 				if self.is_indirect() {
 					wat.push_str("\n  local.get $retptr");
 				}
 				wat.push_str("\n  local.get $js_sys.closure.data");
-				for input in self
-					.export
-					.inputs
-					.iter()
-					.filter(|input| input.kind == ExportInputKind::Value)
-				{
-					write_abi_arguments(wat, input);
+				for (input, name) in self.export.inputs.iter().zip(names) {
+					if input.kind == ExportInputKind::Value {
+						write_abi_arguments(wat, input, name);
+					}
 				}
 				write!(
 					wat,
@@ -312,9 +285,7 @@ impl ExportRenderer<'_, '_> {
 		if let Some(output) = self.export.output.as_ref() {
 			match output {
 				ExportOutput::Direct { slot, .. } => {
-					if let Some(instruction) = slot.instruction() {
-						write_conversion(wat, instruction);
-					}
+					write_conversion(wat, slot.instruction());
 				}
 				ExportOutput::Indirect { frame, .. } => {
 					for frame_slot in &frame.slots {
@@ -324,9 +295,7 @@ impl ExportRenderer<'_, '_> {
 							frame_slot.slot.rust, frame_slot.offset,
 						)
 						.expect("writing to a String cannot fail");
-						if let Some(instruction) = frame_slot.slot.instruction() {
-							write_conversion(wat, instruction);
-						}
+						write_conversion(wat, frame_slot.slot.instruction());
 					}
 					write!(
 						wat,
@@ -341,6 +310,10 @@ impl ExportRenderer<'_, '_> {
 			}
 		}
 	}
+}
+
+fn closure_comdat(name: &str) -> String {
+	format!("js_sys.closure.call.{name}")
 }
 
 fn for_each_conversion_slot<'export, 'wire>(
@@ -364,13 +337,10 @@ fn for_each_conversion_slot<'export, 'wire>(
 	}
 }
 
-fn write_abi_arguments(wat: &mut String, input: &ExportInput<'_>) {
+fn write_abi_arguments(wat: &mut String, input: &ExportInput<'_>, name: &str) {
 	for (slot_index, slot) in input.slots.iter().enumerate() {
-		write!(wat, "\n  local.get ${}_{slot_index}", input.name)
-			.expect("writing to a String cannot fail");
-		if let Some(instruction) = slot.instruction() {
-			write_conversion(wat, instruction);
-		}
+		write!(wat, "\n  local.get ${name}_{slot_index}").expect("writing to a String cannot fail");
+		write_conversion(wat, slot.instruction());
 	}
 }
 
@@ -430,7 +400,6 @@ mod tests {
 			pointer_width: PointerWidth::Wasm32,
 			inputs: vec![ExportInput {
 				kind: ExportInputKind::Value,
-				name: "value",
 				slots: vec![input],
 				conversion: None,
 			}],
@@ -447,8 +416,8 @@ mod tests {
 		assert_eq!(
 			wat,
 			r#"(import "env" "symbol" (func $js_sys.export.symbol.0 (@sym (name "test.raw")) (param i32) (result i32)))
-(func $js_sys.export.0 (@sym (name "converted")) (param $value_0 externref) (result externref)
-  local.get $value_0
+(func $js_sys.export.0 (@sym (name "converted")) (param $arg0_0 externref) (result externref)
+  local.get $arg0_0
   drop
   i32.const 0
   call $js_sys.export.symbol.0 (@reloc)

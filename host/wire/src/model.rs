@@ -1,9 +1,9 @@
 //! Canonical model consumed by JavaScript and `WAT` `renderers`.
 
+use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 
-use crate::ImportShimKind;
 pub use crate::PointerWidth;
 pub use crate::abi::ResultLayout;
 use crate::abi::{RefType, WatIndexType, WatType};
@@ -119,10 +119,9 @@ pub enum ImportCatch<'a> {
 	Wasm(WatCatch<'a>),
 }
 
-/// One named argument passed from Rust to an imported JavaScript function.
+/// One argument passed from Rust to an imported JavaScript function.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ImportInput<'a> {
-	pub name: &'a str,
 	pub slots: Vec<Slot<'a>>,
 	pub js_conversion: Option<&'a str>,
 }
@@ -189,11 +188,43 @@ impl ImportOutput<'_> {
 	}
 }
 
-/// JavaScript call expressions and required embeds for one import.
+/// One decoded path rooted at JavaScript's global object.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct GlobalPath<'a> {
+	pub namespace: Option<&'a str>,
+	pub object: Option<&'a str>,
+	pub name: &'a str,
+}
+
+/// The JavaScript operation performed by one decoded import.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ImportBindingKind<'a> {
+	CallGlobal {
+		target: GlobalPath<'a>,
+		variadic: bool,
+	},
+	CallMethod {
+		name: &'a str,
+		variadic: bool,
+	},
+	Construct {
+		target: GlobalPath<'a>,
+		variadic: bool,
+	},
+	GetGlobal(GlobalPath<'a>),
+	GetMember(&'a str),
+	SetGlobal(GlobalPath<'a>),
+	SetMember(&'a str),
+	IndexGet,
+	IndexSet,
+	IndexDelete,
+	CallEmbed(Embed<'a>),
+}
+
+/// One JavaScript import operation and all source fragments it requires.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ImportBinding<'a> {
-	pub direct_expression: Option<&'a str>,
-	pub call_expression: &'a str,
+	pub kind: ImportBindingKind<'a>,
 	pub embeds: Vec<Embed<'a>>,
 }
 
@@ -202,7 +233,6 @@ pub struct ImportBinding<'a> {
 pub struct Import<'a> {
 	pub module: &'a str,
 	pub name: &'a str,
-	pub shim_kind: ImportShimKind,
 	pub inputs: Vec<ImportInput<'a>>,
 	pub output: Option<ImportOutput<'a>>,
 	pub binding: Option<ImportBinding<'a>>,
@@ -234,7 +264,6 @@ pub struct ExportInputConversion<'a> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExportInput<'a> {
 	pub kind: ExportInputKind,
-	pub name: &'a str,
 	pub slots: Vec<Slot<'a>>,
 	pub conversion: Option<ExportInputConversion<'a>>,
 }
@@ -318,9 +347,40 @@ impl Export<'_> {
 	}
 }
 
-/// One decoded import or export group.
+/// One decoded closure factory import.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClosureFactory<'a> {
+	pub raw_symbol: &'a str,
+	pub helper: Embed<'a>,
+	pub input: ImportInput<'a>,
+	pub output: ImportOutput<'a>,
+	pub embeds: Vec<Embed<'a>>,
+}
+
+/// One decoded closure factory and its matching Wasm dispatcher.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Closure<'a> {
+	pub factory: ClosureFactory<'a>,
+	/// Encoded dispatcher flags, call shim offset, inputs, and output.
+	pub call_identity: &'a [u8],
+	pub pointer_width: PointerWidth,
+	pub inputs: Vec<ExportInput<'a>>,
+	pub output: Option<ExportOutput<'a>>,
+	pub embeds: Vec<Embed<'a>>,
+	pub call_shim_offset: u64,
+}
+
+impl Closure<'_> {
+	#[must_use]
+	pub const fn pointer_type(&self) -> WatType {
+		self.pointer_width.wat_type()
+	}
+}
+
+/// One decoded import, export, or closure record.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Record<'a> {
 	Imports(ImportGroup<'a>),
 	Exports(Vec<Export<'a>>),
+	Closure(Box<Closure<'a>>),
 }

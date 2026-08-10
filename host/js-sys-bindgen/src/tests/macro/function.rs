@@ -1,60 +1,74 @@
-use proc_macro2::TokenStream;
-use quote::quote;
+use std::collections::HashMap;
+
+use proc_macro2::{Span, TokenStream};
 use syn::Item;
 
-fn expand(attr: TokenStream, input: syn::ItemForeignMod) -> String {
-	let items = crate::r#macro::expand_for_test(attr, input, "test_crate")
-		.unwrap()
-		.into_items()
-		.unwrap();
-
-	prettyplease::unparse(&syn::File {
-		shebang: None,
-		attrs: Vec::new(),
-		items,
-	})
+fn expand_function(
+	namespace: Option<&str>,
+	js_sys: Option<&syn::Path>,
+	function: syn::ForeignItemFn,
+) -> (TokenStream, crate::function::FunctionImport) {
+	let mut hygiene = crate::hygiene::Hygiene::Qualified { js_sys };
+	crate::function::expand(
+		&mut hygiene,
+		namespace,
+		"test_crate",
+		&HashMap::new(),
+		function,
+	)
+	.unwrap()
 }
 
 #[test]
-fn binding_options() {
-	let output = expand(
-		quote!(js_sys = renamed, namespace = "console"),
+fn function_descriptor_preserves_binding_options() {
+	let js_sys: syn::Path = syn::parse_quote!(renamed);
+	let (_, import) = expand_function(
+		Some("console"),
+		Some(&js_sys),
 		syn::parse_quote! {
-			extern "js-sys" {
-				pub fn log(value: &JsValue);
-
-				#[js_sys(js_name = "warn")]
-				pub fn renamed_log(value: &JsValue);
-
-				#[js_sys(return_abi = JsValue)]
-				pub fn value() -> JsTest;
-
-				#[cfg(all())]
-				pub fn configured();
-			}
+			#[cfg(all())]
+			#[js_sys(js_name = "warn", return_abi = JsValue)]
+			pub fn log(value: &JsValue) -> JsTest;
 		},
 	);
 
-	assert!(output.contains("renamed::wire::InputSlot1"));
-	super::assert_javascript(&output, "globalThis.console.log(arg0_0)");
-	super::assert_javascript(&output, "globalThis.console.warn(arg0_0)");
-	assert!(output.contains("join_output_as::<JsTest, JsValue>"));
-	assert!(output.contains("#[cfg(all())]"));
+	assert_eq!(import.module.value(), "test_crate");
+	assert_eq!(import.name.value(), "console.log");
+	assert_eq!(import.macro_path, syn::parse_quote!(renamed::wire));
+	assert_eq!(import.inputs[0].ty, syn::parse_quote!(&JsValue));
+	assert_eq!(import.output_type, Some(syn::parse_quote!(JsValue)));
+	assert_eq!(import.cfg_attrs.len(), 1);
+	assert!(import.cfg_attrs[0].path().is_ident("cfg"));
 
-	let output = expand(
-		TokenStream::new(),
+	let binding: syn::Expr = syn::parse2(
+		import
+			.binding
+			.as_ref()
+			.expect("generated import has a binding")
+			.wire(&import.macro_path, Span::call_site()),
+	)
+	.unwrap();
+	let expected: syn::Expr = syn::parse_quote! {
+		renamed::wire::WireImportBinding::CallGlobal {
+			target: renamed::wire::WireGlobalPath::new(
+				::core::option::Option::Some("console"),
+				::core::option::Option::None,
+				"warn"
+			),
+			variadic: false,
+		}
+	};
+	assert_eq!(binding, expected);
+
+	let (_, imported) = expand_function(
+		None,
+		None,
 		syn::parse_quote! {
-			extern "js-sys" {
-				#[js_sys(js_import)]
-				pub fn imported();
-
-				#[js_sys(js_embed = "embed")]
-				pub fn embedded();
-			}
+			#[js_sys(js_import)]
+			pub fn imported();
 		},
 	);
-	super::assert_javascript(&output, "test_crate.imported");
-	super::assert_javascript(&output, "this.#jsEmbed.test_crate['embed']");
+	assert!(imported.binding.is_none());
 }
 
 #[test]

@@ -257,7 +257,7 @@ jobs:
 
     runs-on: ${{ matrix.runner.os }}
 
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false

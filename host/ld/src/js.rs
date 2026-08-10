@@ -34,15 +34,23 @@ struct JsEmbed {
 
 #[derive(Debug, PartialEq, Eq)]
 struct JsExport {
-	module: String,
 	binding: JsWithEmbeds,
 	kind: JsExportKind,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 enum JsExportKind {
-	Symbol,
+	Symbol { module: String },
 	Closure { shim: String },
+}
+
+impl JsExport {
+	fn origin(&self) -> &str {
+		match &self.kind {
+			JsExportKind::Symbol { module } => module,
+			JsExportKind::Closure { .. } => "Rust closure",
+		}
+	}
 }
 
 impl JsStore {
@@ -99,7 +107,6 @@ impl JsStore {
 		embeds: impl IntoIterator<Item = (String, String)>,
 	) -> Result<()> {
 		let definition = JsExport {
-			module: module.to_owned(),
 			binding: JsWithEmbeds {
 				js,
 				embeds: embeds
@@ -107,15 +114,17 @@ impl JsStore {
 					.map(|(module, name)| JsEmbed { module, name })
 					.collect(),
 			},
-			kind: JsExportKind::Symbol,
+			kind: JsExportKind::Symbol {
+				module: module.to_owned(),
+			},
 		};
 
 		if let Some(previous) = self.export.get(name) {
 			bail!(
 				"found multiple JS exports named `{name}` from `{}` and `{}`\n\tJS Export \
 				 1:\n{:?}\n\tJS Export 2:\n{:?}",
-				previous.module,
-				definition.module,
+				previous.origin(),
+				definition.origin(),
 				previous.binding,
 				definition.binding
 			);
@@ -131,14 +140,12 @@ impl JsStore {
 
 	pub fn add_closure_export(
 		&mut self,
-		module: &str,
 		name: &str,
 		js: String,
 		embeds: impl IntoIterator<Item = (String, String)>,
 		shim: &str,
 	) -> Result<bool> {
 		let definition = JsExport {
-			module: module.to_owned(),
 			binding: JsWithEmbeds {
 				js,
 				embeds: embeds
@@ -158,8 +165,8 @@ impl JsStore {
 			bail!(
 				"found incompatible closure exports named `{name}` from `{}` and `{}`\n\tClosure \
 				 1:\n{:?}\n\tClosure 2:\n{:?}",
-				previous.module,
-				definition.module,
+				previous.origin(),
+				definition.origin(),
 				previous,
 				definition,
 			);

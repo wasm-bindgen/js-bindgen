@@ -1,28 +1,34 @@
 //! Shared WAT emission helpers.
 
 use std::collections::HashMap;
-use std::fmt::Write;
+use std::fmt::{self, Display, Formatter, Write};
 
 use js_bindgen_wire::abi::WatType;
 use js_bindgen_wire::model::{WatImport, WatImportKind, WatLocal};
 
-/// Quotes a WAT string as UTF-8 bytes.
+/// Formats a quoted WAT string as UTF-8 bytes.
 ///
 /// Byte escapes keep arbitrary Unicode and control characters independent of
 /// how the WAT source text is parsed.
-pub(super) fn quote_string(value: &str) -> String {
-	let mut output = String::with_capacity(value.len() + 2);
-	output.push('"');
-	for &byte in value.as_bytes() {
-		match byte {
-			b'"' => output.push_str("\\\""),
-			b'\\' => output.push_str("\\\\"),
-			0x20..=0x7e => output.push(char::from(byte)),
-			byte => write!(output, "\\{byte:02x}").expect("writing to a String cannot fail"),
+pub(super) fn quoted(value: &str) -> impl Display + '_ {
+	Quoted(value)
+}
+
+struct Quoted<'a>(&'a str);
+
+impl Display for Quoted<'_> {
+	fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+		formatter.write_char('"')?;
+		for &byte in self.0.as_bytes() {
+			match byte {
+				b'"' => formatter.write_str("\\\"")?,
+				b'\\' => formatter.write_str("\\\\")?,
+				0x20..=0x7e => formatter.write_char(char::from(byte))?,
+				byte => write!(formatter, "\\{byte:02x}")?,
+			}
 		}
+		formatter.write_char('"')
 	}
-	output.push('"');
-	output
 }
 
 #[derive(Default)]
@@ -54,12 +60,7 @@ impl WatImports {
 	}
 
 	pub(super) fn render(self) -> String {
-		let mut wat = String::new();
-		for entry in self.entries {
-			write_separator(&mut wat);
-			wat.push_str(&entry);
-		}
-		wat
+		self.entries.join("\n")
 	}
 }
 
@@ -87,19 +88,18 @@ impl<'wire> WatLocals<'wire> {
 		}
 	}
 
-	pub(super) fn render(self) -> String {
-		let mut wat = String::new();
+	pub(super) fn write_into(self, wat: &mut String) {
 		for local in self.entries {
-			write_separator(&mut wat);
-			write!(wat, "  (local ${} {})", local.name, local.ty)
+			write!(wat, "\n  (local ${} {})", local.name, local.ty)
 				.expect("writing to a String cannot fail");
 		}
-		wat
 	}
 }
 
-pub(super) fn write_conversion(wat: &mut String, conversion: &str) {
-	if !conversion.is_empty() {
+pub(super) fn write_conversion(wat: &mut String, conversion: Option<&str>) {
+	if let Some(conversion) = conversion
+		&& !conversion.is_empty()
+	{
 		wat.push_str("\n  ");
 		wat.push_str(conversion);
 	}
@@ -109,8 +109,8 @@ fn write_import(wat: &mut String, import: &WatImport<'_>) {
 	write!(
 		wat,
 		"(import {} {} (",
-		quote_string(import.module),
-		quote_string(import.name),
+		quoted(import.module),
+		quoted(import.name),
 	)
 	.expect("writing to a String cannot fail");
 
@@ -151,8 +151,7 @@ fn write_import(wat: &mut String, import: &WatImport<'_>) {
 
 fn write_symbol(wat: &mut String, name: Option<&str>) {
 	if let Some(name) = name {
-		write!(wat, "(@sym (name {}))", quote_string(name))
-			.expect("writing to a String cannot fail");
+		write!(wat, "(@sym (name {}))", quoted(name)).expect("writing to a String cannot fail");
 	} else {
 		wat.push_str("(@sym)");
 	}
@@ -169,20 +168,14 @@ fn write_types(wat: &mut String, kind: &str, types: &[WatType]) {
 	wat.push(')');
 }
 
-fn write_separator(wat: &mut String) {
-	if !wat.is_empty() {
-		wat.push('\n');
-	}
-}
-
 #[cfg(test)]
 mod tests {
-	use super::quote_string;
+	use super::quoted;
 
 	#[test]
 	fn quotes_wat_strings_as_bytes() {
 		assert_eq!(
-			quote_string("single' double\" slash\\ line\n雪"),
+			quoted("single' double\" slash\\ line\n雪").to_string(),
 			"\"single' double\\\" slash\\\\ line\\0a\\e9\\9b\\aa\"",
 		);
 	}

@@ -9,10 +9,11 @@ use js_bindgen_ld_shared::{IMPORT_SECTION, JsBindgenWatSectionParser, WAT_SECTIO
 use js_bindgen_shared::ReadFile;
 use js_bindgen_wire::{WIRE_SECTION, WireRecords};
 use wasmparser::{Parser, Payload};
+use xxhash_rust::xxh3::xxh3_128;
 
 use crate::args::Arguments;
 use crate::js::JsStore;
-use crate::wire::{self, RenderedExport, RenderedRecord};
+use crate::wire::{self, RenderedRecord};
 
 pub struct PreOutput<'args> {
 	pub add_args: Vec<OsString>,
@@ -145,12 +146,9 @@ fn process_object(
 	object: &[u8],
 	object_mtime: Option<SystemTime>,
 ) -> Result<()> {
-	// Multiple files from the same object file need different names.
-	let mut file_counter = 0;
-
-	let mut next_wasm_object = || {
-		file_counter += 1;
-		archive_path.with_added_extension(format!("wasm.{file_counter}.o"))
+	let wasm_object_path = |wat: &str| {
+		let wat_hash = xxh3_128(wat.as_bytes());
+		archive_path.with_added_extension(format!("wasm.{wat_hash:032x}.o"))
 	};
 
 	for payload in Parser::new(0).parse_all(object) {
@@ -166,7 +164,7 @@ fn process_object(
 		match &payload {
 			Payload::CustomSection(c) if c.name() == WAT_SECTION => {
 				for wat in JsBindgenWatSectionParser::new(c) {
-					let wasm_path = next_wasm_object();
+					let wasm_path = wasm_object_path(wat);
 					let wasm_bytes = compile_wat(&wasm_path, wasm64, wat, object_mtime)?;
 
 					let exist_file;
@@ -212,20 +210,60 @@ fn process_object(
 							}
 
 							if let Some(wat) = rendered.wat {
-								let wasm_path = next_wasm_object();
+								let wasm_path = wasm_object_path(&wat);
 								compile_wat(&wasm_path, wasm64, &wat, object_mtime)?;
 								add_args.push(wasm_path.into());
 							}
 						}
-						RenderedRecord::Exports(exports) => {
-							for export in exports {
-								let Some((name, shim)) = register_export(js_store, export)? else {
-									continue;
-								};
-
+						RenderedRecord::Exports(rendered) => {
+							for binding in rendered.bindings {
+								let name = binding.name;
+								js_store.add_symbol_export(
+									binding.module,
+									name,
+									binding.js,
+									binding.embeds.into_iter().map(|embed| {
+										(embed.module.to_owned(), embed.name.to_owned())
+									}),
+								)?;
 								add_args.push(format!("--export={name}").into());
-								let wasm_path = next_wasm_object();
-								compile_wat(&wasm_path, wasm64, &shim, object_mtime)?;
+							}
+
+							if let Some(wat) = rendered.wat {
+								let wasm_path = wasm_object_path(&wat);
+								compile_wat(&wasm_path, wasm64, &wat, object_mtime)?;
+								add_args.push(wasm_path.into());
+							}
+						}
+						RenderedRecord::Closure(closure) => {
+							let factory_module = closure.factory_module;
+							let factory = closure.factory;
+							js_store.add_js_import(
+								factory_module,
+								&factory.name,
+								factory.js,
+								factory
+									.embeds
+									.into_iter()
+									.map(|embed| (embed.module.to_owned(), embed.name.to_owned())),
+							)?;
+							let wasm_path = wasm_object_path(&factory.wat);
+							compile_wat(&wasm_path, wasm64, &factory.wat, object_mtime)?;
+							add_args.push(wasm_path.into());
+
+							let call = closure.call;
+							let call_inserted = js_store.add_closure_export(
+								&call.name,
+								call.js,
+								call.embeds
+									.into_iter()
+									.map(|embed| (embed.module.to_owned(), embed.name.to_owned())),
+								&call.wat,
+							)?;
+							if call_inserted {
+								add_args.push(format!("--export={}", call.name).into());
+								let wasm_path = wasm_object_path(&call.wat);
+								compile_wat(&wasm_path, wasm64, &call.wat, object_mtime)?;
 								add_args.push(wasm_path.into());
 							}
 						}
@@ -245,41 +283,6 @@ fn process_object(
 	}
 
 	Ok(())
-}
-
-fn register_export<'wire>(
-	js_store: &mut JsStore,
-	export: RenderedExport<'wire>,
-) -> Result<Option<(&'wire str, String)>> {
-	match export {
-		RenderedExport::Symbol { binding, shim } => {
-			let name = binding.name;
-			js_store.add_symbol_export(
-				binding.module,
-				name,
-				binding.js,
-				binding
-					.embeds
-					.into_iter()
-					.map(|embed| (embed.module.to_owned(), embed.name.to_owned())),
-			)?;
-			Ok(Some((name, shim)))
-		}
-		RenderedExport::Closure { binding, shim } => {
-			let name = binding.name;
-			let inserted = js_store.add_closure_export(
-				binding.module,
-				name,
-				binding.js,
-				binding
-					.embeds
-					.into_iter()
-					.map(|embed| (embed.module.to_owned(), embed.name.to_owned())),
-				&shim,
-			)?;
-			Ok(inserted.then_some((name, shim)))
-		}
-	}
 }
 
 fn main_memory<'args>(

@@ -214,7 +214,7 @@ struct ImportGroup {
 	macro_path: Path,
 }
 
-pub(crate) fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream {
+fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream {
 	let mut groups: Vec<ImportGroup> = Vec::new();
 
 	for import in imports {
@@ -262,24 +262,13 @@ pub(crate) fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream 
 				let module = &import.module;
 				let name = &import.name;
 				let suspending = import.suspending;
-				let constructor = match import.shim_kind {
-					crate::function::ImportShimKind::Normal => {
-						quote::quote!(#macro_path::WireImport::new)
-					}
-					crate::function::ImportShimKind::ClosureFactory => {
-						quote::quote!(#macro_path::WireImport::closure_factory)
-					}
-				};
 				let wire_inputs = import.inputs.iter().map(|input| {
-					let name = &input.name;
 					let index = input_types
 						.iter()
 						.position(|candidate| candidate == &input.ty)
 						.expect("every input type was collected");
 
-					quote::quote!(
-						#macro_path::WireImportInput::new(#name, #index)
-					)
+					quote::quote!(#macro_path::WireImportInput::new(#index))
 				});
 				let output_index = if let Some(ty) = &import.output_type {
 					let index = output_types
@@ -293,27 +282,14 @@ pub(crate) fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream 
 					quote::quote!(::core::option::Option::None)
 				};
 				let binding = if let Some(binding) = &import.binding {
-					let direct = if let Some(direct) = &binding.direct {
-						let direct = LitStr::new(direct, module.span());
-						quote::quote!(::core::option::Option::Some(#direct))
-					} else {
-						quote::quote!(::core::option::Option::None)
-					};
-					let call = LitStr::new(&binding.call, module.span());
-					let embeds = &binding.required_embeds;
-					quote::quote! {
-						::core::option::Option::Some(#macro_path::WireImportBinding::new(
-							#direct,
-							#call,
-							&[#(#embeds),*],
-						))
-					}
+					let binding = binding.wire(&macro_path, module.span());
+					quote::quote!(::core::option::Option::Some(#binding))
 				} else {
 					quote::quote!(::core::option::Option::None)
 				};
 
 				wire_descriptors.push(quote::quote! {
-					#constructor(
+					#macro_path::WireImport::new(
 						#module,
 						#name,
 						&[#(#wire_inputs),*],
@@ -346,7 +322,6 @@ pub(crate) fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream 
 					const _LEN: ::core::primitive::usize =
 						#macro_path::wire_blob_len(&_WIRE);
 
-					#[used]
 					#[unsafe(link_section = "js_bindgen.wire")]
 					static _WIRE_SECTION: #macro_path::WireBlob<_LEN> =
 						#macro_path::WireBlob::new(&_WIRE);

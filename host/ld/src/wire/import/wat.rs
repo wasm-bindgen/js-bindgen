@@ -1,29 +1,44 @@
 use std::collections::HashMap;
 use std::fmt::Write;
 
-use js_bindgen_wire::ImportShimKind;
-use js_bindgen_wire::abi::WatType;
 use js_bindgen_wire::model::{
 	Import, ImportCatch, ImportErrorMode, ImportGroup, ImportOutput, ImportOutputAbi, Slot,
 	WatCatch,
 };
 
-use crate::wire::wat::{WatImports, WatLocals, quote_string, write_conversion};
+use crate::wire::wat::{WatImports, WatLocals, quoted, write_conversion};
+
+use super::input_name;
 
 /// Renders the imported functions followed by their Rust `ABI` shims.
 pub(super) fn render(group: &ImportGroup<'_>) -> Option<String> {
-	if group.imports.is_empty() {
+	render_impl(&group.imports, group.catch.as_ref(), None)
+}
+
+pub(super) fn render_closure_factory(import: &Import<'_>, raw_symbol: &str) -> String {
+	render_impl(core::slice::from_ref(import), None, Some(raw_symbol))
+		.expect("one closure factory produces one Wasm import shim")
+}
+
+fn render_impl(
+	group_imports: &[Import<'_>],
+	group_catch: Option<&ImportCatch<'_>>,
+	raw_shim_symbol: Option<&str>,
+) -> Option<String> {
+	if group_imports.is_empty() {
 		return None;
 	}
 
-	let group_catch = match group.catch.as_ref() {
+	let group_catch = match group_catch {
 		Some(ImportCatch::Wasm(catch)) => Some(catch),
 		Some(ImportCatch::JavaScript(_)) | None => None,
 	};
 	let mut imports = WatImports::default();
 	let mut boundaries = HashMap::new();
-	let mut shims = Vec::with_capacity(group.imports.len());
-	for (index, import) in group.imports.iter().enumerate() {
+	let mut shims = Vec::with_capacity(group_imports.len());
+	// Conversion imports must precede every function body, so collect each
+	// shim's inputs while the shared import set is still being built.
+	for (index, import) in group_imports.iter().enumerate() {
 		let boundary_index = *boundaries
 			.entry((import.module, import.name))
 			.or_insert(index);
@@ -45,10 +60,21 @@ pub(super) fn render(group: &ImportGroup<'_>) -> Option<String> {
 			imports.extend(&catch.imports);
 			locals.extend(&catch.locals);
 		}
+		let (symbol, comdat) = raw_shim_symbol.map_or_else(
+			|| (shim_symbol(import), None),
+			|raw_symbol| {
+				(
+					raw_symbol.to_owned(),
+					Some(factory_comdat(raw_symbol, import.name)),
+				)
+			},
+		);
 		shims.push(Shim {
 			index,
 			boundary_index,
 			import,
+			symbol,
+			comdat,
 			catch,
 			locals,
 		});
@@ -66,42 +92,19 @@ struct Shim<'group, 'wire> {
 	index: usize,
 	boundary_index: usize,
 	import: &'group Import<'wire>,
+	symbol: String,
+	comdat: Option<String>,
 	catch: Option<&'group WatCatch<'wire>>,
 	locals: WatLocals<'wire>,
 }
 
-// On Wasm32, imports without a return value, with a direct return, and with an
-// indirect return respectively render as:
-//
-// ```wat
-// ;; fn notify(value: u32)
-// (import "js_sys" "notify"
-//   (func $js_sys.import.boundary.0
-//     (@sym (name "js_sys.import.notify"))
-//     (param i32)))
-//
-// ;; fn identity(value: u32) -> u32
-// (import "js_sys" "identity"
-//   (func $js_sys.import.boundary.1
-//     (@sym (name "js_sys.import.identity"))
-//     (param i32)
-//     (result i32)))
-//
-// ;; fn wide(value: u128) -> u128
-// (import "js_sys" "wide"
-//   (func $js_sys.import.boundary.2
-//     (@sym (name "js_sys.import.wide"))
-//     (param $retptr i32)
-//     (param i64 i64)))
-// ```
 fn render_wat_import(imports: &mut WatImports, index: usize, import: &Import<'_>) {
-	let identifier = boundary_identifier(index);
 	let symbol = boundary_symbol(import);
 	let mut wat = format!(
-		"(import {} {} (func ${identifier} (@sym (name {}))",
-		quote_string(import.module),
-		quote_string(import.name),
-		quote_string(&symbol),
+		"(import {} {} (func $js_sys.import.boundary.{index} (@sym (name {}))",
+		quoted(import.module),
+		quoted(import.name),
+		quoted(&symbol),
 	);
 
 	if let Some(ImportOutput {
@@ -113,15 +116,16 @@ fn render_wat_import(imports: &mut WatImports, index: usize, import: &Import<'_>
 			.expect("writing to a String cannot fail");
 	}
 
-	let input_types = import
-		.inputs
-		.iter()
-		.flat_map(|input| &input.slots)
-		.map(Slot::js)
-		.map(WatType::as_str)
-		.collect::<Vec<_>>();
-	if !input_types.is_empty() {
-		write!(wat, " (param {})", input_types.join(" ")).expect("writing to a String cannot fail");
+	let mut wrote_parameter = false;
+	for slot in import.inputs.iter().flat_map(|input| &input.slots) {
+		if !wrote_parameter {
+			wat.push_str(" (param");
+			wrote_parameter = true;
+		}
+		write!(wat, " {}", slot.js()).expect("writing to a String cannot fail");
+	}
+	if wrote_parameter {
+		wat.push(')');
 	}
 
 	if let Some(ImportOutput {
@@ -136,47 +140,24 @@ fn render_wat_import(imports: &mut WatImports, index: usize, import: &Import<'_>
 	imports.insert(&symbol, wat);
 }
 
-// The three imports shown above are exposed to Rust through these `ABI` shims:
-//
-// ```wat
-// ;; fn notify(value: u32)
-// (func $js_sys.import.shim.0 (@sym (name "js_sys.notify")) (param $value_0 i32)
-//   local.get $value_0
-//   call $js_sys.import.boundary.0 (@reloc)
-// )
-//
-// ;; fn identity(value: u32) -> u32
-// (func $js_sys.import.shim.1 (@sym (name "js_sys.identity")) (param $value_0 i32) (result i32)
-//   local.get $value_0
-//   call $js_sys.import.boundary.1 (@reloc)
-// )
-//
-// ;; fn wide(value: u128) -> u128
-// (func $js_sys.import.shim.2 (@sym (name "js_sys.wide")) (param $retptr i32) (param $value_0 i64) (param $value_1 i64)
-//   local.get $retptr
-//   local.get $value_0
-//   local.get $value_1
-//   call $js_sys.import.boundary.2 (@reloc)
-// )
-// ```
 fn render_shim(wat: &mut String, shim: Shim<'_, '_>) {
 	let Shim {
 		index,
 		boundary_index,
 		import,
+		symbol,
+		comdat,
 		catch,
 		locals,
 	} = shim;
 	write!(
 		wat,
-		"(func ${} (@sym (name {}))",
-		shim_identifier(index),
-		quote_string(&shim_symbol(import)),
+		"(func $js_sys.import.shim.{index} (@sym (name {}))",
+		quoted(&symbol),
 	)
 	.expect("writing to a String cannot fail");
-	if import.shim_kind == ImportShimKind::ClosureFactory {
-		write!(wat, " (@comdat {})", quote_string(&shim_symbol(import)))
-			.expect("writing to a String cannot fail");
+	if let Some(comdat) = comdat {
+		write!(wat, " (@comdat {})", quoted(&comdat)).expect("writing to a String cannot fail");
 	}
 
 	if let Some(ImportOutput {
@@ -188,9 +169,10 @@ fn render_shim(wat: &mut String, shim: Shim<'_, '_>) {
 			.expect("writing to a String cannot fail");
 	}
 
-	for input in &import.inputs {
-		for (index, slot) in input.slots.iter().enumerate() {
-			write!(wat, " (param ${}_{index} {})", input.name, slot.rust)
+	for (input_index, input) in import.inputs.iter().enumerate() {
+		let name = input_name(input_index);
+		for (slot_index, slot) in input.slots.iter().enumerate() {
+			write!(wat, " (param ${name}_{slot_index} {})", slot.rust)
 				.expect("writing to a String cannot fail");
 		}
 	}
@@ -203,11 +185,7 @@ fn render_shim(wat: &mut String, shim: Shim<'_, '_>) {
 		write!(wat, " (result {})", slot.rust).expect("writing to a String cannot fail");
 	}
 
-	let locals = locals.render();
-	if !locals.is_empty() {
-		wat.push('\n');
-		wat.push_str(&locals);
-	}
+	locals.write_into(wat);
 
 	if let Some(catch) = catch {
 		wat.push_str(catch.try_);
@@ -218,23 +196,22 @@ fn render_shim(wat: &mut String, shim: Shim<'_, '_>) {
 		..
 	}) = import.output.as_ref()
 	{
-		write_slot_get(wat, "$retptr", &retptr.slot);
+		wat.push_str("\n  local.get $retptr");
+		write_conversion(wat, retptr.slot.instruction());
 	}
 
-	for input in &import.inputs {
-		for (index, slot) in input.slots.iter().enumerate() {
-			write!(wat, "\n  local.get ${}_{index}", input.name)
+	for (input_index, input) in import.inputs.iter().enumerate() {
+		let name = input_name(input_index);
+		for (slot_index, slot) in input.slots.iter().enumerate() {
+			write!(wat, "\n  local.get ${name}_{slot_index}")
 				.expect("writing to a String cannot fail");
-			if let Some(instruction) = slot.instruction() {
-				write_conversion(wat, instruction);
-			}
+			write_conversion(wat, slot.instruction());
 		}
 	}
 
 	write!(
 		wat,
-		"\n  call ${} (@reloc)",
-		boundary_identifier(boundary_index),
+		"\n  call $js_sys.import.boundary.{boundary_index} (@reloc)",
 	)
 	.expect("writing to a String cannot fail");
 
@@ -242,9 +219,8 @@ fn render_shim(wat: &mut String, shim: Shim<'_, '_>) {
 		abi: ImportOutputAbi::Direct { slot, .. },
 		..
 	}) = import.output.as_ref()
-		&& let Some(instruction) = slot.instruction()
 	{
-		write_conversion(wat, instruction);
+		write_conversion(wat, slot.instruction());
 	}
 
 	if let Some(catch) = catch {
@@ -262,20 +238,19 @@ fn render_shim(wat: &mut String, shim: Shim<'_, '_>) {
 	wat.push_str("\n)");
 }
 
-fn boundary_identifier(index: usize) -> String {
-	format!("js_sys.import.boundary.{index}")
-}
-
-fn shim_identifier(index: usize) -> String {
-	format!("js_sys.import.shim.{index}")
-}
-
 fn boundary_symbol(import: &Import<'_>) -> String {
 	format!("{}.import.{}", import.module, import.name)
 }
 
 fn shim_symbol(import: &Import<'_>) -> String {
 	format!("{}.{}", import.module, import.name)
+}
+
+fn factory_comdat(raw_symbol: &str, canonical_factory_name: &str) -> String {
+	format!(
+		"js_sys.closure.factory.{}.{raw_symbol}.{canonical_factory_name}",
+		raw_symbol.len(),
+	)
 }
 
 fn conversion_slots<'import, 'wire>(
@@ -295,22 +270,14 @@ fn conversion_slots<'import, 'wire>(
 		.chain(result)
 }
 
-fn write_slot_get(wat: &mut String, local: &str, slot: &Slot<'_>) {
-	write!(wat, "\n  local.get {local}").expect("writing to a String cannot fail");
-	if let Some(instruction) = slot.instruction() {
-		write_conversion(wat, instruction);
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use std::rc::Rc;
 
-	use js_bindgen_wire::ImportShimKind;
 	use js_bindgen_wire::abi::WatType;
 	use js_bindgen_wire::model::{Import, ImportGroup, ImportInput, Slot, WatConversion};
 
-	use super::render;
+	use super::{factory_comdat, quoted, render, render_closure_factory};
 
 	#[test]
 	fn arbitrary_names_produce_valid_wat() {
@@ -320,7 +287,6 @@ mod tests {
 			imports: vec![Import {
 				module: NAME,
 				name: NAME,
-				shim_kind: ImportShimKind::ClosureFactory,
 				inputs: Vec::new(),
 				output: None,
 				binding: None,
@@ -329,7 +295,30 @@ mod tests {
 		};
 
 		let wat = render(&group).expect("one import produces WAT");
+		assert!(!wat.contains("@comdat"));
 		js_bindgen_ld_shared::wat_to_object(false, &wat).expect("escaped WAT should parse");
+	}
+
+	#[test]
+	fn closure_factory_uses_raw_symbol_and_canonical_name_in_comdat() {
+		let canonical_name = "closure_new_mut_0123456789abcdef";
+		let raw_symbol = "crate.raw_factory";
+		let import = Import {
+			module: "js_sys",
+			name: canonical_name,
+			inputs: Vec::new(),
+			output: None,
+			binding: None,
+			suspending: false,
+		};
+
+		let wat = render_closure_factory(&import, raw_symbol);
+		assert!(wat.contains("(@sym (name \"crate.raw_factory\"))"));
+		assert!(wat.contains(&format!(
+			"(@comdat {})",
+			quoted(&factory_comdat(raw_symbol, canonical_name)),
+		)));
+		js_bindgen_ld_shared::wat_to_object(false, &wat).expect("rendered WAT should parse");
 	}
 
 	#[test]
@@ -339,9 +328,7 @@ mod tests {
 			imports: vec![Import {
 				module: "test",
 				name: "converted",
-				shim_kind: ImportShimKind::Normal,
 				inputs: vec![ImportInput {
-					name: "value",
 					slots: vec![Slot {
 						rust: WatType::I32,
 						wat: Some(WatConversion {
@@ -363,8 +350,8 @@ mod tests {
 		assert_eq!(
 			wat,
 			r#"(import "test" "converted" (func $js_sys.import.boundary.0 (@sym (name "test.import.converted")) (param externref)))
-(func $js_sys.import.shim.0 (@sym (name "test.converted")) (param $value_0 i32)
-  local.get $value_0
+(func $js_sys.import.shim.0 (@sym (name "test.converted")) (param $arg0_0 i32)
+  local.get $arg0_0
   drop
   ref.null extern
   call $js_sys.import.boundary.0 (@reloc)

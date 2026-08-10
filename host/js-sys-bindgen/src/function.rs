@@ -17,7 +17,7 @@ use crate::hygiene::Hygiene;
 mod js;
 mod options;
 
-use js::ForeignItem;
+use js::{ForeignItem, FunctionBinding};
 use options::{BindingKind, FunctionOptions};
 
 /// Backend-independent description of one JavaScript import.
@@ -29,26 +29,11 @@ pub(crate) struct FunctionImport {
 	pub(crate) output_type: Option<Type>,
 	pub(crate) binding: Option<FunctionBinding>,
 	pub(crate) suspending: bool,
-	pub(crate) shim_kind: ImportShimKind,
 	pub(crate) macro_path: Path,
 }
 
 pub(crate) struct FunctionImportInput {
-	pub(crate) name: LitStr,
 	pub(crate) ty: Type,
-}
-
-#[derive(Clone, Copy)]
-pub(crate) enum ImportShimKind {
-	Normal,
-	ClosureFactory,
-}
-
-/// JavaScript call data stored in an import Wire record.
-pub(crate) struct FunctionBinding {
-	pub(crate) direct: Option<String>,
-	pub(crate) call: String,
-	pub(crate) required_embeds: Vec<TokenStream>,
 }
 
 struct FunctionPlan {
@@ -63,7 +48,6 @@ struct FunctionPlan {
 struct InputArg {
 	abi_type: Type,
 	rust_name: Ident,
-	descriptor_name: syn::LitStr,
 	slot_names: [Ident; 4],
 	uses_abi_override: bool,
 }
@@ -77,26 +61,10 @@ impl InputArg {
 		Self {
 			abi_type,
 			rust_name,
-			descriptor_name: syn::LitStr::new(&base, span),
 			slot_names: [slot_name(0), slot_name(1), slot_name(2), slot_name(3)],
 			uses_abi_override,
 		}
 	}
-}
-
-fn join_input_slots(inputs: &[InputArg]) -> String {
-	let mut inputs = inputs.iter();
-	let Some(first) = inputs.next() else {
-		return String::new();
-	};
-	let mut output = first.slot_names[0].to_string();
-
-	for input in inputs {
-		output.push_str(", ");
-		output.push_str(&input.slot_names[0].to_string());
-	}
-
-	output
 }
 
 pub(crate) fn expand(
@@ -239,16 +207,6 @@ pub(crate) fn expand(
 	Ok((item, import))
 }
 
-pub(crate) fn expand_closure_factory(
-	hygiene: &mut Hygiene<'_>,
-	crate_: &str,
-	item: ForeignItemFn,
-) -> Result<(TokenStream, FunctionImport)> {
-	let (function, mut import) = expand(hygiene, None, crate_, &HashMap::new(), item)?;
-	import.shim_kind = ImportShimKind::ClosureFactory;
-	Ok((function, import))
-}
-
 impl FunctionPlan {
 	fn parse(
 		hygiene: &mut Hygiene<'_>,
@@ -264,8 +222,7 @@ impl FunctionPlan {
 		let output_abi_override = options.return_abi.clone();
 		let (inputs, self_ty) =
 			Self::parse_inputs(hygiene, sig, cfg_attrs, span, external_implementation)?;
-		let binding =
-			Self::resolve_binding(options, sig, self_ty, namespace, js_names, &inputs, span)?;
+		let binding = Self::resolve_binding(options, sig, self_ty, namespace, js_names, span)?;
 		let output_ty = match &sig.output {
 			ReturnType::Default => None,
 			ReturnType::Type(_, ty) => Some(*ty.clone()),
@@ -385,7 +342,6 @@ impl FunctionPlan {
 		self_ty: Option<Path>,
 		namespace: Option<&str>,
 		js_names: &HashMap<String, String>,
-		inputs: &[InputArg],
 		span: Span,
 	) -> Result<ForeignItem> {
 		let FunctionOptions {
@@ -403,10 +359,6 @@ impl FunctionPlan {
 			binding => binding,
 		};
 
-		let js_inputs: Vec<_> = inputs
-			.iter()
-			.map(|input| input.slot_names[0].to_string())
-			.collect();
 		let argument_count = sig.inputs.len() - usize::from(self_ty.is_some());
 
 		if matches!(&binding, BindingKind::Constructor) && self_ty.is_some() {
@@ -446,9 +398,8 @@ impl FunctionPlan {
 				// selects the Rust `impl` owner and JavaScript invokes it with `new`.
 				let owner = Self::constructor_type(&sig.output)?;
 				let name = js_name.unwrap_or_else(|| Self::type_js_name(&owner, js_names));
-				let path = ForeignItem::global_path(namespace, &name);
 
-				Ok(ForeignItem::constructor(owner, &path, variadic, &js_inputs))
+				Ok(ForeignItem::constructor(owner, namespace, &name, variadic))
 			}
 			BindingKind::IndexingGetter => {
 				if argument_count != 1 || !matches!(&sig.output, ReturnType::Type(..)) {
@@ -460,7 +411,6 @@ impl FunctionPlan {
 
 				Ok(ForeignItem::indexing_getter(
 					self_ty.expect("validated above"),
-					&js_inputs,
 				))
 			}
 			BindingKind::IndexingSetter => {
@@ -470,7 +420,6 @@ impl FunctionPlan {
 
 				Ok(ForeignItem::indexing_setter(
 					self_ty.expect("validated above"),
-					&js_inputs,
 				))
 			}
 			BindingKind::IndexingDeleter => {
@@ -480,7 +429,6 @@ impl FunctionPlan {
 
 				Ok(ForeignItem::indexing_deleter(
 					self_ty.expect("validated above"),
-					&js_inputs,
 				))
 			}
 			BindingKind::Getter(name) => {
@@ -490,10 +438,15 @@ impl FunctionPlan {
 						"`getter` requires no arguments and a return value",
 					));
 				}
-				let (owner, path, _) =
-					Self::member_path(static_of, self_ty, &name, namespace, js_names, &js_inputs);
+				let (owner, object, receiver) = Self::member_target(static_of, self_ty, js_names);
 
-				Ok(ForeignItem::getter(owner, path))
+				Ok(ForeignItem::getter(
+					owner,
+					namespace,
+					object.as_deref(),
+					&name,
+					receiver,
+				))
 			}
 			BindingKind::Setter(name) => {
 				if argument_count != 1 || !matches!(&sig.output, ReturnType::Default) {
@@ -502,18 +455,27 @@ impl FunctionPlan {
 						"`setter` requires one argument and no return value",
 					));
 				}
-				let (owner, path, receiver) =
-					Self::member_path(static_of, self_ty, &name, namespace, js_names, &js_inputs);
+				let (owner, object, receiver) = Self::member_target(static_of, self_ty, js_names);
 
-				Ok(ForeignItem::setter(owner, &path, receiver, &js_inputs))
+				Ok(ForeignItem::setter(
+					owner,
+					namespace,
+					object.as_deref(),
+					&name,
+					receiver,
+				))
 			}
 			BindingKind::Call => {
 				let name = js_name.unwrap_or_else(|| sig.ident.to_string());
-				let (owner, path, receiver) =
-					Self::member_path(static_of, self_ty, &name, namespace, js_names, &js_inputs);
+				let (owner, object, receiver) = Self::member_target(static_of, self_ty, js_names);
 
 				Ok(ForeignItem::call(
-					owner, &path, receiver, variadic, namespace, &js_inputs,
+					owner,
+					namespace,
+					object.as_deref(),
+					&name,
+					receiver,
+					variadic,
 				))
 			}
 			BindingKind::Embed(_) | BindingKind::Import => {
@@ -522,25 +484,21 @@ impl FunctionPlan {
 		}
 	}
 
-	fn member_path(
+	fn member_target(
 		static_of: Option<Path>,
 		self_ty: Option<Path>,
-		name: &str,
-		namespace: Option<&str>,
 		js_names: &HashMap<String, String>,
-		inputs: &[String],
-	) -> (Option<Path>, String, bool) {
+	) -> (Option<Path>, Option<String>, bool) {
 		// `static_of` attaches the declaration to a type, an explicit `self`
 		// parameter makes it an instance member, and neither means a global.
 		if let Some(owner) = static_of {
 			let type_name = Self::type_js_name(&owner, js_names);
-			let path = ForeignItem::global_path(namespace, &format!("{type_name}.{name}"));
 
-			(Some(owner), path, false)
+			(Some(owner), Some(type_name), false)
 		} else if let Some(owner) = self_ty {
-			(Some(owner), format!("{}.{name}", inputs[0]), true)
+			(Some(owner), None, true)
 		} else {
-			(None, ForeignItem::global_path(namespace, name), false)
+			(None, None, false)
 		}
 	}
 
@@ -662,31 +620,12 @@ impl FunctionPlan {
 		} = self;
 		let output_type = output_abi_override.or(output_ty);
 
-		let mut required_embeds = Vec::new();
-
-		if let ForeignItem::Embed(name) = &binding {
-			required_embeds.push(quote_spanned!(span=>
-				#macro_path::JsEmbed::new(#crate_, #name)
-			));
-		}
-
 		let binding = match binding {
-			ForeignItem::Generate { direct, call, .. } => Some(FunctionBinding {
-				direct,
-				call,
-				required_embeds,
+			ForeignItem::Generate { binding, .. } => Some(binding),
+			ForeignItem::Embed(name) => Some(FunctionBinding::CallEmbed {
+				module: crate_.to_owned(),
+				name,
 			}),
-			ForeignItem::Embed(name) => {
-				let path = format!("this.#jsEmbed.{crate_}['{name}']");
-				let arguments = join_input_slots(&inputs);
-				let call = format!("{path}({arguments})");
-
-				Some(FunctionBinding {
-					direct: Some(path),
-					call,
-					required_embeds,
-				})
-			}
 			ForeignItem::Import => None,
 		};
 		FunctionImport {
@@ -695,15 +634,11 @@ impl FunctionPlan {
 			name: LitStr::new(import_name, span),
 			inputs: inputs
 				.into_iter()
-				.map(|input| FunctionImportInput {
-					name: input.descriptor_name,
-					ty: input.abi_type,
-				})
+				.map(|input| FunctionImportInput { ty: input.abi_type })
 				.collect(),
 			output_type,
 			binding,
 			suspending,
-			shim_kind: ImportShimKind::Normal,
 			macro_path,
 		}
 	}

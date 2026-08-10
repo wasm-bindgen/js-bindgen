@@ -17,6 +17,33 @@ const PLACEHOLDERS: [(&str, Placeholder); 6] = [
 	("$slot4", Placeholder::Slot(3)),
 ];
 
+/// A JavaScript expression extended through safely quoted property accesses.
+pub(super) struct JsPath(String);
+
+impl JsPath {
+	pub(super) fn new(root: &str) -> Self {
+		Self(root.to_owned())
+	}
+
+	#[must_use]
+	pub(super) fn property(mut self, name: &str) -> Self {
+		self.0.push('[');
+		self.0.push_str(&quote_string(name));
+		self.0.push(']');
+		self
+	}
+
+	pub(super) fn into_string(self) -> String {
+		self.0
+	}
+}
+
+impl std::fmt::Display for JsPath {
+	fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		formatter.write_str(&self.0)
+	}
+}
+
 /// Quotes one JavaScript string literal.
 ///
 /// JavaScript export names are valid strings rather than identifiers, so they
@@ -84,7 +111,18 @@ pub(super) fn render_template(
 mod tests {
 	use std::fmt::Write;
 
-	use super::{Placeholder, quote_string, render_template};
+	use super::{JsPath, Placeholder, quote_string, render_template};
+
+	#[test]
+	fn builds_javascript_property_paths() {
+		assert_eq!(
+			JsPath::new("root")
+				.property("one.two")
+				.property("quote\"")
+				.into_string(),
+			"root[\"one.two\"][\"quote\\\"\"]",
+		);
+	}
 
 	#[test]
 	fn quotes_javascript_strings() {

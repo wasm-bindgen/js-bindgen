@@ -22,6 +22,7 @@ js-bindgen-wire = { workspace = true, features = ["alloc"] }
 postcard = { workspace = true, features = ["alloc"] }
 wasm-encoder = { workspace = true }
 wasmparser = { workspace = true }
+xxhash-rust = { workspace = true }
 
 [lints]
 workspace = true

@@ -133,41 +133,65 @@ impl WireImportTypeTable {
 	}
 }
 
-/// One named argument accepted by a JavaScript import.
+/// One argument accepted by a JavaScript import.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct WireImportInput {
-	pub(crate) name: &'static str,
 	pub(crate) type_index: usize,
 }
 
 impl WireImportInput {
 	#[must_use]
-	pub const fn new(name: &'static str, type_index: usize) -> Self {
-		Self { name, type_index }
+	pub const fn new(type_index: usize) -> Self {
+		Self { type_index }
 	}
 }
 
-/// JavaScript binding data for one import.
+/// One path rooted at JavaScript's global object.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct WireImportBinding {
-	pub(crate) direct: Option<&'static str>,
-	pub(crate) call: &'static str,
-	pub(crate) required_embeds: &'static [JsEmbed],
+pub struct WireGlobalPath {
+	pub(crate) namespace: Option<&'static str>,
+	pub(crate) object: Option<&'static str>,
+	pub(crate) name: &'static str,
 }
 
-impl WireImportBinding {
+impl WireGlobalPath {
 	#[must_use]
 	pub const fn new(
-		direct: Option<&'static str>,
-		call: &'static str,
-		required_embeds: &'static [JsEmbed],
+		namespace: Option<&'static str>,
+		object: Option<&'static str>,
+		name: &'static str,
 	) -> Self {
 		Self {
-			direct,
-			call,
-			required_embeds,
+			namespace,
+			object,
+			name,
 		}
 	}
+}
+
+/// The JavaScript operation performed by one import.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WireImportBinding {
+	CallGlobal {
+		target: WireGlobalPath,
+		variadic: bool,
+	},
+	CallMethod {
+		name: &'static str,
+		variadic: bool,
+	},
+	Construct {
+		target: WireGlobalPath,
+		variadic: bool,
+	},
+	GetGlobal(WireGlobalPath),
+	GetMember(&'static str),
+	SetGlobal(WireGlobalPath),
+	SetMember(&'static str),
+	IndexGet,
+	IndexSet,
+	IndexDelete,
+	CallEmbed(JsEmbed),
 }
 
 /// The result type referenced by one JavaScript import.
@@ -183,19 +207,11 @@ impl WireImportOutput {
 	}
 }
 
-/// The role of one generated `Wasm` adapter.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ImportShimKind {
-	Normal,
-	ClosureFactory,
-}
-
 /// One semantic JavaScript import.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct WireImport {
 	pub(crate) module: &'static str,
 	pub(crate) name: &'static str,
-	pub(crate) shim_kind: ImportShimKind,
 	pub(crate) inputs: &'static [WireImportInput],
 	pub(crate) output: Option<WireImportOutput>,
 	pub(crate) binding: Option<WireImportBinding>,
@@ -216,26 +232,11 @@ impl WireImport {
 		Self {
 			module,
 			name,
-			shim_kind: ImportShimKind::Normal,
 			inputs,
 			output,
 			binding,
 			suspending,
 		}
-	}
-
-	#[must_use]
-	pub const fn closure_factory(
-		module: &'static str,
-		name: &'static str,
-		inputs: &'static [WireImportInput],
-		output: Option<WireImportOutput>,
-		binding: Option<WireImportBinding>,
-		suspending: bool,
-	) -> Self {
-		let mut import = Self::new(module, name, inputs, output, binding, suspending);
-		import.shim_kind = ImportShimKind::ClosureFactory;
-		import
 	}
 }
 
@@ -253,49 +254,104 @@ impl WireExportInputType {
 	}
 }
 
-/// One named argument accepted by a JavaScript-facing `Wasm` export.
+/// One argument accepted by a JavaScript-facing `Wasm` export.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct WireExportInput {
-	pub(crate) name: &'static str,
 	pub(crate) ty: &'static WireExportInputType,
 }
 
 impl WireExportInput {
 	#[must_use]
-	pub const fn new(name: &'static str, ty: &'static WireExportInputType) -> Self {
-		Self { name, ty }
+	pub const fn new(ty: &'static WireExportInputType) -> Self {
+		Self { ty }
 	}
 }
 
 /// Type-level data shared by exported results with the same Rust type.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct WireExportOutputType {
-	pub(crate) mode: ReturnMode,
-	pub(crate) conversion: ReturnConv<IntoJsConv>,
-	pub(crate) slots: [Option<WatSlot>; 4],
-	pub(crate) frame_size: usize,
+	pub(crate) kind: WireExportOutputKind,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum WireExportOutputKind {
+	Direct {
+		slots: [Option<WatSlot>; 4],
+		conversion: Option<IntoJsConv>,
+	},
+	Indirect {
+		slots: [Option<WatSlot>; 4],
+		conversion: ReturnConv<IntoJsConv>,
+		frame: WireReturnFrame,
+		result: Option<ResultLayout>,
+	},
+}
+
+/// Stack storage used by an indirect Rust return.
+///
+/// Each offset corresponds to the same position in the output slot array;
+/// offsets for empty slots are ignored.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct WireReturnFrame {
+	pub(crate) size: usize,
 	pub(crate) slot_offsets: [usize; 4],
-	pub(crate) result: Option<ResultLayout>,
+}
+
+impl WireReturnFrame {
+	#[must_use]
+	pub const fn new(size: usize, slot_offsets: [usize; 4]) -> Self {
+		assert!(size != 0);
+		Self { size, slot_offsets }
+	}
 }
 
 impl WireExportOutputType {
 	#[must_use]
-	pub const fn new(
-		mode: ReturnMode,
-		conversion: ReturnConv<IntoJsConv>,
+	pub const fn direct(slots: [Option<WatSlot>; 4], conversion: Option<IntoJsConv>) -> Self {
+		let mut slot_count = 0;
+		let mut index = 0;
+		while index < slots.len() {
+			if slots[index].is_some() {
+				slot_count += 1;
+			}
+			index += 1;
+		}
+		assert!(slot_count == 1);
+		Self {
+			kind: WireExportOutputKind::Direct { slots, conversion },
+		}
+	}
+
+	#[must_use]
+	pub const fn indirect(
 		slots: [Option<WatSlot>; 4],
-		frame_size: usize,
-		slot_offsets: [usize; 4],
+		conversion: ReturnConv<IntoJsConv>,
+		frame: WireReturnFrame,
 		result: Option<ResultLayout>,
 	) -> Self {
 		assert!(conversion.is_result() == result.is_some());
+		let mut slot_count = 0;
+		let mut index = 0;
+		while index < slots.len() {
+			if slots[index].is_some() {
+				assert!(frame.slot_offsets[index] < frame.size);
+				slot_count += 1;
+			}
+			index += 1;
+		}
+		if let Some(result) = result {
+			let discriminant = result.discriminant as usize;
+			let error = result.error as usize;
+			assert!(error == discriminant + 1);
+			assert!(error + 1 == slot_count);
+		}
 		Self {
-			mode,
-			conversion,
-			slots,
-			frame_size,
-			slot_offsets,
-			result,
+			kind: WireExportOutputKind::Indirect {
+				slots,
+				conversion,
+				frame,
+				result,
+			},
 		}
 	}
 }
@@ -313,22 +369,59 @@ impl WireExportOutput {
 	}
 }
 
-/// Describes how an exported `Wasm` shim reaches Rust code.
+/// The raw linker symbol and boundary `ABI` of a closure factory.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum WireExportCallee {
-	Symbol(&'static str),
-	Closure { call_shim_offset: usize },
+pub struct WireClosureFactory {
+	pub(crate) raw_symbol: &'static str,
+	pub(crate) helper: JsEmbed,
+	pub(crate) input: &'static WireImportInputType,
+	pub(crate) output: &'static WireImportOutputType,
 }
 
-impl WireExportCallee {
+impl WireClosureFactory {
 	#[must_use]
-	const fn symbol(name: &'static str) -> Self {
-		Self::Symbol(name)
+	pub const fn new(
+		raw_symbol: &'static str,
+		helper: JsEmbed,
+		input: &'static WireImportInputType,
+		output: &'static WireImportOutputType,
+	) -> Self {
+		Self {
+			raw_symbol,
+			helper,
+			input,
+			output,
+		}
 	}
+}
 
+/// One semantic closure factory and its matching Wasm dispatcher.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct WireClosure {
+	pub(crate) factory: WireClosureFactory,
+	pub(crate) call_shim_offset: usize,
+	pub(crate) inputs: &'static [WireExportInput],
+	pub(crate) output: Option<WireExportOutput>,
+}
+
+impl WireClosure {
 	#[must_use]
-	const fn closure(call_shim_offset: usize) -> Self {
-		Self::Closure { call_shim_offset }
+	pub const fn new(
+		factory: WireClosureFactory,
+		call_shim_offset: usize,
+		inputs: &'static [WireExportInput],
+		output: Option<WireExportOutput>,
+	) -> Self {
+		assert!(
+			!inputs.is_empty(),
+			"closure dispatchers require a data input"
+		);
+		Self {
+			factory,
+			call_shim_offset,
+			inputs,
+			output,
+		}
 	}
 }
 
@@ -339,7 +432,7 @@ pub struct WireExport {
 	pub(crate) name: &'static str,
 	pub(crate) inputs: &'static [WireExportInput],
 	pub(crate) output: Option<WireExportOutput>,
-	pub(crate) callee: WireExportCallee,
+	pub(crate) symbol: &'static str,
 	pub(crate) promising: bool,
 }
 
@@ -350,7 +443,7 @@ impl WireExport {
 		name: &'static str,
 		inputs: &'static [WireExportInput],
 		output: Option<WireExportOutput>,
-		callee: WireExportCallee,
+		symbol: &'static str,
 		promising: bool,
 	) -> Self {
 		Self {
@@ -358,7 +451,7 @@ impl WireExport {
 			name,
 			inputs,
 			output,
-			callee,
+			symbol,
 			promising,
 		}
 	}
@@ -371,14 +464,7 @@ impl WireExport {
 		inputs: &'static [WireExportInput],
 		output: Option<WireExportOutput>,
 	) -> Self {
-		Self::new(
-			module,
-			name,
-			inputs,
-			output,
-			WireExportCallee::symbol(symbol),
-			false,
-		)
+		Self::new(module, name, inputs, output, symbol, false)
 	}
 
 	#[must_use]
@@ -389,33 +475,7 @@ impl WireExport {
 		inputs: &'static [WireExportInput],
 		output: Option<WireExportOutput>,
 	) -> Self {
-		Self::new(
-			module,
-			name,
-			inputs,
-			output,
-			WireExportCallee::symbol(symbol),
-			true,
-		)
-	}
-
-	#[must_use]
-	pub const fn new_closure(
-		module: &'static str,
-		name: &'static str,
-		call_shim_offset: usize,
-		inputs: &'static [WireExportInput],
-		output: Option<WireExportOutput>,
-	) -> Self {
-		assert!(!inputs.is_empty(), "closure exports require a data input");
-		Self::new(
-			module,
-			name,
-			inputs,
-			output,
-			WireExportCallee::closure(call_shim_offset),
-			false,
-		)
+		Self::new(module, name, inputs, output, symbol, true)
 	}
 }
 
@@ -426,9 +486,10 @@ pub(crate) enum WireKind {
 		imports: &'static [WireImport],
 	},
 	Exports(&'static [WireExport]),
+	Closure(WireClosure),
 }
 
-/// One import or export group encoded into a wire record.
+/// One import, export, or closure payload encoded into a wire record.
 #[derive(Clone, Copy)]
 pub struct Wire {
 	pub(crate) pointer_width: PointerWidth,
@@ -470,6 +531,19 @@ impl Wire {
 		Self {
 			pointer_width,
 			kind: WireKind::Exports(exports),
+		}
+	}
+
+	#[must_use]
+	pub const fn closure(closure: WireClosure) -> Self {
+		Self::closure_with(PointerWidth::native(), closure)
+	}
+
+	#[must_use]
+	pub(crate) const fn closure_with(pointer_width: PointerWidth, closure: WireClosure) -> Self {
+		Self {
+			pointer_width,
+			kind: WireKind::Closure(closure),
 		}
 	}
 }

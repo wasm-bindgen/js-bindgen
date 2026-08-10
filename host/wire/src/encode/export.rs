@@ -1,9 +1,11 @@
 use core::mem::size_of;
 
 use super::{Encoder, Sizer, flag};
+use crate::abi::WatSlot;
+use crate::schema::WireExportOutputKind;
 use crate::{
 	EXPORT_HAS_OUTPUT, EXPORT_OUTPUT_DIRECT, EXPORT_OUTPUT_RESULT, EXPORT_PROMISING, WireExport,
-	WireExportCallee, WireExportInput, WireExportOutput, WireExportOutputType,
+	WireExportInput, WireExportOutput, WireExportOutputType, WireReturnFrame,
 };
 
 impl<const N: usize> Encoder<N> {
@@ -28,32 +30,8 @@ impl Sizer {
 	}
 }
 
-impl WireExportCallee {
-	const fn encode<const N: usize>(self, encoder: &mut Encoder<N>) {
-		match self {
-			Self::Symbol(symbol) => {
-				encoder.u8(0);
-				encoder.string(symbol);
-			}
-			Self::Closure { call_shim_offset } => {
-				encoder.u8(1);
-				encoder.u64(call_shim_offset as u64);
-			}
-		}
-	}
-
-	const fn size(self, sizer: &mut Sizer) {
-		sizer.add(1);
-		match self {
-			Self::Symbol(symbol) => sizer.string(symbol),
-			Self::Closure { .. } => sizer.add(size_of::<u64>()),
-		}
-	}
-}
-
 impl WireExportInput {
-	const fn encode<const N: usize>(self, encoder: &mut Encoder<N>) {
-		encoder.string(self.name);
+	pub(super) const fn encode<const N: usize>(self, encoder: &mut Encoder<N>) {
 		encoder.slots(&self.ty.slots);
 		match self.ty.conversion {
 			Some(conversion) => {
@@ -64,8 +42,7 @@ impl WireExportInput {
 		}
 	}
 
-	const fn size(self, sizer: &mut Sizer) {
-		sizer.string(self.name);
+	pub(super) const fn size(self, sizer: &mut Sizer) {
 		sizer.slots(&self.ty.slots);
 		sizer.add(1);
 		if let Some(conversion) = self.ty.conversion {
@@ -76,48 +53,99 @@ impl WireExportInput {
 
 impl WireExportOutputType {
 	const fn encode<const N: usize>(&self, encoder: &mut Encoder<N>) {
-		encoder.u8(flag(self.mode.is_direct(), EXPORT_OUTPUT_DIRECT)
-			| flag(self.conversion.is_result(), EXPORT_OUTPUT_RESULT));
-		encoder.slots(&self.slots);
-		match self.conversion.conversion() {
-			Some(conversion) => {
-				encoder.u8(1);
-				conversion.encode(encoder);
+		match self.kind {
+			WireExportOutputKind::Direct { slots, conversion } => {
+				encoder.u8(EXPORT_OUTPUT_DIRECT);
+				encoder.slots(&slots);
+				match conversion {
+					Some(conversion) => {
+						encoder.u8(1);
+						conversion.encode(encoder);
+					}
+					None => encoder.u8(0),
+				}
 			}
-			None => encoder.u8(0),
-		}
-		encoder.u64(self.frame_size as u64);
-		let mut index = 0;
-		while index < self.slot_offsets.len() {
-			encoder.u64(self.slot_offsets[index] as u64);
-			index += 1;
-		}
-		if let Some(result) = self.result {
-			encoder.u8(result.discriminant);
-			encoder.u8(result.error);
+			WireExportOutputKind::Indirect {
+				slots,
+				conversion,
+				frame,
+				result,
+			} => {
+				encoder.u8(flag(conversion.is_result(), EXPORT_OUTPUT_RESULT));
+				encoder.slots(&slots);
+				match conversion.conversion() {
+					Some(conversion) => {
+						encoder.u8(1);
+						conversion.encode(encoder);
+					}
+					None => encoder.u8(0),
+				}
+				frame.encode(encoder, &slots);
+				if let Some(result) = result {
+					encoder.u8(result.discriminant);
+					encoder.u8(result.error);
+				}
+			}
 		}
 	}
 
 	const fn size(&self, sizer: &mut Sizer) {
-		sizer.add(1);
-		sizer.slots(&self.slots);
-		sizer.add(1);
-		if let Some(conversion) = self.conversion.conversion() {
-			conversion.size(sizer);
+		match self.kind {
+			WireExportOutputKind::Direct { slots, conversion } => {
+				sizer.add(1);
+				sizer.slots(&slots);
+				sizer.add(1);
+				if let Some(conversion) = conversion {
+					conversion.size(sizer);
+				}
+			}
+			WireExportOutputKind::Indirect {
+				slots,
+				conversion,
+				result,
+				..
+			} => {
+				sizer.add(1);
+				sizer.slots(&slots);
+				sizer.add(1);
+				if let Some(conversion) = conversion.conversion() {
+					conversion.size(sizer);
+				}
+				sizer.add(size_of::<u64>());
+				let mut index = 0;
+				while index < slots.len() {
+					if slots[index].is_some() {
+						sizer.add(size_of::<u64>());
+					}
+					index += 1;
+				}
+				if result.is_some() {
+					sizer.add(2);
+				}
+			}
 		}
-		sizer.add(5 * size_of::<u64>());
-		if self.result.is_some() {
-			sizer.add(2);
+	}
+}
+
+impl WireReturnFrame {
+	const fn encode<const N: usize>(self, encoder: &mut Encoder<N>, slots: &[Option<WatSlot>; 4]) {
+		encoder.u64(self.size as u64);
+		let mut index = 0;
+		while index < slots.len() {
+			if slots[index].is_some() {
+				encoder.u64(self.slot_offsets[index] as u64);
+			}
+			index += 1;
 		}
 	}
 }
 
 impl WireExportOutput {
-	const fn encode<const N: usize>(self, encoder: &mut Encoder<N>) {
+	pub(super) const fn encode<const N: usize>(self, encoder: &mut Encoder<N>) {
 		self.ty.encode(encoder);
 	}
 
-	const fn size(self, sizer: &mut Sizer) {
+	pub(super) const fn size(self, sizer: &mut Sizer) {
 		self.ty.size(sizer);
 	}
 }
@@ -129,7 +157,7 @@ impl WireExport {
 		let flags =
 			flag(self.promising, EXPORT_PROMISING) | flag(self.output.is_some(), EXPORT_HAS_OUTPUT);
 		encoder.u8(flags);
-		self.callee.encode(encoder);
+		encoder.string(self.symbol);
 		encoder.count(self.inputs.len());
 		let mut index = 0;
 		while index < self.inputs.len() {
@@ -145,7 +173,7 @@ impl WireExport {
 		sizer.string(self.module);
 		sizer.string(self.name);
 		sizer.add(1);
-		self.callee.size(sizer);
+		sizer.string(self.symbol);
 		sizer.add(size_of::<u32>());
 		let mut index = 0;
 		while index < self.inputs.len() {

@@ -1,5 +1,6 @@
 //! Constant serialization of static wire descriptions.
 
+mod closure;
 mod export;
 mod import;
 
@@ -64,6 +65,7 @@ pub const fn wire_blob_len(wire: &Wire) -> usize {
 	match &wire.kind {
 		WireKind::Imports { table, imports } => sizer.imports(table, imports),
 		WireKind::Exports(exports) => sizer.exports(exports),
+		WireKind::Closure(closure) => sizer.closure(closure),
 	}
 	sizer.position
 }
@@ -74,6 +76,7 @@ const fn encode<const N: usize>(wire: &Wire) -> [u8; N] {
 	match &wire.kind {
 		WireKind::Imports { table, imports } => encoder.imports(table, imports),
 		WireKind::Exports(exports) => encoder.exports(exports),
+		WireKind::Closure(closure) => encoder.closure(closure),
 	}
 	assert!(encoder.position == N);
 	encoder.bytes
@@ -84,6 +87,7 @@ impl WireKind {
 		match self {
 			Self::Imports { .. } => crate::KIND_IMPORT,
 			Self::Exports(_) => crate::KIND_EXPORT,
+			Self::Closure(_) => crate::KIND_CLOSURE,
 		}
 	}
 }

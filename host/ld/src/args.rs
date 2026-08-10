@@ -178,7 +178,7 @@ mod tests {
 	use crate::args::Arguments;
 
 	#[test]
-	fn test_custom() {
+	fn separates_custom_flags_from_linker_flags() {
 		let args = &["--web".into(), "--no-entry".into()];
 		let args = Arguments::new(args);
 		assert!(args.web());

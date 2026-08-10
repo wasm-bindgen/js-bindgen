@@ -3,6 +3,7 @@ fn main() {
 	// ;; exports["closure_i32"](20) === 43
 	// ;; exports["closure_same_signature"](20) === 4280
 	// ;; exports["closure_macro_repetition"](20) === 84
+	// ;; exports["closure_macro_mixed_signatures"]()
 	// ;; exports["closure_u128"](1n << 96n) === (1n << 96n) + 1n
 	// ;; (() => { const value = {}; return exports["closure_js_value"](value) === value })()
 	// ;; exports["closure_js_string_ref"]("closure") === "closure"
@@ -34,6 +35,12 @@ struct DropCounter;
 macro_rules! repeated_closures {
 	($($offset:expr),+ $(,)?) => {
 		($(closure!(dyn FnMut(i32) -> i32, move |value| value + $offset)),+)
+	};
+}
+
+macro_rules! repeated_typed_closures {
+	($($ty:ty),+ $(,)?) => {
+		($(closure!(dyn FnMut($ty) -> $ty, |value| value)),+)
 	};
 }
 
@@ -210,6 +217,12 @@ fn closure_macro_repetition(value: i32) -> i32 {
 	let (first, second) = repeated_closures!(1, 1);
 
 	invoke_i32_twice(&first, value) + invoke_i32_twice(&second, value)
+}
+
+#[js_sys]
+fn closure_macro_mixed_signatures() -> bool {
+	let _ = repeated_typed_closures!(i32, u128);
+	true
 }
 
 #[js_sys]

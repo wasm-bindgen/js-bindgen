@@ -12,9 +12,6 @@ use syn::{
 use xxhash_rust::xxh3::xxh3_128;
 
 use crate::export::{ExportAbi, lower_abi};
-use crate::function;
-use crate::hygiene::Hygiene;
-use crate::r#macro::render_import_groups;
 
 mod keyword {
 	syn::custom_keyword!(js_sys);
@@ -42,34 +39,33 @@ pub(crate) fn closure_with(
 	let signature = Signature::parse(&trait_object)?;
 	let span = trait_object.span();
 	let js_sys = js_sys.unwrap_or_else(|| parse_quote_spanned!(span=> ::js_sys));
-	// The package identity is part of the descriptor, so the hash is deterministic
-	// and does not depend on macro expansion order or parallel compilation.
-	let symbol_id = closure_symbol_hash(crate_name, package_name, package_version, &trait_object);
-	let call_name_value = format!("closure_call_{symbol_id}");
-	let call_name = syn::LitStr::new(&call_name_value, span);
-	let factory_ident = format_ident!("closure_new_{symbol_id}", span = span);
-	let factory_name = syn::LitStr::new(&format!("closure.new.{symbol_id}"), span);
-	let factory_embed = syn::LitStr::new(signature.kind.factory_embed(), span);
-	let closure = signature.closure_type(&trait_object);
-	let factory_js = syn::LitStr::new(
-		&format!(
-			"(data) => this.#jsEmbed.js_sys['{}'](data, this.#jsExports['{call_name_value}'])",
-			signature.kind.factory_embed(),
-		),
-		span,
+	let trait_syntax_hash = format!(
+		"{:032x}",
+		xxh3_128(trait_object.to_token_stream().to_string().as_bytes()),
 	);
-	let factory_item = parse_quote_spanned! {span=>
-		#[js_sys(js_embed = #factory_name)]
-		fn #factory_ident(
-			data: ::core::primitive::usize,
-		) -> #js_sys::JsValue;
+	let trait_syntax_hash = syn::LitStr::new(&trait_syntax_hash, span);
+	// This name only correlates the Rust factory call with this closure's raw
+	// linker import. The linker derives dispatcher identity from the semantic
+	// Wire `ABI` rather than from source tokens.
+	let factory_raw_symbol = quote_spanned! {span=>
+		::core::concat!(
+			#crate_name, ".",
+			#package_name, "@", #package_version, ":",
+			::core::module_path!(), ":",
+			::core::line!(), ":", ::core::column!(), ":",
+			#trait_syntax_hash,
+		)
 	};
-	let mut hygiene = Hygiene::Qualified {
-		js_sys: Some(&js_sys),
+	let wire_kind = match signature.kind {
+		ClosureKind::Shared => {
+			quote_spanned!(span=> #js_sys::wire::ClosureKind::Shared)
+		}
+		ClosureKind::Mutable => {
+			quote_spanned!(span=> #js_sys::wire::ClosureKind::Mutable)
+		}
+		ClosureKind::Once => quote_spanned!(span=> #js_sys::wire::ClosureKind::Once),
 	};
-	let (factory_function, factory_import) =
-		function::expand_closure_factory(&mut hygiene, crate_name, factory_item)?;
-	let factory_wire = render_import_groups(vec![factory_import]);
+	let closure = signature.closure_type(&trait_object);
 	let inputs: Vec<_> = signature.inputs.iter().collect();
 	let output = signature.output.as_ref();
 	let ExportAbi {
@@ -84,7 +80,7 @@ pub(crate) fn closure_with(
 	wire_inputs.insert(
 		0,
 		quote_spanned! {span=>
-			#js_sys::wire::wire_export_input::<::core::primitive::usize>("data")
+			#js_sys::wire::wire_export_input::<::core::primitive::usize>()
 		},
 	);
 	let closure_bound = if signature.kind == ClosureKind::Shared {
@@ -175,14 +171,13 @@ pub(crate) fn closure_with(
 
 			const _: () = {
 				const _WIRE: #js_sys::wire::Wire =
-					#js_sys::wire::Wire::exports(&[
-						#js_sys::wire::wire_closure_export::<CallShim>(
-							#crate_name,
-							#call_name,
-							&[#(#wire_inputs),*],
-							#wire_output,
-						),
-					]);
+					#js_sys::wire::wire_closure(
+						#factory_raw_symbol,
+						#wire_kind,
+						#js_sys::ClosureHeader::call_shim_offset::<CallShim>(),
+						&[#(#wire_inputs),*],
+						#wire_output,
+					);
 				const _LEN: ::core::primitive::usize = #js_sys::wire::wire_blob_len(&_WIRE);
 
 				#[unsafe(link_section = "js_bindgen.wire")]
@@ -190,43 +185,29 @@ pub(crate) fn closure_with(
 					#js_sys::wire::WireBlob::new(&_WIRE);
 			};
 
-			#js_sys::js_bindgen::embed_js! {
-				module = #crate_name,
-				name = #factory_name,
-				required_embeds = [("js_sys", #factory_embed)],
-				#factory_js,
-			}
-
-			#factory_function
-			#factory_wire
-
 			let allocation = allocate(#expression);
-			let value = #factory_ident(allocation.data());
+			let value = {
+				unsafe extern "C" {
+					#[link_name = #factory_raw_symbol]
+					fn __import_(
+						arg0_0: #js_sys::wire::InputSlot1<::core::primitive::usize>,
+						arg0_1: #js_sys::wire::InputSlot2<::core::primitive::usize>,
+						arg0_2: #js_sys::wire::InputSlot3<::core::primitive::usize>,
+						arg0_3: #js_sys::wire::InputSlot4<::core::primitive::usize>,
+					) -> #js_sys::wire::OutputRet<#js_sys::JsValue>;
+				}
+				let (arg0_0, arg0_1, arg0_2, arg0_3) =
+					#js_sys::wire::split_input::<::core::primitive::usize>(allocation.data());
+
+				#js_sys::wire::join_output(unsafe {
+					__import_(arg0_0, arg0_1, arg0_2, arg0_3)
+				})
+			};
 			allocation.forget();
 			// SAFETY: `value` is created by the matching closure factory above.
 			unsafe { #js_sys::Closure::<#closure>::from_js_value(value) }
 		}
 	})
-}
-
-fn closure_symbol_hash(
-	crate_name: &str,
-	package_name: &str,
-	package_version: &str,
-	trait_object: &TypeTraitObject,
-) -> String {
-	let mut descriptor = String::from("closure-v1\0");
-	for value in [
-		crate_name,
-		package_name,
-		package_version,
-		&trait_object.to_token_stream().to_string(),
-	] {
-		descriptor.push_str(value);
-		descriptor.push('\0');
-	}
-
-	format!("{:032x}", xxh3_128(descriptor.as_bytes()))
 }
 
 struct ClosureInput {
@@ -287,14 +268,6 @@ impl ClosureKind {
 				bound,
 				"expected `Fn`, `FnMut`, or `FnOnce`",
 			)),
-		}
-	}
-
-	fn factory_embed(self) -> &'static str {
-		match self {
-			Self::Shared => "closure.make",
-			Self::Mutable => "closure.make_mut",
-			Self::Once => "closure.make_once",
 		}
 	}
 }

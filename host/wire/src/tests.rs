@@ -116,18 +116,18 @@ const IMPORT_TYPE_TABLE: WireImportTypeTable = WireImportTypeTable::new(
 	IMPORT_OUTPUT_TYPES,
 	WAT_CATCH,
 );
-const IMPORT_EMBEDS: &[JsEmbed] = &[JsEmbed::new("js_sys", "identity")];
+const IDENTITY_PATH: WireGlobalPath = WireGlobalPath::new(None, None, "identity");
+const WIDE_PATH: WireGlobalPath = WireGlobalPath::new(None, None, "wide");
 const IMPORTS: &[WireImport] = &[
-	WireImport::closure_factory(
+	WireImport::new(
 		"js_sys",
 		"number.identity",
-		&[WireImportInput::new("arg0", 0)],
+		&[WireImportInput::new(0)],
 		Some(WireImportOutput::new(0)),
-		Some(WireImportBinding::new(
-			Some("globalThis.identity"),
-			"globalThis.identity(arg0)",
-			IMPORT_EMBEDS,
-		)),
+		Some(WireImportBinding::CallGlobal {
+			target: IDENTITY_PATH,
+			variadic: false,
+		}),
 		false,
 	),
 	WireImport::new(
@@ -135,7 +135,10 @@ const IMPORTS: &[WireImport] = &[
 		"wide.suspending",
 		&[],
 		Some(WireImportOutput::new(1)),
-		Some(WireImportBinding::new(None, "globalThis.wide()", &[])),
+		Some(WireImportBinding::CallGlobal {
+			target: WIDE_PATH,
+			variadic: false,
+		}),
 		true,
 	),
 ];
@@ -145,43 +148,56 @@ const IMPORT_RECORD: WireRecord<IMPORT_LEN> = WireRecord::new(&IMPORT_WIRE);
 
 const EXPORT_I32_INPUT: WireExportInputType =
 	WireExportInputType::new([I32, None, None, None], None);
-const EXPORT_PTR_INPUT: WireExportInputType =
-	WireExportInputType::new([I64, None, None, None], None);
-const EXPORT_DIRECT_OUTPUT: WireExportOutputType = WireExportOutputType::new(
-	ReturnMode::Direct,
-	ReturnConv::Value(None),
-	[I32, None, None, None],
-	0,
-	[0; 4],
-	None,
-);
-const EXPORT_RESULT_UNIT_OUTPUT: WireExportOutputType = WireExportOutputType::new(
-	ReturnMode::Indirect,
-	ReturnConv::Result(None),
+const EXPORT_DIRECT_OUTPUT: WireExportOutputType =
+	WireExportOutputType::direct([I32, None, None, None], None);
+const EXPORT_RESULT_UNIT_OUTPUT: WireExportOutputType = WireExportOutputType::indirect(
 	[None, None, I32, I32],
-	16,
-	[0, 0, 0, 8],
+	ReturnConv::Result(None),
+	WireReturnFrame::new(16, [0, 0, 0, 8]),
 	Some(ResultLayout::new(0, 1)),
 );
-const EXPORTS: &[WireExport] = &[
-	WireExport::new_symbol(
-		"exports",
-		"foo",
-		"foo.raw",
-		&[WireExportInput::new("arg0", &EXPORT_I32_INPUT)],
-		Some(WireExportOutput::new(&EXPORT_DIRECT_OUTPUT)),
-	),
-	WireExport::new_closure(
-		"exports",
-		"closure",
-		0x1_0000_000c,
-		&[WireExportInput::new("data", &EXPORT_PTR_INPUT)],
-		Some(WireExportOutput::new(&EXPORT_RESULT_UNIT_OUTPUT)),
-	),
-];
+const EXPORTS: &[WireExport] = &[WireExport::new_symbol(
+	"exports",
+	"foo",
+	"foo.raw",
+	&[WireExportInput::new(&EXPORT_I32_INPUT)],
+	Some(WireExportOutput::new(&EXPORT_DIRECT_OUTPUT)),
+)];
 const EXPORT_WIRE: Wire = Wire::exports_with(PointerWidth::Wasm64, EXPORTS);
 const EXPORT_LEN: usize = wire_blob_len(&EXPORT_WIRE);
 const EXPORT_RECORD: WireRecord<EXPORT_LEN> = WireRecord::new(&EXPORT_WIRE);
+
+const CLOSURE_FACTORY_INPUT_TYPE: WireImportInputType = WireImportInputType::new(
+	[I64, None, None, None],
+	Some(IntoJsConv::new("BigInt.asUintN(64, $slot1)")),
+);
+const CLOSURE_FACTORY_OUTPUT_TYPE: WireImportOutputType = WireImportOutputType::new(
+	ReturnMode::Direct,
+	ReturnConv::Value(None),
+	None,
+	[CONVERTED_I32, None, None, None],
+);
+const CLOSURE_FACTORY: WireClosureFactory = WireClosureFactory::new(
+	"closures.example@1.0.0:module:10:4:mutable",
+	JsEmbed::new("js_sys", "closure.make_mut"),
+	&CLOSURE_FACTORY_INPUT_TYPE,
+	&CLOSURE_FACTORY_OUTPUT_TYPE,
+);
+const CLOSURE_DISPATCHER_DATA_TYPE: WireExportInputType =
+	WireExportInputType::new([I64, None, None, None], None);
+const CLOSURE_INPUTS: &[WireExportInput] = &[
+	WireExportInput::new(&CLOSURE_DISPATCHER_DATA_TYPE),
+	WireExportInput::new(&EXPORT_I32_INPUT),
+];
+const CLOSURE: WireClosure = WireClosure::new(
+	CLOSURE_FACTORY,
+	8,
+	CLOSURE_INPUTS,
+	Some(WireExportOutput::new(&EXPORT_RESULT_UNIT_OUTPUT)),
+);
+const CLOSURE_WIRE: Wire = Wire::closure_with(PointerWidth::Wasm64, CLOSURE);
+const CLOSURE_LEN: usize = wire_blob_len(&CLOSURE_WIRE);
+const CLOSURE_RECORD: WireRecord<CLOSURE_LEN> = WireRecord::new(&CLOSURE_WIRE);
 
 #[test]
 fn imports() {
@@ -190,48 +206,28 @@ fn imports() {
 	};
 	let imports = &group.imports;
 	assert_eq!(imports.len(), 2);
-	assert_eq!(imports[0].module, "js_sys");
-	assert_eq!(imports[0].name, "number.identity");
-	assert_eq!(imports[0].inputs[0].name, "arg0");
+	assert_eq!(
+		(imports[0].module, imports[0].name),
+		("js_sys", "number.identity")
+	);
 	assert_eq!(imports[0].inputs[0].js_conversion, Some("$slot1"));
 	let binding = imports[0].binding.as_ref().unwrap();
-	assert_eq!(binding.direct_expression, Some("globalThis.identity"));
-	assert_eq!(binding.call_expression, "globalThis.identity(arg0)");
 	assert_eq!(
 		binding.embeds,
-		[
-			Embed {
-				module: "js_sys",
-				name: "input.convert",
-			},
-			Embed {
-				module: "js_sys",
-				name: "identity",
-			},
-		]
+		[Embed {
+			module: "js_sys",
+			name: "input.convert",
+		}]
 	);
 	let slot = &imports[0].inputs[0].slots[0];
-	assert_eq!(slot.rust, WatType::I32);
-	assert_eq!(slot.js(), WatType::ExternRef);
+	assert_eq!((slot.rust, slot.js()), (WatType::I32, WatType::ExternRef));
 	let conversion = slot.wat.as_ref().unwrap();
-	assert_eq!(conversion.js, WatType::ExternRef);
-	assert_eq!(conversion.imports.len(), 4);
-	assert_eq!(conversion.imports[0].identifier, "support.function");
 	assert!(matches!(
 		&conversion.imports[0].kind,
 		WatImportKind::Function {
 			parameters,
 			results,
 		} if parameters == &[WatType::I32] && results == &[WatType::ExternRef]
-	));
-	assert!(matches!(
-		&conversion.imports[1].kind,
-		WatImportKind::Table {
-			index_type: WatIndexType::I32,
-			minimum: 2,
-			maximum: None,
-			element: RefType::ExternRef,
-		}
 	));
 	assert!(matches!(
 		&conversion.imports[2].kind,
@@ -260,8 +256,6 @@ fn imports() {
 		]
 	);
 	assert!(imports[1].suspending);
-	assert_eq!(imports[0].shim_kind, ImportShimKind::ClosureFactory);
-	assert_eq!(imports[1].shim_kind, ImportShimKind::Normal);
 	let Some(ImportCatch::Wasm(catch)) = &group.catch else {
 		panic!("expected Wasm catch metadata");
 	};
@@ -273,8 +267,6 @@ fn imports() {
 	);
 	assert_eq!(catch.catch, ") local.set $support.index");
 	let binding = imports[1].binding.as_ref().unwrap();
-	assert_eq!(binding.direct_expression, None);
-	assert_eq!(binding.call_expression, "globalThis.wide()");
 	assert_eq!(
 		binding.embeds,
 		[
@@ -291,32 +283,113 @@ fn imports() {
 	let ImportOutputAbi::Indirect { retptr, .. } = &imports[1].output.as_ref().unwrap().abi else {
 		panic!("expected indirect output");
 	};
-	assert_eq!(retptr.slot.rust, WatType::I32);
-	assert_eq!(retptr.slot.js(), WatType::I32);
 	assert_eq!(retptr.js_conversion, Some("$slot1 >>> 0"));
 }
 
 #[test]
-fn javascript_catch_roundtrip() {
-	const TABLE: WireImportTypeTable = WireImportTypeTable::new(
-		&IMPORT_RETPTR_TYPE,
-		IMPORT_INPUT_TYPES,
-		IMPORT_OUTPUT_TYPES,
-		JS_CATCH,
-	);
-	const IMPORTS: &[WireImport] = &[WireImport::new(
-		"support",
-		"fallible",
-		&[],
-		Some(WireImportOutput::new(1)),
-		Some(WireImportBinding::new(None, "fallible()", &[])),
-		false,
-	)];
+fn import_bindings() {
+	const fn import(name: &'static str, binding: WireImportBinding) -> WireImport {
+		WireImport::new("test", name, &[], None, Some(binding), false)
+	}
+
+	const TARGET: WireGlobalPath = WireGlobalPath::new(Some("namespace"), Some("Object"), "member");
+	const EMBED: JsEmbed = JsEmbed::new("support", "call");
+	const TABLE: WireImportTypeTable =
+		WireImportTypeTable::new(&IMPORT_RETPTR_TYPE, &[], &[], JS_CATCH);
+	const IMPORTS: &[WireImport] = &[
+		import(
+			"call_global",
+			WireImportBinding::CallGlobal {
+				target: TARGET,
+				variadic: true,
+			},
+		),
+		import(
+			"call_method",
+			WireImportBinding::CallMethod {
+				name: "method",
+				variadic: false,
+			},
+		),
+		import("index_get", WireImportBinding::IndexGet),
+		import("call_embed", WireImportBinding::CallEmbed(EMBED)),
+	];
 	const WIRE: Wire = Wire::imports_with(PointerWidth::Wasm32, &TABLE, IMPORTS);
 	const LEN: usize = wire_blob_len(&WIRE);
 	const RECORD: WireRecord<LEN> = WireRecord::new(&WIRE);
 
 	let Record::Imports(group) = decode(RECORD.as_bytes()).unwrap() else {
+		panic!("expected imports");
+	};
+	let kinds: Vec<_> = group
+		.imports
+		.iter()
+		.map(|import| import.binding.as_ref().unwrap().kind)
+		.collect();
+	let target = GlobalPath {
+		namespace: Some("namespace"),
+		object: Some("Object"),
+		name: "member",
+	};
+	assert_eq!(
+		kinds,
+		[
+			ImportBindingKind::CallGlobal {
+				target,
+				variadic: true,
+			},
+			ImportBindingKind::CallMethod {
+				name: "method",
+				variadic: false,
+			},
+			ImportBindingKind::IndexGet,
+			ImportBindingKind::CallEmbed(Embed {
+				module: "support",
+				name: "call",
+			}),
+		]
+	);
+	let embed_binding = group.imports.last().unwrap().binding.as_ref().unwrap();
+	assert_eq!(
+		embed_binding.embeds,
+		[Embed {
+			module: "support",
+			name: "call",
+		}]
+	);
+}
+
+#[test]
+fn javascript_catch() {
+	const RESULT_TABLE: WireImportTypeTable = WireImportTypeTable::new(
+		&IMPORT_RETPTR_TYPE,
+		IMPORT_INPUT_TYPES,
+		IMPORT_OUTPUT_TYPES,
+		JS_CATCH,
+	);
+	const RESULT_IMPORTS: &[WireImport] = &[WireImport::new(
+		"support",
+		"fallible",
+		&[],
+		Some(WireImportOutput::new(1)),
+		Some(WireImportBinding::CallGlobal {
+			target: WireGlobalPath::new(None, None, "fallible"),
+			variadic: false,
+		}),
+		false,
+	)];
+	const RESULT_WIRE: Wire =
+		Wire::imports_with(PointerWidth::Wasm32, &RESULT_TABLE, RESULT_IMPORTS);
+	const RESULT_LEN: usize = wire_blob_len(&RESULT_WIRE);
+	const RESULT_RECORD: WireRecord<RESULT_LEN> = WireRecord::new(&RESULT_WIRE);
+	const PLAIN_OUTPUTS: &[&WireImportOutputType] = &[&IMPORT_OUTPUT_TYPE_DIRECT];
+	const PLAIN_TABLE: WireImportTypeTable =
+		WireImportTypeTable::new(&IMPORT_RETPTR_TYPE, &[], PLAIN_OUTPUTS, JS_CATCH);
+	const PLAIN_WIRE: Wire = Wire::imports_with(PointerWidth::Wasm32, &PLAIN_TABLE, &[]);
+	const PLAIN_LEN: usize = wire_blob_len(&PLAIN_WIRE);
+	const PLAIN_RECORD: WireRecord<PLAIN_LEN> = WireRecord::new(&PLAIN_WIRE);
+
+	let Record::Imports(group) = decode(RESULT_RECORD.as_bytes()).unwrap() else {
 		panic!("expected imports");
 	};
 	let Some(ImportCatch::JavaScript(catch)) = group.catch else {
@@ -335,18 +408,8 @@ fn javascript_catch_roundtrip() {
 		group.imports[0].output.as_ref().unwrap().error,
 		ImportErrorMode::CatchInJavaScript
 	);
-}
 
-#[test]
-fn catch_payload_is_omitted_without_result_types() {
-	const OUTPUT_TYPES: &[&WireImportOutputType] = &[&IMPORT_OUTPUT_TYPE_DIRECT];
-	const TABLE: WireImportTypeTable =
-		WireImportTypeTable::new(&IMPORT_RETPTR_TYPE, &[], OUTPUT_TYPES, JS_CATCH);
-	const WIRE: Wire = Wire::imports_with(PointerWidth::Wasm32, &TABLE, &[]);
-	const LEN: usize = wire_blob_len(&WIRE);
-	const RECORD: WireRecord<LEN> = WireRecord::new(&WIRE);
-
-	let Record::Imports(group) = decode(RECORD.as_bytes()).unwrap() else {
+	let Record::Imports(group) = decode(PLAIN_RECORD.as_bytes()).unwrap() else {
 		panic!("expected imports");
 	};
 	assert!(group.catch.is_none());
@@ -357,37 +420,132 @@ fn exports() {
 	let Record::Exports(exports) = decode(EXPORT_RECORD.as_bytes()).unwrap() else {
 		panic!("expected exports");
 	};
-	assert_eq!(exports.len(), 2);
-	assert_eq!(exports[0].module, "exports");
-	assert_eq!(exports[0].name, "foo");
+	assert_eq!(exports.len(), 1);
+	assert_eq!((exports[0].module, exports[0].name), ("exports", "foo"));
 	assert_eq!(exports[0].pointer_width, PointerWidth::Wasm64);
 	assert_eq!(exports[0].callee, Callee::Symbol { name: "foo.raw" });
-	assert_eq!(exports[0].inputs[0].name, "arg0");
 	assert_eq!(exports[0].inputs[0].kind, ExportInputKind::Value);
 	assert_eq!(exports[0].inputs[0].slots[0].rust, WatType::I32);
-	assert_eq!(exports[0].inputs[0].slots[0].js(), WatType::I32);
 	let Some(ExportOutput::Direct { slot, .. }) = &exports[0].output else {
 		panic!("expected direct output");
 	};
 	assert_eq!(slot.rust, WatType::I32);
-	assert_eq!(slot.js(), WatType::I32);
-	assert!(matches!(
-		exports[1].callee,
-		Callee::Closure {
-			call_shim_offset: 0x1_0000_000c
-		}
-	));
-	let Some(ExportOutput::Indirect { frame, result, .. }) = &exports[1].output else {
-		panic!("expected indirect output");
+}
+
+#[test]
+fn closure() {
+	let Record::Closure(closure) = decode(CLOSURE_RECORD.as_bytes()).unwrap() else {
+		panic!("expected a closure");
 	};
-	assert_eq!(frame.slots.len(), 2);
 	assert_eq!(
-		*result,
-		Some(ResultLayout {
-			discriminant: 0,
-			error: 1
-		})
+		closure.factory.raw_symbol,
+		"closures.example@1.0.0:module:10:4:mutable"
 	);
+	assert_eq!(
+		closure.factory.helper,
+		Embed {
+			module: "js_sys",
+			name: "closure.make_mut",
+		}
+	);
+	assert_eq!(
+		closure.factory.input.js_conversion,
+		Some("BigInt.asUintN(64, $slot1)")
+	);
+	assert!(closure.factory.embeds.is_empty());
+	let ImportOutputAbi::Direct { slot, conversion } = &closure.factory.output.abi else {
+		panic!("expected a direct factory output");
+	};
+	assert!(conversion.is_none());
+	assert_eq!((slot.rust, slot.js()), (WatType::I32, WatType::ExternRef));
+
+	assert_eq!(closure.pointer_width, PointerWidth::Wasm64);
+	assert_eq!(
+		closure
+			.inputs
+			.iter()
+			.map(|input| input.kind)
+			.collect::<Vec<_>>(),
+		[ExportInputKind::ClosureData, ExportInputKind::Value]
+	);
+	assert_eq!(closure.call_shim_offset, 8);
+	let Some(ExportOutput::Indirect { frame, result, .. }) = &closure.output else {
+		panic!("expected an indirect dispatcher output");
+	};
+	assert_eq!(frame.size, 16);
+	assert_eq!(
+		frame
+			.slots
+			.iter()
+			.map(|slot| slot.offset)
+			.collect::<Vec<_>>(),
+		[0, 8]
+	);
+	assert_eq!(*result, Some(ResultLayout::new(0, 1)));
+}
+
+#[test]
+fn closure_identity() {
+	const OTHER_ORIGIN: WireClosureFactory = WireClosureFactory::new(
+		"another.call.site",
+		JsEmbed::new("js_sys", "closure.make_mut"),
+		&CLOSURE_FACTORY_INPUT_TYPE,
+		&CLOSURE_FACTORY_OUTPUT_TYPE,
+	);
+	const OTHER_ORIGIN_CLOSURE: WireClosure = WireClosure::new(
+		OTHER_ORIGIN,
+		8,
+		CLOSURE_INPUTS,
+		Some(WireExportOutput::new(&EXPORT_RESULT_UNIT_OUTPUT)),
+	);
+	const OTHER_ORIGIN_WIRE: Wire = Wire::closure_with(PointerWidth::Wasm64, OTHER_ORIGIN_CLOSURE);
+	const OTHER_ORIGIN_LEN: usize = wire_blob_len(&OTHER_ORIGIN_WIRE);
+	const OTHER_ORIGIN_RECORD: WireRecord<OTHER_ORIGIN_LEN> = WireRecord::new(&OTHER_ORIGIN_WIRE);
+
+	const OTHER_HELPER: WireClosureFactory = WireClosureFactory::new(
+		"another.call.site",
+		JsEmbed::new("js_sys", "closure.make_once"),
+		&CLOSURE_FACTORY_INPUT_TYPE,
+		&CLOSURE_FACTORY_OUTPUT_TYPE,
+	);
+	const OTHER_HELPER_CLOSURE: WireClosure = WireClosure::new(
+		OTHER_HELPER,
+		8,
+		CLOSURE_INPUTS,
+		Some(WireExportOutput::new(&EXPORT_RESULT_UNIT_OUTPUT)),
+	);
+	const OTHER_HELPER_WIRE: Wire = Wire::closure_with(PointerWidth::Wasm64, OTHER_HELPER_CLOSURE);
+	const OTHER_HELPER_LEN: usize = wire_blob_len(&OTHER_HELPER_WIRE);
+	const OTHER_HELPER_RECORD: WireRecord<OTHER_HELPER_LEN> = WireRecord::new(&OTHER_HELPER_WIRE);
+
+	const OTHER_CALL: WireClosure = WireClosure::new(
+		CLOSURE_FACTORY,
+		16,
+		CLOSURE_INPUTS,
+		Some(WireExportOutput::new(&EXPORT_RESULT_UNIT_OUTPUT)),
+	);
+	const OTHER_CALL_WIRE: Wire = Wire::closure_with(PointerWidth::Wasm64, OTHER_CALL);
+	const OTHER_CALL_LEN: usize = wire_blob_len(&OTHER_CALL_WIRE);
+	const OTHER_CALL_RECORD: WireRecord<OTHER_CALL_LEN> = WireRecord::new(&OTHER_CALL_WIRE);
+
+	let Record::Closure(original) = decode(CLOSURE_RECORD.as_bytes()).unwrap() else {
+		panic!("expected a closure");
+	};
+	let Record::Closure(other_origin) = decode(OTHER_ORIGIN_RECORD.as_bytes()).unwrap() else {
+		panic!("expected a closure");
+	};
+	let Record::Closure(other_helper) = decode(OTHER_HELPER_RECORD.as_bytes()).unwrap() else {
+		panic!("expected a closure");
+	};
+	let Record::Closure(other_call) = decode(OTHER_CALL_RECORD.as_bytes()).unwrap() else {
+		panic!("expected a closure");
+	};
+
+	assert_eq!(original.call_identity, other_origin.call_identity);
+	assert_ne!(original.factory.raw_symbol, other_origin.factory.raw_symbol);
+	assert_ne!(original.factory.helper, other_helper.factory.helper);
+	assert_eq!(original.call_identity, other_helper.call_identity);
+	assert_ne!(original.call_identity, other_call.call_identity);
 }
 
 #[test]
@@ -406,6 +564,8 @@ fn invalid_records() {
 		&ErrorKind::UnknownRecordKind(0xff)
 	);
 
+	// Eight bytes is a valid pointer width, but it conflicts with this record's
+	// 32-bit return pointer.
 	let mut pointer_width = IMPORT_RECORD.as_bytes().to_vec();
 	pointer_width[10] = 8;
 	assert!(matches!(

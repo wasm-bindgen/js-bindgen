@@ -168,7 +168,6 @@ pub(crate) fn lower_abi<'a>(
 	for (index, ty) in inputs.into_iter().enumerate() {
 		let span = ty.span();
 		let argument = format_ident!("arg{index}", span = Span::mixed_site());
-		let parameter = LitStr::new(&argument.to_string(), span);
 		let reference = match ty {
 			Type::Reference(reference) if reference.mutability.is_some() => {
 				return Err(Error::new_spanned(
@@ -215,7 +214,7 @@ pub(crate) fn lower_abi<'a>(
 		}
 
 		wire_inputs.push(quote_spanned! {span=>
-			#js_sys::wire::wire_export_input::<#js_ty>(#parameter)
+			#js_sys::wire::wire_export_input::<#js_ty>()
 		});
 		arguments.push(argument);
 	}

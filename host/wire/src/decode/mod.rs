@@ -1,14 +1,16 @@
 //! Allocation-backed decoding of wire records.
 
+mod closure;
 mod export;
 mod import;
 mod value;
 
+use alloc::boxed::Box;
 use core::mem::size_of;
 use core::{fmt, str};
 
 use crate::model::Record;
-use crate::{KIND_EXPORT, KIND_IMPORT, MAGIC, PointerWidth, VERSION};
+use crate::{KIND_CLOSURE, KIND_EXPORT, KIND_IMPORT, MAGIC, PointerWidth, VERSION};
 
 /// A type that can be decoded from a wire record.
 pub(crate) trait Decode<'de>: Sized {
@@ -98,6 +100,9 @@ impl<'de> Decode<'de> for Record<'de> {
 		match decoder.u8()? {
 			KIND_IMPORT => import::decode(decoder, pointer_width).map(Self::Imports),
 			KIND_EXPORT => export::decode(decoder, pointer_width).map(Self::Exports),
+			KIND_CLOSURE => closure::decode(decoder, pointer_width)
+				.map(Box::new)
+				.map(Self::Closure),
 			kind => Err(Error::new(kind_offset, ErrorKind::UnknownRecordKind(kind))),
 		}
 	}
@@ -118,6 +123,13 @@ impl<'de> Decoder<'de> {
 	#[must_use]
 	pub(crate) const fn position(&self) -> usize {
 		self.position
+	}
+
+	/// Returns the already-validated record bytes consumed since `start`.
+	pub(crate) fn raw_from(&self, start: usize) -> Result<&'de [u8], Error> {
+		self.bytes
+			.get(start..self.position)
+			.ok_or_else(|| Error::new(start, ErrorKind::InvalidValue("invalid decoder byte range")))
 	}
 
 	pub(crate) fn u8(&mut self) -> Result<u8, Error> {

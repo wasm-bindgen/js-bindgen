@@ -4,26 +4,30 @@ use alloc::vec::Vec;
 use super::{Decode, Decoder, value};
 use crate::abi::WatType;
 use crate::model::{
-	DirectImportConversion, Embed, Import, ImportBinding, ImportCatch, ImportErrorMode,
-	ImportGroup, ImportInput, ImportOutput, ImportOutputAbi, ImportRetptr, ImportWriter, JsCatch,
-	Slot, WatCatch,
+	DirectImportConversion, Embed, GlobalPath, Import, ImportBinding, ImportBindingKind,
+	ImportCatch, ImportErrorMode, ImportGroup, ImportInput, ImportOutput, ImportOutputAbi,
+	ImportRetptr, ImportWriter, JsCatch, Slot, WatCatch,
 };
 use crate::{
-	Error, IMPORT_CATCH_JAVASCRIPT, IMPORT_CATCH_WASM, IMPORT_CLOSURE_FACTORY, IMPORT_FLAGS,
-	IMPORT_HAS_BINDING, IMPORT_HAS_OUTPUT, IMPORT_OUTPUT_DIRECT, IMPORT_OUTPUT_FLAGS,
-	IMPORT_OUTPUT_RESULT, IMPORT_SUSPENDING, ImportShimKind, PointerWidth,
+	Error, IMPORT_BINDING_CALL_EMBED, IMPORT_BINDING_CALL_GLOBAL, IMPORT_BINDING_CALL_METHOD,
+	IMPORT_BINDING_CONSTRUCT, IMPORT_BINDING_GET_GLOBAL, IMPORT_BINDING_GET_MEMBER,
+	IMPORT_BINDING_INDEX_DELETE, IMPORT_BINDING_INDEX_GET, IMPORT_BINDING_INDEX_SET,
+	IMPORT_BINDING_MAX, IMPORT_BINDING_SET_GLOBAL, IMPORT_BINDING_SET_MEMBER,
+	IMPORT_CATCH_JAVASCRIPT, IMPORT_CATCH_WASM, IMPORT_FLAGS, IMPORT_HAS_BINDING,
+	IMPORT_HAS_OUTPUT, IMPORT_OUTPUT_DIRECT, IMPORT_OUTPUT_FLAGS, IMPORT_OUTPUT_RESULT,
+	IMPORT_SUSPENDING, PointerWidth,
 };
 
-struct InputType<'a> {
-	slots: Vec<Slot<'a>>,
+pub(super) struct InputType<'a> {
+	pub(super) slots: Vec<Slot<'a>>,
 	js_conversion: Option<&'a str>,
-	embed: Option<Embed<'a>>,
+	pub(super) embed: Option<Embed<'a>>,
 }
 
-struct OutputType<'a> {
-	abi: ImportOutputAbi<'a>,
-	embeds: [Option<Embed<'a>>; 2],
-	result: bool,
+pub(super) struct OutputType<'a> {
+	pub(super) abi: ImportOutputAbi<'a>,
+	pub(super) embeds: [Option<Embed<'a>>; 2],
+	pub(super) result: bool,
 }
 
 pub(super) fn decode<'a>(
@@ -52,7 +56,7 @@ pub(super) fn decode<'a>(
 		let Some(pointer) = pointer_type.as_ref() else {
 			return decoder.invalid("a non-empty output table has no pointer type");
 		};
-		output_types.push(OutputType::decode_with(decoder, pointer)?);
+		output_types.push(OutputType::decode_with(decoder, Some(pointer))?);
 	}
 	let catch = if output_types.iter().any(|output| output.result) {
 		Some(decode_catch(decoder)?)
@@ -137,7 +141,10 @@ impl<'a> Decode<'a> for InputType<'a> {
 }
 
 impl<'a> OutputType<'a> {
-	fn decode_with(decoder: &mut Decoder<'a>, pointer: &InputType<'a>) -> Result<Self, Error> {
+	pub(super) fn decode_with(
+		decoder: &mut Decoder<'a>,
+		pointer: Option<&InputType<'a>>,
+	) -> Result<Self, Error> {
 		let flags = decoder.flags("import output", IMPORT_OUTPUT_FLAGS)?;
 
 		let direct = flags & IMPORT_OUTPUT_DIRECT != 0;
@@ -178,10 +185,6 @@ impl<'a> OutputType<'a> {
 			has_conversion || sret.is_none(),
 			"import output has a writer without a JavaScript conversion",
 		)?;
-		decoder.ensure(
-			pointer.slots.len() == 1,
-			"import return pointer must have one slot",
-		)?;
 		let abi = if direct {
 			let slots = value::compact(&slots);
 			decoder.ensure(slots.len() == 1, "direct import output must have one slot")?;
@@ -211,6 +214,13 @@ impl<'a> OutputType<'a> {
 				},
 			}
 		} else {
+			let Some(pointer) = pointer else {
+				return decoder.invalid("indirect import output has no return pointer type");
+			};
+			decoder.ensure(
+				pointer.slots.len() == 1,
+				"import return pointer must have one slot",
+			)?;
 			decoder.ensure(
 				templates[0].is_some(),
 				"indirect import output has no conversion",
@@ -227,7 +237,11 @@ impl<'a> OutputType<'a> {
 			}
 		};
 
-		let pointer_embed = if direct { None } else { pointer.embed };
+		let pointer_embed = if direct {
+			None
+		} else {
+			pointer.and_then(|pointer| pointer.embed)
+		};
 		Ok(Self {
 			abi,
 			embeds: [pointer_embed, embed],
@@ -246,21 +260,14 @@ impl<'a> Import<'a> {
 		let module = decoder.string()?;
 		let name = decoder.string()?;
 		let flags = decoder.flags("import", IMPORT_FLAGS)?;
-		let shim_kind = if flags & IMPORT_CLOSURE_FACTORY == 0 {
-			ImportShimKind::Normal
-		} else {
-			ImportShimKind::ClosureFactory
-		};
-
 		let input_count = decoder.count("import input")?;
 		let mut inputs = Vec::with_capacity(input_count);
 		let mut conversion_embeds = Vec::new();
 		for _ in 0..input_count {
-			let name = decoder.string()?;
 			let index = decoder.u32()?;
 			let ty = value::table_entry(decoder, input_types, index, "import input type")?;
 			conversion_embeds.extend(ty.embed);
-			inputs.push(ImportInput::from_type(name, ty));
+			inputs.push(ImportInput::from_type(ty));
 		}
 
 		let output = if flags & IMPORT_HAS_OUTPUT != 0 {
@@ -319,7 +326,6 @@ impl<'a> Import<'a> {
 		Ok(Self {
 			module,
 			name,
-			shim_kind,
 			inputs,
 			output,
 			binding,
@@ -329,9 +335,8 @@ impl<'a> Import<'a> {
 }
 
 impl<'a> ImportInput<'a> {
-	fn from_type(name: &'a str, ty: &InputType<'a>) -> Self {
+	pub(super) fn from_type(ty: &InputType<'a>) -> Self {
 		Self {
-			name,
 			slots: ty.slots.clone(),
 			js_conversion: ty.js_conversion,
 		}
@@ -340,20 +345,52 @@ impl<'a> ImportInput<'a> {
 
 impl<'a> Decode<'a> for ImportBinding<'a> {
 	fn decode(decoder: &mut Decoder<'a>) -> Result<Self, Error> {
-		let direct_expression = decoder.optional_string()?;
-		let call_expression = decoder.string()?;
-		let embed_count = decoder.count("import embed")?;
-		let mut embeds = Vec::with_capacity(embed_count);
-		for _ in 0..embed_count {
-			embeds.push(Embed {
+		let kind = ImportBindingKind::decode(decoder)?;
+		let mut embeds = Vec::new();
+		if let ImportBindingKind::CallEmbed(embed) = kind {
+			embeds.push(embed);
+		}
+		Ok(Self { kind, embeds })
+	}
+}
+
+impl<'a> Decode<'a> for GlobalPath<'a> {
+	fn decode(decoder: &mut Decoder<'a>) -> Result<Self, Error> {
+		Ok(Self {
+			namespace: decoder.optional_string()?,
+			object: decoder.optional_string()?,
+			name: decoder.string()?,
+		})
+	}
+}
+
+impl<'a> Decode<'a> for ImportBindingKind<'a> {
+	fn decode(decoder: &mut Decoder<'a>) -> Result<Self, Error> {
+		Ok(match decoder.tag("import binding", IMPORT_BINDING_MAX)? {
+			IMPORT_BINDING_CALL_GLOBAL => Self::CallGlobal {
+				target: GlobalPath::decode(decoder)?,
+				variadic: decoder.boolean("variadic global call")?,
+			},
+			IMPORT_BINDING_CALL_METHOD => Self::CallMethod {
+				name: decoder.string()?,
+				variadic: decoder.boolean("variadic method call")?,
+			},
+			IMPORT_BINDING_CONSTRUCT => Self::Construct {
+				target: GlobalPath::decode(decoder)?,
+				variadic: decoder.boolean("variadic constructor call")?,
+			},
+			IMPORT_BINDING_GET_GLOBAL => Self::GetGlobal(GlobalPath::decode(decoder)?),
+			IMPORT_BINDING_GET_MEMBER => Self::GetMember(decoder.string()?),
+			IMPORT_BINDING_SET_GLOBAL => Self::SetGlobal(GlobalPath::decode(decoder)?),
+			IMPORT_BINDING_SET_MEMBER => Self::SetMember(decoder.string()?),
+			IMPORT_BINDING_INDEX_GET => Self::IndexGet,
+			IMPORT_BINDING_INDEX_SET => Self::IndexSet,
+			IMPORT_BINDING_INDEX_DELETE => Self::IndexDelete,
+			IMPORT_BINDING_CALL_EMBED => Self::CallEmbed(Embed {
 				module: decoder.string()?,
 				name: decoder.string()?,
-			});
-		}
-		Ok(Self {
-			direct_expression,
-			call_expression,
-			embeds,
+			}),
+			_ => unreachable!(),
 		})
 	}
 }

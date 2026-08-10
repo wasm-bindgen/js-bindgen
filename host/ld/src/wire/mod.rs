@@ -1,5 +1,6 @@
 //! Rendering of decoded `js-sys` wire records.
 
+mod closure;
 mod export;
 mod import;
 mod js;
@@ -23,27 +24,38 @@ pub(crate) struct RenderedGroup<'a> {
 	pub(crate) wat: Option<String>,
 }
 
-/// One Rust export with its JavaScript binding and Wasm boundary shim.
-pub(crate) enum RenderedExport<'a> {
-	Symbol {
-		binding: JsBinding<'a>,
-		shim: String,
-	},
-	Closure {
-		binding: JsBinding<'a>,
-		shim: String,
-	},
+/// One generated closure binding and its matching Wasm shim.
+pub(crate) struct RenderedClosureShim<'a> {
+	pub(crate) name: String,
+	pub(crate) js: String,
+	pub(crate) embeds: Vec<Embed<'a>>,
+	pub(crate) wat: String,
 }
 
-/// Whether a rendered group describes imports or exports.
+impl<'a> RenderedClosureShim<'a> {
+	fn new(name: &str, js: String, mut embeds: Vec<Embed<'a>>, wat: String) -> Self {
+		embeds.sort_unstable_by_key(|embed| (embed.module, embed.name));
+		embeds.dedup_by_key(|embed| (embed.module, embed.name));
+		Self {
+			name: name.to_owned(),
+			js,
+			embeds,
+			wat,
+		}
+	}
+}
+
+/// One rendered wire record.
 pub(crate) enum RenderedRecord<'a> {
 	Imports(RenderedGroup<'a>),
-	Exports(Vec<RenderedExport<'a>>),
+	Exports(RenderedGroup<'a>),
+	Closure(closure::RenderedClosure<'a>),
 }
 
 pub(crate) fn decode_and_render(bytes: &[u8]) -> Result<RenderedRecord<'_>, Error> {
 	Ok(match decode(bytes)? {
 		Record::Imports(group) => RenderedRecord::Imports(import::render(&group)),
 		Record::Exports(exports) => RenderedRecord::Exports(export::render(&exports)),
+		Record::Closure(item) => RenderedRecord::Closure(closure::render(&item)),
 	})
 }
