@@ -425,9 +425,7 @@ unsafe impl FromJS for String {
 			.prepare("this.#jsEmbed.js_sys['string.from_js'].slots($value)")
 			.with_embed("js_sys", "string.from_js"),
 	);
-	const JS_SRET: Option<Sret> = Some(Sret::Value(
-		"this.#jsEmbed.js_sys['string.from_js'].sret",
-	));
+	const JS_SRET: Option<Sret> = Some(Sret::Value("this.#jsEmbed.js_sys['string.from_js'].sret"));
 
 	type Abi = StringAbi;
 

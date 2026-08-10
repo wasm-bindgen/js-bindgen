@@ -16,17 +16,19 @@ mod decode;
 #[cfg(feature = "alloc")]
 pub mod model;
 
+#[cfg(feature = "alloc")]
+pub use decode::{Error, ErrorKind, WireRecords, decode};
 pub use encode::{WireBlob, WireRecord, wire_blob_len};
 pub use schema::*;
-
-#[cfg(feature = "alloc")]
-pub use decode::{Error, ErrorKind, decode};
 
 /// Identifies a wire record independently of its payload kind.
 pub const MAGIC: [u8; 8] = *b"JBGWIRE\0";
 
 /// The single protocol version used by imports and exports.
 pub const VERSION: u16 = 1;
+
+/// Custom section containing length-prefixed wire records.
+pub const WIRE_SECTION: &str = "js_bindgen.wire";
 
 #[cfg(feature = "alloc")]
 pub(crate) const SLOT_COUNT: usize = 4;

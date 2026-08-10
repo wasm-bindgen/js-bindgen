@@ -3,7 +3,7 @@ use core::pin::Pin;
 use core::task::{Context, Poll};
 
 use super::iterator::{CapturedNext, async_iterator_next_cached, read_result};
-use crate::builtins::iterator::async_iterator_from;
+use crate::builtins::async_iterator_from;
 use crate::hazard::JsCast;
 use crate::runtime::JsFuture;
 use crate::{AsyncIterator, IteratorResult, JsValue};

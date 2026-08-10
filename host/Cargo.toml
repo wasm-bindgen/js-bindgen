@@ -57,7 +57,7 @@ itertools = { version = "0.15", default-features = false }
 js-bindgen-cli-lib = { path = "cli-lib" }
 js-bindgen-ld-shared = { path = "ld-shared" }
 js-bindgen-shared = { path = "shared" }
-js-bindgen-wire = { version = "0.1.0", path = "wire" }
+js-bindgen-wire = { path = "wire" }
 js-sys-bindgen = { path = "js-sys-bindgen" }
 memmap2 = "0.9"
 mime = "0.3"
@@ -87,7 +87,7 @@ wasm-encoder = { version = "0.253", default-features = false, features = ["wasmp
 wasmparser = { version = "0.253", default-features = false }
 weedle2 = "5"
 windows-sys = "0.61"
-xxhash-rust = { version = "0.8", features = ["xxh3"] }
+xxhash-rust = { version = "0.8", default-features = false, features = ["xxh3"] }
 
 [workspace.lints.clippy]
 alloc_instead_of_core = "warn"

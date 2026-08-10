@@ -2,12 +2,9 @@
 
 use core::mem::size_of;
 
-use crate::{
-	EXPORT_HAS_OUTPUT, EXPORT_PROMISING,
-	abi::{
-		FromJsConv, IntoJsConv, JsCatch, JsEmbed, ResultLayout, ReturnConv, ReturnMode, Sret,
-		WatCatch, WatSlot, WatType,
-	},
+use crate::abi::{
+	FromJsConv, IntoJsConv, JsCatch, JsEmbed, ResultLayout, ReturnConv, ReturnMode, Sret, WatCatch,
+	WatSlot, WatType,
 };
 
 /// The target's native pointer width.
@@ -93,7 +90,8 @@ impl WireImportOutputType {
 pub enum WireImportCatch {
 	/// JavaScript wraps the call in `try`/`catch` and records the exception.
 	JavaScript(JsCatch),
-	/// Wasm exception handling catches and records the exception in the `ABI` shim.
+	/// Wasm exception handling catches and records the exception in the `ABI`
+	/// shim.
 	Wasm(WatCatch),
 }
 
@@ -187,7 +185,7 @@ impl WireImportOutput {
 
 /// The role of one generated `Wasm` adapter.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum WireImportKind {
+pub enum ImportShimKind {
 	Normal,
 	ClosureFactory,
 }
@@ -197,7 +195,7 @@ pub enum WireImportKind {
 pub struct WireImport {
 	pub(crate) module: &'static str,
 	pub(crate) name: &'static str,
-	pub(crate) kind: WireImportKind,
+	pub(crate) shim_kind: ImportShimKind,
 	pub(crate) inputs: &'static [WireImportInput],
 	pub(crate) output: Option<WireImportOutput>,
 	pub(crate) binding: Option<WireImportBinding>,
@@ -218,7 +216,7 @@ impl WireImport {
 		Self {
 			module,
 			name,
-			kind: WireImportKind::Normal,
+			shim_kind: ImportShimKind::Normal,
 			inputs,
 			output,
 			binding,
@@ -236,7 +234,7 @@ impl WireImport {
 		suspending: bool,
 	) -> Self {
 		let mut import = Self::new(module, name, inputs, output, binding, suspending);
-		import.kind = WireImportKind::ClosureFactory;
+		import.shim_kind = ImportShimKind::ClosureFactory;
 		import
 	}
 }
@@ -342,7 +340,7 @@ pub struct WireExport {
 	pub(crate) inputs: &'static [WireExportInput],
 	pub(crate) output: Option<WireExportOutput>,
 	pub(crate) callee: WireExportCallee,
-	pub(crate) flags: u8,
+	pub(crate) promising: bool,
 }
 
 impl WireExport {
@@ -361,7 +359,7 @@ impl WireExport {
 			inputs,
 			output,
 			callee,
-			flags: flag(promising, EXPORT_PROMISING) | flag(output.is_some(), EXPORT_HAS_OUTPUT),
+			promising,
 		}
 	}
 
@@ -505,8 +503,4 @@ const fn validate_imports(table: &WireImportTypeTable, imports: &[WireImport]) {
 		}
 		index += 1;
 	}
-}
-
-const fn flag(enabled: bool, value: u8) -> u8 {
-	if enabled { value } else { 0 }
 }

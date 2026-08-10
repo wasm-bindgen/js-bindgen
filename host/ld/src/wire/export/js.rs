@@ -1,7 +1,7 @@
 use js_bindgen_wire::model::{Export, ExportInput, ExportOutput};
 
 use crate::wire::JsBinding;
-use crate::wire::js::{Placeholder, render_template};
+use crate::wire::js::{Placeholder, quote_string, render_template};
 
 /// Renders one decoded Rust export or closure dispatcher.
 pub(super) fn render<'a>(export: &Export<'a>) -> JsBinding<'a> {
@@ -14,7 +14,7 @@ pub(super) fn render<'a>(export: &Export<'a>) -> JsBinding<'a> {
 }
 
 fn render_export(export: &Export<'_>) -> String {
-	let function = format!("wasmExports['{}']", export.name);
+	let function = format!("wasmExports[{}]", quote_string(export.name));
 	let callable = if export.promising {
 		format!("WebAssembly.promising({function})")
 	} else {
@@ -73,11 +73,13 @@ fn render_promising(
 
 	if prepares.is_empty() {
 		format!(
-			"(() => {{\n    const $promising = {callable}\n    return ({parameters}) => $promising({arguments}){then}\n}})()"
+			"(() => {{\n    const $promising = {callable}\n    return ({parameters}) => \
+			 $promising({arguments}){then}\n}})()"
 		)
 	} else {
 		format!(
-			"(() => {{\n    const $promising = {callable}\n    return ({parameters}) => {{\n{prepares}        return $promising({arguments}){then}\n    }}\n}})()"
+			"(() => {{\n    const $promising = {callable}\n    return ({parameters}) => \
+			 {{\n{prepares}        return $promising({arguments}){then}\n    }}\n}})()"
 		)
 	}
 }
@@ -191,4 +193,32 @@ fn render_output_slot(output: &ExportOutput<'_>, slot: usize) -> String {
 
 fn render_ret(index: usize) -> String {
 	format!("ret[{index}]")
+}
+
+#[cfg(test)]
+mod tests {
+	use js_bindgen_wire::PointerWidth;
+	use js_bindgen_wire::model::{Callee, Export};
+
+	use super::render_export;
+
+	#[test]
+	fn quotes_export_names() {
+		const NAME: &str = "single' double\" slash\\ line\n雪";
+		let export = Export {
+			module: "test",
+			name: NAME,
+			pointer_width: PointerWidth::Wasm32,
+			inputs: Vec::new(),
+			output: None,
+			embeds: Vec::new(),
+			promising: false,
+			callee: Callee::Symbol { name: "test" },
+		};
+
+		assert_eq!(
+			render_export(&export),
+			"wasmExports[\"single' double\\\" slash\\\\ line\\n雪\"]",
+		);
+	}
 }

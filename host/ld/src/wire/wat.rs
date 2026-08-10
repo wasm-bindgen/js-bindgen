@@ -6,6 +6,25 @@ use std::fmt::Write;
 use js_bindgen_wire::abi::WatType;
 use js_bindgen_wire::model::{WatImport, WatImportKind, WatLocal};
 
+/// Quotes a WAT string as UTF-8 bytes.
+///
+/// Byte escapes keep arbitrary Unicode and control characters independent of
+/// how the WAT source text is parsed.
+pub(super) fn quote_string(value: &str) -> String {
+	let mut output = String::with_capacity(value.len() + 2);
+	output.push('"');
+	for &byte in value.as_bytes() {
+		match byte {
+			b'"' => output.push_str("\\\""),
+			b'\\' => output.push_str("\\\\"),
+			0x20..=0x7e => output.push(char::from(byte)),
+			byte => write!(output, "\\{byte:02x}").expect("writing to a String cannot fail"),
+		}
+	}
+	output.push('"');
+	output
+}
+
 #[derive(Default)]
 pub(super) struct WatImports {
 	indices: HashMap<String, usize>,
@@ -87,8 +106,13 @@ pub(super) fn write_conversion(wat: &mut String, conversion: &str) {
 }
 
 fn write_import(wat: &mut String, import: &WatImport<'_>) {
-	write!(wat, "(import \"{}\" \"{}\" (", import.module, import.name)
-		.expect("writing to a String cannot fail");
+	write!(
+		wat,
+		"(import {} {} (",
+		quote_string(import.module),
+		quote_string(import.name),
+	)
+	.expect("writing to a String cannot fail");
 
 	match &import.kind {
 		WatImportKind::Function {
@@ -127,7 +151,8 @@ fn write_import(wat: &mut String, import: &WatImport<'_>) {
 
 fn write_symbol(wat: &mut String, name: Option<&str>) {
 	if let Some(name) = name {
-		write!(wat, "(@sym (name \"{name}\"))").expect("writing to a String cannot fail");
+		write!(wat, "(@sym (name {}))", quote_string(name))
+			.expect("writing to a String cannot fail");
 	} else {
 		wat.push_str("(@sym)");
 	}
@@ -147,5 +172,18 @@ fn write_types(wat: &mut String, kind: &str, types: &[WatType]) {
 fn write_separator(wat: &mut String) {
 	if !wat.is_empty() {
 		wat.push('\n');
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::quote_string;
+
+	#[test]
+	fn quotes_wat_strings_as_bytes() {
+		assert_eq!(
+			quote_string("single' double\" slash\\ line\n雪"),
+			"\"single' double\\\" slash\\\\ line\\0a\\e9\\9b\\aa\"",
+		);
 	}
 }

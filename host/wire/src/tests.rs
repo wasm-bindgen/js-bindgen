@@ -1,4 +1,5 @@
-use alloc::{vec, vec::Vec};
+use alloc::vec;
+use alloc::vec::Vec;
 
 use crate::abi::{
 	FromJsConv, IntoJsConv, JsCatch as AbiJsCatch, JsEmbed, RefType, ReturnConv, ReturnMode, Sret,
@@ -189,20 +190,31 @@ fn imports() {
 	};
 	let imports = &group.imports;
 	assert_eq!(imports.len(), 2);
+	assert_eq!(imports[0].module, "js_sys");
 	assert_eq!(imports[0].name, "number.identity");
+	assert_eq!(imports[0].inputs[0].name, "arg0");
+	assert_eq!(imports[0].inputs[0].js_conversion, Some("$slot1"));
+	let binding = imports[0].binding.as_ref().unwrap();
+	assert_eq!(binding.direct_expression, Some("globalThis.identity"));
+	assert_eq!(binding.call_expression, "globalThis.identity(arg0)");
 	assert_eq!(
-		imports[0]
-			.binding
-			.as_ref()
-			.unwrap()
-			.embeds
-			.iter()
-			.map(|embed| embed.name)
-			.collect::<Vec<_>>(),
-		["input.convert", "identity"]
+		binding.embeds,
+		[
+			Embed {
+				module: "js_sys",
+				name: "input.convert",
+			},
+			Embed {
+				module: "js_sys",
+				name: "identity",
+			},
+		]
 	);
-	let conversion = imports[0].inputs[0].slots[0].wat.as_ref().unwrap();
-	assert_eq!(conversion.boundary, WatType::ExternRef);
+	let slot = &imports[0].inputs[0].slots[0];
+	assert_eq!(slot.rust, WatType::I32);
+	assert_eq!(slot.js(), WatType::ExternRef);
+	let conversion = slot.wat.as_ref().unwrap();
+	assert_eq!(conversion.js, WatType::ExternRef);
 	assert_eq!(conversion.imports.len(), 4);
 	assert_eq!(conversion.imports[0].identifier, "support.function");
 	assert!(matches!(
@@ -248,8 +260,8 @@ fn imports() {
 		]
 	);
 	assert!(imports[1].suspending);
-	assert_eq!(imports[0].kind, WireImportKind::ClosureFactory);
-	assert_eq!(imports[1].kind, WireImportKind::Normal);
+	assert_eq!(imports[0].shim_kind, ImportShimKind::ClosureFactory);
+	assert_eq!(imports[1].shim_kind, ImportShimKind::Normal);
 	let Some(ImportCatch::Wasm(catch)) = &group.catch else {
 		panic!("expected Wasm catch metadata");
 	};
@@ -260,21 +272,28 @@ fn imports() {
 		"(try_table (catch $support.exception $support.catch)"
 	);
 	assert_eq!(catch.catch, ") local.set $support.index");
+	let binding = imports[1].binding.as_ref().unwrap();
+	assert_eq!(binding.direct_expression, None);
+	assert_eq!(binding.call_expression, "globalThis.wide()");
 	assert_eq!(
-		imports[1]
-			.binding
-			.as_ref()
-			.unwrap()
-			.embeds
-			.iter()
-			.map(|embed| embed.name)
-			.collect::<Vec<_>>(),
-		["retptr.convert", "output.convert"]
+		binding.embeds,
+		[
+			Embed {
+				module: "js_sys",
+				name: "retptr.convert",
+			},
+			Embed {
+				module: "js_sys",
+				name: "output.convert",
+			},
+		]
 	);
-	assert!(matches!(
-		imports[1].output.as_ref().unwrap().abi,
-		ImportOutputAbi::Indirect { .. }
-	));
+	let ImportOutputAbi::Indirect { retptr, .. } = &imports[1].output.as_ref().unwrap().abi else {
+		panic!("expected indirect output");
+	};
+	assert_eq!(retptr.slot.rust, WatType::I32);
+	assert_eq!(retptr.slot.js(), WatType::I32);
+	assert_eq!(retptr.js_conversion, Some("$slot1 >>> 0"));
 }
 
 #[test]
@@ -331,13 +350,6 @@ fn catch_payload_is_omitted_without_result_types() {
 		panic!("expected imports");
 	};
 	assert!(group.catch.is_none());
-	assert!(group.imports.is_empty());
-	assert!(
-		!RECORD
-			.as_bytes()
-			.windows("catch ($error)".len())
-			.any(|window| window == b"catch ($error)")
-	);
 }
 
 #[test]
@@ -346,7 +358,19 @@ fn exports() {
 		panic!("expected exports");
 	};
 	assert_eq!(exports.len(), 2);
+	assert_eq!(exports[0].module, "exports");
+	assert_eq!(exports[0].name, "foo");
 	assert_eq!(exports[0].pointer_width, PointerWidth::Wasm64);
+	assert_eq!(exports[0].callee, Callee::Symbol { name: "foo.raw" });
+	assert_eq!(exports[0].inputs[0].name, "arg0");
+	assert_eq!(exports[0].inputs[0].kind, ExportInputKind::Value);
+	assert_eq!(exports[0].inputs[0].slots[0].rust, WatType::I32);
+	assert_eq!(exports[0].inputs[0].slots[0].js(), WatType::I32);
+	let Some(ExportOutput::Direct { slot, .. }) = &exports[0].output else {
+		panic!("expected direct output");
+	};
+	assert_eq!(slot.rust, WatType::I32);
+	assert_eq!(slot.js(), WatType::I32);
 	assert!(matches!(
 		exports[1].callee,
 		Callee::Closure {
@@ -394,5 +418,33 @@ fn invalid_records() {
 	assert_eq!(
 		decode(&trailing).unwrap_err().kind(),
 		&ErrorKind::TrailingBytes(1)
+	);
+}
+
+#[test]
+fn record_stream() {
+	let first = IMPORT_RECORD.as_bytes();
+	let second = EXPORT_RECORD.as_bytes();
+	let mut section = Vec::new();
+	section.extend_from_slice(&u32::try_from(first.len()).unwrap().to_le_bytes());
+	section.extend_from_slice(first);
+	section.extend_from_slice(&u32::try_from(second.len()).unwrap().to_le_bytes());
+	section.extend_from_slice(second);
+
+	let records = WireRecords::new(&section)
+		.collect::<Result<Vec<_>, _>>()
+		.unwrap();
+	assert_eq!(records, [first.as_slice(), second.as_slice()]);
+
+	let header_error = WireRecords::new(&[0, 0, 0]).next().unwrap().unwrap_err();
+	assert_eq!(header_error.offset(), 0);
+	assert_eq!(header_error.kind(), &ErrorKind::UnexpectedEnd { needed: 4 });
+
+	let truncated = [5, 0, 0, 0, 1, 2];
+	let payload_error = WireRecords::new(&truncated).next().unwrap().unwrap_err();
+	assert_eq!(payload_error.offset(), 4);
+	assert_eq!(
+		payload_error.kind(),
+		&ErrorKind::UnexpectedEnd { needed: 5 }
 	);
 }

@@ -11,7 +11,6 @@ use wasmparser::CustomSectionReader;
 
 pub const WAT_SECTION: &str = "js_bindgen.wat";
 pub const IMPORT_SECTION: &str = "js_bindgen.import";
-pub const WIRE_SECTION: &str = "js_bindgen.wire";
 
 /// Creates a relocatable Wasm object from the WAT input.
 pub fn wat_to_object(wasm64: bool, wat: &str) -> rwat::Result<Vec<u8>> {
@@ -144,34 +143,6 @@ impl<'cs> Iterator for JsBindgenWatSectionParser<'cs> {
 			.map(str::from_utf8)
 			.transpose()
 			.unwrap_or_else(|error| panic!("found invalid WAT encoding `{}`: {error}", self.0.name))
-	}
-}
-
-#[derive(Clone)]
-pub struct JsBindgenWireSectionParser<'cs>(CustomSectionParser<'cs>);
-
-impl<'cs> JsBindgenWireSectionParser<'cs> {
-	#[must_use]
-	pub fn new(custom_section: &CustomSectionReader<'cs>) -> Self {
-		Self(CustomSectionParser::new(custom_section))
-	}
-}
-
-impl Debug for JsBindgenWireSectionParser<'_> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		let rest: Vec<_> = self.clone().collect();
-
-		f.debug_tuple("JsBindgenWireSectionParser")
-			.field(&rest.as_slice())
-			.finish()
-	}
-}
-
-impl<'cs> Iterator for JsBindgenWireSectionParser<'cs> {
-	type Item = &'cs [u8];
-
-	fn next(&mut self) -> Option<Self::Item> {
-		self.0.next()
 	}
 }
 

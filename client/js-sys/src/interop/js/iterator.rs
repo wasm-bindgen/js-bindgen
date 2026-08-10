@@ -1,7 +1,7 @@
 use crate::builtins::Intl::{SegmentData, Segments};
-use crate::builtins::iterator::iterator_from;
 use crate::builtins::{
 	Array, AsyncIterator, Function, IteratorResult, JsIterator, JsString, Map, Promise, Set,
+	iterator_from,
 };
 use crate::hazard::JsCast;
 use crate::{JsValue, js_sys};

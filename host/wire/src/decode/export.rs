@@ -1,15 +1,14 @@
 use alloc::vec::Vec;
 
+use super::{Decode, Decoder, value};
+use crate::model::{
+	Callee, Embed, Export, ExportInput, ExportInputConversion, ExportInputKind, ExportOutput,
+	FrameSlot, ResultLayout, ReturnFrame,
+};
 use crate::{
 	EXPORT_FLAGS, EXPORT_HAS_OUTPUT, EXPORT_OUTPUT_DIRECT, EXPORT_OUTPUT_FLAGS,
 	EXPORT_OUTPUT_RESULT, EXPORT_PROMISING, Error, PointerWidth, SLOT_COUNT,
-	model::{
-		Callee, Embed, Export, ExportInput, ExportInputConversion, ExportInputKind, ExportOutput,
-		FrameSlot, ResultLayout, ReturnFrame,
-	},
 };
-
-use super::{Decode, Decoder, value};
 
 pub(super) fn decode<'a>(
 	decoder: &mut Decoder<'a>,
@@ -46,7 +45,7 @@ impl<'a> Export<'a> {
 		if matches!(callee, Callee::Closure { .. }) {
 			decoder.ensure(
 				inputs.first().is_some_and(|input| {
-					input.slots.len() == 1 && input.slots[0].abi == pointer_width.wat_type()
+					input.slots.len() == 1 && input.slots[0].rust == pointer_width.wat_type()
 				}),
 				"closure export data must occupy one pointer slot",
 			)?;

@@ -147,7 +147,7 @@ unsafe impl<T> Slot for PtrConst<T> {
 	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
 }
 
-// SAFETY: The JavaScript conversion matches the WAT boundary representation.
+// SAFETY: The JavaScript conversion matches the JavaScript-facing WAT type.
 unsafe impl<T> IntoJS for PtrConst<T> {
 	const JS_CONV: Option<IntoJsConv> = JsPointerType::JS_CONV;
 
@@ -188,7 +188,7 @@ unsafe impl<T> Slot for PtrMut<T> {
 	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
 }
 
-// SAFETY: The JavaScript conversion matches the WAT boundary representation.
+// SAFETY: The JavaScript conversion matches the JavaScript-facing WAT type.
 unsafe impl<T> IntoJS for PtrMut<T> {
 	const JS_CONV: Option<IntoJsConv> = JsPointerType::JS_CONV;
 
@@ -244,7 +244,7 @@ unsafe impl<T> Slot for PtrLength<T> {
 	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
 }
 
-// SAFETY: The JavaScript conversion matches the WAT boundary representation.
+// SAFETY: The JavaScript conversion matches the JavaScript-facing WAT type.
 unsafe impl<T> IntoJS for PtrLength<T> {
 	const JS_CONV: Option<IntoJsConv> = JsPointerType::JS_CONV;
 

@@ -3,13 +3,11 @@ use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use js_bindgen_cli_lib::MainMemory;
-use js_bindgen_ld_shared::{
-	IMPORT_SECTION, JsBindgenWatSectionParser, JsBindgenWireSectionParser, WAT_SECTION,
-	WIRE_SECTION,
-};
+use js_bindgen_ld_shared::{IMPORT_SECTION, JsBindgenWatSectionParser, WAT_SECTION};
 use js_bindgen_shared::ReadFile;
+use js_bindgen_wire::{WIRE_SECTION, WireRecords};
 use wasmparser::{Parser, Payload};
 
 use crate::args::Arguments;
@@ -192,8 +190,15 @@ fn process_object(
 				}
 			}
 			Payload::CustomSection(c) if c.name() == WIRE_SECTION => {
-				for blob in JsBindgenWireSectionParser::new(c) {
-					match wire::decode_and_render(blob)? {
+				for (index, blob) in WireRecords::new(c.data()).enumerate() {
+					let context = || {
+						format!(
+							"invalid wire record {index} in `{}`",
+							archive_path.display(),
+						)
+					};
+					let blob = blob.with_context(context)?;
+					match wire::decode_and_render(blob).with_context(context)? {
 						RenderedRecord::Imports(rendered) => {
 							for import in rendered.bindings {
 								js_store.add_js_import(

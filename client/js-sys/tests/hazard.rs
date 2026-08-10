@@ -1,6 +1,8 @@
 use js_bindgen_test::test;
-use js_sys::hazard::{EmptySlot, IntoJS, IntoJsConv, Slot, WasmAbi, WatConv, WatType};
-use js_sys::js_sys;
+use js_sys::hazard::{
+	EmptySlot, FromJS, FromJsConv, IntoJS, IntoJsConv, Slot, WasmAbi, WatConv, WatType,
+};
+use js_sys::{Closure, closure, js_sys};
 
 js_bindgen::embed_js!(
 	module = "hazard",
@@ -13,6 +15,17 @@ js_bindgen::embed_js!(
 	"(value) => value.length === 4 &&",
 	"value[0] === 1 && value[1] === 2 && value[2] === 3 && value[3] === 4",
 );
+js_bindgen::embed_js!(
+	module = "hazard",
+	name = "invoke_quad",
+	"(callback) => callback([1, 2, 3, 4])",
+);
+js_bindgen::embed_js!(module = "hazard", name = "identity", "value => value");
+
+#[js_sys]
+fn arg0(arg0: i32) -> i32 {
+	arg0
+}
 
 #[repr(transparent)]
 struct NumberSlot(u32);
@@ -22,6 +35,8 @@ unsafe impl Slot for NumberSlot {
 	const WAT_TYPE: Option<WatType> = Some(WatType::I32);
 	const INTO_JS_WAT_CONV: Option<WatConv> =
 		Some(WatConv::new(&[], &[], "f64.convert_i32_u", WatType::F64));
+	const FROM_JS_WAT_CONV: Option<WatConv> =
+		Some(WatConv::new(&[], &[], "i32.trunc_sat_f64_u", WatType::F64));
 }
 
 struct Pair(u32, u32);
@@ -99,6 +114,23 @@ unsafe impl IntoJS for Quad {
 	}
 }
 
+// SAFETY: The JavaScript conversion splits a four-element numeric array into
+// the four `NumberSlot` carriers expected by `Quad`.
+unsafe impl FromJS for Quad {
+	const JS_CONV: Option<FromJsConv> = Some(
+		FromJsConv::slot1("$value[0]")
+			.slot2("$value[1]")
+			.slot3("$value[2]")
+			.slot4("$value[3]"),
+	);
+
+	type Abi = Self;
+
+	fn from_abi(raw: Self::Abi) -> Self {
+		raw
+	}
+}
+
 #[test]
 fn input_slot_conversions() {
 	#[js_sys]
@@ -112,4 +144,18 @@ fn input_slot_conversions() {
 
 	assert!(pair(Pair(1, 2)));
 	assert!(quad(Quad(1, 2, 3, 4)));
+}
+
+#[test]
+fn from_js_slot_conversions() {
+	#[js_sys]
+	extern "js-sys" {
+		#[js_sys(js_embed = "invoke_quad")]
+		fn invoke_quad(callback: &Closure<dyn FnMut(Quad) -> bool>) -> bool;
+	}
+
+	let callback = closure!(dyn FnMut(Quad) -> bool, |Quad(a, b, c, d)| {
+		(a, b, c, d) == (1, 2, 3, 4)
+	});
+	assert!(invoke_quad(&callback));
 }

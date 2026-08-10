@@ -6,13 +6,13 @@ rust-version = { workspace = true }
 license = { workspace = true }
 include = { workspace = true }
 
-[features]
-default = []
-alloc = []
-
 [lib]
 bench = false
 doctest = false
+
+[features]
+default = []
+alloc = []
 
 [lints]
 workspace = true

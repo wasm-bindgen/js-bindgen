@@ -1,8 +1,7 @@
-use crate::hazard::{IntoJS, ReturnAbi, ReturnFromJS, Slot};
+use crate::hazard::{IntoJS, ReturnAbi, ReturnFromJS};
 use crate::util::PtrMut;
 use crate::wire::{
-	InputSlot1, InputSlot2, InputSlot3, InputSlot4, OutputSlot1, OutputSlot2, OutputSlot3,
-	OutputSlot4, WireImportCatch, WireImportInputType, WireImportOutputType, wat_slot,
+	WireImportCatch, WireImportInputType, WireImportOutputType, from_js_slots, into_js_slots,
 };
 
 trait MetadataFor<T>: 'static {
@@ -10,15 +9,7 @@ trait MetadataFor<T>: 'static {
 }
 
 impl<T: IntoJS> MetadataFor<T> for WireImportInputType {
-	const VALUE: &'static Self = &Self::new(
-		[
-			wat_slot::<InputSlot1<T>>(<InputSlot1<T> as Slot>::INTO_JS_WAT_CONV),
-			wat_slot::<InputSlot2<T>>(<InputSlot2<T> as Slot>::INTO_JS_WAT_CONV),
-			wat_slot::<InputSlot3<T>>(<InputSlot3<T> as Slot>::INTO_JS_WAT_CONV),
-			wat_slot::<InputSlot4<T>>(<InputSlot4<T> as Slot>::INTO_JS_WAT_CONV),
-		],
-		T::JS_CONV,
-	);
+	const VALUE: &'static Self = &Self::new(into_js_slots::<T::Abi>(), T::JS_CONV);
 }
 
 impl<T: ReturnFromJS> MetadataFor<T> for WireImportOutputType {
@@ -27,12 +18,7 @@ impl<T: ReturnFromJS> MetadataFor<T> for WireImportOutputType {
 			<T::Abi as ReturnAbi>::MODE,
 			T::JS_CONV,
 			T::JS_SRET,
-			[
-				wat_slot::<OutputSlot1<T>>(<OutputSlot1<T> as Slot>::FROM_JS_WAT_CONV),
-				wat_slot::<OutputSlot2<T>>(<OutputSlot2<T> as Slot>::FROM_JS_WAT_CONV),
-				wat_slot::<OutputSlot3<T>>(<OutputSlot3<T> as Slot>::FROM_JS_WAT_CONV),
-				wat_slot::<OutputSlot4<T>>(<OutputSlot4<T> as Slot>::FROM_JS_WAT_CONV),
-			],
+			from_js_slots::<T::Abi>(),
 		)
 	};
 }

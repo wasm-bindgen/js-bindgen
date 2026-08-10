@@ -13,8 +13,7 @@ fn main() {
 	// ;; exports["closure_unref_during_call"]()
 	// ;; exports["closure_owned"](20) === 21
 	// ;; exports["closure_owned_lifecycle"]()
-	// ;; exports["closure_once"](20) === 21
-	// ;; (() => { try { exports["closure_once_again"](20); return false } catch (error) { return error.message === "FnOnce called more than once" } })()
+	// ;; (() => { if (exports["closure_once"](20) !== 21) return false; try { exports["closure_once_again"](20); return false } catch (error) { return error.message === "FnOnce called more than once" } })()
 	// ;; exports["closure_option_ref"](20)
 	// ;; exports["closure_option_owned"](20)
 	// ;; (() => { const callback = exports["closure_return"](2); return callback(40) === 42 })()

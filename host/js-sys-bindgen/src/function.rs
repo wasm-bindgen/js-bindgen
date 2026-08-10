@@ -25,22 +25,26 @@ pub(crate) struct FunctionImport {
 	pub(crate) cfg_attrs: Vec<Attribute>,
 	pub(crate) module: LitStr,
 	pub(crate) name: LitStr,
-	pub(crate) input_names: Vec<LitStr>,
-	pub(crate) input_types: Vec<Type>,
+	pub(crate) inputs: Vec<FunctionImportInput>,
 	pub(crate) output_type: Option<Type>,
 	pub(crate) binding: Option<FunctionBinding>,
 	pub(crate) suspending: bool,
-	pub(crate) kind: FunctionImportKind,
+	pub(crate) shim_kind: ImportShimKind,
 	pub(crate) macro_path: Path,
 }
 
+pub(crate) struct FunctionImportInput {
+	pub(crate) name: LitStr,
+	pub(crate) ty: Type,
+}
+
 #[derive(Clone, Copy)]
-pub(crate) enum FunctionImportKind {
+pub(crate) enum ImportShimKind {
 	Normal,
 	ClosureFactory,
 }
 
-/// JavaScript binding data shared by the flat and direct Wire emitters.
+/// JavaScript call data stored in an import Wire record.
 pub(crate) struct FunctionBinding {
 	pub(crate) direct: Option<String>,
 	pub(crate) call: String,
@@ -147,16 +151,10 @@ pub(crate) fn expand(
 	let import_name = plan.binding.import_name(namespace, &sig.ident);
 	let link_name = format!("{crate_}.{import_name}");
 	let macro_path = hygiene.r#macro(&cfg_attrs, span);
-	let import = plan.import_descriptor(&macro_path, crate_, &import_name, &cfg_attrs, span);
-	let FunctionPlan {
-		inputs,
-		output_ty,
-		output_abi_override,
-		impl_generic_params,
-		binding,
-		..
-	} = plan;
-	let ident = &sig.ident;
+	let inputs = &plan.inputs;
+	let output_ty = &plan.output_ty;
+	let output_abi_override = &plan.output_abi_override;
+	let foreign_ident = Ident::new("__import_", Span::mixed_site());
 	let split_inputs = inputs.iter().map(|input| {
 		let InputArg {
 			abi_type,
@@ -199,7 +197,7 @@ pub(crate) fn expand(
 
 	let foreign_call = quote_spanned! {span=> {
 		#(#split_inputs)*
-		unsafe { #ident(#(#foreign_input_names),*) }
+		unsafe { #foreign_ident(#(#foreign_input_names),*) }
 	}};
 	let foreign_call = if let Some(output_abi_ty) = output_abi_override.as_ref() {
 		let output_ty = output_ty.as_ref().expect("validated during parsing");
@@ -219,14 +217,15 @@ pub(crate) fn expand(
 		#vis #sig {
 			unsafe extern "C" {
 				#[link_name = #link_name]
-				fn #ident(#(#foreign_input_names: #foreign_input_tys),*) #foreign_output;
+				fn #foreign_ident(#(#foreign_input_names: #foreign_input_tys),*) #foreign_output;
 			}
 
 			#foreign_call
 		}
 	};
 
-	let item = if let Some(owner) = binding.owner() {
+	let item = if let Some(owner) = plan.binding.owner() {
+		let impl_generic_params = &plan.impl_generic_params;
 		quote_spanned! {span=>
 			impl #impl_generic_params #owner {
 				#item_fn
@@ -235,6 +234,7 @@ pub(crate) fn expand(
 	} else {
 		item_fn
 	};
+	let import = plan.into_import_descriptor(macro_path, crate_, &import_name, cfg_attrs, span);
 
 	Ok((item, import))
 }
@@ -245,7 +245,7 @@ pub(crate) fn expand_closure_factory(
 	item: ForeignItemFn,
 ) -> Result<(TokenStream, FunctionImport)> {
 	let (function, mut import) = expand(hygiene, None, crate_, &HashMap::new(), item)?;
-	import.kind = FunctionImportKind::ClosureFactory;
+	import.shim_kind = ImportShimKind::ClosureFactory;
 	Ok((function, import))
 }
 
@@ -644,12 +644,12 @@ impl FunctionPlan {
 		}
 	}
 
-	fn import_descriptor(
-		&self,
-		macro_path: &Path,
+	fn into_import_descriptor(
+		self,
+		macro_path: Path,
 		crate_: &str,
 		import_name: &str,
-		cfg_attrs: &[Attribute],
+		cfg_attrs: Vec<Attribute>,
 		span: Span,
 	) -> FunctionImport {
 		let Self {
@@ -660,55 +660,51 @@ impl FunctionPlan {
 			suspending,
 			..
 		} = self;
-		let output_abi_ty = output_abi_override.as_ref().or(output_ty.as_ref());
-		let input_tys: Vec<_> = inputs.iter().map(|input| &input.abi_type).collect();
+		let output_type = output_abi_override.or(output_ty);
 
 		let mut required_embeds = Vec::new();
 
-		if let ForeignItem::Embed(name) = binding {
+		if let ForeignItem::Embed(name) = &binding {
 			required_embeds.push(quote_spanned!(span=>
 				#macro_path::JsEmbed::new(#crate_, #name)
 			));
 		}
 
 		let binding = match binding {
-			ForeignItem::Generate {
-				direct_wrapper,
-				direct_call,
-				indirect_call,
-				..
-			} => Some(FunctionBinding {
-				direct: (!direct_wrapper).then(|| direct_call.clone()),
-				call: indirect_call.clone(),
+			ForeignItem::Generate { direct, call, .. } => Some(FunctionBinding {
+				direct,
+				call,
 				required_embeds,
 			}),
 			ForeignItem::Embed(name) => {
 				let path = format!("this.#jsEmbed.{crate_}['{name}']");
-				let arguments = join_input_slots(inputs);
-				let indirect_call = format!("{path}({arguments})");
+				let arguments = join_input_slots(&inputs);
+				let call = format!("{path}({arguments})");
 
 				Some(FunctionBinding {
 					direct: Some(path),
-					call: indirect_call,
+					call,
 					required_embeds,
 				})
 			}
 			ForeignItem::Import => None,
 		};
 		FunctionImport {
-			cfg_attrs: cfg_attrs.to_vec(),
+			cfg_attrs,
 			module: LitStr::new(crate_, span),
 			name: LitStr::new(import_name, span),
-			input_names: inputs
-				.iter()
-				.map(|input| input.descriptor_name.clone())
+			inputs: inputs
+				.into_iter()
+				.map(|input| FunctionImportInput {
+					name: input.descriptor_name,
+					ty: input.abi_type,
+				})
 				.collect(),
-			input_types: input_tys.into_iter().cloned().collect(),
-			output_type: output_abi_ty.cloned(),
+			output_type,
 			binding,
-			suspending: *suspending,
-			kind: FunctionImportKind::Normal,
-			macro_path: macro_path.clone(),
+			suspending,
+			shim_kind: ImportShimKind::Normal,
+			macro_path,
 		}
 	}
 }

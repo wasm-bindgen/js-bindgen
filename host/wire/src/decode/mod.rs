@@ -4,9 +4,11 @@ mod export;
 mod import;
 mod value;
 
+use core::mem::size_of;
 use core::{fmt, str};
 
-use crate::{KIND_EXPORT, KIND_IMPORT, MAGIC, PointerWidth, VERSION, model::Record};
+use crate::model::Record;
+use crate::{KIND_EXPORT, KIND_IMPORT, MAGIC, PointerWidth, VERSION};
 
 /// A type that can be decoded from a wire record.
 pub(crate) trait Decode<'de>: Sized {
@@ -19,6 +21,52 @@ pub fn decode(bytes: &[u8]) -> Result<Record<'_>, Error> {
 	let record = Record::decode(&mut decoder)?;
 	decoder.finish()?;
 	Ok(record)
+}
+
+/// Iterates over the length-prefixed records concatenated in a wire custom
+/// section.
+pub struct WireRecords<'a> {
+	bytes: &'a [u8],
+	position: usize,
+}
+
+impl<'a> WireRecords<'a> {
+	#[must_use]
+	pub const fn new(bytes: &'a [u8]) -> Self {
+		Self { bytes, position: 0 }
+	}
+
+	fn unexpected_end(&mut self, offset: usize, needed: usize) -> Result<&'a [u8], Error> {
+		self.position = self.bytes.len();
+		Err(Error::new(offset, ErrorKind::UnexpectedEnd { needed }))
+	}
+}
+
+impl<'a> Iterator for WireRecords<'a> {
+	type Item = Result<&'a [u8], Error>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		if self.position == self.bytes.len() {
+			return None;
+		}
+
+		let length_offset = self.position;
+		let Some(length_end) = length_offset.checked_add(size_of::<u32>()) else {
+			return Some(self.unexpected_end(length_offset, size_of::<u32>()));
+		};
+		let Some(length) = self.bytes.get(length_offset..length_end) else {
+			return Some(self.unexpected_end(length_offset, size_of::<u32>()));
+		};
+		let length = u32::from_le_bytes([length[0], length[1], length[2], length[3]]) as usize;
+		let Some(record_end) = length_end.checked_add(length) else {
+			return Some(self.unexpected_end(length_end, length));
+		};
+		let Some(record) = self.bytes.get(length_end..record_end) else {
+			return Some(self.unexpected_end(length_end, length));
+		};
+		self.position = record_end;
+		Some(Ok(record))
+	}
 }
 
 impl<'de> Decode<'de> for Record<'de> {

@@ -1,11 +1,10 @@
 use core::mem::size_of;
 
+use super::{Encoder, Sizer, flag};
 use crate::{
-	EXPORT_OUTPUT_DIRECT, EXPORT_OUTPUT_RESULT, WireExport, WireExportCallee, WireExportInput,
-	WireExportOutput, WireExportOutputType,
+	EXPORT_HAS_OUTPUT, EXPORT_OUTPUT_DIRECT, EXPORT_OUTPUT_RESULT, EXPORT_PROMISING, WireExport,
+	WireExportCallee, WireExportInput, WireExportOutput, WireExportOutputType,
 };
-
-use super::{Encoder, Sizer};
 
 impl<const N: usize> Encoder<N> {
 	pub(super) const fn exports(&mut self, exports: &[WireExport]) {
@@ -113,10 +112,6 @@ impl WireExportOutputType {
 	}
 }
 
-const fn flag(enabled: bool, value: u8) -> u8 {
-	if enabled { value } else { 0 }
-}
-
 impl WireExportOutput {
 	const fn encode<const N: usize>(self, encoder: &mut Encoder<N>) {
 		self.ty.encode(encoder);
@@ -131,7 +126,9 @@ impl WireExport {
 	const fn encode<const N: usize>(&self, encoder: &mut Encoder<N>) {
 		encoder.string(self.module);
 		encoder.string(self.name);
-		encoder.u8(self.flags);
+		let flags =
+			flag(self.promising, EXPORT_PROMISING) | flag(self.output.is_some(), EXPORT_HAS_OUTPUT);
+		encoder.u8(flags);
 		self.callee.encode(encoder);
 		encoder.count(self.inputs.len());
 		let mut index = 0;

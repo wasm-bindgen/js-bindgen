@@ -348,9 +348,7 @@ unsafe impl FromJS for u128 {
 			.slot2("$value >> 64n")
 			.with_embed("js_sys", "numeric.128.encode"),
 	);
-	const JS_SRET: Option<Sret> = Some(Sret::Slots(
-		"this.#jsEmbed.js_sys['numeric.128.encode']",
-	));
+	const JS_SRET: Option<Sret> = Some(Sret::Slots("this.#jsEmbed.js_sys['numeric.128.encode']"));
 
 	type Abi = Self;
 
@@ -414,9 +412,7 @@ unsafe impl FromJS for i128 {
 			.slot2("$value >> 64n")
 			.with_embed("js_sys", "numeric.128.encode"),
 	);
-	const JS_SRET: Option<Sret> = Some(Sret::Slots(
-		"this.#jsEmbed.js_sys['numeric.128.encode']",
-	));
+	const JS_SRET: Option<Sret> = Some(Sret::Slots("this.#jsEmbed.js_sys['numeric.128.encode']"));
 
 	type Abi = Self;
 

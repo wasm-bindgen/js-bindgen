@@ -1,12 +1,13 @@
 use core::cell::Cell;
 
+use js_bindgen_wire::WireImportCatch;
+
 use super::externref;
 use crate::JsValue;
 #[cfg(not(target_feature = "exception-handling"))]
 use crate::hazard::{JsCatch, JsEmbed};
 #[cfg(target_feature = "exception-handling")]
 use crate::hazard::{WatCatch, WatImport, WatImportKind, WatType};
-use js_bindgen_wire::WireImportCatch;
 
 #[cfg(not(target_feature = "exception-handling"))]
 const JS_CATCH_EMBEDS: &[JsEmbed] = &[JsEmbed::new("js_sys", "externref.table")];

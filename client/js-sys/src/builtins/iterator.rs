@@ -253,10 +253,10 @@ extern "js-sys" {
 #[crate::js_sys(js_sys = crate)]
 extern "js-sys" {
 	#[js_sys(js_embed = "iterator.from")]
-	pub(crate) fn iterator_from(value: &JsValue) -> Result<Option<JsIterator>, JsValue>;
+	pub fn iterator_from(value: &JsValue) -> Result<Option<JsIterator>, JsValue>;
 
 	#[js_sys(js_embed = "async_iterator.from")]
-	pub(crate) fn async_iterator_from(value: &JsValue) -> Result<Option<AsyncIterator>, JsValue>;
+	pub fn async_iterator_from(value: &JsValue) -> Result<Option<AsyncIterator>, JsValue>;
 }
 
 macro_rules! impl_wrapper {

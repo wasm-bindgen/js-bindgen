@@ -2,6 +2,8 @@ mod export;
 mod import;
 mod r#macro;
 
+use core::mem::MaybeUninit;
+
 pub use export::*;
 pub use import::*;
 pub use js_bindgen_wire::abi::{JsCatch, JsEmbed, WatCatch};
@@ -21,13 +23,28 @@ use crate::hazard::{
 
 pub(crate) const fn wat_slot<S: Slot>(conversion: Option<WatConv>) -> Option<WatSlot> {
 	match S::WAT_TYPE {
-		Some(abi) => Some(WatSlot::new(abi, conversion)),
+		Some(rust) => Some(WatSlot::new(rust, conversion)),
 		None => None,
 	}
 }
 
-use core::mem::MaybeUninit;
+pub(crate) const fn into_js_slots<A: WasmAbi>() -> [Option<WatSlot>; 4] {
+	[
+		wat_slot::<A::Slot1>(<A::Slot1 as Slot>::INTO_JS_WAT_CONV),
+		wat_slot::<A::Slot2>(<A::Slot2 as Slot>::INTO_JS_WAT_CONV),
+		wat_slot::<A::Slot3>(<A::Slot3 as Slot>::INTO_JS_WAT_CONV),
+		wat_slot::<A::Slot4>(<A::Slot4 as Slot>::INTO_JS_WAT_CONV),
+	]
+}
 
+pub(crate) const fn from_js_slots<A: WasmAbi>() -> [Option<WatSlot>; 4] {
+	[
+		wat_slot::<A::Slot1>(<A::Slot1 as Slot>::FROM_JS_WAT_CONV),
+		wat_slot::<A::Slot2>(<A::Slot2 as Slot>::FROM_JS_WAT_CONV),
+		wat_slot::<A::Slot3>(<A::Slot3 as Slot>::FROM_JS_WAT_CONV),
+		wat_slot::<A::Slot4>(<A::Slot4 as Slot>::FROM_JS_WAT_CONV),
+	]
+}
 // Rust `ABI` shims used by generated import and export functions.
 
 pub type InputSlot1<T> = <<T as IntoJS>::Abi as WasmAbi>::Slot1;
@@ -40,16 +57,7 @@ pub type FromJsSlot2<T> = <<T as FromJS>::Abi as WasmAbi>::Slot2;
 pub type FromJsSlot3<T> = <<T as FromJS>::Abi as WasmAbi>::Slot3;
 pub type FromJsSlot4<T> = <<T as FromJS>::Abi as WasmAbi>::Slot4;
 
-pub type OutputSlot1<T> = <<T as ReturnFromJS>::Abi as WasmAbi>::Slot1;
-pub type OutputSlot2<T> = <<T as ReturnFromJS>::Abi as WasmAbi>::Slot2;
-pub type OutputSlot3<T> = <<T as ReturnFromJS>::Abi as WasmAbi>::Slot3;
-pub type OutputSlot4<T> = <<T as ReturnFromJS>::Abi as WasmAbi>::Slot4;
 pub type OutputRet<T> = MaybeUninit<WasmRet<<T as ReturnFromJS>::Abi>>;
-
-pub type ReturnSlot1<T> = <<T as ReturnIntoJS>::Abi as WasmAbi>::Slot1;
-pub type ReturnSlot2<T> = <<T as ReturnIntoJS>::Abi as WasmAbi>::Slot2;
-pub type ReturnSlot3<T> = <<T as ReturnIntoJS>::Abi as WasmAbi>::Slot3;
-pub type ReturnSlot4<T> = <<T as ReturnIntoJS>::Abi as WasmAbi>::Slot4;
 
 #[must_use]
 #[inline]

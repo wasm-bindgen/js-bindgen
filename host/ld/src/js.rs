@@ -65,8 +65,8 @@ impl JsStore {
 		if let Some(previous) = definitions.get(name) {
 			if previous != &binding {
 				bail!(
-					"found multiple JS imports for `{module}:{name}`\n\tJS Import 1:\n{previous:?}\n\tJS Import \
-						 2:\n{binding:?}",
+					"found multiple JS imports for `{module}:{name}`\n\tJS Import \
+					 1:\n{previous:?}\n\tJS Import 2:\n{binding:?}",
 				);
 			}
 		} else {
@@ -112,8 +112,8 @@ impl JsStore {
 
 		if let Some(previous) = self.export.get(name) {
 			bail!(
-				"found multiple JS exports named `{name}` from `{}` and `{}`\n\tJS Export 1:\n{:?}\n\tJS Export \
-					 2:\n{:?}",
+				"found multiple JS exports named `{name}` from `{}` and `{}`\n\tJS Export \
+				 1:\n{:?}\n\tJS Export 2:\n{:?}",
 				previous.module,
 				definition.module,
 				previous.binding,
@@ -156,7 +156,8 @@ impl JsStore {
 				return Ok(false);
 			}
 			bail!(
-				"found incompatible closure exports named `{name}` from `{}` and `{}`\n\tClosure 1:\n{:?}\n\tClosure 2:\n{:?}",
+				"found incompatible closure exports named `{name}` from `{}` and `{}`\n\tClosure \
+				 1:\n{:?}\n\tClosure 2:\n{:?}",
 				previous.module,
 				definition.module,
 				previous,

@@ -6,14 +6,11 @@ pub(super) enum ForeignItem {
 		/// Rust type receiving the generated method, if this is not a free
 		/// function.
 		owner: Option<Path>,
-		/// Whether the direct conversion path must wrap `direct_call` in a
-		/// function.
-		direct_wrapper: bool,
-		/// Function reference or expression used by the direct conversion path.
-		direct_call: String,
-		/// Expression used when argument or result conversion requires a
+		/// Function reference usable without a wrapper.
+		direct: Option<String>,
+		/// Call expression used when argument or result conversion requires a
 		/// wrapper.
-		indirect_call: String,
+		call: String,
 	},
 	Embed(String),
 	Import,
@@ -51,23 +48,17 @@ impl ForeignItem {
 		inputs: &[String],
 	) -> Self {
 		let arguments = Self::arguments(inputs, receiver, variadic);
-		let indirect_call = format!("{path}({arguments})");
+		let call = format!("{path}({arguments})");
 
 		// Only a bare global function can be passed directly. Calls through a
 		// `namespace`, instance, or static member need a wrapper to preserve their
 		// receiver; `variadic` calls need one to emit the spread expression.
-		let direct_wrapper = namespace.is_some() || owner.is_some() || variadic;
-		let direct_call = if direct_wrapper {
-			indirect_call.clone()
-		} else {
-			path.to_owned()
-		};
+		let direct = (namespace.is_none() && owner.is_none() && !variadic).then(|| path.to_owned());
 
 		Self::Generate {
 			owner,
-			direct_wrapper,
-			direct_call,
-			indirect_call,
+			direct,
+			call,
 		}
 	}
 
@@ -77,9 +68,8 @@ impl ForeignItem {
 
 		Self::Generate {
 			owner: Some(owner),
-			direct_wrapper: true,
-			direct_call: call.clone(),
-			indirect_call: call,
+			direct: None,
+			call,
 		}
 	}
 
@@ -135,9 +125,8 @@ impl ForeignItem {
 	fn expression(owner: Option<Path>, expression: String) -> Self {
 		Self::Generate {
 			owner,
-			direct_wrapper: true,
-			direct_call: expression.clone(),
-			indirect_call: expression,
+			direct: None,
+			call: expression,
 		}
 	}
 

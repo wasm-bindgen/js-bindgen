@@ -5,10 +5,8 @@ mod import;
 mod js;
 mod wat;
 
-use js_bindgen_wire::{
-	Error, decode,
-	model::{Embed, Record},
-};
+use js_bindgen_wire::model::{Embed, Record};
+use js_bindgen_wire::{Error, decode};
 
 /// One JavaScript binding ready for the linker store.
 #[derive(Debug, Eq, PartialEq)]

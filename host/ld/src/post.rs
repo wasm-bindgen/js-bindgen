@@ -1,7 +1,8 @@
 use anyhow::{Context, Result, bail};
 use js_bindgen_cli_lib::{JS_OUTPUT_SECTION, MainMemory};
-use js_bindgen_ld_shared::{IMPORT_SECTION, WAT_SECTION, WIRE_SECTION};
+use js_bindgen_ld_shared::{IMPORT_SECTION, WAT_SECTION};
 use js_bindgen_shared::{IS_COMPAT_SECTION, IS_TEST_SECTION};
+use js_bindgen_wire::WIRE_SECTION;
 use wasm_encoder::{
 	CustomSection, EntityType, ExportSection, ImportSection, Module, ProducersField,
 	ProducersSection, RawSection, Section,

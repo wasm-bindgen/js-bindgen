@@ -1,9 +1,8 @@
 use crate::ClosureHeader;
-use crate::hazard::{FromJS, ReturnAbi, ReturnIntoJS, Slot, WasmRet};
+use crate::hazard::{FromJS, ReturnAbi, ReturnIntoJS, WasmRet};
 use crate::wire::{
-	FromJsSlot1, FromJsSlot2, FromJsSlot3, FromJsSlot4, ReturnSlot1, ReturnSlot2, ReturnSlot3,
-	ReturnSlot4, WireExport, WireExportInput, WireExportInputType, WireExportOutput,
-	WireExportOutputType, wat_slot,
+	WireExport, WireExportInput, WireExportInputType, WireExportOutput, WireExportOutputType,
+	from_js_slots, into_js_slots,
 };
 
 trait MetadataFor<T>: 'static {
@@ -11,27 +10,14 @@ trait MetadataFor<T>: 'static {
 }
 
 impl<T: FromJS> MetadataFor<T> for WireExportInputType {
-	const VALUE: &'static Self = &Self::new(
-		[
-			wat_slot::<FromJsSlot1<T>>(<FromJsSlot1<T> as Slot>::FROM_JS_WAT_CONV),
-			wat_slot::<FromJsSlot2<T>>(<FromJsSlot2<T> as Slot>::FROM_JS_WAT_CONV),
-			wat_slot::<FromJsSlot3<T>>(<FromJsSlot3<T> as Slot>::FROM_JS_WAT_CONV),
-			wat_slot::<FromJsSlot4<T>>(<FromJsSlot4<T> as Slot>::FROM_JS_WAT_CONV),
-		],
-		T::JS_CONV,
-	);
+	const VALUE: &'static Self = &Self::new(from_js_slots::<T::Abi>(), T::JS_CONV);
 }
 
 impl<T: ReturnIntoJS> MetadataFor<T> for WireExportOutputType {
 	const VALUE: &'static Self = &{
 		let mode = <T::Abi as ReturnAbi>::MODE;
 		let result_layout = <T::Abi as ReturnAbi>::RESULT_LAYOUT;
-		let slots = [
-			wat_slot::<ReturnSlot1<T>>(<ReturnSlot1<T> as Slot>::INTO_JS_WAT_CONV),
-			wat_slot::<ReturnSlot2<T>>(<ReturnSlot2<T> as Slot>::INTO_JS_WAT_CONV),
-			wat_slot::<ReturnSlot3<T>>(<ReturnSlot3<T> as Slot>::INTO_JS_WAT_CONV),
-			wat_slot::<ReturnSlot4<T>>(<ReturnSlot4<T> as Slot>::INTO_JS_WAT_CONV),
-		];
+		let slots = into_js_slots::<T::Abi>();
 		let (frame_size, slot_offsets) = if mode.is_direct() {
 			(0, [0; 4])
 		} else {

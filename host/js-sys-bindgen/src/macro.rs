@@ -271,9 +271,9 @@ pub(crate) fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream 
 			let mut input_types = Vec::<syn::Type>::new();
 			let mut output_types = Vec::<syn::Type>::new();
 			for import in &imports {
-				for ty in &import.input_types {
-					if !input_types.contains(ty) {
-						input_types.push(ty.clone());
+				for input in &import.inputs {
+					if !input_types.contains(&input.ty) {
+						input_types.push(input.ty.clone());
 					}
 				}
 				if let Some(ty) = &import.output_type
@@ -286,26 +286,26 @@ pub(crate) fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream 
 			for import in &imports {
 				let module = &import.module;
 				let name = &import.name;
-				let input_names = &import.input_names;
 				let suspending = import.suspending;
-				let constructor = match import.kind {
-					crate::function::FunctionImportKind::Normal => {
+				let constructor = match import.shim_kind {
+					crate::function::ImportShimKind::Normal => {
 						quote::quote!(#macro_path::WireImport::new)
 					}
-					crate::function::FunctionImportKind::ClosureFactory => {
+					crate::function::ImportShimKind::ClosureFactory => {
 						quote::quote!(#macro_path::WireImport::closure_factory)
 					}
 				};
-				let input_indices: Vec<_> = import
-					.input_types
-					.iter()
-					.map(|ty| {
-						input_types
-							.iter()
-							.position(|candidate| candidate == ty)
-							.expect("every input type was collected")
-					})
-					.collect();
+				let wire_inputs = import.inputs.iter().map(|input| {
+					let name = &input.name;
+					let index = input_types
+						.iter()
+						.position(|candidate| candidate == &input.ty)
+						.expect("every input type was collected");
+
+					quote::quote!(
+						#macro_path::WireImportInput::new(#name, #index)
+					)
+				});
 				let output_index = if let Some(ty) = &import.output_type {
 					let index = output_types
 						.iter()
@@ -317,11 +317,6 @@ pub(crate) fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream 
 				} else {
 					quote::quote!(::core::option::Option::None)
 				};
-				let wire_inputs = input_names.iter().zip(input_indices).map(|(name, index)| {
-					quote::quote!(
-						#macro_path::WireImportInput::new(#name, #index)
-					)
-				});
 				let binding = if let Some(binding) = &import.binding {
 					let direct = if let Some(direct) = &binding.direct {
 						let direct = LitStr::new(direct, module.span());
@@ -371,15 +366,15 @@ pub(crate) fn render_import_groups(imports: Vec<FunctionImport>) -> TokenStream 
 							&[#(#output_type_descriptors),*],
 							#macro_path::wire_import_catch(),
 						);
-					pub const WIRE: #macro_path::Wire =
+					const _WIRE: #macro_path::Wire =
 						#macro_path::Wire::imports(TABLE, &[#(#wire_descriptors),*]);
-					pub const LEN: ::core::primitive::usize =
-						#macro_path::wire_blob_len(&WIRE);
+					const _LEN: ::core::primitive::usize =
+						#macro_path::wire_blob_len(&_WIRE);
 
 					#[used]
 					#[unsafe(link_section = "js_bindgen.wire")]
-					pub static WIRE_SECTION: #macro_path::WireBlob<LEN> =
-						#macro_path::WireBlob::new(&WIRE);
+					static _WIRE_SECTION: #macro_path::WireBlob<_LEN> =
+						#macro_path::WireBlob::new(&_WIRE);
 				};
 			});
 			output

@@ -36,8 +36,8 @@ fn binding_options() {
 	);
 
 	assert!(output.contains("renamed::wire::InputSlot1"));
-	assert!(output.contains("globalThis.console.log(arg0_0)"));
-	assert!(output.contains("globalThis.console.warn(arg0_0)"));
+	super::assert_javascript(&output, "globalThis.console.log(arg0_0)");
+	super::assert_javascript(&output, "globalThis.console.warn(arg0_0)");
 	assert!(output.contains("join_output_as::<JsTest, JsValue>"));
 	assert!(output.contains("#[cfg(all())]"));
 
@@ -53,8 +53,8 @@ fn binding_options() {
 			}
 		},
 	);
-	assert!(output.contains("test_crate.imported"));
-	assert!(output.contains("this.#jsEmbed.test_crate['embed']"));
+	super::assert_javascript(&output, "test_crate.imported");
+	super::assert_javascript(&output, "this.#jsEmbed.test_crate['embed']");
 }
 
 #[test]

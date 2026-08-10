@@ -59,7 +59,7 @@ fn member_operations() {
 		"delete arg0_0[arg1_0]",
 		"arg0_0.push(arg1_0, ...arg2_0)",
 	] {
-		assert!(output.contains(operation));
+		super::assert_javascript(&output, operation);
 	}
 }
 

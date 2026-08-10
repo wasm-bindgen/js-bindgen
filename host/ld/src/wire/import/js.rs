@@ -5,10 +5,8 @@ use js_bindgen_wire::model::{
 	ImportInput, ImportOutput, ImportOutputAbi, ImportRetptr, ImportWriter, JsCatch,
 };
 
-use crate::wire::{
-	JsBinding,
-	js::{Placeholder, render_template},
-};
+use crate::wire::JsBinding;
+use crate::wire::js::{Placeholder, render_template};
 
 /// Renders every import which has a generated JavaScript binding.
 pub(super) fn render<'a>(group: &ImportGroup<'a>) -> Vec<JsBinding<'a>> {

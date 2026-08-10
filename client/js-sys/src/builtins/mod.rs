@@ -14,7 +14,7 @@ mod function;
 mod generator;
 mod global;
 mod intl;
-pub(crate) mod iterator;
+mod iterator;
 mod json;
 mod map;
 mod math;
@@ -59,7 +59,7 @@ pub use global::{
 pub use intl::Intl;
 pub use iterator::{
 	AsyncIterable, AsyncIterator, Iterable, IteratorResult, IteratorZipKeyedOptions,
-	IteratorZipMode, IteratorZipOptions, JsIterator,
+	IteratorZipMode, IteratorZipOptions, JsIterator, async_iterator_from, iterator_from,
 };
 pub use json::JSON;
 pub use map::Map;

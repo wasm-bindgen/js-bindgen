@@ -12,8 +12,9 @@ use syn::{
 use xxhash_rust::xxh3::xxh3_128;
 
 use crate::export::{ExportAbi, lower_abi};
+use crate::function;
 use crate::hygiene::Hygiene;
-use crate::{function, r#macro::render_import_groups};
+use crate::r#macro::render_import_groups;
 
 mod keyword {
 	syn::custom_keyword!(js_sys);
@@ -172,23 +173,22 @@ pub(crate) fn closure_with(
 				)
 			}
 
-			#[expect(dead_code, reason = "stored in a custom section")]
-			pub const WIRE: #js_sys::wire::Wire =
-				#js_sys::wire::Wire::exports(&[
-					#js_sys::wire::wire_closure_export::<CallShim>(
-						#crate_name,
-						#call_name,
-						&[#(#wire_inputs),*],
-						#wire_output,
-					),
-				]);
-			#[expect(dead_code, reason = "stored in a custom section")]
-			pub const LEN: ::core::primitive::usize = #js_sys::wire::wire_blob_len(&WIRE);
+			const _: () = {
+				const _WIRE: #js_sys::wire::Wire =
+					#js_sys::wire::Wire::exports(&[
+						#js_sys::wire::wire_closure_export::<CallShim>(
+							#crate_name,
+							#call_name,
+							&[#(#wire_inputs),*],
+							#wire_output,
+						),
+					]);
+				const _LEN: ::core::primitive::usize = #js_sys::wire::wire_blob_len(&_WIRE);
 
-			#[expect(dead_code, reason = "stored in a custom section")]
-			#[unsafe(link_section = "js_bindgen.wire")]
-			pub static WIRE_SECTION: #js_sys::wire::WireBlob<LEN> =
-				#js_sys::wire::WireBlob::new(&WIRE);
+				#[unsafe(link_section = "js_bindgen.wire")]
+				static _WIRE_SECTION: #js_sys::wire::WireBlob<_LEN> =
+					#js_sys::wire::WireBlob::new(&_WIRE);
+			};
 
 			#js_sys::js_bindgen::embed_js! {
 				module = #crate_name,

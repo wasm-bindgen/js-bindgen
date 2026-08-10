@@ -5,13 +5,11 @@ mod import;
 
 use core::mem::size_of;
 
-use crate::{
-	MAGIC, VERSION, WAT_IMPORT_FUNCTION, WAT_IMPORT_TABLE, WAT_IMPORT_TAG, Wire,
-	abi::{
-		FromJsConv, IntoJsConv, JsEmbed, Sret, WatImport, WatImportKind, WatLocal, WatSlot, WatType,
-	},
-	schema::WireKind,
+use crate::abi::{
+	FromJsConv, IntoJsConv, JsEmbed, Sret, WatImport, WatImportKind, WatLocal, WatSlot, WatType,
 };
+use crate::schema::WireKind;
+use crate::{MAGIC, VERSION, WAT_IMPORT_FUNCTION, WAT_IMPORT_TABLE, WAT_IMPORT_TAG, Wire};
 
 /// A raw, self-contained wire record without custom-section framing.
 #[derive(Clone, Copy)]
@@ -38,7 +36,8 @@ impl<const N: usize> WireRecord<N> {
 	}
 }
 
-/// A length-prefixed wire record stored in the `js_bindgen.wire` custom section.
+/// A length-prefixed wire record stored in the `js_bindgen.wire` custom
+/// section.
 #[repr(C)]
 pub struct WireBlob<const N: usize> {
 	record_len: [u8; 4],
@@ -320,7 +319,7 @@ impl Sizer {
 
 impl WatSlot {
 	const fn encode<const N: usize>(&self, encoder: &mut Encoder<N>) {
-		encoder.u8(self.abi.tag());
+		encoder.u8(self.rust.tag());
 		match self.wat {
 			Some(wat) => {
 				encoder.u8(1);
@@ -337,7 +336,7 @@ impl WatSlot {
 					index += 1;
 				}
 				encoder.string(wat.instruction);
-				encoder.u8(wat.boundary.tag());
+				encoder.u8(wat.js.tag());
 			}
 			None => encoder.u8(0),
 		}
@@ -526,9 +525,13 @@ const fn template_mask(templates: &[Option<&str>; 4]) -> u8 {
 	clippy::cast_possible_truncation,
 	reason = "the function asserts that the value fits in u32"
 )]
-const fn wire_u32(value: usize) -> u32 {
+pub(crate) const fn wire_u32(value: usize) -> u32 {
 	assert!(value <= u32::MAX as usize);
 	value as u32
+}
+
+pub(crate) const fn flag(enabled: bool, value: u8) -> u8 {
+	if enabled { value } else { 0 }
 }
 
 #[expect(

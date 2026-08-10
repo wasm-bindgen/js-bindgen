@@ -1,12 +1,10 @@
-use alloc::{rc::Rc, vec::Vec};
-
-use crate::{
-	Error, ErrorKind, SLOT_COUNT, WAT_IMPORT_FUNCTION, WAT_IMPORT_TABLE, WAT_IMPORT_TAG,
-	abi::{RefType, WatIndexType, WatType},
-	model::{Embed, Slot, WatConversion, WatImport, WatImportKind, WatLocal},
-};
+use alloc::rc::Rc;
+use alloc::vec::Vec;
 
 use super::{Decode, Decoder};
+use crate::abi::{RefType, WatIndexType, WatType};
+use crate::model::{Embed, Slot, WatConversion, WatImport, WatImportKind, WatLocal};
+use crate::{Error, ErrorKind, SLOT_COUNT, WAT_IMPORT_FUNCTION, WAT_IMPORT_TABLE, WAT_IMPORT_TAG};
 
 pub(super) type WireSlots<'a> = [Option<Slot<'a>>; SLOT_COUNT];
 
@@ -24,18 +22,18 @@ pub(super) enum Sret<'a> {
 
 impl<'de> Decode<'de> for Slot<'de> {
 	fn decode(decoder: &mut Decoder<'de>) -> Result<Self, Error> {
-		let abi = decode_wat_type(decoder)?;
+		let rust = decode_wat_type(decoder)?;
 		let wat = if decoder.boolean("slot WAT presence")? {
 			Some(WatConversion {
 				imports: decode_imports(decoder)?,
 				locals: decode_locals(decoder)?,
 				instruction: decoder.string()?,
-				boundary: decode_wat_type(decoder)?,
+				js: decode_wat_type(decoder)?,
 			})
 		} else {
 			None
 		};
-		Ok(Self { abi, wat })
+		Ok(Self { rust, wat })
 	}
 }
 

@@ -3,9 +3,7 @@ fn main() {
 	// ;; await exports["jspi_block_on"]() === "resolved"
 	// ;; await exports["jspi_u32"](0xffff_ffff) === 0xffff_ffff
 	// ;; await exports["jspi_u128"](1n << 96n) === 1n << 96n
-	// ;; typeof exports["jspi_result"] !== "function" || await exports["jspi_result"](42) === 42
-	// ;; typeof exports["jspi_result"] !== "function" || await (async () => { try { await exports["jspi_result"](-1); return false } catch (error) { return error === -1 } })()
-	// ;; typeof exports["jspi_result"] !== "function" || await (async () => { const [first, second] = await Promise.allSettled([exports["jspi_result"](-1), exports["jspi_result"](-2)]); return first.reason === -1 && second.reason === -2 })()
+	// ;; await (async () => { const enabled = exports["jspi_has_exception_handling"](); const result = exports["jspi_result"]; if ((typeof result === "function") !== enabled) return false; if (!enabled) return true; if (await result(42) !== 42) return false; const [first, second] = await Promise.allSettled([result(-1), result(-2)]); return first.status === "rejected" && first.reason === -1 && second.status === "rejected" && second.reason === -2 })()
 	// ;; await (async () => { const value = { answer: 42 }; return await exports["jspi_js_value"](value) === value })()
 }
 
@@ -74,6 +72,11 @@ fn jspi_u32(value: u32) -> u32 {
 #[js_sys(promising)]
 fn jspi_u128(value: u128) -> u128 {
 	suspend_u128(value)
+}
+
+#[js_sys]
+fn jspi_has_exception_handling() -> bool {
+	cfg!(target_feature = "exception-handling")
 }
 
 #[cfg(target_feature = "exception-handling")]

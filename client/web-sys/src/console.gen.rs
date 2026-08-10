@@ -9,16 +9,16 @@ use js_sys::hazard::JsCast;
 pub fn log0() {
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.log0"]
-		fn log0();
+		fn __import_();
 	}
 
-	{ unsafe { log0() } };
+	{ unsafe { __import_() } };
 }
 
 pub fn log<T: JsCast>(data: &[T]) {
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.log"]
-		fn log(
+		fn __import_(
 			arg0_0: wire::InputSlot1<&[JsValue]>,
 			arg0_1: wire::InputSlot2<&[JsValue]>,
 			arg0_2: wire::InputSlot3<&[JsValue]>,
@@ -28,14 +28,14 @@ pub fn log<T: JsCast>(data: &[T]) {
 
 	{
 		let (arg0_0, arg0_1, arg0_2, arg0_3) = unsafe { wire::split_input_as::<&[JsValue]>(data) };
-		unsafe { log(arg0_0, arg0_1, arg0_2, arg0_3) }
+		unsafe { __import_(arg0_0, arg0_1, arg0_2, arg0_3) }
 	};
 }
 
 pub fn log2(data1: &JsValue, data2: &JsValue) {
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.log2"]
-		fn log2(
+		fn __import_(
 			arg0_0: wire::InputSlot1<&JsValue>,
 			arg0_1: wire::InputSlot2<&JsValue>,
 			arg0_2: wire::InputSlot3<&JsValue>,
@@ -50,14 +50,14 @@ pub fn log2(data1: &JsValue, data2: &JsValue) {
 	{
 		let (arg0_0, arg0_1, arg0_2, arg0_3) = wire::split_input::<&JsValue>(data1);
 		let (arg1_0, arg1_1, arg1_2, arg1_3) = wire::split_input::<&JsValue>(data2);
-		unsafe { log2(arg0_0, arg0_1, arg0_2, arg0_3, arg1_0, arg1_1, arg1_2, arg1_3) }
+		unsafe { __import_(arg0_0, arg0_1, arg0_2, arg0_3, arg1_0, arg1_1, arg1_2, arg1_3) }
 	};
 }
 
 pub fn error(data: &JsValue) {
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.error"]
-		fn error(
+		fn __import_(
 			arg0_0: wire::InputSlot1<&JsValue>,
 			arg0_1: wire::InputSlot2<&JsValue>,
 			arg0_2: wire::InputSlot3<&JsValue>,
@@ -67,14 +67,14 @@ pub fn error(data: &JsValue) {
 
 	{
 		let (arg0_0, arg0_1, arg0_2, arg0_3) = wire::split_input::<&JsValue>(data);
-		unsafe { error(arg0_0, arg0_1, arg0_2, arg0_3) }
+		unsafe { __import_(arg0_0, arg0_1, arg0_2, arg0_3) }
 	};
 }
 
 pub fn error1(data: &JsValue) -> u128 {
 	unsafe extern "C" {
 		#[link_name = "web_sys.console.error1"]
-		fn error1(
+		fn __import_(
 			arg0_0: wire::InputSlot1<&JsValue>,
 			arg0_1: wire::InputSlot2<&JsValue>,
 			arg0_2: wire::InputSlot3<&JsValue>,
@@ -84,7 +84,7 @@ pub fn error1(data: &JsValue) -> u128 {
 
 	wire::join_output({
 		let (arg0_0, arg0_1, arg0_2, arg0_3) = wire::split_input::<&JsValue>(data);
-		unsafe { error1(arg0_0, arg0_1, arg0_2, arg0_3) }
+		unsafe { __import_(arg0_0, arg0_1, arg0_2, arg0_3) }
 	})
 }
 const _: () = {
@@ -94,7 +94,7 @@ const _: () = {
 		&[wire::wire_import_output_type::<u128>()],
 		wire::wire_import_catch(),
 	);
-	pub const WIRE: wire::Wire = wire::Wire::imports(
+	const _WIRE: wire::Wire = wire::Wire::imports(
 		TABLE,
 		&[
 			wire::WireImport::new(
@@ -172,9 +172,9 @@ const _: () = {
 			),
 		],
 	);
-	pub const LEN: ::core::primitive::usize = wire::wire_blob_len(&WIRE);
+	const _LEN: ::core::primitive::usize = wire::wire_blob_len(&_WIRE);
 
 	#[used]
 	#[unsafe(link_section = "js_bindgen.wire")]
-	pub static WIRE_SECTION: wire::WireBlob<LEN> = wire::WireBlob::new(&WIRE);
+	static _WIRE_SECTION: wire::WireBlob<_LEN> = wire::WireBlob::new(&_WIRE);
 };

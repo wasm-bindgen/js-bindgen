@@ -12,3 +12,11 @@ fn macro_error(input: syn::ItemForeignMod) -> String {
 
 	error.to_string()
 }
+
+fn assert_javascript(output: &str, expected: &str) {
+	let literal = format!("{expected:?}");
+	assert!(
+		output.contains(&literal),
+		"generated output does not contain the complete JavaScript expression {literal}"
+	);
+}

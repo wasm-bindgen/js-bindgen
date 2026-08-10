@@ -8,7 +8,7 @@ fn main() {
 	// ;; await (async () => { const value = {}; return await exports["shared_promise"](Promise.resolve(value)) === value })()
 	// ;; await (async () => { exports["spawn_local_start"](); if (exports["spawn_local_done"]()) return false; await Promise.resolve(); return exports["spawn_local_done"]() })()
 	// ;; await (async () => { const value = {}; return await exports["self_wake"](value) === value })()
-	// ;; await (async () => { const { promise, resolve } = Promise.withResolvers(); exports["drop_js_future"](promise); resolve(); await Promise.resolve(); return true })()
+	// ;; (() => { let settle; const thenable = { then(resolve) { settle = resolve } }; exports["drop_js_future"](thenable); if (typeof settle !== "function") return false; try { settle({}); return true } catch { return false } })()
 }
 
 use core::future::Future;
