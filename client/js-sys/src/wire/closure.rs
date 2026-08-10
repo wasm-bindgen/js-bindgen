@@ -1,9 +1,8 @@
-use crate::runtime::JsValue;
-
 use super::{
 	JsEmbed, Wire, WireClosure, WireClosureFactory, WireExportInput, WireExportOutput,
 	wire_import_input_type, wire_import_output_type,
 };
+use crate::runtime::JsValue;
 
 /// The JavaScript lifetime and invocation semantics of a Rust closure.
 #[doc(hidden)]

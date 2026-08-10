@@ -1,9 +1,8 @@
 use js_bindgen_wire::model::{Export, ExportOutput};
 
+use super::input_names;
 use crate::wire::JsBinding;
 use crate::wire::js::{Placeholder, quote_string, render_template};
-
-use super::input_names;
 
 /// Renders one decoded Rust export or closure dispatcher.
 pub(super) fn render<'a>(export: &Export<'a>) -> JsBinding<'a> {
@@ -143,14 +142,13 @@ fn render_promising(call: &PreparedCall<'_, '_>) -> String {
 
 	if call.prepares.is_empty() {
 		format!(
-			"(() => {{\n    const $promising = {}\n    return ({}) => \
-			 $promising({}){then}\n}})()",
+			"(() => {{\n    const $promising = {}\n    return ({}) => $promising({}){then}\n}})()",
 			call.callable, call.parameters, call.arguments
 		)
 	} else {
 		format!(
-			"(() => {{\n    const $promising = {}\n    return ({}) => \
-			 {{\n{}        return $promising({}){then}\n    }}\n}})()",
+			"(() => {{\n    const $promising = {}\n    return ({}) => {{\n{}        return \
+			 $promising({}){then}\n    }}\n}})()",
 			call.callable, call.parameters, call.prepares, call.arguments
 		)
 	}

@@ -125,13 +125,13 @@ fn js_value_roundtrip() {
 	assert_eq!(result[0], "first");
 	assert_eq!(result[1], "");
 	assert_eq!(result[2], "第三个 🦀");
-	assert!(js_value_identity(Vec::new()).is_empty());
+	assert_eq!(js_value_identity(Vec::new()), Vec::<JsString>::new());
 }
 
 #[test]
 fn u32_roundtrip() {
 	assert_eq!(u32_identity(vec![0, 1, u32::MAX]), [0, 1, u32::MAX]);
-	assert!(u32_identity(Vec::new()).is_empty());
+	assert_eq!(u32_identity(Vec::new()), Vec::<u32>::new());
 }
 
 #[test]

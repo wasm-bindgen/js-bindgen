@@ -6,9 +6,8 @@ use js_bindgen_wire::model::{
 	WatCatch,
 };
 
-use crate::wire::wat::{WatImports, WatLocals, quoted, write_conversion};
-
 use super::input_name;
+use crate::wire::wat::{WatImports, WatLocals, quoted, write_conversion};
 
 /// Renders the imported functions followed by their Rust `ABI` shims.
 pub(super) fn render(group: &ImportGroup<'_>) -> Option<String> {

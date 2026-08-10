@@ -3,9 +3,8 @@ use std::fmt::Write;
 use js_bindgen_wire::abi::WatType;
 use js_bindgen_wire::model::{Callee, Export, ExportInput, ExportInputKind, ExportOutput, Slot};
 
-use crate::wire::wat::{WatImports, WatLocals, quoted, write_conversion};
-
 use super::input_names;
+use crate::wire::wat::{WatImports, WatLocals, quoted, write_conversion};
 
 struct ExportRenderer<'export, 'wire> {
 	index: usize,

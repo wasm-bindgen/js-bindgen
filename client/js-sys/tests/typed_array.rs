@@ -1,4 +1,4 @@
-#![expect(
+#![allow(
 	clippy::float_cmp,
 	reason = "typed-array copies must preserve exact values"
 )]
@@ -6,8 +6,8 @@
 use js_bindgen_test::test;
 use js_sys::hazard::JsCast;
 use js_sys::{
-	ArrayBuffer, BigInt64Array, BigUint64Array, Float16Array, Float64Array, Int8Array,
-	TypedArray, TypedArrayCopyError, Uint8Array, Uint8ClampedArray, Uint32Array, js_sys,
+	ArrayBuffer, BigInt64Array, BigUint64Array, Float16Array, Float64Array, Int8Array, TypedArray,
+	TypedArrayCopyError, Uint8Array, Uint8ClampedArray, Uint32Array, js_sys,
 };
 
 js_bindgen::embed_js!(

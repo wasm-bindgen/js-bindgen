@@ -6,10 +6,10 @@
 //! ABI -> schema -> const encode -> decode -> model -> ld render
 //! ```
 //!
-//! - `abi` defines the common vocabulary, such as Wasm slots, conversions,
-//!   and return modes.
-//! - `schema` combines those values into static descriptions that `js-sys`
-//!   can construct during constant evaluation.
+//! - `abi` defines the common vocabulary, such as Wasm slots, conversions, and
+//!   return modes.
+//! - `schema` combines those values into static descriptions that `js-sys` can
+//!   construct during constant evaluation.
 //! - `encode` writes each description into a compact byte record without
 //!   allocation.
 //! - `decode` validates records read from object files.
