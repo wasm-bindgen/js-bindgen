@@ -4,16 +4,16 @@ use core::cell::Cell;
 use super::externref;
 use crate::JsValue;
 
+thread_local! {
+	static EXCEPTION: Cell<i32> = const { Cell::new(0) };
+}
+
 #[cfg(target_feature = "exception-handling")]
 js_bindgen::import_js!(
 	module = "js_sys",
 	name = "exception.tag",
 	"WebAssembly.JSTag",
 );
-
-thread_local! {
-	static EXCEPTION: Cell<i32> = const { Cell::new(0) };
-}
 
 fn set(index: i32) {
 	EXCEPTION.with(|exception| {

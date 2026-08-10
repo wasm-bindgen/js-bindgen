@@ -268,7 +268,7 @@ enum SectionData<'cs> {
 impl<'cs> CustomSectionParser<'cs> {
 	fn new(custom_section: &CustomSectionReader<'cs>, framed: bool) -> Self {
 		let data = if framed {
-			// Linkers concatenate statics assigned to the same custom section.
+			// `Linkers` concatenate statics assigned to the same custom section.
 			// Each block carries its allocated and initialized lengths, followed
 			// by length-prefixed records and any trailing padding.
 			SectionData::Framed {

@@ -11,6 +11,8 @@ use syn::{
 };
 use xxhash_rust::xxh3::xxh3_128;
 
+use crate::export::{ExportAbi, lower_abi};
+
 mod keyword {
 	syn::custom_keyword!(js_sys);
 }
@@ -29,7 +31,6 @@ pub(crate) fn closure_with(
 	package_name: &str,
 	package_version: &str,
 ) -> Result<TokenStream, Error> {
-	let input_text = input.to_string();
 	let ClosureInput {
 		js_sys,
 		trait_object,
@@ -40,36 +41,37 @@ pub(crate) fn closure_with(
 	let js_sys = js_sys.unwrap_or_else(|| parse_quote_spanned!(span=> ::js_sys));
 	// The package identity is part of the descriptor, so the hash is deterministic
 	// and does not depend on macro expansion order or parallel compilation.
-	let symbol_id = closure_symbol_hash(
-		crate_name,
-		package_name,
-		package_version,
-		&input_text,
-		&trait_object,
-		&expression,
-	);
-	let call_ident = format_ident!("closure_call_{symbol_id}", span = span);
+	let symbol_id = closure_symbol_hash(crate_name, package_name, package_version, &trait_object);
+	let call_name_value = format!("closure_call_{symbol_id}");
+	let call_name = syn::LitStr::new(&call_name_value, span);
 	let factory_ident = format_ident!("closure_new_{symbol_id}", span = span);
 	let factory_name = syn::LitStr::new(&format!("closure.new.{symbol_id}"), span);
 	let factory_embed = syn::LitStr::new(signature.kind.factory_embed(), span);
 	let closure = signature.closure_type(&trait_object);
 	let factory_js = syn::LitStr::new(
 		&format!(
-			"(data) => this.#jsEmbed.js_sys['{}'](data, this.#jsExports['{call_ident}'])",
+			"(data) => this.#jsEmbed.js_sys['{}'](data, this.#jsExports['{call_name_value}'])",
 			signature.kind.factory_embed(),
 		),
 		span,
 	);
 	let inputs: Vec<_> = signature.inputs.iter().collect();
-	let arguments: Vec<_> = inputs
-		.iter()
-		.enumerate()
-		.map(|(index, ty)| format_ident!("arg{index}", span = ty.span()))
-		.collect();
 	let output = signature.output.as_ref();
-	let output_decl = output.map_or_else(
-		TokenStream::new,
-		|output| quote_spanned!(output.span()=> -> #output),
+	let ExportAbi {
+		raw_types,
+		raw_inputs,
+		join_inputs,
+		arguments,
+		codegen_inputs,
+		mut required_embeds,
+		raw_output,
+		output_argument,
+	} = lower_abi(inputs.iter().copied(), output, &js_sys)?;
+	let mut js_codegen_inputs = vec![quote_spanned!(span=> ("data", ::core::primitive::usize))];
+	js_codegen_inputs.extend(codegen_inputs.iter().cloned());
+	required_embeds.insert(
+		0,
+		quote_spanned!(span=> #js_sys::r#macro::js_from_embed::<::core::primitive::usize>()),
 	);
 	let closure_bound = if signature.kind == ClosureKind::Shared {
 		if let Some(output) = output {
@@ -84,7 +86,7 @@ pub(crate) fn closure_with(
 			quote_spanned!(span=> ::core::ops::FnMut(#(#inputs),*))
 		}
 	};
-	let call_body = if signature.kind == ClosureKind::Shared {
+	let callback_call = if signature.kind == ClosureKind::Shared {
 		quote_spanned! {span=>
 			let callback = unsafe {
 				&*#js_sys::ClosureHeader::callback::<F, CallShim>(pointer)
@@ -97,6 +99,19 @@ pub(crate) fn closure_with(
 				&mut *#js_sys::ClosureHeader::callback::<F, CallShim>(pointer)
 			};
 			callback(#(#arguments),*)
+		}
+	};
+	let call_body = if output.is_some() {
+		quote_spanned! {span=>
+			#(#join_inputs)*
+			#js_sys::r#macro::return_to_js({
+				#callback_call
+			})
+		}
+	} else {
+		quote_spanned! {span=>
+			#(#join_inputs)*
+			#callback_call;
 		}
 	};
 	let expression = if signature.kind == ClosureKind::Once {
@@ -116,16 +131,16 @@ pub(crate) fn closure_with(
 
 	Ok(quote_spanned! {span=>
 		{
-			type CallShim = unsafe fn(
+			type CallShim = unsafe extern "C" fn(
 				*mut #js_sys::ClosureHeader,
-				#(#inputs),*
-			) #output_decl;
+				#(#raw_types),*
+			) #raw_output;
 
 			#[allow(clippy::undocumented_unsafe_blocks)]
-			unsafe fn call_impl<F>(
+			unsafe extern "C" fn call_raw<F>(
 				pointer: *mut #js_sys::ClosureHeader,
-				#(#arguments: #inputs),*
-			) #output_decl
+				#(#raw_inputs),*
+			) #raw_output
 			where
 				F: #closure_bound,
 			{
@@ -140,21 +155,32 @@ pub(crate) fn closure_with(
 			{
 				#js_sys::ClosureAllocation::new(
 					callback,
-					call_impl::<F> as CallShim,
+					call_raw::<F> as CallShim,
 				)
 			}
 
-			#[#js_sys::js_sys(js_sys = #js_sys)]
-			#[allow(clippy::undocumented_unsafe_blocks)]
-			fn #call_ident(
-				data: ::core::primitive::usize,
-				#(#arguments: #inputs),*
-			) #output_decl {
-				let pointer = ::core::ptr::with_exposed_provenance_mut(data);
-				let call_shim = unsafe {
-					#js_sys::ClosureHeader::call_shim::<CallShim>(pointer)
-				};
-				unsafe { call_shim(pointer.cast(), #(#arguments),*) }
+			#js_sys::js_bindgen::unsafe_global_wat! {
+				"{}",
+				interpolate #js_sys::r#macro::wat_closure!(
+					#call_name,
+					CallShim,
+					(#(#codegen_inputs),*)
+					#output_argument,
+				),
+			}
+
+			#js_sys::js_bindgen::export_js! {
+				module = #crate_name,
+				name = #call_name,
+				required_embeds = [
+					#(#required_embeds),*
+				],
+				"{}",
+				interpolate #js_sys::r#macro::js_export!(
+					#call_name,
+					(#(#js_codegen_inputs),*)
+					#output_argument,
+				),
 			}
 
 			#js_sys::js_bindgen::embed_js! {
@@ -185,18 +211,14 @@ fn closure_symbol_hash(
 	crate_name: &str,
 	package_name: &str,
 	package_version: &str,
-	input: &str,
 	trait_object: &TypeTraitObject,
-	expression: &Expr,
 ) -> String {
 	let mut descriptor = String::from("closure-v1\0");
 	for value in [
 		crate_name,
 		package_name,
 		package_version,
-		input,
 		&trait_object.to_token_stream().to_string(),
-		&expression.to_token_stream().to_string(),
 	] {
 		descriptor.push_str(value);
 		descriptor.push('\0');

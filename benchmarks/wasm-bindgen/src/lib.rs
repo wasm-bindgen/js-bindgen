@@ -1,4 +1,5 @@
-use core::{array, hint::black_box};
+use core::array;
+use core::hint::black_box;
 
 use wasm_bindgen::prelude::*;
 
@@ -92,16 +93,26 @@ extern "C" {
 extern "C" {
 	#[wasm_bindgen(js_name = invoke_closure)]
 	fn invoke_closure_raw(callback: &Closure<dyn FnMut(i32) -> i32>, value: i32) -> i32;
+
+	#[wasm_bindgen(js_name = invoke_closure)]
+	fn invoke_closure_u128_raw(callback: &Closure<dyn FnMut(u128) -> u128>, value: u128) -> u128;
 }
 
 std::thread_local! {
 	static CALLBACK: Closure<dyn FnMut(i32) -> i32> =
+		Closure::new(|value| value);
+	static CALLBACK_U128: Closure<dyn FnMut(u128) -> u128> =
 		Closure::new(|value| value);
 }
 
 #[wasm_bindgen]
 pub fn bench_closure_call(value: i32) -> i32 {
 	CALLBACK.with(|callback| invoke_closure_raw(callback, value))
+}
+
+#[wasm_bindgen]
+pub fn bench_closure_call_u128(value: u128) -> u128 {
+	CALLBACK_U128.with(|callback| invoke_closure_u128_raw(callback, value))
 }
 
 #[wasm_bindgen]

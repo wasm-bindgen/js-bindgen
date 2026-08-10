@@ -39,25 +39,21 @@ impl ClosureHeader {
 		Self { drop }
 	}
 
+	/// Returns the byte offset of the call shim in a closure allocation.
+	#[doc(hidden)]
+	#[must_use]
+	pub const fn call_shim_offset<C>() -> usize {
+		// This is the byte offset used to load `call_shim` from the allocation;
+		// the loaded field value, not this offset, is the function table index.
+		core::mem::offset_of!(ClosurePrefix<C>, call_shim)
+	}
+
 	unsafe fn release(pointer: *mut Self) {
 		// SAFETY: The caller guarantees that `pointer` identifies a live header.
 		// Read the function pointer before it releases the containing allocation.
 		let drop = unsafe { (*pointer).drop };
 		// SAFETY: The same caller guarantee satisfies the stored drop function.
 		unsafe { drop(pointer) };
-	}
-
-	/// Reads the call shim stored after this header.
-	///
-	/// # Safety
-	///
-	/// `pointer` must come from [`ClosureAllocation::new`], and `C` must be the
-	/// call shim type used to create that allocation.
-	#[inline]
-	pub unsafe fn call_shim<C: Copy>(pointer: *mut Self) -> C {
-		let pointer = pointer.cast::<ClosurePrefix<C>>();
-		// SAFETY: The caller guarantees the allocation and `C` match.
-		unsafe { ptr::read(&raw const (*pointer).call_shim) }
 	}
 
 	/// Returns the captured callback stored after this header.
@@ -155,7 +151,8 @@ js_bindgen::embed_js!(
 	name = "closure.own",
 	required_embeds = [("js_sys", "closure.finalization")],
 	"(callback, state) => {{",
-	"	callback.unref = () => {{",
+	"	let owned = true",
+	"	const release = () => {{",
 	"		state.references -= 1",
 	"		if (state.references === 0) {{",
 	"			const data = state.data",
@@ -164,10 +161,15 @@ js_bindgen::embed_js!(
 	"			if (data) this.#jsExports.closure_drop(data)",
 	"		}}",
 	"	}}",
+	"	callback.unref = () => {{",
+	"		if (!owned) return",
+	"		owned = false",
+	"		release()",
+	"	}}",
 	"	this.#jsEmbed.js_sys['closure.finalization'].register(",
 	"		callback, state, state",
 	"	)",
-	"	return callback",
+	"	return release",
 	"}}",
 );
 
@@ -185,10 +187,11 @@ js_bindgen::embed_js!(
 	"		try {{",
 	"			return call(state.data, ...args)",
 	"		}} finally {{",
-	"			callback.unref()",
+	"			release()",
 	"		}}",
 	"	}}",
-	"	return this.#jsEmbed.js_sys['closure.own'](callback, state)",
+	"	const release = this.#jsEmbed.js_sys['closure.own'](callback, state)",
+	"	return callback",
 	"}}",
 );
 
@@ -209,10 +212,11 @@ js_bindgen::embed_js!(
 	"			return call(data, ...args)",
 	"		}} finally {{",
 	"			state.data = data",
-	"			callback.unref()",
+	"			release()",
 	"		}}",
 	"	}}",
-	"	return this.#jsEmbed.js_sys['closure.own'](callback, state)",
+	"	const release = this.#jsEmbed.js_sys['closure.own'](callback, state)",
+	"	return callback",
 	"}}",
 );
 
@@ -237,10 +241,11 @@ js_bindgen::embed_js!(
 	"			return call(data, ...args)",
 	"		}} finally {{",
 	"			state.data = data",
-	"			callback.unref()",
+	"			release()",
 	"		}}",
 	"	}}",
-	"	return this.#jsEmbed.js_sys['closure.own'](callback, state)",
+	"	const release = this.#jsEmbed.js_sys['closure.own'](callback, state)",
+	"	return callback",
 	"}}",
 );
 

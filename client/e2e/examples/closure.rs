@@ -1,12 +1,16 @@
 #[rustfmt::skip]
 fn main() {
 	// ;; exports["closure_i32"](20) === 43
+	// ;; exports["closure_same_signature"](20) === 4280
+	// ;; exports["closure_macro_repetition"](20) === 84
 	// ;; exports["closure_u128"](1n << 96n) === (1n << 96n) + 1n
 	// ;; (() => { const value = {}; return exports["closure_js_value"](value) === value })()
+	// ;; exports["closure_js_string_ref"]("closure") === "closure"
 	// ;; exports["closure_result"](41, false) === 42
 	// ;; (() => { try { exports["closure_result"](41, true); return false } catch (error) { return error === "closure error" } })()
 	// ;; exports["closure_lifecycle"]()
 	// ;; exports["closure_fn_reentrant"](20) === 22
+	// ;; exports["closure_unref_during_call"]()
 	// ;; exports["closure_owned"](20) === 21
 	// ;; exports["closure_owned_lifecycle"]()
 	// ;; exports["closure_once"](20) === 21
@@ -27,6 +31,12 @@ use js_sys::{Closure, JsString, JsValue, closure, js_sys};
 static DROPS: AtomicU32 = AtomicU32::new(0);
 
 struct DropCounter;
+
+macro_rules! repeated_closures {
+	($($offset:expr),+ $(,)?) => {
+		($(closure!(dyn FnMut(i32) -> i32, move |value| value + $offset)),+)
+	};
+}
 
 impl Drop for DropCounter {
 	fn drop(&mut self) {
@@ -99,6 +109,18 @@ js_sys::js_bindgen::embed_js!(
 	"}}",
 );
 
+js_sys::js_bindgen::embed_js!(
+	module = "closure",
+	name = "release.twice",
+	required_embeds = [("closure", "storage")],
+	"() => {{",
+	"	const callback = this.#jsEmbed.closure.storage.callback",
+	"	callback.unref()",
+	"	callback.unref()",
+	"	return true",
+	"}}",
+);
+
 #[js_sys]
 extern "js-sys" {
 	#[js_sys(js_embed = "invoke.twice")]
@@ -112,6 +134,12 @@ extern "js-sys" {
 		callback: &Closure<dyn FnMut(JsValue) -> JsValue>,
 		value: JsValue,
 	) -> JsValue;
+
+	#[js_sys(js_embed = "invoke")]
+	fn invoke_js_string_ref(
+		callback: &Closure<dyn FnMut(&JsString) -> JsString>,
+		value: &JsString,
+	) -> JsString;
 
 	#[js_sys(js_embed = "invoke")]
 	fn invoke_result(
@@ -154,6 +182,9 @@ extern "js-sys" {
 
 	#[js_sys(js_embed = "release")]
 	fn release() -> bool;
+
+	#[js_sys(js_embed = "release.twice")]
+	fn release_twice() -> bool;
 }
 
 #[js_sys]
@@ -168,6 +199,21 @@ fn closure_i32(value: i32) -> i32 {
 }
 
 #[js_sys]
+fn closure_same_signature(value: i32) -> i32 {
+	let first = closure!(dyn FnMut(i32) -> i32, |value| value + 1);
+	let second = closure!(dyn FnMut(i32) -> i32, |value| value * 2);
+
+	invoke_i32_twice(&first, value) * 100 + invoke_i32_twice(&second, value)
+}
+
+#[js_sys]
+fn closure_macro_repetition(value: i32) -> i32 {
+	let (first, second) = repeated_closures!(1, 1);
+
+	invoke_i32_twice(&first, value) + invoke_i32_twice(&second, value)
+}
+
+#[js_sys]
 fn closure_u128(value: u128) -> u128 {
 	let callback = closure!(dyn FnMut(u128) -> u128, move |value| value + 1);
 
@@ -179,6 +225,13 @@ fn closure_js_value(value: JsValue) -> JsValue {
 	let callback = closure!(dyn FnMut(JsValue) -> JsValue, move |value| value);
 
 	invoke_js_value(&callback, value)
+}
+
+#[js_sys]
+fn closure_js_string_ref(value: &JsString) -> JsString {
+	let callback = closure!(dyn FnMut(&JsString) -> JsString, JsString::clone);
+
+	invoke_js_string_ref(&callback, value)
 }
 
 #[js_sys]
@@ -219,6 +272,22 @@ fn closure_fn_reentrant(value: i32) -> i32 {
 	save_fn(&callback);
 
 	invoke_saved(value)
+}
+
+#[js_sys]
+fn closure_unref_during_call() -> bool {
+	DROPS.store(0, Ordering::Relaxed);
+	let counter = DropCounter;
+	let callback = closure!(dyn Fn(i32) -> i32, move |value| {
+		let _ = &counter;
+		let released = release_twice();
+		let alive = DROPS.load(Ordering::Relaxed) == 0;
+
+		if released && alive { value + 1 } else { 0 }
+	});
+	save_fn(&callback);
+
+	invoke_saved(41) == 42 && DROPS.load(Ordering::Relaxed) == 1
 }
 
 #[js_sys]

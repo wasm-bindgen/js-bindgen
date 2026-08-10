@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::Path;
@@ -58,6 +59,7 @@ pub fn processing<'a>(args: &'a Arguments<'a>) -> PreOutput<'a> {
 	let main_memory = main_memory(arch, args, &mut add_args);
 
 	let mut js_store = JsStore::default();
+	let mut seen_wat = HashSet::new();
 	let mut is_test = false;
 
 	// Extract embedded WAT from object files.
@@ -69,6 +71,7 @@ pub fn processing<'a>(args: &'a Arguments<'a>) -> PreOutput<'a> {
 		js_bindgen_ld_shared::ld_input_parser(input, |path, data, object_mtime| {
 			process_object(
 				&mut js_store,
+				&mut seen_wat,
 				matches!(arch, Arch::Wasm64),
 				&mut add_args,
 				path,
@@ -100,6 +103,7 @@ fn is_libtest(input: &OsStr) -> bool {
 /// them and passes them to the linker.
 fn process_object(
 	js_store: &mut JsStore,
+	seen_wat: &mut HashSet<String>,
 	wasm64: bool,
 	add_args: &mut Vec<OsString>,
 	archive_path: &Path,
@@ -123,6 +127,9 @@ fn process_object(
 			Payload::CustomSection(c) if c.name() == WAT_SECTION => {
 				for wat in JsBindgenWatSectionParser::new(c) {
 					file_counter += 1;
+					if !seen_wat.insert(wat.to_owned()) {
+						continue;
+					}
 					let wasm_path =
 						archive_path.with_added_extension(format!("wasm.{file_counter}.o"));
 					// The cache is shared by concurrent linker processes. Hold the lock through
@@ -163,6 +170,7 @@ fn process_object(
 
 					process_object(
 						js_store,
+						seen_wat,
 						wasm64,
 						&mut Vec::new(),
 						&wasm_path,

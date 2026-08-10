@@ -1,4 +1,5 @@
 mod abi;
+mod closure;
 mod export;
 mod import;
 mod js_import;
@@ -26,6 +27,11 @@ pub use crate::{
 pub use crate::{
 	js_function, js_import, js_indirect_function, js_input_parameters, js_needs_shim, js_output,
 	js_parameter,
+};
+// WAT closure shims.
+pub use crate::{
+	wat_closure, wat_closure_call, wat_closure_direct, wat_closure_indirect,
+	wat_closure_table_import,
 };
 // WAT export shims.
 pub use crate::{wat_export, wat_export_direct, wat_export_indirect};
