@@ -192,14 +192,15 @@ function compareBenchmarks(left, right) {
 // Wasm functions expose their arity but not their parameter types. Start with
 // Number and retry the parameter that rejected it as BigInt. Parameters that
 // never coerce the probe are reference values.
-function inferArguments(exportName, call, allowThrow = false) {
+async function inferArguments(exportName, call, allowFailure = false) {
 	const kinds = Array(call.length).fill("number")
 
 	while (true) {
 		const coerced = Array(call.length).fill(false)
 		let lastCoerced = -1
+		let asynchronous = false
 		let result
-		let throws = false
+		let fails = false
 		const probes = kinds.map((kind, index) => ({
 			[Symbol.toPrimitive]() {
 				coerced[index] = true
@@ -220,13 +221,29 @@ function inferArguments(exportName, call, allowThrow = false) {
 				continue
 			}
 
-			if (!allowThrow) {
+			if (!allowFailure) {
 				throw new Error(`cannot infer parameters for ${exportName}`, {
 					cause: error,
 				})
 			}
 
-			throws = true
+			fails = true
+		}
+
+		if (!fails && typeof result?.then === "function") {
+			asynchronous = true
+
+			try {
+				result = await result
+			} catch (error) {
+				if (!allowFailure) {
+					throw new Error(`cannot infer result for ${exportName}`, {
+						cause: error,
+					})
+				}
+
+				fails = true
+			}
 		}
 
 		let bigintIndex = 0
@@ -244,8 +261,9 @@ function inferArguments(exportName, call, allowThrow = false) {
 				return 42
 			}),
 			kinds: kinds.map((kind, index) => (coerced[index] ? kind : "reference")),
+			asynchronous,
 			result,
-			throws,
+			fails,
 		}
 	}
 }
@@ -260,19 +278,20 @@ async function discoverBenchmarks(implementation) {
 
 let benchmarkId = 0
 
-function createBenchmark(call, inputs, throws) {
+function createBenchmark(call, inputs, fails, asynchronous) {
 	const parameterCount = inputs.length
 	const id = benchmarkId++
 	const parameters = Array.from({ length: parameterCount }, (_, index) => `arg${index}`)
 	const invocation = `call(${parameters.join(", ")})`
-	const measuredCall = throws
+	const await_ = asynchronous ? "await " : ""
+	const measuredCall = fails
 		? `
             try {
-              result = ${invocation};
+              result = ${await_}${invocation};
             } catch (error) {
               result = error;
             }`
-		: `result = ${invocation};`
+		: `result = ${await_}${invocation};`
 	const setup = parameters
 		.map(
 			(_, index) => `
@@ -294,7 +313,7 @@ function createBenchmark(call, inputs, throws) {
         let result;
 
         yield {${setup}
-          bench(${parameters.join(", ")}) {
+          ${asynchronous ? "async " : ""}bench(${parameters.join(", ")}) {
             ${measuredCall}
           },
         };
@@ -312,17 +331,6 @@ async function runWorker() {
 		throw new Error(`unknown benchmark implementation: ${workerImplementation}`)
 	}
 
-	const rawExports = await loadImplementation(implementation)
-	const rawCall = rawExports.raw[workerBenchmark]
-
-	if (typeof rawCall !== "function") {
-		throw new Error(`missing Wasm export: ${implementation.name}:${workerBenchmark}`)
-	}
-
-	const raw = inferArguments(workerBenchmark, rawCall)
-
-	// Probe wrappers on a separate instance. Some raw ABIs transfer owned table
-	// indices, so probing them must not perturb the instance being measured.
 	const wrappedExports = await loadImplementation(implementation)
 	const wrappedCall = wrappedExports.wrapped[workerBenchmark]
 
@@ -330,17 +338,32 @@ async function runWorker() {
 		throw new Error(`missing JS export: ${implementation.name}:${workerBenchmark}`)
 	}
 
-	const wrapped = inferArguments(workerBenchmark, wrappedCall, true)
+	const wrapped = await inferArguments(workerBenchmark, wrappedCall, true)
 	const returnsReference =
 		(typeof wrapped.result === "object" && wrapped.result !== null) ||
 		typeof wrapped.result === "function"
-	const useWrapper =
-		wrapped.throws ||
-		wrapped.kinds.includes("reference") ||
-		(Array.isArray(raw.result) && returnsReference)
-	const call = useWrapper ? wrappedCall : rawCall
-	const { inputs, kinds, throws } = useWrapper ? wrapped : raw
-	bench(implementation.name, createBenchmark(call, inputs, throws))
+	let useWrapper =
+		wrapped.asynchronous || wrapped.fails || wrapped.kinds.includes("reference")
+	let raw
+
+	if (!useWrapper) {
+		const rawExports = await loadImplementation(implementation)
+		const rawCall = rawExports.raw[workerBenchmark]
+
+		if (typeof rawCall !== "function") {
+			throw new Error(`missing Wasm export: ${implementation.name}:${workerBenchmark}`)
+		}
+
+		raw = await inferArguments(workerBenchmark, rawCall)
+		useWrapper = Array.isArray(raw.result) && returnsReference
+	}
+
+	// Argument inference runs user code and can initialize queues or perturb
+	// owned table slots. Measure a fresh instance after all probing is complete.
+	const measuredExports = await loadImplementation(implementation)
+	const call = (useWrapper ? measuredExports.wrapped : measuredExports.raw)[workerBenchmark]
+	const { asynchronous, fails, inputs, kinds } = useWrapper ? wrapped : raw
+	bench(implementation.name, createBenchmark(call, inputs, fails, asynchronous))
 
 	const result = await run({ format: "quiet", throw: true })
 	const trial = result.benchmarks[0]
@@ -361,9 +384,10 @@ async function runWorker() {
 					version: result.context.version,
 			},
 			implementation: implementation.name,
+			asynchronous,
+			fails,
 			kinds,
 			stats,
-			throws,
 		})
 	)
 }
@@ -514,12 +538,22 @@ async function runCoordinator() {
 	let printedContext = false
 	const comparisons = []
 	for (const exportName of selectedBenchmarks) {
+		let expectedAsynchronous
 		let expectedKinds
-		let expectedThrows
+		let expectedFailure
 		const results = []
 
 		for (const implementation of implementations) {
 			const result = runCase(implementation, exportName)
+
+			if (
+				expectedAsynchronous !== undefined &&
+				expectedAsynchronous !== result.asynchronous
+			) {
+				throw new Error(
+					`async behavior mismatch for ${exportName}: ${expectedAsynchronous} != ${result.asynchronous}`
+				)
+			}
 
 			if (expectedKinds && expectedKinds.join() !== result.kinds.join()) {
 				throw new Error(
@@ -527,14 +561,15 @@ async function runCoordinator() {
 				)
 			}
 
-			if (expectedThrows !== undefined && expectedThrows !== result.throws) {
+			if (expectedFailure !== undefined && expectedFailure !== result.fails) {
 				throw new Error(
-					`exception behavior mismatch for ${exportName}: ${expectedThrows} != ${result.throws}`
+					`failure behavior mismatch for ${exportName}: ${expectedFailure} != ${result.fails}`
 				)
 			}
 
+			expectedAsynchronous = result.asynchronous
 			expectedKinds = result.kinds
-			expectedThrows = result.throws
+			expectedFailure = result.fails
 			results.push(result)
 
 			if (!printedContext) {

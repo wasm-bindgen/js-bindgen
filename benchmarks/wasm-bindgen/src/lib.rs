@@ -1,7 +1,12 @@
 use core::array;
+use core::future::Future;
 use core::hint::black_box;
+use core::pin::Pin;
+use core::task::{Context, Poll};
 
+use js_sys::Promise;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::{JsFuture, future_to_promise};
 
 #[wasm_bindgen(inline_js = "export function identity(value) { return value; }")]
 extern "C" {
@@ -98,6 +103,15 @@ extern "C" {
 	fn invoke_closure_u128_raw(callback: &Closure<dyn FnMut(u128) -> u128>, value: u128) -> u128;
 }
 
+#[wasm_bindgen(inline_js = "export function pending_promise() {
+		const { promise, resolve } = Promise.withResolvers();
+		globalThis.queueMicrotask(resolve);
+		return promise;
+	}")]
+extern "C" {
+	fn pending_promise() -> Promise;
+}
+
 std::thread_local! {
 	static CALLBACK: Closure<dyn FnMut(i32) -> i32> =
 		Closure::new(|value| value);
@@ -113,6 +127,57 @@ pub fn bench_closure_call(value: i32) -> i32 {
 #[wasm_bindgen]
 pub fn bench_closure_call_u128(value: u128) -> u128 {
 	CALLBACK_U128.with(|callback| invoke_closure_u128_raw(callback, value))
+}
+
+#[wasm_bindgen]
+pub fn bench_future_to_promise_ready() -> Promise {
+	future_to_promise(async { Ok(JsValue::UNDEFINED) })
+}
+
+struct YieldOnce(bool);
+
+impl Future for YieldOnce {
+	type Output = ();
+
+	fn poll(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Self::Output> {
+		if self.0 {
+			Poll::Ready(())
+		} else {
+			self.0 = true;
+			context.waker().wake_by_ref();
+			Poll::Pending
+		}
+	}
+}
+
+#[wasm_bindgen]
+pub fn bench_future_to_promise_pending() -> Promise {
+	future_to_promise(async {
+		YieldOnce(false).await;
+		Ok(JsValue::UNDEFINED)
+	})
+}
+
+#[wasm_bindgen]
+pub fn bench_future_to_promise_err() -> Promise {
+	future_to_promise(async { Err(JsValue::UNDEFINED) })
+}
+
+#[wasm_bindgen]
+pub fn bench_promise_future_roundtrip_ready() -> Promise {
+	let promise = Promise::resolve(&JsValue::UNDEFINED);
+	future_to_promise(JsFuture::from(promise))
+}
+
+#[wasm_bindgen]
+pub fn bench_promise_future_roundtrip_pending() -> Promise {
+	future_to_promise(JsFuture::from(pending_promise()))
+}
+
+#[wasm_bindgen]
+pub fn bench_promise_future_roundtrip_err() -> Promise {
+	let promise = Promise::reject(&JsValue::UNDEFINED);
+	future_to_promise(JsFuture::from(promise))
 }
 
 #[wasm_bindgen]

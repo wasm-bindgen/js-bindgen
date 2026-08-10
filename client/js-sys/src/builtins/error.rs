@@ -6,7 +6,7 @@ use crate::{JsString, JsValue, js_sys};
 extern "js-sys" {
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/Error#cause)
 	#[js_sys(extends = Object)]
-	#[derive(Clone, Debug, PartialEq, Eq)]
+	#[derive(Clone, Debug)]
 	pub type ErrorOptions;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause)
@@ -32,7 +32,7 @@ impl ErrorOptions {
 #[js_sys(js_sys = crate)]
 extern "js-sys" {
 	#[js_sys(extends = Object)]
-	#[derive(Clone, Debug, PartialEq, Eq)]
+	#[derive(Clone, Debug)]
 	pub type Error;
 
 	/// [`MDN` documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/Error)

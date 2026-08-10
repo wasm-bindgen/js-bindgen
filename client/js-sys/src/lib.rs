@@ -23,11 +23,15 @@ mod interop;
 pub mod r#macro;
 
 pub use builtins::{
-	Error, ErrorOptions, JsArray, JsBigInt, JsNumber, JsString, Object, TryFromJsArrayError,
+	Error, ErrorOptions, Function, JsArray, JsBigInt, JsNumber, JsString, Object, Promise,
+	PromiseWithResolvers, TryFromJsArrayError,
 };
 pub use js_bindgen;
 pub use js_sys_macro::{closure, js_sys};
-pub use runtime::{Closure, ClosureAllocation, ClosureHeader, JsValue, UnwrapThrowExt, panic};
+pub use runtime::{
+	Closure, ClosureAllocation, ClosureHeader, JsFuture, JsValue, UnwrapThrowExt,
+	future_to_promise, panic, spawn_local,
+};
 
 #[cfg(not(target_feature = "reference-types"))]
 compile_error!("`js-sys` requires the `reference-types` target feature");
