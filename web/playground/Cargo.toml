@@ -1,0 +1,18 @@
+[package]
+name = "playground"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bench]]
+harness = false
+name = "conv"
+
+[dev-dependencies]
+criterion = { workspace = true }
+js-bindgen = { workspace = true }
+js-sys = { workspace = true, features = ["macro"] }
+
+[lints]
+workspace = true

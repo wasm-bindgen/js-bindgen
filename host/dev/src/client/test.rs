@@ -127,15 +127,28 @@ impl Test {
 
 			for test_run in &test_runs {
 				if !built {
+					// `wabii`'s `rustc-dep-of-std` feature links against the `sysroot`'s
+					// `core`. Test it separately without enabling that internal feature.
 					let mut command =
 						util::cargo(&permutation, &self.args.nightly_toolchain, "test");
 					command
 						.arg("--workspace")
 						.arg("--all-features")
+						.args(["--exclude", "wabii"])
 						.arg("--no-run");
 
 					build_time +=
 						command::run(&format!("Build Tests - {permutation}"), command, verbose)?;
+
+					let mut command =
+						util::cargo(&permutation, &self.args.nightly_toolchain, "test");
+					command.args(["-p", "wabii", "--no-run"]);
+
+					build_time += command::run(
+						&format!("Build Tests `wabii` - {permutation}"),
+						command,
+						verbose,
+					)?;
 
 					built = true;
 				}
@@ -144,9 +157,16 @@ impl Test {
 				command
 					.envs(test_run.envs())
 					.arg("--workspace")
-					.arg("--all-features");
+					.arg("--all-features")
+					.args(["--exclude", "wabii"]);
 
 				test_time += command::run(&format!("Run Tests - {test_run}"), command, verbose)?;
+
+				let mut command = util::cargo(&permutation, &self.args.nightly_toolchain, "test");
+				command.envs(test_run.envs()).args(["-p", "wabii"]);
+
+				test_time +=
+					command::run(&format!("Run Tests `wabii` - {test_run}"), command, verbose)?;
 			}
 
 			if test_runs
