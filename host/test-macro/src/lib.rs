@@ -115,9 +115,7 @@ fn test_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 		return Err(Error::new_spanned(constness, "`const` test not supported"));
 	}
 
-	if let Some(asyncness) = function.sig.asyncness {
-		return Err(Error::new_spanned(asyncness, "`async` test not supported"));
-	}
+	let is_async = function.sig.asyncness.is_some();
 
 	if !function.sig.inputs.is_empty() {
 		return Err(Error::new_spanned(
@@ -141,6 +139,31 @@ fn test_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 	let ident = &function.sig.ident;
 	let foreign_test = quote! {
 		::core::concat!(::core::module_path!(), "::", ::core::stringify!(#ident))
+	};
+	let export = if is_async {
+		quote! {
+			#[cfg(test)]
+			const _: () = {
+				#[#crate_::js_sys::js_sys(
+					js_sys = #crate_::js_sys,
+					js_name = #foreign_test,
+				)]
+				fn __jbg_test() -> #crate_::js_sys::Promise {
+					#crate_::async_test(#ident())
+				}
+			};
+		}
+	} else {
+		quote! {
+			#[cfg(test)]
+			const _: () = {
+				#[unsafe(export_name = #foreign_test)]
+				extern "C" fn __jbg_test() {
+					#crate_::set_panic_hook();
+					#ident();
+				}
+			};
+		}
 	};
 
 	Ok(quote! {
@@ -169,14 +192,7 @@ fn test_internal(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 			static CUSTOM_SECTION: Layout = Layout(LEN_ARR, DATA, TEST_ARR);
 		};
 
-		#[cfg(test)]
-		const _: () = {
-			#[unsafe(export_name = #foreign_test)]
-			extern "C" fn __jbg_test() {
-				#crate_::set_panic_hook();
-				#ident();
-			}
-		};
+		#export
 	})
 }
 

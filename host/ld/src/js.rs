@@ -11,28 +11,181 @@ type FixedHashMap<K, V> = HashMap<K, V, FixedState>;
 pub struct JsStore {
 	import: FixedHashMap<String, FixedHashMap<String, String>>,
 	expected_import: HashMap<String, HashSet<String>>,
+	// Keep canonical definitions after resolution so later records can be
+	// checked for equality.
 	provided_import: HashMap<String, HashMap<String, JsWithEmbeds>>,
 	embed: FixedHashMap<String, FixedHashMap<String, String>>,
 	expected_embed: HashMap<String, HashSet<String>>,
 	provided_embed: HashMap<String, HashMap<String, JsWithEmbeds>>,
+	export: FixedHashMap<String, JsExport>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct JsWithEmbeds {
 	js: String,
 	embeds: Vec<JsEmbed>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct JsEmbed {
 	module: String,
 	name: String,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+struct JsExport {
+	binding: JsWithEmbeds,
+	kind: JsExportKind,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum JsExportKind {
+	Symbol { module: String },
+	Closure { shim: String },
+}
+
+impl JsExport {
+	fn origin(&self) -> &str {
+		match &self.kind {
+			JsExportKind::Symbol { module } => module,
+			JsExportKind::Closure { .. } => "Rust closure",
+		}
+	}
+}
+
 impl JsStore {
+	pub fn add_js_import(
+		&mut self,
+		module: &str,
+		name: &str,
+		js: String,
+		embeds: impl IntoIterator<Item = (String, String)>,
+	) -> Result<()> {
+		let binding = JsWithEmbeds {
+			js,
+			embeds: embeds
+				.into_iter()
+				.map(|(module, name)| JsEmbed { module, name })
+				.collect(),
+		};
+		let definitions = self.provided_import.entry_ref(module).or_default();
+
+		if let Some(previous) = definitions.get(name) {
+			if previous != &binding {
+				bail!(
+					"found multiple JS imports for `{module}:{name}`\n\tJS Import \
+					 1:\n{previous:?}\n\tJS Import 2:\n{binding:?}",
+				);
+			}
+		} else {
+			definitions.insert(name.to_owned(), binding.clone());
+		}
+
+		if self
+			.expected_import
+			.get_mut(module)
+			.is_some_and(|names| names.remove(name))
+		{
+			self.import
+				.entry_ref(module)
+				.or_default()
+				.insert(name.to_owned(), binding.js.clone());
+
+			for embed in binding.embeds {
+				self.require_js_embed(embed);
+			}
+		}
+
+		Ok(())
+	}
+
+	pub fn add_symbol_export(
+		&mut self,
+		module: &str,
+		name: &str,
+		js: String,
+		embeds: impl IntoIterator<Item = (String, String)>,
+	) -> Result<()> {
+		let definition = JsExport {
+			binding: JsWithEmbeds {
+				js,
+				embeds: embeds
+					.into_iter()
+					.map(|(module, name)| JsEmbed { module, name })
+					.collect(),
+			},
+			kind: JsExportKind::Symbol {
+				module: module.to_owned(),
+			},
+		};
+
+		if let Some(previous) = self.export.get(name) {
+			bail!(
+				"found multiple JS exports named `{name}` from `{}` and `{}`\n\tJS Export \
+				 1:\n{:?}\n\tJS Export 2:\n{:?}",
+				previous.origin(),
+				definition.origin(),
+				previous.binding,
+				definition.binding
+			);
+		}
+
+		for embed in definition.binding.embeds.iter().cloned() {
+			self.require_js_embed(embed);
+		}
+
+		self.export.insert(name.into(), definition);
+		Ok(())
+	}
+
+	pub fn add_closure_export(
+		&mut self,
+		name: &str,
+		js: String,
+		embeds: impl IntoIterator<Item = (String, String)>,
+		shim: &str,
+	) -> Result<bool> {
+		let definition = JsExport {
+			binding: JsWithEmbeds {
+				js,
+				embeds: embeds
+					.into_iter()
+					.map(|(module, name)| JsEmbed { module, name })
+					.collect(),
+			},
+			kind: JsExportKind::Closure {
+				shim: shim.to_owned(),
+			},
+		};
+
+		if let Some(previous) = self.export.get(name) {
+			if previous == &definition {
+				return Ok(false);
+			}
+			bail!(
+				"found incompatible closure exports named `{name}` from `{}` and `{}`\n\tClosure \
+				 1:\n{:?}\n\tClosure 2:\n{:?}",
+				previous.origin(),
+				definition.origin(),
+				previous,
+				definition,
+			);
+		}
+
+		for embed in definition.binding.embeds.iter().cloned() {
+			self.require_js_embed(embed);
+		}
+
+		self.export.insert(name.into(), definition);
+		Ok(true)
+	}
+
 	pub fn add_import(&mut self, import: Import<'_>) -> Result<()> {
 		if let Some(js) = self
 			.provided_import
-			.get_mut(import.module)
-			.and_then(|names| names.remove(import.name))
+			.get(import.module)
+			.and_then(|names| names.get(import.name))
+			.cloned()
 		{
 			self.import
 				.entry(import.module.to_owned())
@@ -60,39 +213,15 @@ impl JsStore {
 
 	pub fn add_js_imports(&mut self, custom_section: &CustomSectionReader<'_>) -> Result<()> {
 		for import in JsBindgenJsSectionParser::new(custom_section) {
-			if self
-				.expected_import
-				.get_mut(import.module)
-				.is_some_and(|names| names.remove(import.name))
-			{
-				self.import
-					.entry_ref(import.module)
-					.or_default()
-					.insert(import.name.to_owned(), import.js.to_owned());
-
-				for embed in import.embeds {
-					self.require_js_embed(embed.into());
-				}
-			} else if let Err(error) = self
-				.provided_import
-				.entry_ref(import.module)
-				.or_default()
-				.try_insert(
-					import.name.to_owned(),
-					JsWithEmbeds {
-						js: import.js.to_owned(),
-						embeds: import.embeds.into_iter().map(JsEmbed::from).collect(),
-					},
-				) {
-				bail!(
-					"found multiple JS imports for `{}:{}`\n\tJS Import 1:\n{:?}\n\tJS Import \
-					 2:\n{:?}",
-					import.module,
-					error.entry.key(),
-					error.entry.get().js,
-					import.js
-				);
-			}
+			self.add_js_import(
+				import.module,
+				import.name,
+				import.js.to_owned(),
+				import
+					.embeds
+					.into_iter()
+					.map(|embed| (embed.module.to_owned(), embed.name.to_owned())),
+			)?;
 		}
 
 		Ok(())
@@ -100,6 +229,27 @@ impl JsStore {
 
 	pub fn add_js_embeds(&mut self, custom_section: &CustomSectionReader<'_>) -> Result<()> {
 		for embed in JsBindgenJsSectionParser::new(custom_section) {
+			let binding = JsWithEmbeds {
+				js: embed.js.to_owned(),
+				embeds: embed.embeds.into_iter().map(JsEmbed::from).collect(),
+			};
+			let definitions = self.provided_embed.entry_ref(embed.module).or_default();
+
+			if let Some(previous) = definitions.get(embed.name) {
+				if previous != &binding {
+					bail!(
+						"found multiple JS embeds for `{}:{}`\n\tJS Embed 1:\n{:?}\n\tJS Embed \
+						 2:\n{:?}",
+						embed.module,
+						embed.name,
+						previous,
+						binding
+					);
+				}
+			} else {
+				definitions.insert(embed.name.to_owned(), binding.clone());
+			}
+
 			if self
 				.expected_embed
 				.get_mut(embed.module)
@@ -108,29 +258,11 @@ impl JsStore {
 				self.embed
 					.entry_ref(embed.module)
 					.or_default()
-					.insert(embed.name.to_owned(), embed.js.to_owned());
+					.insert(embed.name.to_owned(), binding.js.clone());
 
-				for required_embed in embed.embeds {
-					self.require_js_embed(required_embed.into());
+				for required_embed in binding.embeds {
+					self.require_js_embed(required_embed);
 				}
-			} else if let Err(error) = self
-				.provided_embed
-				.entry_ref(embed.module)
-				.or_default()
-				.try_insert(
-					embed.name.to_owned(),
-					JsWithEmbeds {
-						js: embed.js.to_owned(),
-						embeds: embed.embeds.into_iter().map(JsEmbed::from).collect(),
-					},
-				) {
-				bail!(
-					"found multiple JS embeds for `{}:{}`\n\tJS Embed 1:\n{}\n\tJS Embed 2:\n{}",
-					embed.module,
-					error.entry.key(),
-					error.entry.get().js,
-					embed.js
-				);
 			}
 		}
 
@@ -145,8 +277,9 @@ impl JsStore {
 		{
 			if let Some(js) = self
 				.provided_embed
-				.get_mut(&embed.module)
-				.and_then(|names| names.remove(&embed.name))
+				.get(&embed.module)
+				.and_then(|names| names.get(&embed.name))
+				.cloned()
 			{
 				self.embed
 					.entry_ref(&embed.module)
@@ -180,6 +313,11 @@ impl JsStore {
 			main_memory,
 			js_import: self.import,
 			js_embed: self.embed,
+			js_export: self
+				.export
+				.into_iter()
+				.map(|(name, export)| (name, export.binding.js))
+				.collect(),
 		}
 	}
 }

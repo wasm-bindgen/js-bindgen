@@ -3,13 +3,17 @@ use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use js_bindgen_cli_lib::MainMemory;
-use js_bindgen_ld_shared::JsBindgenWatSectionParser;
+use js_bindgen_ld_shared::{IMPORT_SECTION, JsBindgenWatSectionParser, WAT_SECTION};
+use js_bindgen_shared::ReadFile;
+use js_bindgen_wire::{WIRE_SECTION, WireRecords};
 use wasmparser::{Parser, Payload};
+use xxhash_rust::xxh3::xxh3_128;
 
 use crate::args::Arguments;
 use crate::js::JsStore;
+use crate::wire::{self, RenderedRecord};
 
 pub struct PreOutput<'args> {
 	pub add_args: Vec<OsString>,
@@ -65,7 +69,7 @@ pub fn processing<'a>(args: &'a Arguments<'a>) -> PreOutput<'a> {
 			is_test |= is_libtest(input);
 		}
 
-		js_bindgen_ld_shared::ld_input_parser(input, |path, data, object_mtime| {
+		js_bindgen_ld_shared::ld_input_parser(input, |path, data, object_mtime| -> Result<()> {
 			process_object(
 				&mut js_store,
 				matches!(arch, Arch::Wasm64),
@@ -95,6 +99,43 @@ fn is_libtest(input: &OsStr) -> bool {
 		.is_some_and(|name| name.starts_with("libtest-"))
 }
 
+fn compile_wat(
+	wasm_path: &Path,
+	wasm64: bool,
+	wat: &str,
+	object_mtime: Option<SystemTime>,
+) -> Result<Option<Vec<u8>>> {
+	// The cache is shared by concurrent linker processes. Hold the lock through
+	// freshness validation, generation, and parsing.
+	let lock_path = wasm_path.with_added_extension("lock");
+	let file = fs::OpenOptions::new()
+		.read(true)
+		.write(true)
+		.create(true)
+		.truncate(false)
+		.open(lock_path)?;
+	file.lock()?;
+
+	let mut wasm_bytes = None;
+
+	// We first use a fingerprint to quickly determine whether `wasm.o` needs to be
+	// regenerated: https://doc.rust-lang.org/1.92.0/nightly-rustc/cargo/core/compiler/fingerprint/index.html#fingerprints-and-unithashs
+	//
+	// Then we compare the `mtime` of the `.o` files with that of `wasm.o`. If it is
+	// `None`(should not occur on major platforms), or if the `.o` files are
+	// newer than `wasm.o`, we regenerate `wasm.o`.
+	if !wasm_path.exists() || {
+		js_bindgen_shared::mtime(&std::fs::metadata(wasm_path)?)?
+			.zip(object_mtime)
+			.is_none_or(|(t1, t2)| t1 < t2)
+	} {
+		let wasm = js_bindgen_ld_shared::wat_to_object(wasm64, wat)?;
+		fs::write(wasm_path, &wasm)?;
+		wasm_bytes = Some(wasm);
+	}
+	Ok(wasm_bytes)
+}
+
 /// Extracts any WAT instructions from `js-bindgen`, builds object files from
 /// them and passes them to the linker.
 fn process_object(
@@ -105,8 +146,10 @@ fn process_object(
 	object: &[u8],
 	object_mtime: Option<SystemTime>,
 ) -> Result<()> {
-	// Multiple files from the same object file need different names.
-	let mut file_counter = 0;
+	let wasm_object_path = |wat: &str| {
+		let wat_hash = xxh3_128(wat.as_bytes());
+		archive_path.with_added_extension(format!("wasm.{wat_hash:032x}.o"))
+	};
 
 	for payload in Parser::new(0).parse_all(object) {
 		let payload = match payload {
@@ -119,32 +162,116 @@ fn process_object(
 
 		// We are only interested in reading custom sections with our name.
 		match &payload {
-			Payload::CustomSection(c) if c.name() == "js_bindgen.wat" => {
+			Payload::CustomSection(c) if c.name() == WAT_SECTION => {
 				for wat in JsBindgenWatSectionParser::new(c) {
-					file_counter += 1;
-					let wasm_path =
-						archive_path.with_added_extension(format!("wasm.{file_counter}.o"));
+					let wasm_path = wasm_object_path(wat);
+					let wasm_bytes = compile_wat(&wasm_path, wasm64, wat, object_mtime)?;
 
-					// We first use a fingerprint to quickly determine whether `wasm.o` needs to be
-					// regenerated: https://doc.rust-lang.org/1.92.0/nightly-rustc/cargo/core/compiler/fingerprint/index.html#fingerprints-and-unithashs
-					//
-					// Then we compare the `mtime` of the `.o` files with that of `wasm.o`. If it is
-					// `None`(should not occur on major platforms), or if the `.o` files are
-					// newer than `wasm.o`, we regenerate `wasm.o`.
-					if !wasm_path.exists() || {
-						js_bindgen_shared::mtime(&std::fs::metadata(&wasm_path)?)?
-							.zip(object_mtime)
-							.is_none_or(|(t1, t2)| t1 < t2)
-					} {
-						let wasm = js_bindgen_ld_shared::wat_to_object(wasm64, wat)?;
-						fs::write(&wasm_path, wasm)?;
-					}
+					let exist_file;
+					let wasm_object: &[u8] = if let Some(bytes) = &wasm_bytes {
+						bytes
+					} else {
+						exist_file = ReadFile::new(&wasm_path)?;
+						&exist_file
+					};
+
+					process_object(
+						js_store,
+						wasm64,
+						&mut Vec::new(),
+						&wasm_path,
+						wasm_object,
+						js_bindgen_shared::mtime(&std::fs::metadata(&wasm_path)?)?,
+					)?;
 
 					add_args.push(wasm_path.into());
 				}
 			}
+			Payload::CustomSection(c) if c.name() == WIRE_SECTION => {
+				for (index, blob) in WireRecords::new(c.data()).enumerate() {
+					let context = || {
+						format!(
+							"invalid wire record {index} in `{}`",
+							archive_path.display(),
+						)
+					};
+					let blob = blob.with_context(context)?;
+					match wire::decode_and_render(blob).with_context(context)? {
+						RenderedRecord::Imports(rendered) => {
+							for import in rendered.bindings {
+								js_store.add_js_import(
+									import.module,
+									import.name,
+									import.js,
+									import.embeds.into_iter().map(|embed| {
+										(embed.module.to_owned(), embed.name.to_owned())
+									}),
+								)?;
+							}
+
+							if let Some(wat) = rendered.wat {
+								let wasm_path = wasm_object_path(&wat);
+								compile_wat(&wasm_path, wasm64, &wat, object_mtime)?;
+								add_args.push(wasm_path.into());
+							}
+						}
+						RenderedRecord::Exports(rendered) => {
+							for binding in rendered.bindings {
+								let name = binding.name;
+								js_store.add_symbol_export(
+									binding.module,
+									name,
+									binding.js,
+									binding.embeds.into_iter().map(|embed| {
+										(embed.module.to_owned(), embed.name.to_owned())
+									}),
+								)?;
+								add_args.push(format!("--export={name}").into());
+							}
+
+							if let Some(wat) = rendered.wat {
+								let wasm_path = wasm_object_path(&wat);
+								compile_wat(&wasm_path, wasm64, &wat, object_mtime)?;
+								add_args.push(wasm_path.into());
+							}
+						}
+						RenderedRecord::Closure(closure) => {
+							let factory_module = closure.factory_module;
+							let factory = closure.factory;
+							js_store.add_js_import(
+								factory_module,
+								&factory.name,
+								factory.js,
+								factory
+									.embeds
+									.into_iter()
+									.map(|embed| (embed.module.to_owned(), embed.name.to_owned())),
+							)?;
+							let wasm_path = wasm_object_path(&factory.wat);
+							compile_wat(&wasm_path, wasm64, &factory.wat, object_mtime)?;
+							add_args.push(wasm_path.into());
+
+							let call = closure.call;
+							let call_inserted = js_store.add_closure_export(
+								&call.name,
+								call.js,
+								call.embeds
+									.into_iter()
+									.map(|embed| (embed.module.to_owned(), embed.name.to_owned())),
+								&call.wat,
+							)?;
+							if call_inserted {
+								add_args.push(format!("--export={}", call.name).into());
+								let wasm_path = wasm_object_path(&call.wat);
+								compile_wat(&wasm_path, wasm64, &call.wat, object_mtime)?;
+								add_args.push(wasm_path.into());
+							}
+						}
+					}
+				}
+			}
 			// Extract all JS imports.
-			Payload::CustomSection(c) if c.name() == "js_bindgen.import" => {
+			Payload::CustomSection(c) if c.name() == IMPORT_SECTION => {
 				js_store.add_js_imports(c)?;
 			}
 			// Extract all JS embeds.

@@ -550,15 +550,20 @@ fn parse_angular(
 	let mut angular: TokenStream = iter::once(TokenTree::from(opening)).collect();
 
 	let mut opened = 1;
+	let mut previous_joint_hyphen = false;
 
 	for tok in &mut stream {
 		span.end = tok.span();
 
 		match &tok {
-			TokenTree::Punct(p) if p.as_char() == '>' => opened -= 1,
+			TokenTree::Punct(p) if p.as_char() == '>' && !previous_joint_hyphen => opened -= 1,
 			TokenTree::Punct(p) if p.as_char() == '<' => opened += 1,
 			_ => (),
 		}
+		previous_joint_hyphen = matches!(
+			&tok,
+			TokenTree::Punct(p) if p.as_char() == '-' && p.spacing() == Spacing::Joint
+		);
 
 		angular.extend(iter::once(tok));
 

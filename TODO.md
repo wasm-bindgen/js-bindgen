@@ -49,7 +49,6 @@
   `extern { fn <name> ... }` definition can shadow parameter values.
 - `js-bindgen` macro custom section generation can produce name collisions with intermediate
   variables.
-- Allocate slots on the `externref` table in batches.
 - Determine what to do with `js_sys::UnwrapThrowExt`. Avoiding the panic machinery is nice for some
   very niche use-cases but it might be very annoying for most users. Maybe hide it behind a `cfg`
   flag?

@@ -1,17 +1,18 @@
 use core::marker::PhantomData;
-use core::mem;
 use core::mem::MaybeUninit;
 
-use crate::hazard::{Input, InputJsConv, InputWatConv};
+use crate::hazard::{EmptySlot, IntoJS, IntoJsConv, Slot, WasmAbi, WatConv, WatType};
 
 macro_rules! thread_local {
 	($($vis:vis static $name:ident: $ty:ty = $value:expr;)*) => {
-		#[cfg_attr(target_feature = "atomics", thread_local)]
-		$($vis static $name: $crate::util::LocalKey<$ty> = $crate::util::LocalKey::new($value);)*
+		$(
+			#[cfg_attr(target_feature = "atomics", thread_local)]
+			$vis static $name: $crate::util::LocalKey<$ty> = $crate::util::LocalKey::new($value);
+		)*
 	};
 }
 
-pub(crate) struct LocalKey<T>(T);
+pub(crate) struct LocalKey<T>(pub(crate) T);
 
 // SAFETY: Multi-threading is not possible without `atomics`.
 #[cfg(not(target_feature = "atomics"))]
@@ -34,41 +35,41 @@ impl<T> LocalKey<T> {
 	}
 }
 
-#[repr(C)]
-pub struct ExternValue<T>(T);
-
-impl<T> ExternValue<T> {
-	pub(crate) const WAT_TYPE: &str = WAT_PTR_TYPE;
-	#[cfg(target_arch = "wasm32")]
-	pub(crate) const WAT_CONV: Option<InputWatConv> = None;
-	#[cfg(target_arch = "wasm64")]
-	pub(crate) const WAT_CONV: Option<InputWatConv> = Some(InputWatConv {
-		import: None,
-		conv: "f64.convert_i64_u",
-		r#type: "f64",
-	});
-
-	pub(crate) fn new(value: T) -> Self {
-		Self(value)
-	}
-}
-
-#[repr(C)]
 pub struct ExternSlice<T> {
 	ptr: PtrConst<T>,
 	len: PtrLength<T>,
 }
 
-#[expect(dead_code, reason = "custom sections are considered dead-code")]
+// SAFETY: `ExternSlice` is represented by `PtrConst` and `PtrLength`.
+unsafe impl<T> WasmAbi for ExternSlice<T> {
+	type Slot1 = PtrConst<T>;
+	type Slot2 = PtrLength<T>;
+	type Slot3 = EmptySlot;
+	type Slot4 = EmptySlot;
+
+	fn split(self) -> (Self::Slot1, Self::Slot2, Self::Slot3, Self::Slot4) {
+		(
+			self.ptr,
+			self.len,
+			EmptySlot::default(),
+			EmptySlot::default(),
+		)
+	}
+
+	fn join(
+		slot1: Self::Slot1,
+		slot2: Self::Slot2,
+		_slot3: Self::Slot3,
+		_slot4: Self::Slot4,
+	) -> Self {
+		Self {
+			ptr: slot1,
+			len: slot2,
+		}
+	}
+}
+
 impl<T> ExternSlice<T> {
-	pub(crate) const WAT_TYPE: &str = ExternValue::<()>::WAT_TYPE;
-	pub(crate) const WAT_CONV: Option<InputWatConv> = ExternValue::<()>::WAT_CONV;
-
-	#[cfg(target_arch = "wasm32")]
-	const VIEW_FN: &str = "view.getUint32";
-	#[cfg(target_arch = "wasm64")]
-	const VIEW_FN: &str = "view.getFloat64";
-
 	pub(crate) fn new(value: &[T]) -> Self {
 		Self {
 			ptr: PtrConst::new(value),
@@ -77,78 +78,89 @@ impl<T> ExternSlice<T> {
 	}
 }
 
-// Verify that we can access `ExternSlice` via a `TypedArray` with two elements.
-const _: () = {
-	debug_assert!(
-		mem::align_of::<ExternSlice<()>>() == mem::size_of::<<PtrConst<()> as Input>::Type>()
-	);
-};
+#[cfg(target_arch = "wasm32")]
+type JsPointerType = u32;
+#[cfg(target_arch = "wasm64")]
+type JsPointerType = f64;
 
-js_bindgen::embed_js!(
-	module = "js_sys",
-	name = "extern_ref",
-	required_embeds = [("js_sys", ExternSlice::<()>::VIEW_FN)],
-	"(refPtr) => {{",
-	"	const [ptr, len] = this.#jsEmbed.js_sys['{}'](refPtr, 2)",
-	"	return {{ ptr, len }}",
-	"}}",
-	interpolate ExternSlice::<()>::VIEW_FN,
-);
+pub(crate) const WAT_PTR_TYPE: Option<WatType> = <usize as Slot>::WAT_TYPE;
 
 #[cfg(target_arch = "wasm32")]
-type WatUsizeType = u32;
+const PTR_INTO_JS_WAT_CONV: Option<WatConv> = None;
+
 #[cfg(target_arch = "wasm64")]
-type WatUsizeType = f64;
+const PTR_INTO_JS_WAT_CONV: Option<WatConv> =
+	Some(WatConv::new(&[], &[], "f64.convert_i64_u", WatType::F64));
+
+// An aggregate conversion supplies its own JavaScript template, so the
+// pointer and length slots do not independently apply their `IntoJS`
+// conversions. On `wasm32`, normalize both raw `i32` slots here. On `wasm64`,
+// the WAT shim has already converted them to JavaScript numbers.
+#[cfg(target_arch = "wasm32")]
+pub(crate) const JS_PTR_LEN_ARGS: &str = "$slot1 >>> 0, $slot2 >>> 0";
+#[cfg(target_arch = "wasm64")]
+pub(crate) const JS_PTR_LEN_ARGS: &str = "$slot1, $slot2";
 
 #[cfg(target_arch = "wasm32")]
-pub(crate) const WAT_PTR_TYPE: &str = "i32";
+pub(crate) const JS_OPTION_PTR_LEN_ARGS: &str = "$slot2 >>> 0, $slot3 >>> 0";
 #[cfg(target_arch = "wasm64")]
-pub(crate) const WAT_PTR_TYPE: &str = "i64";
+pub(crate) const JS_OPTION_PTR_LEN_ARGS: &str = "$slot2, $slot3";
 
 #[repr(transparent)]
-pub(crate) struct PtrConst<T> {
-	ptr: <Self as Input>::Type,
-	_ty: PhantomData<T>,
+pub struct PtrConst<T> {
+	ptr: *const T,
 }
 
 impl<T> PtrConst<T> {
 	pub(crate) fn new(value: &[T]) -> Self {
-		let ptr = value.as_ptr();
-
-		#[cfg(target_arch = "wasm64")]
-		#[expect(
-			clippy::cast_precision_loss,
-			reason = "can't be larger than `MAX_SAFE_INTEGER`"
-		)]
-		let ptr = ptr.addr() as <Self as Input>::Type;
-
 		Self {
-			ptr,
-			_ty: PhantomData,
+			ptr: value.as_ptr(),
 		}
+	}
+
+	pub(crate) fn from_ref(value: &T) -> Self {
+		Self {
+			ptr: core::ptr::from_ref(value),
+		}
+	}
+
+	pub(crate) const fn from_raw(ptr: *const T) -> Self {
+		Self { ptr }
+	}
+
+	#[must_use]
+	pub(crate) const fn as_ptr(&self) -> *const T {
+		self.ptr
 	}
 }
 
-// SAFETY: Delegated to already implemented types.
-unsafe impl<T> Input for PtrConst<T> {
-	const WAT_TYPE: &str = WatUsizeType::WAT_TYPE;
-	const WAT_CONV: Option<InputWatConv> = WatUsizeType::WAT_CONV;
-	const JS_CONV: Option<InputJsConv> = WatUsizeType::JS_CONV;
+impl<T> Default for PtrConst<T> {
+	fn default() -> Self {
+		Self::from_raw(core::ptr::null())
+	}
+}
 
-	#[cfg(target_arch = "wasm32")]
-	type Type = *const T;
-	#[cfg(target_arch = "wasm64")]
-	type Type = f64;
+// SAFETY: `PtrConst` is transparent over a native Wasm pointer. On `wasm64`,
+// the WAT shim converts it to `f64` without losing precision.
+unsafe impl<T> Slot for PtrConst<T> {
+	const WAT_TYPE: Option<WatType> = WAT_PTR_TYPE;
+	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
+}
 
-	fn into_raw(self) -> Self::Type {
-		self.ptr
+// SAFETY: The JavaScript conversion matches the JavaScript-facing WAT type.
+unsafe impl<T> IntoJS for PtrConst<T> {
+	const JS_CONV: Option<IntoJsConv> = JsPointerType::JS_CONV;
+
+	type Abi = Self;
+
+	fn into_abi(self) -> Self::Abi {
+		self
 	}
 }
 
 #[repr(transparent)]
 pub(crate) struct PtrMut<T> {
-	ptr: <Self as Input>::Type,
-	_ty: PhantomData<T>,
+	ptr: *mut T,
 }
 
 impl<T> PtrMut<T> {
@@ -165,83 +177,81 @@ impl<T> PtrMut<T> {
 	}
 
 	fn internal(ptr: *mut T) -> Self {
-		#[cfg(target_arch = "wasm64")]
-		#[expect(
-			clippy::cast_precision_loss,
-			reason = "can't be larger than `MAX_SAFE_INTEGER`"
-		)]
-		let ptr = ptr.addr() as <Self as Input>::Type;
-
-		Self {
-			ptr,
-			_ty: PhantomData,
-		}
+		Self { ptr }
 	}
 }
 
-// SAFETY: Delegated to already implemented types.
-unsafe impl<T> Input for PtrMut<T> {
-	const WAT_TYPE: &str = WatUsizeType::WAT_TYPE;
-	const WAT_CONV: Option<InputWatConv> = WatUsizeType::WAT_CONV;
-	const JS_CONV: Option<InputJsConv> = WatUsizeType::JS_CONV;
+// SAFETY: `PtrMut` is transparent over a native Wasm pointer. On `wasm64`,
+// the WAT shim converts it to `f64` without losing precision.
+unsafe impl<T> Slot for PtrMut<T> {
+	const WAT_TYPE: Option<WatType> = WAT_PTR_TYPE;
+	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
+}
 
-	#[cfg(target_arch = "wasm32")]
-	type Type = *mut T;
-	#[cfg(target_arch = "wasm64")]
-	type Type = f64;
+// SAFETY: The JavaScript conversion matches the JavaScript-facing WAT type.
+unsafe impl<T> IntoJS for PtrMut<T> {
+	const JS_CONV: Option<IntoJsConv> = JsPointerType::JS_CONV;
 
-	fn into_raw(self) -> Self::Type {
-		self.ptr
+	type Abi = Self;
+
+	fn into_abi(self) -> Self::Abi {
+		self
 	}
 }
 
 #[repr(transparent)]
-pub(crate) struct PtrLength<T> {
-	len: <Self as Input>::Type,
+pub struct PtrLength<T> {
+	len: usize,
 	_ty: PhantomData<T>,
 }
 
 impl<T> PtrLength<T> {
 	pub(crate) fn new(value: &[T]) -> Self {
-		Self::internal(value.len())
+		Self::from_len(value.len())
 	}
 
 	pub(crate) fn from_uninit_array<const N: usize>(_: &MaybeUninit<[T; N]>) -> Self {
-		Self::internal(N)
+		Self::from_len(N)
 	}
 
 	pub(crate) fn from_uninit_slice(value: &[MaybeUninit<T>]) -> Self {
-		Self::internal(value.len())
+		Self::from_len(value.len())
 	}
 
-	fn internal(len: usize) -> Self {
-		#[cfg(target_arch = "wasm64")]
-		#[expect(
-			clippy::cast_precision_loss,
-			reason = "can't be larger than `MAX_SAFE_INTEGER`"
-		)]
-		let len = len as <Self as Input>::Type;
-
+	pub(crate) const fn from_len(len: usize) -> Self {
 		Self {
 			len,
 			_ty: PhantomData,
 		}
 	}
+
+	#[must_use]
+	pub(crate) const fn get(&self) -> usize {
+		self.len
+	}
 }
 
-// SAFETY: Delegated to already implemented types.
-unsafe impl<T> Input for PtrLength<T> {
-	const WAT_TYPE: &str = WatUsizeType::WAT_TYPE;
-	const WAT_CONV: Option<InputWatConv> = WatUsizeType::WAT_CONV;
-	const JS_CONV: Option<InputJsConv> = WatUsizeType::JS_CONV;
+impl<T> Default for PtrLength<T> {
+	fn default() -> Self {
+		Self::from_len(0)
+	}
+}
 
-	#[cfg(target_arch = "wasm32")]
-	type Type = usize;
-	#[cfg(target_arch = "wasm64")]
-	type Type = f64;
+// SAFETY: `PtrLength` is transparent over `usize`. On `wasm64`, the WAT
+// shim converts it to `f64` without losing precision.
+unsafe impl<T> Slot for PtrLength<T> {
+	const WAT_TYPE: Option<WatType> = WAT_PTR_TYPE;
+	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
+}
 
-	fn into_raw(self) -> Self::Type {
-		self.len
+// SAFETY: The JavaScript conversion matches the JavaScript-facing WAT type.
+unsafe impl<T> IntoJS for PtrLength<T> {
+	const JS_CONV: Option<IntoJsConv> = JsPointerType::JS_CONV;
+
+	type Abi = Self;
+
+	fn into_abi(self) -> Self::Abi {
+		self
 	}
 }
 
@@ -250,9 +260,9 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "isLittleEndian",
 	"(() => {{",
-	"	const buffer = new ArrayBuffer(2)",
-	"	new DataView(buffer).setInt16(0, 256, true)",
-	"	return new Int16Array(buffer)[0] === 256;",
+	"    const buffer = new ArrayBuffer(2)",
+	"    new DataView(buffer).setInt16(0, 256, true)",
+	"    return new Int16Array(buffer)[0] === 256;",
 	"}})()",
 );
 
@@ -289,23 +299,23 @@ macro_rules! buffer {
 			],
 			"(ptr, count) => {{",
 			#[cfg(debug_assertions)]
-			"	if (ptr % {size} !== 0)",
+			"    if (ptr % {size} !== 0)",
 			#[cfg(debug_assertions)]
-			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"        throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
-			"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
+			"    if (this.#jsEmbed.js_sys.isLittleEndian) {{",
 			#[cfg(js_sys_target_feature = "unstable-rab")]
-			"		const base = ptr / {size}",
-			"		const view = {buffer}",
-			"		return Array.from(view)",
-			"	}} else {{",
-			"		const out = new Array(count)",
-			"		const view = {data}",
-			"		for (let index = 0; index < count; index++) {{",
-			"			out[index] = view.get{type}(ptr + index * {size}, true)",
-			"		}}",
-			"		return out",
-			"	}}",
+			"        const base = ptr / {size}",
+			"        const view = {buffer}",
+			"        return view",
+			"    }} else {{",
+			"        const out = new {type}Array(count)",
+			"        const view = {data}",
+			"        for (let index = 0; index < count; index++) {{",
+			"            out[index] = view.get{type}(ptr + index * {size}, true)",
+			"        }}",
+			"        return out",
+			"    }}",
 			"}}",
 			size = const $size,
 			#[cfg(js_sys_target_feature = "unstable-rab")]
@@ -329,14 +339,14 @@ macro_rules! buffer {
 			],
 			"(ptr, count) => {{",
 			#[cfg(debug_assertions)]
-			"	if (ptr % {size} !== 0)",
+			"    if (ptr % {size} !== 0)",
 			#[cfg(debug_assertions)]
-			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"        throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
 			#[cfg(js_sys_target_feature = "unstable-rab")]
-			"	const base = ptr / {size}",
-			"	const view = {buffer}",
-			"	return Array.from(view)",
+			"    const base = ptr / {size}",
+			"    const view = {buffer}",
+			"    return view",
 			"}}",
 			size = const $size,
 			#[cfg(js_sys_target_feature = "unstable-rab")]
@@ -355,16 +365,16 @@ macro_rules! buffer {
 			],
 			"(ptr, count) => {{",
 			#[cfg(debug_assertions)]
-			"	if (ptr % {size} !== 0)",
+			"    if (ptr % {size} !== 0)",
 			#[cfg(debug_assertions)]
-			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"        throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
-			"	const out = new Array(count)",
-			"	const view = {data}",
-			"	for (let index = 0; index < count; index++) {{",
-			"		out[index] = view.get{type}(ptr + index * {size}, true)",
-			"	}}",
-			"	return out",
+			"    const out = new {type}Array(count)",
+			"    const view = {data}",
+			"    for (let index = 0; index < count; index++) {{",
+			"        out[index] = view.get{type}(ptr + index * {size}, true)",
+			"    }}",
+			"    return out",
 			"}}",
 			size = const $size,
 			#[cfg(js_sys_target_feature = "unstable-rab")]
@@ -385,26 +395,26 @@ macro_rules! buffer {
 				#[cfg(js_sys_target_feature = "unstable-rab")]
 				("js_sys", "view.DataView")
 			],
-			"(ptr, array) => {{",
+			"(ptr, array, count) => {{",
 			#[cfg(debug_assertions)]
-			"	if (ptr % {size} !== 0)",
+			"    if (ptr % {size} !== 0)",
 			#[cfg(debug_assertions)]
-			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"        throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
-			"	if (this.#jsEmbed.js_sys.isLittleEndian) {{",
-			"		{buffer}.set(array, ptr / {size})",
-			"	}} else {{",
-			"		const view = {data}",
-			"		for (let index = 0; index < array.length; index++) {{",
-			"			view.set{type}(ptr + index * {size}, array[index], true)",
-			"		}}",
-			"	}}",
+			"    if (this.#jsEmbed.js_sys.isLittleEndian) {{",
+			"        {buffer}.set(array)",
+			"    }} else {{",
+			"        const view = {data}",
+			"        for (let index = 0; index < count; index++) {{",
+			"            view.set{type}(ptr + index * {size}, array[index], true)",
+			"        }}",
+			"    }}",
 			"}}",
 			size = const $size,
 			#[cfg(js_sys_target_feature = "unstable-rab")]
-			buffer = interpolate concat!("this.#jsEmbed.js_sys['view.", $type, "']"),
+			buffer = interpolate concat!("this.#jsEmbed.js_sys['view.", $type, "'].subarray(ptr / ", $size, ", ptr / ", $size, " + count)"),
 			#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-			buffer = interpolate concat!("new ", $type, "Array(this.#memory.buffer)"),
+			buffer = interpolate concat!("new ", $type, "Array(this.#memory.buffer, ptr, count)"),
 			#[cfg(js_sys_target_feature = "unstable-rab")]
 			data = interpolate "this.#jsEmbed.js_sys['view.DataView']",
 			#[cfg(not(js_sys_target_feature = "unstable-rab"))]
@@ -420,19 +430,19 @@ macro_rules! buffer {
 				#[cfg(js_sys_target_feature = "unstable-rab")]
 				("js_sys", concat!("view.", $type)),
 			],
-			"(ptr, array) => {{",
+			"(ptr, array, count) => {{",
 			#[cfg(debug_assertions)]
-			"	if (ptr % {size} !== 0)",
+			"    if (ptr % {size} !== 0)",
 			#[cfg(debug_assertions)]
-			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"        throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
-			"	{buffer}.set(array, ptr / {size})",
+			"    {buffer}.set(array)",
 			"}}",
 			size = const $size,
 			#[cfg(js_sys_target_feature = "unstable-rab")]
-			buffer = interpolate concat!("this.#jsEmbed.js_sys['view.", $type, "']"),
+			buffer = interpolate concat!("this.#jsEmbed.js_sys['view.", $type, "'].subarray(ptr / ", $size, ", ptr / ", $size, " + count)"),
 			#[cfg(not(js_sys_target_feature = "unstable-rab"))]
-			buffer = interpolate concat!("new ", $type, "Array(this.#memory.buffer)"),
+			buffer = interpolate concat!("new ", $type, "Array(this.#memory.buffer, ptr, count)"),
 		);
 
 		#[cfg(js_sys_assume_endianness = "big")]
@@ -443,16 +453,16 @@ macro_rules! buffer {
 				#[cfg(js_sys_target_feature = "unstable-rab")]
 				("js_sys", "view.DataView")
 			],
-			"(ptr, array) => {{",
+			"(ptr, array, count) => {{",
 			#[cfg(debug_assertions)]
-			"	if (ptr % {size} !== 0)",
+			"    if (ptr % {size} !== 0)",
 			#[cfg(debug_assertions)]
-			"		throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
+			"        throw new WebAssembly.RuntimeError(`non-aligned pointer: ${{ptr}}`)",
 			"",
-			"	const view = {data}",
-			"	for (let index = 0; index < array.length; index++) {{",
-			"		view.set{type}(ptr + index * {size}, array[index], true)",
-			"	}}",
+			"    const view = {data}",
+			"    for (let index = 0; index < count; index++) {{",
+			"        view.set{type}(ptr + index * {size}, array[index], true)",
+			"    }}",
 			"}}",
 			size = const $size,
 			#[cfg(js_sys_target_feature = "unstable-rab")]
@@ -464,8 +474,13 @@ macro_rules! buffer {
 	};
 }
 
-buffer!("Uint32", 4_usize);
+buffer!("Int8", 1_usize);
+buffer!("Uint8", 1_usize);
+buffer!("Int16", 2_usize);
+buffer!("Uint16", 2_usize);
 buffer!("Int32", 4_usize);
+buffer!("Uint32", 4_usize);
+buffer!("Float32", 4_usize);
 buffer!("Float64", 8_usize);
 buffer!("BigUint64", 8_usize);
 buffer!("BigInt64", 8_usize);

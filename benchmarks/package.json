@@ -1,0 +1,10 @@
+{
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"bench": "node bench.mjs"
+	},
+	"devDependencies": {
+		"mitata": "^1.0.34"
+	}
+}

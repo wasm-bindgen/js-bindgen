@@ -1,8 +1,8 @@
 [workspace]
 resolver = "3"
 members = [
-	"cargo-js-sys",
 	"cargo-shim",
+	"cli",
 	"cli-lib",
 	"dev",
 	"inline-snap",
@@ -17,6 +17,7 @@ members = [
 	"test-macro",
 	"wasm-ld-opt",
 	"web-driver",
+	"wire",
 ]
 default-members = ["dev"]
 
@@ -35,14 +36,12 @@ include = [
 ]
 
 [workspace.dependencies]
-annotate-snippets = { version = "0.12", default-features = false }
 anstyle = { version = "1", default-features = false }
 anyhow = "1"
 argfile = { version = "1", features = ["response"] }
 axum = { version = "0.8", default-features = false, features = ["http1", "http2", "json", "tokio"] }
 cargo_metadata = "0.23"
 clap = { version = "4", features = ["derive"] }
-clap-cargo = { version = "0.18", features = ["cargo_metadata"] }
 dtor = { version = "1", default-features = false, features = ["proc_macro"] }
 fantoccini = { version = "0.22", default-features = false, features = ["rustls-tls"] }
 foldhash = { version = "0.2", default-features = false }
@@ -55,6 +54,7 @@ itertools = { version = "0.15", default-features = false }
 js-bindgen-cli-lib = { path = "cli-lib" }
 js-bindgen-ld-shared = { path = "ld-shared" }
 js-bindgen-shared = { path = "shared" }
+js-bindgen-wire = { path = "wire" }
 js-sys-bindgen = { path = "js-sys-bindgen" }
 memmap2 = "0.9"
 mime = "0.3"
@@ -66,6 +66,7 @@ prettyplease = { version = "0.2", features = ["verbatim"] }
 proc-macro2 = { version = "1", default-features = false }
 quote = { version = "1", default-features = false }
 reqwest = { version = "0.13", default-features = false, features = ["http2"] }
+ron = "0.12"
 rwat = "0.1"
 serde = { version = "1", default-features = false }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
@@ -83,7 +84,7 @@ wasm-encoder = { version = "0.253", default-features = false, features = ["wasmp
 wasmparser = { version = "0.253", default-features = false }
 weedle2 = "5"
 windows-sys = "0.61"
-xxhash-rust = { version = "0.8", features = ["xxh3"] }
+xxhash-rust = { version = "0.8", default-features = false, features = ["xxh3"] }
 
 [workspace.lints.clippy]
 alloc_instead_of_core = "warn"

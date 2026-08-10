@@ -15,7 +15,6 @@ test = false
 anyhow = { workspace = true }
 foldhash = { workspace = true }
 hashbrown = { workspace = true, features = ["default-hasher", "serde"] }
-itertools = { workspace = true }
 serde = { workspace = true, features = ["alloc", "derive"] }
 wasmparser = { workspace = true }
 

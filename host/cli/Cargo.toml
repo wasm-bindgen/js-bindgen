@@ -1,0 +1,25 @@
+[package]
+name = "js-bindgen-cli"
+version = "0.1.0"
+edition = { workspace = true }
+rust-version = { workspace = true }
+license = { workspace = true }
+include = { workspace = true }
+
+[[bin]]
+bench = false
+name = "js-bindgen"
+path = "src/main.rs"
+test = false
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+js-bindgen-cli-lib = { workspace = true }
+js-bindgen-shared = { workspace = true, features = ["memmap"] }
+postcard = { workspace = true }
+wasm-encoder = { workspace = true }
+wasmparser = { workspace = true }
+
+[lints]
+workspace = true

@@ -9,6 +9,9 @@ use object::read::archive::ArchiveFile;
 use rwat::ParseOptions;
 use wasmparser::CustomSectionReader;
 
+pub const WAT_SECTION: &str = "js_bindgen.wat";
+pub const IMPORT_SECTION: &str = "js_bindgen.import";
+
 /// Creates a relocatable Wasm object from the WAT input.
 pub fn wat_to_object(wasm64: bool, wat: &str) -> rwat::Result<Vec<u8>> {
 	// `wasm-ld` requires a `(memory i64)` in every object file if the requested
@@ -266,11 +269,9 @@ impl<'cs> Iterator for CustomSectionParser<'cs> {
 		if let Some(length) = self.data.split_off(..4) {
 			let length = u32::from_le_bytes(length.try_into().unwrap()) as usize;
 
-			let data = self.data.split_off(..length).unwrap_or_else(|| {
+			Some(self.data.split_off(..length).unwrap_or_else(|| {
 				panic!("invalid length encoding in custom section `{}`", self.name)
-			});
-
-			Some(data)
+			}))
 		} else if self.data.is_empty() {
 			None
 		} else {

@@ -1,0 +1,18 @@
+[package]
+name = "js-bindgen-wire"
+version = "0.1.0"
+edition = { workspace = true }
+rust-version = { workspace = true }
+license = { workspace = true }
+include = { workspace = true }
+
+[lib]
+bench = false
+doctest = false
+
+[features]
+default = []
+alloc = []
+
+[lints]
+workspace = true

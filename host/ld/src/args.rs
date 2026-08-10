@@ -173,18 +173,22 @@ impl<'args> Arguments<'args> {
 
 #[cfg(test)]
 mod tests {
-	use std::ffi::OsString;
+	use std::ffi::OsStr;
 
 	use crate::args::Arguments;
 
 	#[test]
-	fn test_custom() {
+	fn separates_custom_flags_from_linker_flags() {
 		let args = &["--web".into(), "--no-entry".into()];
 		let args = Arguments::new(args);
 		assert!(args.web());
 
-		let mut iter = args.pass_args().iter();
-		assert_eq!(iter.next().copied(), Some(&OsString::from("--no-entry")));
+		let pass_args = args.pass_args();
+		let mut iter = pass_args.iter();
+		assert_eq!(
+			iter.next().map(|value| value.as_os_str()),
+			Some(OsStr::new("--no-entry"))
+		);
 		assert!(iter.next().is_none());
 	}
 }

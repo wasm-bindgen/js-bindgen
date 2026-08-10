@@ -1,8 +1,8 @@
 import { run } from "../shared/shared.mjs";
-import { colorText } from "../shared/shared-terminal.mjs";
+import { colorText, keepAlive } from "../shared/shared-terminal.mjs";
 import { JsBindgen } from "../imports.mjs";
 const module = await WebAssembly.compileStreaming(fetch(new URL("../wasm.wasm", import.meta.url)));
-const status = await run(module, JsBindgen, (stream, text) => {
+const runPromise = run(module, JsBindgen, (stream, text) => {
     function printSync(input, to) {
         let bytesWritten = 0;
         const bytes = new TextEncoder().encode(input);
@@ -19,4 +19,5 @@ const status = await run(module, JsBindgen, (stream, text) => {
             printSync(output, Deno.stderr);
     }
 });
+const status = await keepAlive(runPromise);
 Deno.exit(status);

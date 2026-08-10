@@ -3,7 +3,8 @@ use syn::{Attribute, File, Ident, Item, Path, Visibility, parse_quote};
 use weedle::common::Docstring;
 use weedle::{Definition, Err, Error, InterfaceDefinition};
 
-use crate::{Hygiene, ImportManager, Type};
+use crate::hygiene::{Hygiene, ImportManager};
+use crate::r#type::Type;
 
 pub fn web_idl<'i>(
 	web_idl: &'i str,

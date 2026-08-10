@@ -1,20 +1,75 @@
-use std::array;
-
 use proc_macro2::TokenStream;
-use quote::{ToTokens, quote_spanned};
+use quote::{ToTokens, quote, quote_spanned};
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{Fields, ForeignItemType, Item, ItemImpl, ItemStruct, Token, parse_quote_spanned};
+use syn::{
+	Attribute, Error, Fields, ForeignItemType, Item, ItemImpl, ItemStruct, LitStr, Meta, Path,
+	Token, parse_quote_spanned,
+};
 
-use crate::Hygiene;
+use crate::hygiene::Hygiene;
 
-pub struct Type {
-	pub r#struct: ItemStruct,
-	pub impls: [ItemImpl; 5],
+pub(crate) struct Type {
+	r#struct: ItemStruct,
+	impls: Vec<ItemImpl>,
+}
+
+#[derive(Default)]
+pub(crate) struct TypeOptions {
+	/// JavaScript type name used by constructors and static members in this
+	/// block.
+	pub(crate) js_name: Option<String>,
+	/// JavaScript parent types. The first parent is also the `Deref` target.
+	pub(crate) extends: Vec<Path>,
+}
+
+impl TypeOptions {
+	pub(crate) fn parse(item: &mut ForeignItemType, mut on_error: impl FnMut(Error)) -> Self {
+		let mut options = Self::default();
+
+		// Type-level `#[js_sys(...)]` attributes describe the foreign type itself;
+		// function binding options are parsed separately.
+		for attr in item
+			.attrs
+			.extract_if(.., |attr| attr.path().is_ident("js_sys"))
+		{
+			if let Err(error) = attr.parse_nested_meta(|meta| {
+				if meta.path.is_ident("js_name") {
+					let js_name = meta.value()?.parse::<LitStr>()?.value();
+
+					if options.js_name.replace(js_name).is_some() {
+						Err(meta.error("duplicate attribute"))
+					} else {
+						Ok(())
+					}
+				} else if meta.path.is_ident("extends") {
+					options.extends.push(meta.value()?.parse()?);
+					Ok(())
+				} else {
+					Err(meta.error("unsupported attribute"))
+				}
+			}) {
+				on_error(error);
+			}
+		}
+
+		options
+	}
 }
 
 impl Type {
+	#[cfg(feature = "web-idl")]
 	#[must_use]
-	pub fn new(hygiene: &mut Hygiene<'_>, item: ForeignItemType) -> Self {
+	pub(crate) fn new(hygiene: &mut Hygiene<'_>, item: ForeignItemType) -> Self {
+		Self::with_extends(hygiene, item, &[])
+	}
+
+	#[must_use]
+	pub(crate) fn with_extends(
+		hygiene: &mut Hygiene<'_>,
+		item: ForeignItemType,
+		extends: &[Path],
+	) -> Self {
 		let span = item.span();
 		let ForeignItemType {
 			attrs,
@@ -25,54 +80,58 @@ impl Type {
 		} = item;
 
 		let mut item_attrs = attrs;
-		let mut cfgs: Vec<_> = item_attrs
-			.extract_if(.., |attr| attr.path().is_ident("cfg"))
-			.collect();
+		let cfgs: Vec<_> = item_attrs.iter().filter_map(impl_cfg_attr).collect();
 
 		let js_value = hygiene.js_value(&cfgs, span);
-		let input = hygiene.input(&cfgs, span);
-		let input_wat_conv = hygiene.input_wat_conv(&cfgs, span);
-		let input_js_conv = hygiene.input_js_conv(&cfgs, span);
 		let js_cast = hygiene.js_cast(&cfgs, span);
-		let output = hygiene.output(&cfgs, span);
-		let output_wat_conv = hygiene.output_wat_conv(&cfgs, span);
-		let output_js_conv = hygiene.output_js_conv(&cfgs, span);
+		let into_js = hygiene.js_into(&cfgs, span);
 		let as_ref = hygiene.as_ref(span);
-		let str = hygiene.str(span);
 		let from = hygiene.from(span);
-		let option = hygiene.option(span);
 
 		let (gen_impl, gen_type, gen_where) = generics.split_for_impl();
 
-		let (fields, semi_token, value, from_raw) = if generics.params.is_empty() {
+		let (fields, semi_token, value) = if generics.params.is_empty() {
 			(
 				Fields::Unnamed(parse_quote_spanned! {span=>(#js_value)}),
 				Some(Token![;](span)),
 				quote_spanned! {span=>0},
-				quote_spanned! {span=>Self(#output::from_raw(raw))},
 			)
 		} else {
 			let phantom_data = hygiene.phantom_data(&cfgs, span);
+			let marker_types: Vec<_> = generics
+				.params
+				.iter()
+				.filter_map(|param| match param {
+					syn::GenericParam::Lifetime(param) => {
+						let lifetime = &param.lifetime;
+						Some(quote_spanned!(span=> #phantom_data<&#lifetime ()>))
+					}
+					syn::GenericParam::Type(param) => {
+						let ident = &param.ident;
+						Some(quote_spanned!(span=> #phantom_data<#ident>))
+					}
+					syn::GenericParam::Const(_) => None,
+				})
+				.collect();
+			let marker_type = match marker_types.as_slice() {
+				[] => quote!(#phantom_data<()>),
+				[ty] => quote!(#ty),
+				types => quote!((#(#types,)*)),
+			};
 
 			(
 				Fields::Named(parse_quote_spanned! {span=>
 					{
 						value: #js_value,
-						_type: #phantom_data #gen_type,
+						_type: #marker_type,
 					}
 				}),
 				None,
 				quote_spanned! {span=>value},
-				quote_spanned! {span=>
-					Self {
-						value: #output::from_raw(raw),
-						_type: #phantom_data,
-					}
-				},
 			)
 		};
 
-		let impls = [
+		let mut impls = vec![
 			parse_quote_spanned! {span=>
 				#(#cfgs)*
 				impl #gen_impl #as_ref<#js_value> for #ident #gen_type #gen_where {
@@ -91,39 +150,59 @@ impl Type {
 			},
 			parse_quote_spanned! {span=>
 				#(#cfgs)*
-				unsafe impl #gen_impl #input for &#ident #gen_type #gen_where {
-					const WAT_TYPE: &'static #str = <&#js_value as #input>::WAT_TYPE;
-					const WAT_CONV: #option<#input_wat_conv> = <&#js_value as #input>::WAT_CONV;
-					const JS_CONV: #option<#input_js_conv> = <&#js_value as #input>::JS_CONV;
-
-					type Type = <&'static #js_value as #input>::Type;
-
-					fn into_raw(self) -> Self::Type {
-						#input::into_raw(&self.#value)
-					}
-				}
-			},
-			parse_quote_spanned! {span=>
-				#(#cfgs)*
 				unsafe impl #gen_impl #js_cast for #ident #gen_type #gen_where {}
 			},
 			parse_quote_spanned! {span=>
 				#(#cfgs)*
-				unsafe impl #gen_impl #output for #ident #gen_type #gen_where {
-					const WAT_TYPE: &#str = <#js_value as #output>::WAT_TYPE;
-					const WAT_CONV: #option<#output_wat_conv> = <#js_value as #output>::WAT_CONV;
-					const JS_CONV: #option<#output_js_conv> = <#js_value as #output>::JS_CONV;
+				unsafe impl #gen_impl #into_js for #ident #gen_type #gen_where {
+					type Abi = <#js_value as #into_js>::Abi;
 
-					type Type = <#js_value as #output>::Type;
-
-					fn from_raw(raw: Self::Type) -> Self {
-						#from_raw
+					fn into_abi(self) -> Self::Abi {
+						#into_js::into_abi(#js_value::from(self))
 					}
 				}
 			},
 		];
 
-		item_attrs.append(&mut cfgs);
+		if let Some(parent) = extends.first() {
+			let deref = hygiene.deref(&cfgs, span);
+
+			impls.push(parse_quote_spanned! {span=>
+				#(#cfgs)*
+				impl #gen_impl #deref for #ident #gen_type #gen_where {
+					type Target = #parent;
+
+					#[inline]
+					fn deref(&self) -> &Self::Target {
+						<#ident #gen_type as #as_ref<#parent>>::as_ref(self)
+					}
+				}
+			});
+		}
+
+		for parent in extends {
+			impls.push(parse_quote_spanned! {span=>
+				#(#cfgs)*
+				impl #gen_impl #as_ref<#parent> for #ident #gen_type #gen_where {
+					#[inline]
+					fn as_ref(&self) -> &#parent {
+						<#parent as #js_cast>::unchecked_from_ref(
+							<#ident #gen_type as #as_ref<#js_value>>::as_ref(self),
+						)
+					}
+				}
+			});
+			impls.push(parse_quote_spanned! {span=>
+				#(#cfgs)*
+				impl #gen_impl #from<#ident #gen_type> for #parent #gen_where {
+					#[inline]
+					fn from(value: #ident #gen_type) -> Self {
+						<#parent as #js_cast>::unchecked_from(#js_value::from(value))
+					}
+				}
+			});
+		}
+
 		item_attrs.push(parse_quote_spanned! {span=>#[repr(transparent)]});
 
 		let r#struct = ItemStruct {
@@ -140,21 +219,54 @@ impl Type {
 	}
 }
 
+/// Copies only attributes which can remove a generated implementation.
+///
+/// A type's ordinary attributes belong on the generated `struct`. Direct `cfg`
+/// attributes must also gate its implementations. For `cfg_attr`, retain only
+/// nested `cfg` attributes (including recursively nested `cfg_attr`) so an
+/// unrelated attribute such as `derive` is not applied to an `impl` item.
+fn impl_cfg_attr(attr: &Attribute) -> Option<Attribute> {
+	let meta = impl_cfg_meta(&attr.meta)?;
+	let mut attr = attr.clone();
+	attr.meta = meta;
+	Some(attr)
+}
+
+fn impl_cfg_meta(meta: &Meta) -> Option<Meta> {
+	if meta.path().is_ident("cfg") {
+		Some(meta.clone())
+	} else if meta.path().is_ident("cfg_attr") {
+		let Meta::List(list) = meta else {
+			return None;
+		};
+		let arguments = list
+			.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
+			.ok()?;
+		let mut arguments = arguments.into_iter();
+		let predicate = arguments.next()?;
+		let attributes: Vec<_> = arguments.filter_map(|meta| impl_cfg_meta(&meta)).collect();
+
+		if attributes.is_empty() {
+			return None;
+		}
+
+		let mut list = list.clone();
+		list.tokens = quote!(#predicate #(, #attributes)*);
+		Some(Meta::List(list))
+	} else {
+		None
+	}
+}
+
 impl IntoIterator for Type {
 	type Item = Item;
-	type IntoIter = array::IntoIter<Item, 6>;
+	type IntoIter = std::vec::IntoIter<Item>;
 
 	fn into_iter(self) -> Self::IntoIter {
-		let [impl_1, impl_2, impl_3, impl_4, impl_5] = self.impls;
-		[
-			Item::from(self.r#struct),
-			impl_1.into(),
-			impl_2.into(),
-			impl_3.into(),
-			impl_4.into(),
-			impl_5.into(),
-		]
-		.into_iter()
+		let mut items = Vec::with_capacity(self.impls.len() + 1);
+		items.push(Item::from(self.r#struct));
+		items.extend(self.impls.into_iter().map(Item::from));
+		items.into_iter()
 	}
 }
 

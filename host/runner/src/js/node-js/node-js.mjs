@@ -1,6 +1,6 @@
 import { open } from "node:fs/promises";
 import { run } from "../shared/shared.mjs";
-import { colorText } from "../shared/shared-terminal.mjs";
+import { colorText, keepAlive } from "../shared/shared-terminal.mjs";
 import { JsBindgen } from "../imports.mjs";
 const wasmFile = await open(new URL("../wasm.wasm", import.meta.url));
 const wasmResponse = new Response(
@@ -9,7 +9,7 @@ wasmFile.createReadStream(), {
     headers: { "Content-Type": "application/wasm" },
 });
 const module = await WebAssembly.compileStreaming(wasmResponse);
-const status = await run(module, JsBindgen, (stream, text) => {
+const runPromise = run(module, JsBindgen, (stream, text) => {
     const output = colorText(text);
     switch (stream) {
         case 0 /* Stream.Stdout */:
@@ -19,4 +19,5 @@ const status = await run(module, JsBindgen, (stream, text) => {
             process.stderr.write(output);
     }
 });
+const status = await keepAlive(runPromise);
 process.exit(status);

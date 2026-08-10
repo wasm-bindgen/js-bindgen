@@ -1,308 +1,87 @@
+use std::collections::HashMap;
+
+use proc_macro2::Span;
+
 #[test]
-fn method() {
-	test!(
-		{},
-		{
-			extern "js-sys" {
-				pub fn test(self: &JsTest);
-			}
+fn static_getter_uses_the_javascript_type_name() {
+	let mut js_names = HashMap::new();
+	js_names.insert("RustType".to_owned(), "JavaScriptType".to_owned());
+	let mut hygiene = crate::hygiene::Hygiene::Qualified { js_sys: None };
+	let (_, import) = crate::function::expand(
+		&mut hygiene,
+		None,
+		"test_crate",
+		&js_names,
+		syn::parse_quote! {
+			#[js_sys(static_of = RustType, getter = "value")]
+			pub fn static_value() -> i32;
 		},
-		{
-			impl JsTest {
-				pub fn test(self: &JsTest) {
-					::js_sys::js_bindgen::unsafe_global_wat! {
-						"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param {}))){}",
-						"(func $test_crate.test (@sym) (param $self {})", "  local.get $self{}",
-						"  call $test_crate.import.test (@reloc)", ")",
-						interpolate::js_sys::r#macro::wat_input_import_type:: < & ::js_sys::JsValue > (),
-						interpolate::js_sys::r#macro::wat_imports!((& ::js_sys::JsValue),), interpolate < &
-						::js_sys::JsValue as ::js_sys::hazard::Input > ::WAT_TYPE,
-						interpolate::js_sys::r#macro::wat_input!(& ::js_sys::JsValue),
-					}
+	)
+	.unwrap();
 
-					::js_sys::js_bindgen::import_js! {
-						module = "test_crate",
-						name = "test",
-						required_embeds = [::js_sys::r#macro::js_input_embed::<&::js_sys::JsValue>()],
-						"{}{}{}",
-						interpolate ::js_sys::r#macro::js_select!(
-							"(self) => ",
-							"(self) => {\n",
-							(&::js_sys::JsValue),
-						),
-						interpolate ::js_sys::r#macro::js_parameter!("self", &::js_sys::JsValue),
-						interpolate ::js_sys::r#macro::js_select!(
-							"self.test()",
-							"self.test()\n}",
-							(&::js_sys::JsValue),
-						),
-					}
+	let binding: syn::Expr = syn::parse2(
+		import
+			.binding
+			.as_ref()
+			.expect("generated member has a binding")
+			.wire(&import.macro_path, Span::call_site()),
+	)
+	.unwrap();
+	let expected: syn::Expr = syn::parse_quote! {
+		::js_sys::wire::WireImportBinding::GetGlobal(
+			::js_sys::wire::WireGlobalPath::new(
+				::core::option::Option::None,
+				::core::option::Option::Some("JavaScriptType"),
+				"value"
+			)
+		)
+	};
+	assert_eq!(binding, expected);
+}
 
-					unsafe extern "C" {
-						#[link_name = "test_crate.test"]
-						fn test(this: <&::js_sys::JsValue as ::js_sys::hazard::Input>::Type);
-					}
+#[test]
+fn owner_import_names() {
+	fn import_name(owner: &syn::Path) -> String {
+		let function: syn::ForeignItemFn = syn::parse_quote! {
+			pub fn value(self: &#owner) -> i32;
+		};
 
-					unsafe { test(::js_sys::hazard::Input::into_raw(self)) };
-				}
-			}
-		},
-		"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \
-		 \"test_crate.import.test\")) (param externref)))
-		(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result \
-		 externref)))
-		(func $test_crate.test (@sym) (param $self i32)
-		  local.get $self
-		  call $js_sys.externref.get (@reloc)
-		  call $test_crate.import.test (@reloc)
-		)",
-		"(self) => self.test()",
+		let mut hygiene = crate::hygiene::Hygiene::Qualified { js_sys: None };
+		let (_, import) =
+			crate::function::expand(&mut hygiene, None, "test_crate", &HashMap::new(), function)
+				.unwrap();
+		import.name.value()
+	}
+
+	assert_eq!(import_name(&syn::parse_quote!(a::Value)), "a::Value.value");
+	assert_eq!(import_name(&syn::parse_quote!(b::Value)), "b::Value.value");
+	assert_ne!(
+		import_name(&syn::parse_quote!(Value<u8>)),
+		import_name(&syn::parse_quote!(Value<u16>))
 	);
 }
 
 #[test]
-fn method_par() {
-	test!(
-		{},
-		{
-			extern "js-sys" {
-				pub fn test(self: &JsTest, par1: &JsValue, par2: &JsValue);
-			}
-		},
-		{
-			impl JsTest {
-				pub fn test(self: &JsTest, par1: &JsValue, par2: &JsValue) {
-					::js_sys::js_bindgen::unsafe_global_wat! {
-						"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param {} {} {}))){}",
-						"(func $test_crate.test (@sym) (param $self {}) (param $par1 {}) (param $par2 {})",
-						"  local.get $self{}", "  local.get $par1{}", "  local.get $par2{}",
-						"  call $test_crate.import.test (@reloc)", ")",
-						interpolate::js_sys::r#macro::wat_input_import_type:: < & ::js_sys::JsValue > (),
-						interpolate::js_sys::r#macro::wat_input_import_type:: < & JsValue > (),
-						interpolate::js_sys::r#macro::wat_input_import_type:: < & JsValue > (),
-						interpolate::js_sys::r#macro::wat_imports!((& ::js_sys::JsValue, & JsValue),),
-						interpolate < & ::js_sys::JsValue as ::js_sys::hazard::Input > ::WAT_TYPE, interpolate <
-						& JsValue as ::js_sys::hazard::Input > ::WAT_TYPE, interpolate < & JsValue as
-						::js_sys::hazard::Input > ::WAT_TYPE, interpolate::js_sys::r#macro::wat_input!(&
-						::js_sys::JsValue), interpolate::js_sys::r#macro::wat_input!(& JsValue),
-						interpolate::js_sys::r#macro::wat_input!(& JsValue),
-					}
-
-					::js_sys::js_bindgen::import_js! {
-						module = "test_crate",
-						name = "test",
-						required_embeds = [
-							::js_sys::r#macro::js_input_embed::<&::js_sys::JsValue>(),
-							::js_sys::r#macro::js_input_embed::<&JsValue>(),
-						],
-						"{}{}{}{}{}",
-						interpolate ::js_sys::r#macro::js_select!(
-							"(self, par1, par2) => ",
-							"(self, par1, par2) => {\n",
-							(&::js_sys::JsValue, &JsValue),
-						),
-						interpolate ::js_sys::r#macro::js_parameter!("self", &::js_sys::JsValue),
-						interpolate ::js_sys::r#macro::js_parameter!("par1", &JsValue),
-						interpolate ::js_sys::r#macro::js_parameter!("par2", &JsValue),
-						interpolate ::js_sys::r#macro::js_select!(
-							"self.test(par1, par2)",
-							"self.test(par1, par2)\n}",
-							(&::js_sys::JsValue, &JsValue),
-						),
-					}
-
-					unsafe extern "C" {
-						#[link_name = "test_crate.test"]
-						fn test(
-							this: <&::js_sys::JsValue as ::js_sys::hazard::Input>::Type,
-							par1: <&JsValue as ::js_sys::hazard::Input>::Type,
-							par2: <&JsValue as ::js_sys::hazard::Input>::Type,
-						);
-					}
-
-					unsafe {
-						test(
-							::js_sys::hazard::Input::into_raw(self),
-							::js_sys::hazard::Input::into_raw(par1),
-							::js_sys::hazard::Input::into_raw(par2),
-						)
-					};
-				}
-			}
-		},
-		"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \
-		 \"test_crate.import.test\")) (param externref externref externref)))
-		(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result \
-		 externref)))
-		(func $test_crate.test (@sym) (param $self i32) (param $par1 i32) (param $par2 i32)
-		  local.get $self
-		  call $js_sys.externref.get (@reloc)
-		  local.get $par1
-		  call $js_sys.externref.get (@reloc)
-		  local.get $par2
-		  call $js_sys.externref.get (@reloc)
-		  call $test_crate.import.test (@reloc)
-		)",
-		"(self, par1, par2) => self.test(par1, par2)",
+fn invalid_member_options() {
+	let variadic = syn::parse_quote! {
+		extern "js-sys" {
+			#[js_sys(variadic)]
+			pub fn call();
+		}
+	};
+	assert_eq!(
+		super::macro_error(variadic),
+		"`variadic` requires at least one argument"
 	);
-}
 
-#[test]
-fn getter() {
-	test!(
-		{},
-		{
-			extern "js-sys" {
-				#[js_sys(property)]
-				pub fn test(self: &JsTest) -> JsValue;
-			}
-		},
-		{
-			impl JsTest {
-				pub fn test(self: &JsTest) -> JsValue {
-					::js_sys::js_bindgen::unsafe_global_wat! {
-						"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param {}) (result {}))){}",
-						"(func $test_crate.test (@sym) (param {}) (param $self {}) (result {})",
-						"  local.get $self{}", "  call $test_crate.import.test (@reloc){}", ")",
-						interpolate::js_sys::r#macro::wat_input_import_type:: < & ::js_sys::JsValue > (),
-						interpolate::js_sys::r#macro::wat_output_import_type:: < JsValue > (),
-						interpolate::js_sys::r#macro::wat_imports!((& ::js_sys::JsValue), JsValue),
-						interpolate::js_sys::r#macro::wat_indirect!(JsValue), interpolate < & ::js_sys::JsValue
-						as ::js_sys::hazard::Input > ::WAT_TYPE, interpolate::js_sys::r#macro::wat_direct:: <
-						JsValue > (), interpolate::js_sys::r#macro::wat_input!(& ::js_sys::JsValue),
-						interpolate::js_sys::r#macro::wat_output!(JsValue),
-					}
-
-					::js_sys::js_bindgen::import_js! {
-						module = "test_crate",
-						name = "test",
-						required_embeds = [
-							::js_sys::r#macro::js_input_embed::<&::js_sys::JsValue>(),
-							::js_sys::r#macro::js_output_embed::<JsValue>(),
-						],
-						"{}{}{}",
-						interpolate ::js_sys::r#macro::js_select!(
-							"(self) => ",
-							"(self) => {\n",
-							(&::js_sys::JsValue),
-							JsValue,
-						),
-						interpolate ::js_sys::r#macro::js_parameter!("self", &::js_sys::JsValue),
-						interpolate ::js_sys::r#macro::js_output!(
-							"\treturn ",
-							"self.test",
-							"self.test",
-							JsValue,
-							&::js_sys::JsValue,
-						),
-					}
-
-					unsafe extern "C" {
-						#[link_name = "test_crate.test"]
-						fn test(
-							this: <&::js_sys::JsValue as ::js_sys::hazard::Input>::Type,
-						) -> <JsValue as ::js_sys::hazard::Output>::Type;
-					}
-
-					::js_sys::hazard::Output::from_raw(unsafe {
-						test(::js_sys::hazard::Input::into_raw(self))
-					})
-				}
-			}
-		},
-		"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \
-		 \"test_crate.import.test\")) (param externref) (result externref)))
-		(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result \
-		 externref)))
-		(import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) (param \
-		 externref) (result i32)))
-		(func $test_crate.test (@sym) (param ) (param $self i32) (result i32)
-		  local.get $self
-		  call $js_sys.externref.get (@reloc)
-		  call $test_crate.import.test (@reloc)
-		  call $js_sys.externref.insert (@reloc)
-		)",
-		"(self) => self.test",
-	);
-}
-
-#[test]
-fn setter() {
-	test!(
-		{},
-		{
-			extern "js-sys" {
-				#[js_sys(property)]
-				pub fn test(self: &JsTest, value: &JsValue);
-			}
-		},
-		{
-			impl JsTest {
-				pub fn test(self: &JsTest, value: &JsValue) {
-					::js_sys::js_bindgen::unsafe_global_wat! {
-						"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \"test_crate.import.test\")) (param {} {}))){}",
-						"(func $test_crate.test (@sym) (param $self {}) (param $value {})",
-						"  local.get $self{}", "  local.get $value{}",
-						"  call $test_crate.import.test (@reloc)", ")",
-						interpolate::js_sys::r#macro::wat_input_import_type:: < & ::js_sys::JsValue > (),
-						interpolate::js_sys::r#macro::wat_input_import_type:: < & JsValue > (),
-						interpolate::js_sys::r#macro::wat_imports!((& ::js_sys::JsValue, & JsValue),),
-						interpolate < & ::js_sys::JsValue as ::js_sys::hazard::Input > ::WAT_TYPE, interpolate <
-						& JsValue as ::js_sys::hazard::Input > ::WAT_TYPE,
-						interpolate::js_sys::r#macro::wat_input!(& ::js_sys::JsValue),
-						interpolate::js_sys::r#macro::wat_input!(& JsValue),
-					}
-
-					::js_sys::js_bindgen::import_js! {
-						module = "test_crate",
-						name = "test",
-						required_embeds = [
-							::js_sys::r#macro::js_input_embed::<&::js_sys::JsValue>(),
-							::js_sys::r#macro::js_input_embed::<&JsValue>(),
-						],
-						"{}{}{}self.test = {}",
-						interpolate ::js_sys::r#macro::js_select!(
-							"(self, value) => ",
-							"(self, value) => {\n",
-							(&::js_sys::JsValue, &JsValue),
-						),
-						interpolate ::js_sys::r#macro::js_parameter!("self", &::js_sys::JsValue),
-						interpolate ::js_sys::r#macro::js_parameter!("value", &JsValue),
-						interpolate ::js_sys::r#macro::js_select!(
-							"value",
-							"value\n}",
-							(&::js_sys::JsValue, &JsValue),
-						),
-					}
-
-					unsafe extern "C" {
-						#[link_name = "test_crate.test"]
-						fn test(
-							this: <&::js_sys::JsValue as ::js_sys::hazard::Input>::Type,
-							value: <&JsValue as ::js_sys::hazard::Input>::Type,
-						);
-					}
-
-					unsafe {
-						test(
-							::js_sys::hazard::Input::into_raw(self),
-							::js_sys::hazard::Input::into_raw(value),
-						)
-					};
-				}
-			}
-		},
-		"(import \"test_crate\" \"test\" (func $test_crate.import.test (@sym (name \
-		 \"test_crate.import.test\")) (param externref externref)))
-		(import \"env\" \"js_sys.externref.get\" (func $js_sys.externref.get (@sym) (param i32) (result \
-		 externref)))
-		(func $test_crate.test (@sym) (param $self i32) (param $value i32)
-		  local.get $self
-		  call $js_sys.externref.get (@reloc)
-		  local.get $value
-		  call $js_sys.externref.get (@reloc)
-		  call $test_crate.import.test (@reloc)
-		)",
-		"(self, value) => self.test = value",
+	let setter = syn::parse_quote! {
+		extern "js-sys" {
+			#[js_sys(setter)]
+			pub fn update(self: &JsTest, value: i32);
+		}
+	};
+	assert_eq!(
+		super::macro_error(setter),
+		"`setter` cannot infer a field name; use `setter = \"field\"`"
 	);
 }

@@ -6,7 +6,6 @@ use std::ops::Deref;
 use anyhow::Result;
 use foldhash::fast::FixedState;
 use hashbrown::HashMap;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use wasmparser::MemoryType;
 
@@ -20,6 +19,7 @@ pub struct JsOutput<'a, T: Deref<Target = str> + Display + Eq + Hash + Serialize
 	pub main_memory: MainMemory<'a>,
 	pub js_import: FixedHashMap<T, FixedHashMap<T, T>>,
 	pub js_embed: FixedHashMap<T, FixedHashMap<T, T>>,
+	pub js_export: FixedHashMap<T, T>,
 }
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
@@ -34,7 +34,9 @@ impl<T: Deref<Target = str> + Display + Eq + Hash + Serialize> JsOutput<'_, T> {
 
 		let (js_file_memory, rest) = IMPORTS_JS.split_once("JBG_PLACEHOLDER_MEMORY").unwrap();
 		let (js_file_embed, rest) = rest.split_once("JBG_PLACEHOLDER_JS_EMBED").unwrap();
-		let (js_file_import, js_file_4) = rest.split_once("JBG_PLACEHOLDER_IMPORT_OBJECT").unwrap();
+		let (js_file_import, rest) = rest.split_once("JBG_PLACEHOLDER_IMPORT_OBJECT").unwrap();
+		let (js_file_export, js_file_finish) =
+			rest.split_once("JBG_PLACEHOLDER_JS_EXPORT").unwrap();
 
 		// `WebAssembly.Memory`.
 		output.write_all(js_file_memory.as_bytes())?;
@@ -75,19 +77,7 @@ impl<T: Deref<Target = str> + Display + Eq + Hash + Serialize> JsOutput<'_, T> {
 
 			for (name, js) in embeds {
 				write!(output, "\t\t\t\t'{name}': ")?;
-
-				for (position, line) in js.lines().with_position() {
-					if position.is_middle() || position.is_last() {
-						if line.is_empty() {
-							output.write_all(b"\n")?;
-						} else {
-							output.write_all(b"\n\t\t\t\t")?;
-						}
-					}
-
-					output.write_all(line.as_bytes())?;
-				}
-
+				write_indented_js(&mut output, js, b"\t\t\t\t")?;
 				output.write_all(b",\n")?;
 			}
 
@@ -111,19 +101,7 @@ impl<T: Deref<Target = str> + Display + Eq + Hash + Serialize> JsOutput<'_, T> {
 
 			for (name, js) in names {
 				write!(output, "\t\t\t\t'{name}': ")?;
-
-				for (position, line) in js.lines().with_position() {
-					if position.is_middle() || position.is_last() {
-						if line.is_empty() {
-							output.write_all(b"\n")?;
-						} else {
-							output.write_all(b"\n\t\t\t\t")?;
-						}
-					}
-
-					output.write_all(line.as_bytes())?;
-				}
-
+				write_indented_js(&mut output, js, b"\t\t\t\t")?;
 				output.write_all(b",\n")?;
 			}
 
@@ -132,9 +110,41 @@ impl<T: Deref<Target = str> + Display + Eq + Hash + Serialize> JsOutput<'_, T> {
 
 		output.write_all(b"\t\t}")?;
 
-		// Finish
-		output.write_all(js_file_4.as_bytes())?;
+		// JS export wrappers.
+		output.write_all(js_file_export.as_bytes())?;
+		output.write_all(b"{\n")?;
+
+		for (name, js) in &self.js_export {
+			write!(output, "                '{name}': ")?;
+			write_indented_js(&mut output, js, b"                ")?;
+			output.write_all(b",\n")?;
+		}
+
+		output.write_all(b"            }")?;
+
+		// Finish.
+		output.write_all(js_file_finish.as_bytes())?;
 
 		Ok(())
 	}
+}
+
+fn write_indented_js(
+	output: &mut impl Write,
+	js: &str,
+	continuation_indent: &[u8],
+) -> std::io::Result<()> {
+	for (index, line) in js.lines().enumerate() {
+		if index != 0 {
+			output.write_all(b"\n")?;
+
+			if !line.is_empty() {
+				output.write_all(continuation_indent)?;
+			}
+		}
+
+		output.write_all(line.as_bytes())?;
+	}
+
+	Ok(())
 }
