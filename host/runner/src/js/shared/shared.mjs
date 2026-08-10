@@ -176,7 +176,7 @@ export async function run(module, jsBindgenCtor, report) {
         }
         interceptFlag = true;
         try {
-            testFn();
+            await testFn();
             result = { success: true };
         }
         catch (error) {

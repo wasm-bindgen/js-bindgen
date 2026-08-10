@@ -230,7 +230,7 @@ export async function run(
 			continue
 		}
 
-		const testFn = state.instance.exports[test.importName] as () => void
+		const testFn = state.instance.exports[test.importName] as () => void | Promise<void>
 		let result: { success: true } | { success: false; stack: string; message: string }
 
 		if (test.shouldPanic) {
@@ -244,7 +244,7 @@ export async function run(
 		interceptFlag = true
 
 		try {
-			testFn()
+			await testFn()
 			result = { success: true }
 		} catch (error) {
 			result = {

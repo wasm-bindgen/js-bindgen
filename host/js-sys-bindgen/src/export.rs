@@ -5,7 +5,7 @@ use quote::{format_ident, quote_spanned};
 use syn::ext::IdentExt;
 use syn::parse::Parser;
 use syn::spanned::Spanned;
-use syn::{Error, FnArg, ItemFn, LitStr, Path, ReturnType, Type, meta, parse_quote};
+use syn::{Error, Expr, FnArg, ItemFn, LitStr, Path, ReturnType, Type, meta, parse_quote};
 
 pub(crate) fn r#macro(
 	attr: TokenStream,
@@ -13,6 +13,7 @@ pub(crate) fn r#macro(
 	crate_: Option<&str>,
 ) -> Result<TokenStream, Error> {
 	let mut js_sys: Option<Path> = None;
+	let mut js_name: Option<Expr> = None;
 
 	meta::parser(|meta| {
 		if meta.path.is_ident("js_sys") {
@@ -22,6 +23,13 @@ pub(crate) fn r#macro(
 				Err(meta.error("duplicate `js_sys` argument"))
 			} else {
 				js_sys = Some(meta.value()?.parse()?);
+				Ok(())
+			}
+		} else if meta.path.is_ident("js_name") {
+			if js_name.is_some() {
+				Err(meta.error("duplicate `js_name` argument"))
+			} else {
+				js_name = Some(meta.value()?.parse()?);
 				Ok(())
 			}
 		} else {
@@ -37,8 +45,13 @@ pub(crate) fn r#macro(
 	let js_bindgen_path: Path = parse_quote!(#js_sys::js_bindgen);
 	let macro_path: Path = parse_quote!(#js_sys::r#macro);
 	let ident = &function.sig.ident;
-	let export_name_value = ident.unraw().to_string();
-	let export_name = LitStr::new(&export_name_value, ident.span());
+	let export_name = js_name.map_or_else(
+		|| {
+			let name = LitStr::new(&ident.unraw().to_string(), ident.span());
+			quote_spanned!(ident.span()=> #name)
+		},
+		|name| quote_spanned!(name.span()=> #name),
+	);
 	let crate_name = crate_.map_or_else(
 		|| env::var("CARGO_CRATE_NAME").expect("`CARGO_CRATE_NAME` not found"),
 		str::to_owned,
@@ -73,7 +86,7 @@ pub(crate) fn r#macro(
 	} else {
 		quote_spanned!(span=> #ident(#(#arguments),*))
 	};
-	let raw_export_name = LitStr::new(&format!("__export_{export_name_value}"), ident.span());
+	let raw_export_name = quote_spanned!(ident.span()=> ::core::concat!("__export_", #export_name));
 	let raw_body = if output_ty.is_some() {
 		quote_spanned! {span=>
 			#(#join_inputs)*

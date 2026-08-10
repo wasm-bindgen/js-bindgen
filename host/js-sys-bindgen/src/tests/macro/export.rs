@@ -3,14 +3,46 @@ use quote::quote;
 use syn::File;
 
 fn expand(function: &TokenStream) -> (String, String) {
+	expand_with_attr(&TokenStream::new(), function)
+}
+
+fn expand_with_attr(attr: &TokenStream, function: &TokenStream) -> (String, String) {
 	let function = syn::parse2(quote! { #function }).unwrap();
-	let output = crate::export::r#macro(TokenStream::new(), &function, Some("test_crate")).unwrap();
+	let output = crate::export::r#macro(attr.clone(), &function, Some("test_crate")).unwrap();
 	let output = prettyplease::unparse(&syn::parse2::<File>(output).unwrap());
 	let dir = tempfile::tempdir().unwrap();
 	let (wat, js_import, js_export) = super::inner(dir.path(), &output).unwrap();
 
 	assert_eq!(js_import, None);
 	(wat.unwrap(), js_export.unwrap())
+}
+
+#[test]
+fn js_name_expression() {
+	let (wat, js) = expand_with_attr(
+		&quote!(js_name = concat!("module", "::answer")),
+		&quote! {
+			fn answer() -> u32 {
+				42
+			}
+		},
+	);
+
+	inline_snap::inline_snap!(
+		wat,
+		r#"
+(import "env" "raw" (func $raw (@sym (name "__export_module::answer")) (result i32)))
+(func $export (@sym (name "module::answer")) (result i32)
+  call $raw (@reloc)
+)"#
+	);
+	assert_eq!(
+		js,
+		r"() => {
+    const ret = wasmExports['module::answer']()
+    return ret >>> 0
+}"
+	);
 }
 
 #[test]
