@@ -3,7 +3,8 @@ use js_sys::{JsString, JsValue};
 
 #[test]
 fn undefined() {
-	let string = JsString::new(&JsValue::UNDEFINED);
+	let value = JsValue::UNDEFINED.clone();
+	let string = JsString::new(&value);
 	let string = String::from(&string);
 
 	assert_eq!(string, "undefined");
@@ -11,7 +12,8 @@ fn undefined() {
 
 #[test]
 fn null() {
-	let string = JsString::new(&JsValue::NULL);
+	let value = JsValue::NULL.clone();
+	let string = JsString::new(&value);
 	let string = String::from(&string);
 
 	assert_eq!(string, "null");
@@ -22,4 +24,11 @@ fn clone() {
 	let value = JsString::from("Hello, World!");
 	let value = value.clone();
 	assert_eq!(value, "Hello, World!");
+}
+
+#[test]
+fn many_live_values() {
+	let value = JsString::from("Hello, World!");
+	let values: Vec<_> = (0..512).map(|_| value.clone()).collect();
+	assert_eq!(values.len(), 512);
 }

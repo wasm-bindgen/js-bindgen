@@ -9,6 +9,11 @@ pub type InputSlot2<T> = <<T as IntoJS>::Abi as WasmAbi>::Slot2;
 pub type InputSlot3<T> = <<T as IntoJS>::Abi as WasmAbi>::Slot3;
 pub type InputSlot4<T> = <<T as IntoJS>::Abi as WasmAbi>::Slot4;
 
+pub type FromJsSlot1<T> = <<T as FromJS>::Abi as WasmAbi>::Slot1;
+pub type FromJsSlot2<T> = <<T as FromJS>::Abi as WasmAbi>::Slot2;
+pub type FromJsSlot3<T> = <<T as FromJS>::Abi as WasmAbi>::Slot3;
+pub type FromJsSlot4<T> = <<T as FromJS>::Abi as WasmAbi>::Slot4;
+
 pub type OutputSlot1<T> = <<T as ReturnFromJS>::Abi as WasmAbi>::Slot1;
 pub type OutputSlot2<T> = <<T as ReturnFromJS>::Abi as WasmAbi>::Slot2;
 pub type OutputSlot3<T> = <<T as ReturnFromJS>::Abi as WasmAbi>::Slot3;
@@ -42,7 +47,7 @@ pub fn join_from_js<T: FromJS>(
 #[must_use]
 #[inline]
 pub fn return_to_js<T: ReturnIntoJS>(value: T) -> WasmRet<T::Abi> {
-	WasmRet::from_abi(T::return_into_abi(value))
+	WasmRet::from_abi(T::into_return_abi(value))
 }
 
 /// Lowers a value through a different [`IntoJS`] implementation with the same
@@ -64,7 +69,7 @@ pub unsafe fn split_input_as<T: IntoJS>(
 #[must_use]
 #[inline]
 pub fn join_output<T: ReturnFromJS>(value: OutputRet<T>) -> T {
-	T::return_from_abi(value)
+	T::from_return_abi(value)
 }
 
 // Compile-time validation of conversion metadata.
@@ -83,6 +88,30 @@ pub const fn validate_into_js<T: IntoJS>() {
 	);
 }
 
+pub const fn validate_from_js<T: FromJS>() {
+	let conversion = T::JS_CONV;
+	let templates = match conversion {
+		None => [""; 4],
+		Some(conv) => conv.templates,
+	};
+	let slots = from_js_wat_slots::<T>();
+	let mut slot = 0;
+
+	while slot < slots.len() {
+		assert!(
+			conversion.is_none() || templates[slot].is_empty() == slots[slot].abi.is_empty(),
+			"FromJS::JS_CONV templates must match its non-empty ABI slots",
+		);
+		slot += 1;
+	}
+
+	assert!(
+		conversion.is_some()
+			|| slots[1].abi.is_empty() && slots[2].abi.is_empty() && slots[3].abi.is_empty(),
+		"multi-slot FromJS implementations must define FromJS::JS_CONV",
+	);
+}
+
 pub const fn validate_return_from_js<T: ReturnFromJS>() {
 	let indirect = !return_from_js_is_direct::<T>();
 	let conversion = T::JS_CONV.conversion();
@@ -90,7 +119,7 @@ pub const fn validate_return_from_js<T: ReturnFromJS>() {
 		None => ([""; 4], None),
 		Some(conv) => (conv.templates, conv.sret),
 	};
-	let slots = from_js_wat_slots::<T>();
+	let slots = return_from_js_wat_slots::<T>();
 	let mut slot = 0;
 
 	while slot < slots.len() {
@@ -111,7 +140,7 @@ pub const fn validate_return_from_js<T: ReturnFromJS>() {
 	);
 }
 
-// WAT metadata shared by import and export adapters.
+// WAT metadata shared by import and export shims.
 
 /// The `WAT` representation of one `ABI` slot at a JavaScript boundary.
 #[doc(hidden)]
@@ -121,33 +150,41 @@ pub struct WatSlot {
 	pub abi: &'static str,
 	/// The type visible at the JavaScript boundary.
 	pub boundary: &'static str,
-	/// An optional WAT import required by the conversion.
-	pub import: &'static str,
+	/// Optional WAT imports required by the conversion.
+	pub imports: &'static str,
+	/// Optional scratch locals required by the conversion.
+	pub locals: &'static str,
 	/// WAT instructions that convert between `abi` and `boundary`.
 	pub conv: &'static str,
 }
 
 const fn wat_slot<S: Slot>(wat_conv: Option<WatConv>) -> WatSlot {
-	let (boundary, import, conv) = match wat_conv {
+	let (boundary, imports, locals, conv) = match wat_conv {
 		Some(WatConv {
-			import,
+			imports,
+			locals,
 			conv,
 			r#type,
 		}) => (
 			r#type,
-			match import {
-				Some(import) => import,
+			match imports {
+				Some(imports) => imports,
+				None => "",
+			},
+			match locals {
+				Some(locals) => locals,
 				None => "",
 			},
 			conv,
 		),
-		None => (S::WAT_TYPE, "", ""),
+		None => (S::WAT_TYPE, "", "", ""),
 	};
 
 	WatSlot {
 		abi: S::WAT_TYPE,
 		boundary,
-		import,
+		imports,
+		locals,
 		conv,
 	}
 }
@@ -163,7 +200,17 @@ pub const fn into_js_wat_slots<T: IntoJS>() -> [WatSlot; 4] {
 }
 
 #[must_use]
-pub const fn from_js_wat_slots<T: ReturnFromJS>() -> [WatSlot; 4] {
+pub const fn from_js_wat_slots<T: FromJS>() -> [WatSlot; 4] {
+	[
+		wat_slot::<FromJsSlot1<T>>(<FromJsSlot1<T> as Slot>::FROM_JS_WAT_CONV),
+		wat_slot::<FromJsSlot2<T>>(<FromJsSlot2<T> as Slot>::FROM_JS_WAT_CONV),
+		wat_slot::<FromJsSlot3<T>>(<FromJsSlot3<T> as Slot>::FROM_JS_WAT_CONV),
+		wat_slot::<FromJsSlot4<T>>(<FromJsSlot4<T> as Slot>::FROM_JS_WAT_CONV),
+	]
+}
+
+#[must_use]
+pub const fn return_from_js_wat_slots<T: ReturnFromJS>() -> [WatSlot; 4] {
 	[
 		wat_slot::<OutputSlot1<T>>(<OutputSlot1<T> as Slot>::FROM_JS_WAT_CONV),
 		wat_slot::<OutputSlot2<T>>(<OutputSlot2<T> as Slot>::FROM_JS_WAT_CONV),
@@ -185,7 +232,7 @@ pub const fn return_into_js_wat_slots<T: ReturnIntoJS>() -> [WatSlot; 4] {
 #[must_use]
 pub const fn wat_direct<T: ReturnFromJS>() -> &'static str {
 	if return_from_js_is_direct::<T>() {
-		from_js_wat_slots::<T>()[0].abi
+		return_from_js_wat_slots::<T>()[0].abi
 	} else {
 		""
 	}
@@ -219,18 +266,27 @@ pub const fn wat_indirect_conv<T: ReturnFromJS>() -> &'static str {
 }
 
 #[must_use]
-pub const fn wat_output_import<T: ReturnFromJS>() -> &'static str {
+pub const fn wat_output_imports<T: ReturnFromJS>() -> &'static str {
 	if return_from_js_is_direct::<T>() {
-		from_js_wat_slots::<T>()[0].import
+		return_from_js_wat_slots::<T>()[0].imports
 	} else {
 		""
 	}
 }
 
 #[must_use]
+pub const fn wat_output_locals<T: ReturnFromJS>() -> &'static str {
+	if return_from_js_is_direct::<T>() {
+		return_from_js_wat_slots::<T>()[0].locals
+	} else {
+		into_js_wat_slots::<crate::util::PtrMut<()>>()[0].locals
+	}
+}
+
+#[must_use]
 pub const fn wat_output_import_type<T: ReturnFromJS>() -> &'static str {
 	if return_from_js_is_direct::<T>() {
-		from_js_wat_slots::<T>()[0].boundary
+		return_from_js_wat_slots::<T>()[0].boundary
 	} else {
 		""
 	}
@@ -239,7 +295,7 @@ pub const fn wat_output_import_type<T: ReturnFromJS>() -> &'static str {
 #[must_use]
 pub const fn wat_output_conv<T: ReturnFromJS>() -> &'static str {
 	if return_from_js_is_direct::<T>() {
-		from_js_wat_slots::<T>()[0].conv
+		return_from_js_wat_slots::<T>()[0].conv
 	} else {
 		""
 	}
@@ -258,7 +314,7 @@ pub const fn return_from_js_is_result<T: ReturnFromJS>() -> bool {
 pub const fn validate_return_into_js<T: ReturnIntoJS>() {
 	let conv = T::JS_CONV.conversion();
 	let multislot = if T::JS_CONV.is_result() {
-		!<ReturnSlot4<T> as Slot>::WAT_TYPE.is_empty()
+		!<ReturnSlot2<T> as Slot>::WAT_TYPE.is_empty()
 	} else {
 		!<ReturnSlot2<T> as Slot>::WAT_TYPE.is_empty()
 			|| !<ReturnSlot3<T> as Slot>::WAT_TYPE.is_empty()
@@ -278,7 +334,7 @@ pub const fn return_into_js_is_direct<T: ReturnIntoJS>() -> bool {
 
 #[must_use]
 pub const fn export_output_frame_size<T: ReturnIntoJS>() -> usize {
-	// LLVM keeps the Wasm stack pointer 16-byte aligned. Rounding every adapter
+	// LLVM keeps the Wasm stack pointer 16-byte aligned. Rounding every shim
 	// frame to that alignment preserves the invariant when the frame is allocated.
 	const STACK_ALIGNMENT: usize = 16;
 	let size = core::mem::size_of::<WasmRet<T::Abi>>();
@@ -317,6 +373,14 @@ pub const fn js_return_embed<T: ReturnIntoJS>() -> (&'static str, &'static str) 
 #[must_use]
 pub const fn js_output_embed<T: ReturnFromJS>() -> (&'static str, &'static str) {
 	js_embed(match T::JS_CONV.conversion() {
+		Some(conv) => conv.embed,
+		None => None,
+	})
+}
+
+#[must_use]
+pub const fn js_from_embed<T: FromJS>() -> (&'static str, &'static str) {
+	js_embed(match T::JS_CONV {
 		Some(conv) => conv.embed,
 		None => None,
 	})
@@ -374,6 +438,20 @@ pub const fn js_output_templates<T: ReturnFromJS>() -> [&'static str; 4] {
 	} else {
 		["$value", "", "", ""]
 	}
+}
+
+#[must_use]
+pub const fn js_from_templates<T: FromJS>() -> [&'static str; 4] {
+	if let Some(conv) = T::JS_CONV {
+		conv.templates
+	} else {
+		["$value", "", "", ""]
+	}
+}
+
+#[must_use]
+pub const fn js_output_has_conversion<T: ReturnFromJS>() -> bool {
+	T::JS_CONV.conversion().is_some()
 }
 
 #[must_use]

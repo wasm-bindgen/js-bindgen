@@ -20,7 +20,7 @@ fn basic() {
 		},
 		{
 			use js_sys::JsValue;
-			use js_sys::hazard::{IntoJS, JsCast, OptionIntoJS};
+			use js_sys::hazard::{IntoJS, JsCast};
 
 			#[repr(transparent)]
 			struct Test(JsValue);
@@ -47,14 +47,6 @@ fn basic() {
 				}
 			}
 
-			unsafe impl OptionIntoJS for Test {
-				type OptionAbi = <JsValue as OptionIntoJS>::OptionAbi;
-
-				fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
-					OptionIntoJS::option_into_abi(value.map(JsValue::from))
-				}
-			}
-
 		},
 	);
 }
@@ -78,7 +70,7 @@ fn generic() {
 		{
 			use core::marker::PhantomData;
 			use js_sys::JsValue;
-			use js_sys::hazard::{IntoJS, JsCast, OptionIntoJS};
+			use js_sys::hazard::{IntoJS, JsCast};
 
 			#[repr(transparent)]
 			struct Test<T = JsValue> {
@@ -105,14 +97,6 @@ fn generic() {
 
 				fn into_abi(self) -> Self::Abi {
 					IntoJS::into_abi(JsValue::from(self))
-				}
-			}
-
-			unsafe impl<T> OptionIntoJS for Test<T> {
-				type OptionAbi = <JsValue as OptionIntoJS>::OptionAbi;
-
-				fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
-					OptionIntoJS::option_into_abi(value.map(JsValue::from))
 				}
 			}
 

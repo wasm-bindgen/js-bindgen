@@ -150,6 +150,12 @@ fn inner(tmp: &Path, source: &str) -> Result<(Option<String>, Option<String>, Op
 
 			{js_test}
 
+			fn assert_optional_js_test()
+			where
+				::core::option::Option<JsTest>:
+					::js_sys::hazard::IntoJS + ::js_sys::hazard::FromJS,
+			{{}}
+
 			{source}
 			"#
 		),

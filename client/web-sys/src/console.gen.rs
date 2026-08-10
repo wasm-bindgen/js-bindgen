@@ -8,8 +8,8 @@ use js_sys::hazard::JsCast;
 
 pub fn log0() {
 	js_bindgen::unsafe_global_wat! {
-		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.log0", adapter
-		= "web_sys.console.log0", inputs = [],),
+		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.log0", shim =
+		"web_sys.console.log0", inputs = [],),
 	}
 
 	js_bindgen::import_js! {
@@ -32,7 +32,7 @@ pub fn log0() {
 
 pub fn log<T: JsCast>(data: &[T]) {
 	js_bindgen::unsafe_global_wat! {
-		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.log", adapter =
+		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.log", shim =
 		"web_sys.console.log", inputs = [("arg0", & [JsValue])],),
 	}
 
@@ -67,8 +67,8 @@ pub fn log<T: JsCast>(data: &[T]) {
 
 pub fn log2(data1: &JsValue, data2: &JsValue) {
 	js_bindgen::unsafe_global_wat! {
-		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.log2", adapter
-		= "web_sys.console.log2", inputs = [("arg0", & JsValue), ("arg1", & JsValue)],),
+		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.log2", shim =
+		"web_sys.console.log2", inputs = [("arg0", & JsValue), ("arg1", & JsValue)],),
 	}
 
 	js_bindgen::import_js! {
@@ -106,8 +106,8 @@ pub fn log2(data1: &JsValue, data2: &JsValue) {
 
 pub fn error(data: &JsValue) {
 	js_bindgen::unsafe_global_wat! {
-		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.error", adapter
-		= "web_sys.console.error", inputs = [("arg0", & JsValue)],),
+		"{}", interpolate r#macro::wat_import!(module = "web_sys", import = "console.error", shim =
+		"web_sys.console.error", inputs = [("arg0", & JsValue)],),
 	}
 
 	js_bindgen::import_js! {

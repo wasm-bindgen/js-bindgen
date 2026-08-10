@@ -85,7 +85,7 @@ pub(crate) fn r#macro(
 
 		for slot in 1_usize..=4 {
 			let slot_ident = format_ident!("arg{index}_{}", slot - 1, span = input.span());
-			let slot_alias = format_ident!("OutputSlot{slot}", span = input.span());
+			let slot_alias = format_ident!("FromJsSlot{slot}", span = input.span());
 
 			raw_inputs.push(quote_spanned! {input.span()=>
 				#slot_ident: #r#macro::#slot_alias<#js_ty>
@@ -108,7 +108,7 @@ pub(crate) fn r#macro(
 		}
 
 		codegen_inputs.push(quote_spanned! {input.span()=> (#parameter, #js_ty) });
-		required_embeds.push(quote_spanned!(input.span()=> #r#macro::js_output_embed::<#js_ty>()));
+		required_embeds.push(quote_spanned!(input.span()=> #r#macro::js_from_embed::<#js_ty>()));
 		arguments.push(argument);
 	}
 

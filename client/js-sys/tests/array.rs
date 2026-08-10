@@ -20,6 +20,9 @@ fn js_value() {
 	let ffi_array = js(&rust_array);
 	assert_eq!(rust_array.len(), ffi_array.length().try_into().unwrap());
 
+	let mut wrong_length = [JsValue::UNDEFINED; 41];
+	assert!(js_array.to_slice(&mut wrong_length).is_err());
+
 	let returned_array: [JsValue; 42] = js_array.to_array().unwrap();
 	assert_eq!(rust_array, returned_array);
 

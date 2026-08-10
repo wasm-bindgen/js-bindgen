@@ -53,9 +53,6 @@ impl Cli {
 		fs::write(&js_path, output.js)
 			.with_context(|| format!("failed to write JS file: {}", js_path.display()))?;
 
-		println!("{}", wasm_path.display());
-		println!("{}", js_path.display());
-
 		Ok(())
 	}
 }

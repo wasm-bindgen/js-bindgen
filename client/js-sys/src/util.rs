@@ -5,12 +5,14 @@ use crate::hazard::{EmptySlot, IntoJS, IntoJsConv, Slot, WasmAbi, WatConv};
 
 macro_rules! thread_local {
 	($($vis:vis static $name:ident: $ty:ty = $value:expr;)*) => {
-		#[cfg_attr(target_feature = "atomics", thread_local)]
-		$($vis static $name: $crate::util::LocalKey<$ty> = $crate::util::LocalKey::new($value);)*
+		$(
+			#[cfg_attr(target_feature = "atomics", thread_local)]
+			$vis static $name: $crate::util::LocalKey<$ty> = $crate::util::LocalKey::new($value);
+		)*
 	};
 }
 
-pub(crate) struct LocalKey<T>(T);
+pub(crate) struct LocalKey<T>(pub(crate) T);
 
 // SAFETY: Multi-threading is not possible without `atomics`.
 #[cfg(not(target_feature = "atomics"))]
@@ -88,7 +90,8 @@ const PTR_INTO_JS_WAT_CONV: Option<WatConv> = None;
 
 #[cfg(target_arch = "wasm64")]
 const PTR_INTO_JS_WAT_CONV: Option<WatConv> = Some(WatConv {
-	import: None,
+	imports: None,
+	locals: None,
 	conv: "f64.convert_i64_u",
 	r#type: "f64",
 });
@@ -107,7 +110,7 @@ impl<T> PtrConst<T> {
 }
 
 // SAFETY: `PtrConst` is transparent over a native Wasm pointer. On `wasm64`,
-// the WAT adapter converts it to `f64` without losing precision.
+// the WAT shim converts it to `f64` without losing precision.
 unsafe impl<T> Slot for PtrConst<T> {
 	const WAT_TYPE: &'static str = WAT_PTR_TYPE;
 	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
@@ -148,7 +151,7 @@ impl<T> PtrMut<T> {
 }
 
 // SAFETY: `PtrMut` is transparent over a native Wasm pointer. On `wasm64`,
-// the WAT adapter converts it to `f64` without losing precision.
+// the WAT shim converts it to `f64` without losing precision.
 unsafe impl<T> Slot for PtrMut<T> {
 	const WAT_TYPE: &'static str = WAT_PTR_TYPE;
 	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;
@@ -193,7 +196,7 @@ impl<T> PtrLength<T> {
 }
 
 // SAFETY: `PtrLength` is transparent over `usize`. On `wasm64`, the WAT
-// adapter converts it to `f64` without losing precision.
+// shim converts it to `f64` without losing precision.
 unsafe impl<T> Slot for PtrLength<T> {
 	const WAT_TYPE: &'static str = WAT_PTR_TYPE;
 	const INTO_JS_WAT_CONV: Option<WatConv> = PTR_INTO_JS_WAT_CONV;

@@ -4,7 +4,7 @@
 
 use core::marker::PhantomData;
 use crate::{js_bindgen, r#macro, JsValue};
-use crate::hazard::{IntoJS, JsCast, OptionIntoJS};
+use crate::hazard::{IntoJS, JsCast};
 use crate::util::{PtrConst, PtrLength, PtrMut};
 
 #[repr(transparent)]
@@ -35,18 +35,10 @@ unsafe impl<T> IntoJS for JsArray<T> {
 	}
 }
 
-unsafe impl<T> OptionIntoJS for JsArray<T> {
-	type OptionAbi = <JsValue as OptionIntoJS>::OptionAbi;
-
-	fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
-		OptionIntoJS::option_into_abi(value.map(JsValue::from))
-	}
-}
-
 impl<T> JsArray<T> {
 	pub fn length(self: &JsArray<T>) -> u32 {
 		js_bindgen::unsafe_global_wat! {
-			"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "length", adapter =
+			"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "length", shim =
 			"js_sys.length", inputs = [("arg0", & JsValue)], output = u32,),
 		}
 
@@ -91,7 +83,7 @@ pub(super) unsafe fn array_js_value_decode(
 ) -> JsArray<JsValue> {
 	js_bindgen::unsafe_global_wat! {
 		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "array_js_value_decode",
-		adapter = "js_sys.array_js_value_decode", inputs = [("arg0", PtrConst < JsValue >), ("arg1",
+		shim = "js_sys.array_js_value_decode", inputs = [("arg0", PtrConst < JsValue >), ("arg1",
 		PtrLength < JsValue >)], output = JsArray < JsValue >,),
 	}
 
@@ -146,7 +138,7 @@ pub(super) unsafe fn array_js_value_encode(
 ) -> bool {
 	js_bindgen::unsafe_global_wat! {
 		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "array_js_value_encode",
-		adapter = "js_sys.array_js_value_encode", inputs = [("arg0", & JsArray), ("arg1", PtrMut <
+		shim = "js_sys.array_js_value_encode", inputs = [("arg0", & JsArray), ("arg1", PtrMut <
 		JsValue >), ("arg2", PtrLength < JsValue >), ("arg3", PtrConst < i32 >), ("arg4", i32)],
 		output = bool,),
 	}
@@ -237,9 +229,9 @@ pub(super) unsafe fn array_js_value_encode(
 
 pub(super) unsafe fn array_u32_decode(array: PtrConst<u32>, len: PtrLength<u32>) -> JsArray<u32> {
 	js_bindgen::unsafe_global_wat! {
-		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "array_u32_decode",
-		adapter = "js_sys.array_u32_decode", inputs = [("arg0", PtrConst < u32 >), ("arg1",
-		PtrLength < u32 >)], output = JsArray < u32 >,),
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "array_u32_decode", shim
+		= "js_sys.array_u32_decode", inputs = [("arg0", PtrConst < u32 >), ("arg1", PtrLength < u32
+		>)], output = JsArray < u32 >,),
 	}
 
 	js_bindgen::import_js! {
@@ -287,9 +279,9 @@ pub(super) unsafe fn array_u32_encode(
 	len: PtrLength<u32>,
 ) -> bool {
 	js_bindgen::unsafe_global_wat! {
-		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "array_u32_encode",
-		adapter = "js_sys.array_u32_encode", inputs = [("arg0", & JsArray < u32 >), ("arg1", PtrMut
-		< u32 >), ("arg2", PtrLength < u32 >)], output = bool,),
+		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "array_u32_encode", shim
+		= "js_sys.array_u32_encode", inputs = [("arg0", & JsArray < u32 >), ("arg1", PtrMut < u32
+		>), ("arg2", PtrLength < u32 >)], output = bool,),
 	}
 
 	js_bindgen::import_js! {

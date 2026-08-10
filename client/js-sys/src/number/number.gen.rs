@@ -4,7 +4,7 @@
 
 use core::marker::PhantomData;
 use crate::JsValue;
-use crate::hazard::{IntoJS, JsCast, OptionIntoJS};
+use crate::hazard::{IntoJS, JsCast};
 
 #[repr(transparent)]
 pub struct JsNumber<T = f64> {
@@ -31,13 +31,5 @@ unsafe impl<T> IntoJS for JsNumber<T> {
 
 	fn into_abi(self) -> Self::Abi {
 		IntoJS::into_abi(JsValue::from(self))
-	}
-}
-
-unsafe impl<T> OptionIntoJS for JsNumber<T> {
-	type OptionAbi = <JsValue as OptionIntoJS>::OptionAbi;
-
-	fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
-		OptionIntoJS::option_into_abi(value.map(JsValue::from))
 	}
 }

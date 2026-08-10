@@ -8,10 +8,9 @@ use core::mem::MaybeUninit;
 use core::ptr;
 
 pub use self::array::JsArray;
-use crate::JsValue;
-use crate::externref::ExternrefTable;
 use crate::hazard::{IntoJS, IntoJsConv, JsCast};
 use crate::util::{ExternSlice, PtrConst, PtrLength, PtrMut};
+use crate::{JsValue, externref};
 
 impl<T> JsArray<T> {
 	#[must_use]
@@ -64,7 +63,7 @@ impl Error for TryFromJsArrayError {}
 impl<T: JsCast> JsArray<T> {
 	pub fn to_slice(&self, slice: &mut [T]) -> Result<(), TryFromJsArrayError> {
 		let slice = JsValue::from_slice_mut(slice);
-		let externref = ExternrefTable::current_ptr();
+		let slots = externref::reserve_slots(slice.len());
 
 		// SAFETY: Parameters are correct.
 		let result = unsafe {
@@ -72,13 +71,13 @@ impl<T: JsCast> JsArray<T> {
 				self.as_any(),
 				PtrMut::new(slice),
 				PtrLength::new(slice),
-				externref.ptr,
-				externref.len,
+				slots.ptr(),
+				slots.len(),
 			)
 		};
 
 		if result {
-			ExternrefTable::report_used_slots(slice.len());
+			slots.commit();
 			Ok(())
 		} else {
 			Err(TryFromJsArrayError)
@@ -90,7 +89,7 @@ impl<T: JsCast> JsArray<T> {
 		slice: &'slice mut [MaybeUninit<T>],
 	) -> Result<&'slice mut [T], TryFromJsArrayError> {
 		let js_slice = JsValue::from_uninit_slice_mut(slice);
-		let externref = ExternrefTable::current_ptr();
+		let slots = externref::reserve_slots(js_slice.len());
 
 		// SAFETY: Parameters are correct.
 		let result = unsafe {
@@ -98,13 +97,13 @@ impl<T: JsCast> JsArray<T> {
 				self.as_any(),
 				PtrMut::from_uninit_slice(js_slice),
 				PtrLength::from_uninit_slice(js_slice),
-				externref.ptr,
-				externref.len,
+				slots.ptr(),
+				slots.len(),
 			)
 		};
 
 		if result {
-			ExternrefTable::report_used_slots(js_slice.len());
+			slots.commit();
 			// SAFETY: Correctly initialized in JS.
 			Ok(unsafe { assume_init_mut(slice) })
 		} else {
@@ -114,7 +113,7 @@ impl<T: JsCast> JsArray<T> {
 
 	pub fn to_array<const N: usize>(&self) -> Result<[T; N], TryFromJsArrayError> {
 		let mut array: MaybeUninit<[T; N]> = MaybeUninit::uninit();
-		let externref = ExternrefTable::current_ptr();
+		let slots = externref::reserve_slots(N);
 		let js_array = JsValue::from_mut_uninit_array(&mut array);
 
 		// SAFETY: Parameters are correct.
@@ -123,13 +122,13 @@ impl<T: JsCast> JsArray<T> {
 				self.as_any(),
 				PtrMut::from_uninit_array(js_array),
 				PtrLength::from_uninit_array(js_array),
-				externref.ptr,
-				externref.len,
+				slots.ptr(),
+				slots.len(),
 			)
 		};
 
 		if result {
-			ExternrefTable::report_used_slots(N);
+			slots.commit();
 			// SAFETY: Correctly initialized in JS.
 			Ok(unsafe { array.assume_init() })
 		} else {
@@ -146,32 +145,14 @@ js_bindgen::embed_js!(
 	"	if (array.length !== arrLen) return false",
 	"",
 	"	const table = this.#jsEmbed.js_sys['externref.table']",
-	"",
-	// Default value helps browsers to optimize.
-	"	let tableIndex = 0",
-	"	const reused = Math.min(arrLen, refLen)",
 	"	const refIndices = this.#jsEmbed.js_sys['view.getInt32'](",
-	"		refPtr + (refLen - reused) * 4,",
-	"		reused,",
+	"		refPtr,",
+	"		refLen,",
 	"	)",
 	"	const elemIndices = new Array(arrLen)",
-	"	if (arrLen > reused) {{",
-	"		tableIndex = table.grow(arrLen - reused)",
-	"	}}",
-	"",
-	"	let refIndex = reused - 1",
 	"",
 	"	for (let arrayIndex = 0; arrayIndex < arrLen; arrayIndex++) {{",
-	"		let elemIndex",
-	"",
-	"		if (refIndex >= 0) {{",
-	"			elemIndex = refIndices[refIndex]",
-	"			refIndex--",
-	"		}} else {{",
-	"			elemIndex = tableIndex",
-	"			tableIndex++",
-	"		}}",
-	"",
+	"		const elemIndex = refIndices[arrayIndex]",
 	"		table.set(elemIndex, array[arrayIndex])",
 	"		elemIndices[arrayIndex] = elemIndex",
 	"	}}",

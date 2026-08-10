@@ -1,43 +1,51 @@
+#[cfg(target_feature = "exception-handling")]
+use crate::externref::{
+	WAT_INDEX_LOCAL, WAT_INSERT_CONV, WAT_NEXT_IMPORT, WAT_TABLE_IMPORT, WAT_VALUE_LOCAL,
+};
 use crate::hazard::ReturnFromJS;
 
 #[cfg(not(target_feature = "exception-handling"))]
-const DIRECT_CATCH: &str = concat!(
-	"\n    } catch ($error) {",
-	"\n        const $index = this.#instance.exports['js_sys.exception.store']()",
-	"\n        this.#jsEmbed.js_sys['externref.table'].set($index, $error)",
-	"\n        return false",
-	"\n    }",
-	"\n}",
-);
+const DIRECT_CATCH: &str = "
+    } catch ($error) {
+        const $index = this.#instance.exports['js_sys.exception.store']()
+        this.#jsEmbed.js_sys['externref.table'].set($index, $error)
+        return false
+    }
+}";
 #[cfg(not(target_feature = "exception-handling"))]
-const INDIRECT_CATCH: &str = concat!(
-	"\n    } catch ($error) {",
-	"\n        const $index = this.#instance.exports['js_sys.exception.store']()",
-	"\n        this.#jsEmbed.js_sys['externref.table'].set($index, $error)",
-	"\n    }",
-	"\n}",
-);
+const INDIRECT_CATCH: &str = "
+    } catch ($error) {
+        const $index = this.#instance.exports['js_sys.exception.store']()
+        this.#jsEmbed.js_sys['externref.table'].set($index, $error)
+    }
+}";
 
 #[cfg(target_feature = "exception-handling")]
 const WAT_TAG_IMPORT: &str = "(import \"js_sys\" \"exception.tag\" (tag $js_sys.exception.tag \
                               (@sym (name \"js_sys.exception.tag\")) (param externref)))";
 #[cfg(target_feature = "exception-handling")]
-const WAT_INSERT_IMPORT: &str = concat!(
-	"(import \"env\" \"js_sys.externref.insert\" (func $js_sys.externref.insert (@sym) ",
-	"(param externref) (result i32)))",
+const WAT_STORE_IMPORT: &str =
+	"(import \"env\" \"js_sys.exception.store\" (func $js_sys.exception.store (@sym) (param i32)))";
+#[cfg(target_feature = "exception-handling")]
+const WAT_IMPORTS: &str = crate::const_concat!(
+	WAT_TAG_IMPORT,
+	"\n",
+	WAT_TABLE_IMPORT,
+	"\n",
+	WAT_NEXT_IMPORT,
+	"\n",
+	WAT_STORE_IMPORT,
 );
 #[cfg(target_feature = "exception-handling")]
-const WAT_STORE_IMPORT: &str = concat!(
-	"(import \"env\" \"js_sys.exception.store\" (func $js_sys.exception.store (@sym) ",
-	"(param i32)))",
-);
+const WAT_LOCALS: &str = crate::const_concat!(WAT_VALUE_LOCAL, "\n", WAT_INDEX_LOCAL);
 #[cfg(target_feature = "exception-handling")]
-const WAT_CATCH: &str = concat!(
+const WAT_CATCH: &str = crate::const_concat!(
 	"\n      return",
 	"\n    )",
 	"\n    unreachable",
 	"\n  )",
-	"\n  call $js_sys.externref.insert (@reloc)",
+	"\n  ",
+	WAT_INSERT_CONV,
 	"\n  call $js_sys.exception.store (@reloc)",
 );
 
@@ -92,19 +100,36 @@ pub const fn js_result_catch<T: ReturnFromJS>(direct: bool) -> &'static str {
 }
 
 #[must_use]
-pub const fn wat_result_imports<T: ReturnFromJS>() -> [&'static str; 3] {
+pub const fn wat_result_imports<T: ReturnFromJS>() -> &'static str {
 	#[cfg(target_feature = "exception-handling")]
 	{
 		if crate::r#macro::return_from_js_is_result::<T>() {
-			[WAT_TAG_IMPORT, WAT_INSERT_IMPORT, WAT_STORE_IMPORT]
+			WAT_IMPORTS
 		} else {
-			[""; 3]
+			""
 		}
 	}
 
 	#[cfg(not(target_feature = "exception-handling"))]
 	{
-		[""; 3]
+		""
+	}
+}
+
+#[must_use]
+pub const fn wat_result_locals<T: ReturnFromJS>() -> &'static str {
+	#[cfg(target_feature = "exception-handling")]
+	{
+		if crate::r#macro::return_from_js_is_result::<T>() {
+			WAT_LOCALS
+		} else {
+			""
+		}
+	}
+
+	#[cfg(not(target_feature = "exception-handling"))]
+	{
+		""
 	}
 }
 
@@ -166,28 +191,4 @@ pub const fn wat_result_default<T: ReturnFromJS>() -> &'static str {
 	{
 		""
 	}
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wat_result_try {
-	($ty:ty) => {
-		$crate::r#macro::wat_result_try::<$ty>()
-	};
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wat_result_catch {
-	($ty:ty) => {
-		$crate::r#macro::wat_result_catch::<$ty>()
-	};
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wat_result_default {
-	($ty:ty) => {
-		$crate::r#macro::wat_result_default::<$ty>()
-	};
 }

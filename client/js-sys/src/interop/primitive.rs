@@ -1,6 +1,6 @@
 use crate::hazard::{
-	EmptySlot, FromJS, FromJsConv, IntoJS, IntoJsConv, OptionIntoJS, ReturnAbi, ReturnMode, Slot,
-	WasmAbi,
+	EmptySlot, FromJS, FromJsConv, IntoJS, IntoJsConv, OptionFromAbi, OptionIntoAbi, ReturnAbi,
+	ReturnMode, Slot, WasmAbi,
 };
 use crate::r#macro::const_concat;
 
@@ -20,7 +20,7 @@ macro_rules! slot {
 
 macro_rules! from_js {
 	($($ty:ty),+ $(,)?) => {$(
-		// SAFETY: The JavaScript adapter produces this primitive's native `ABI`
+		// SAFETY: The JavaScript shim produces this primitive's native `ABI`
 		// slot, which is returned unchanged.
 		unsafe impl FromJS for $ty {
 			type Abi = Self;
@@ -58,17 +58,17 @@ macro_rules! sentinel_option {
 		}),+ $(,)?],
 	) => {$($(
 		// SAFETY: The sentinel lies outside the value range of this type.
-		unsafe impl OptionIntoJS for $ty {
-			const OPTION_JS_CONV: Option<IntoJsConv> = Some(IntoJsConv::new(const_concat!(
+		unsafe impl OptionIntoAbi<$ty> for $ty {
+			const JS_CONV: Option<IntoJsConv> = Some(IntoJsConv::new(const_concat!(
 				"$slot1 === ",
 				$js_sentinel,
 				" ? undefined : ",
 				$to_js
 			)));
 
-			type OptionAbi = $carrier;
+			type Abi = $carrier;
 
-			fn option_into_abi(value: Option<Self>) -> Self::OptionAbi {
+			fn into_option_abi(value: Option<$ty>) -> Self::Abi {
 				value.map_or($sentinel, |value| {
 					sentinel_option!(@into_abi value, $ty, $carrier)
 				})
@@ -76,13 +76,12 @@ macro_rules! sentinel_option {
 		}
 
 		// SAFETY: The sentinel is decoded before the carrier is converted back.
-		unsafe impl FromJS for Option<$ty> {
+		unsafe impl OptionFromAbi<$ty> for $ty {
 			const JS_CONV: Option<FromJsConv> = Some(FromJsConv::slot1(const_concat!(
-				"((value) => value == null ? ",
+				"$value == null ? ",
 				$js_sentinel,
 				" : ",
-				$from_js,
-				")($value)"
+				$from_js
 			)));
 
 			type Abi = $carrier;
@@ -96,7 +95,7 @@ macro_rules! sentinel_option {
 				clippy::cast_sign_loss,
 				reason = "JavaScript normalizes the carrier to this type's value range"
 			)]
-			fn from_abi(raw: Self::Abi) -> Self {
+			fn from_option_abi(raw: Self::Abi) -> Option<$ty> {
 				if raw == $sentinel {
 					None
 				} else {
@@ -153,31 +152,31 @@ macro_rules! indirect_option {
 
 		// SAFETY: The decoder combines the presence tag and payload slots into one
 		// optional JavaScript value.
-		unsafe impl OptionIntoJS for $ty {
-			const OPTION_JS_CONV: Option<IntoJsConv> = Some(
+		unsafe impl OptionIntoAbi<$ty> for $ty {
+			const JS_CONV: Option<IntoJsConv> = Some(
 				IntoJsConv::new(indirect_option!(@decode $decode, [$($slot),+]))
 					.with_embed(("js_sys", $decode)),
 			);
 
-			type OptionAbi = Option<Self>;
+			type Abi = Option<$ty>;
 
-			fn option_into_abi(value: Option<Self>) -> Self::OptionAbi {
+			fn into_option_abi(value: Option<$ty>) -> Self::Abi {
 				value
 			}
 		}
 
 		// SAFETY: The encoder writes a JavaScript value as a presence tag and the
 		// payload slots expected by `Option<$ty>`.
-		unsafe impl FromJS for Option<$ty> {
+		unsafe impl OptionFromAbi<$ty> for $ty {
 			const JS_CONV: Option<FromJsConv> = Some(
 				indirect_option!(@output [$($slot),+])
 					.sret(const_concat!("this.#jsEmbed.js_sys['", $encode, "']"))
 					.with_embed(("js_sys", $encode)),
 			);
 
-			type Abi = Self;
+			type Abi = Option<$ty>;
 
-			fn from_abi(raw: Self::Abi) -> Self {
+			fn from_option_abi(raw: Self::Abi) -> Option<$ty> {
 				raw
 			}
 		}
@@ -205,13 +204,57 @@ slot!("i32", isize, usize);
 #[cfg(target_arch = "wasm64")]
 slot!("i64", isize, usize);
 
+// SAFETY: Unit has no Rust-to-JavaScript payload and becomes `undefined`.
+unsafe impl IntoJS for () {
+	const JS_CONV: Option<IntoJsConv> = Some(IntoJsConv::new("undefined"));
+
+	type Abi = EmptySlot;
+
+	fn into_abi(self) -> Self::Abi {
+		EmptySlot::new()
+	}
+}
+
+// SAFETY: JavaScript-to-Rust unit conversion ignores the value and uses a
+// direct zero placeholder so it can also represent a successful `Result<()>`.
+unsafe impl FromJS for () {
+	const JS_CONV: Option<FromJsConv> = Some(FromJsConv::slot1("0"));
+
+	type Abi = u32;
+
+	fn from_abi(_: Self::Abi) -> Self {}
+}
+
+// SAFETY: Zero denotes `None`; one denotes `Some(())`.
+unsafe impl OptionIntoAbi<()> for EmptySlot {
+	const JS_CONV: Option<IntoJsConv> = Some(IntoJsConv::new("$slot1 === 0 ? undefined : true"));
+
+	type Abi = u32;
+
+	fn into_option_abi(value: Option<()>) -> Self::Abi {
+		u32::from(value.is_some())
+	}
+}
+
+// SAFETY: `Nullish` JavaScript values become zero and all other values become
+// the presence tag for `Some(())`.
+unsafe impl OptionFromAbi<()> for u32 {
+	const JS_CONV: Option<FromJsConv> = Some(FromJsConv::slot1("$value == null ? 0 : 1"));
+
+	type Abi = Self;
+
+	fn from_option_abi(raw: Self::Abi) -> Option<()> {
+		(raw != 0).then_some(())
+	}
+}
+
 identity!(u8, u16, i8, i16, i32, i64, isize, f32, f64);
 from_js!(bool, u32, u64, usize);
 
 // SAFETY: The JavaScript conversion normalizes the `i32` Wasm slot to a
 // `boolean`.
 unsafe impl IntoJS for bool {
-	const JS_CONV: Option<IntoJsConv> = Some(IntoJsConv::new("!!$slot1"));
+	const JS_CONV: Option<IntoJsConv> = Some(IntoJsConv::new("$slot1 !== 0"));
 
 	type Abi = Self;
 
@@ -400,9 +443,7 @@ js_bindgen::embed_js!(
 	module = "js_sys",
 	name = "numeric.u128.decode",
 	"(lo, hi) => {{",
-	"	return hi === 0n",
-	"		? BigInt.asUintN(64, lo)",
-	"		: BigInt.asUintN(64, lo) | (BigInt.asUintN(64, hi) << 64n)",
+	"	return BigInt.asUintN(64, lo) | (BigInt.asUintN(64, hi) << 64n)",
 	"}}",
 );
 
@@ -445,11 +486,11 @@ sentinel_option! {
 	types: [
 		[i8, u8, i16, u16] => {
 			to_js: "$slot1",
-			from_js: "value",
+			from_js: "$value",
 		},
 		[bool] => {
 			to_js: "$slot1 !== 0",
-			from_js: "value ? 1 : 0",
+			from_js: "$value ? 1 : 0",
 		},
 	],
 }
@@ -461,15 +502,15 @@ sentinel_option! {
 	types: [
 		[i32] => {
 			to_js: "$slot1",
-			from_js: "value >> 0",
+			from_js: "$value >> 0",
 		},
 		[u32] => {
 			to_js: "$slot1",
-			from_js: "value >>> 0",
+			from_js: "$value >>> 0",
 		},
 		[f32] => {
 			to_js: "$slot1",
-			from_js: "Math.fround(value)",
+			from_js: "Math.fround($value)",
 		},
 	],
 }
@@ -482,11 +523,11 @@ sentinel_option! {
 	types: [
 		[isize] => {
 			to_js: "$slot1",
-			from_js: "value >> 0",
+			from_js: "$value >> 0",
 		},
 		[usize] => {
 			to_js: "$slot1",
-			from_js: "value >>> 0",
+			from_js: "$value >>> 0",
 		},
 	],
 }
@@ -630,9 +671,7 @@ js_bindgen::embed_js!(
 	name = "optional.u128.decode",
 	"(isSome, lo, hi) => {{",
 	"	if (isSome === 0) return undefined",
-	"	return hi === 0n",
-	"		? BigInt.asUintN(64, lo)",
-	"		: BigInt.asUintN(64, lo) | (BigInt.asUintN(64, hi) << 64n)",
+	"	return BigInt.asUintN(64, lo) | (BigInt.asUintN(64, hi) << 64n)",
 	"}}",
 );
 

@@ -56,18 +56,6 @@ impl Hygiene<'_> {
 		}
 	}
 
-	pub(crate) fn js_option_into(&mut self, attrs: &[Attribute], span: Span) -> Path {
-		match self {
-			Hygiene::Imports(imports) => {
-				imports.hazard_push(attrs, parse_quote_spanned!(span=> OptionIntoJS));
-				parse_quote_spanned!(span=> OptionIntoJS)
-			}
-			Hygiene::Hygiene { js_sys } => {
-				Self::with_js_sys(*js_sys, &quote!(hazard::OptionIntoJS), span)
-			}
-		}
-	}
-
 	pub(crate) fn r#macro(&mut self, attrs: &[Attribute], span: Span) -> Path {
 		match self {
 			Hygiene::Imports(imports) => {

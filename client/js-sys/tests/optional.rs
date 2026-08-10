@@ -92,6 +92,18 @@ fn numeric() {
 }
 
 #[test]
+fn unit() {
+	#[js_sys]
+	extern "js-sys" {
+		#[js_sys(js_embed = "test")]
+		fn unit_option(value: Option<()>) -> Option<()>;
+	}
+
+	assert_eq!(unit_option(None), None);
+	assert_eq!(unit_option(Some(())), Some(()));
+}
+
+#[test]
 fn js_value() {
 	#[js_sys]
 	extern "js-sys" {

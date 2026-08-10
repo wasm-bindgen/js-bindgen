@@ -32,16 +32,6 @@ fn basic() {
 					::js_sys::hazard::IntoJS::into_abi(::js_sys::JsValue::from(self))
 				}
 			}
-
-			unsafe impl ::js_sys::hazard::OptionIntoJS for JsString {
-				type OptionAbi = <::js_sys::JsValue as ::js_sys::hazard::OptionIntoJS>::OptionAbi;
-
-				fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
-					::js_sys::hazard::OptionIntoJS::option_into_abi(
-						value.map(::js_sys::JsValue::from),
-					)
-				}
-			}
 		},
 		None,
 		None,
@@ -83,16 +73,6 @@ fn generic() {
 
 				fn into_abi(self) -> Self::Abi {
 					::js_sys::hazard::IntoJS::into_abi(::js_sys::JsValue::from(self))
-				}
-			}
-
-			unsafe impl<T> ::js_sys::hazard::OptionIntoJS for JsString<T> {
-				type OptionAbi = <::js_sys::JsValue as ::js_sys::hazard::OptionIntoJS>::OptionAbi;
-
-				fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
-					::js_sys::hazard::OptionIntoJS::option_into_abi(
-						value.map(::js_sys::JsValue::from),
-					)
 				}
 			}
 		},
@@ -138,16 +118,6 @@ fn default() {
 					::js_sys::hazard::IntoJS::into_abi(::js_sys::JsValue::from(self))
 				}
 			}
-
-			unsafe impl<T> ::js_sys::hazard::OptionIntoJS for JsString<T> {
-				type OptionAbi = <::js_sys::JsValue as ::js_sys::hazard::OptionIntoJS>::OptionAbi;
-
-				fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
-					::js_sys::hazard::OptionIntoJS::option_into_abi(
-						value.map(::js_sys::JsValue::from),
-					)
-				}
-			}
 		},
 		None,
 		None,
@@ -189,16 +159,6 @@ fn r#trait() {
 
 				fn into_abi(self) -> Self::Abi {
 					::js_sys::hazard::IntoJS::into_abi(::js_sys::JsValue::from(self))
-				}
-			}
-
-			unsafe impl<T: Sized> ::js_sys::hazard::OptionIntoJS for JsString<T> {
-				type OptionAbi = <::js_sys::JsValue as ::js_sys::hazard::OptionIntoJS>::OptionAbi;
-
-				fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
-					::js_sys::hazard::OptionIntoJS::option_into_abi(
-						value.map(::js_sys::JsValue::from),
-					)
 				}
 			}
 		},

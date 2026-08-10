@@ -57,8 +57,8 @@ pub fn processing(
 
 				import_section.append_to(&mut wasm_output);
 			}
-			// The WAT adapters need these symbols during linking, but callers should only
-			// see the public adapters in the final module.
+			// The WAT shims need these symbols during linking, but callers should only
+			// see the public shims in the final module.
 			Payload::ExportSection(exports) => {
 				let mut export_section = ExportSection::new();
 

@@ -2,6 +2,120 @@ use core::mem::{ManuallyDrop, MaybeUninit};
 use core::ptr;
 
 use crate::JsValue;
+use crate::externref::{WAT_INDEX_LOCAL, WAT_TAKE_IMPORTS};
+
+// Conversion `metadata`.
+
+#[derive(Clone, Copy)]
+pub struct WatConv {
+	pub imports: Option<&'static str>,
+	pub locals: Option<&'static str>,
+	pub conv: &'static str,
+	pub r#type: &'static str,
+}
+
+/// Converts primitive `ABI` slots into one JavaScript value.
+#[derive(Clone, Copy)]
+pub struct IntoJsConv {
+	pub(crate) embed: Option<(&'static str, &'static str)>,
+	pub(crate) template: &'static str,
+}
+
+impl IntoJsConv {
+	/// Produces one JavaScript value from `$slot1` through `$slot4`.
+	#[must_use]
+	pub const fn new(template: &'static str) -> Self {
+		Self {
+			embed: None,
+			template,
+		}
+	}
+
+	#[must_use]
+	pub const fn with_embed(mut self, embed: (&'static str, &'static str)) -> Self {
+		self.embed = Some(embed);
+		self
+	}
+}
+
+/// Converts one JavaScript value into primitive `ABI` slots.
+#[derive(Clone, Copy)]
+pub struct FromJsConv {
+	pub(crate) embed: Option<(&'static str, &'static str)>,
+	pub(crate) templates: [&'static str; 4],
+	pub(crate) sret: Option<&'static str>,
+}
+
+impl FromJsConv {
+	/// Produces `ABI` slots from `$value`.
+	#[must_use]
+	pub const fn slot1(template: &'static str) -> Self {
+		Self {
+			embed: None,
+			templates: [template, "", "", ""],
+			sret: None,
+		}
+	}
+
+	#[must_use]
+	pub const fn slot2(mut self, template: &'static str) -> Self {
+		self.templates[1] = template;
+		self
+	}
+
+	#[must_use]
+	pub const fn slot3(mut self, template: &'static str) -> Self {
+		self.templates[2] = template;
+		self
+	}
+
+	#[must_use]
+	pub const fn slot4(mut self, template: &'static str) -> Self {
+		self.templates[3] = template;
+		self
+	}
+
+	/// Stores the slots in an indirect return area.
+	///
+	/// The function receives every non-empty slot in order, followed by the
+	/// indirect return pointer.
+	#[must_use]
+	pub const fn sret(mut self, function: &'static str) -> Self {
+		self.sret = Some(function);
+		self
+	}
+
+	#[must_use]
+	pub const fn with_embed(mut self, embed: (&'static str, &'static str)) -> Self {
+		self.embed = Some(embed);
+		self
+	}
+}
+
+/// Describes how a function return is handled at the JavaScript boundary.
+#[derive(Clone, Copy)]
+pub enum ReturnConv<T> {
+	/// The value is returned normally.
+	Value(Option<T>),
+	/// `Ok` is returned normally and `Err` follows the exception path.
+	Result(Option<T>),
+}
+
+impl<T: Copy> ReturnConv<T> {
+	#[must_use]
+	pub const fn conversion(self) -> Option<T> {
+		match self {
+			Self::Value(value) | Self::Result(value) => value,
+		}
+	}
+
+	#[must_use]
+	pub const fn is_result(self) -> bool {
+		matches!(self, Self::Result(_))
+	}
+}
+
+// Wasm `ABI` carriers.
 
 /// One carrier position in the Wasm function `ABI`.
 ///
@@ -43,6 +157,13 @@ pub enum ReturnMode {
 	Indirect,
 }
 
+impl ReturnMode {
+	#[must_use]
+	pub const fn is_direct(self) -> bool {
+		matches!(self, Self::Direct)
+	}
+}
+
 /// A [`WasmAbi`] that can be returned through the Rust `extern "C"` `ABI`.
 ///
 /// # Safety
@@ -52,13 +173,6 @@ pub enum ReturnMode {
 /// pointer type for its hidden return parameter.
 pub unsafe trait ReturnAbi: WasmAbi {
 	const MODE: ReturnMode;
-}
-
-impl ReturnMode {
-	#[must_use]
-	pub const fn is_direct(self) -> bool {
-		matches!(self, Self::Direct)
-	}
 }
 
 /// The FFI-safe return representation of a [`WasmAbi`] value.
@@ -184,12 +298,7 @@ where
 	}
 }
 
-#[derive(Clone, Copy)]
-pub struct WatConv {
-	pub import: Option<&'static str>,
-	pub conv: &'static str,
-	pub r#type: &'static str,
-}
+// Rust-to-JavaScript conversions.
 
 /// # Safety
 ///
@@ -205,6 +314,38 @@ pub unsafe trait IntoJS {
 	fn into_abi(self) -> Self::Abi;
 }
 
+/// Describes how a value using this `ABI` carrier is encoded as an [`Option`].
+///
+/// This is implemented on the carrier rather than the Rust value so types that
+/// share a carrier can also share their optional representation.
+///
+/// # Safety
+///
+/// `Abi`, `into_option_abi`, and `JS_CONV` must describe one consistent
+/// conversion from `Option<T>` to a JavaScript value.
+#[doc(hidden)]
+pub unsafe trait OptionIntoAbi<T: IntoJS>: WasmAbi {
+	const JS_CONV: Option<IntoJsConv> = T::JS_CONV;
+
+	type Abi: WasmAbi;
+
+	fn into_option_abi(value: Option<T>) -> Self::Abi;
+}
+
+// SAFETY: Delegated to the optional representation of `T`'s `ABI` carrier.
+unsafe impl<T: IntoJS> IntoJS for Option<T>
+where
+	T::Abi: OptionIntoAbi<T>,
+{
+	const JS_CONV: Option<IntoJsConv> = <T::Abi as OptionIntoAbi<T>>::JS_CONV;
+
+	type Abi = <T::Abi as OptionIntoAbi<T>>::Abi;
+
+	fn into_abi(self) -> Self::Abi {
+		<T::Abi as OptionIntoAbi<T>>::into_option_abi(self)
+	}
+}
+
 /// Converts a Rust function result into its JavaScript return representation.
 ///
 /// Ordinary values delegate to [`IntoJS`]. Types such as [`Result`] may also
@@ -214,7 +355,7 @@ pub trait ReturnIntoJS {
 
 	type Abi: ReturnAbi;
 
-	fn return_into_abi(self) -> Self::Abi;
+	fn into_return_abi(self) -> Self::Abi;
 }
 
 impl<T> ReturnIntoJS for T
@@ -226,136 +367,12 @@ where
 
 	type Abi = T::Abi;
 
-	fn return_into_abi(self) -> Self::Abi {
+	fn into_return_abi(self) -> Self::Abi {
 		self.into_abi()
 	}
 }
 
-/// Extends [`IntoJS`] with the representation of `Option<Self>`.
-///
-/// # Safety
-///
-/// `OptionAbi`, `option_into_abi`, and `OPTION_JS_CONV` must describe one
-/// consistent conversion from `Option<Self>` to a JavaScript value.
-pub unsafe trait OptionIntoJS: IntoJS + Sized {
-	const OPTION_JS_CONV: Option<IntoJsConv> = Self::JS_CONV;
-
-	type OptionAbi: WasmAbi;
-
-	fn option_into_abi(value: Option<Self>) -> Self::OptionAbi;
-}
-
-// SAFETY: Delegated to the `OptionIntoJS` implementation.
-unsafe impl<T: OptionIntoJS> IntoJS for Option<T> {
-	const JS_CONV: Option<IntoJsConv> = T::OPTION_JS_CONV;
-
-	type Abi = T::OptionAbi;
-
-	fn into_abi(self) -> Self::Abi {
-		T::option_into_abi(self)
-	}
-}
-
-/// Converts primitive `ABI` slots into one JavaScript value.
-#[derive(Clone, Copy)]
-pub struct IntoJsConv {
-	pub(crate) embed: Option<(&'static str, &'static str)>,
-	pub(crate) template: &'static str,
-}
-
-/// Describes how a function return is handled at the JavaScript boundary.
-#[derive(Clone, Copy)]
-pub enum ReturnConv<T> {
-	/// The value is returned normally.
-	Value(Option<T>),
-	/// `Ok` is returned normally and `Err` follows the exception path.
-	Result(Option<T>),
-}
-
-impl<T: Copy> ReturnConv<T> {
-	#[must_use]
-	pub const fn conversion(self) -> Option<T> {
-		match self {
-			Self::Value(value) | Self::Result(value) => value,
-		}
-	}
-
-	#[must_use]
-	pub const fn is_result(self) -> bool {
-		matches!(self, Self::Result(_))
-	}
-}
-
-/// Converts one JavaScript value into primitive `ABI` slots.
-#[derive(Clone, Copy)]
-pub struct FromJsConv {
-	pub(crate) embed: Option<(&'static str, &'static str)>,
-	pub(crate) templates: [&'static str; 4],
-	pub(crate) sret: Option<&'static str>,
-}
-
-impl IntoJsConv {
-	/// Produces one JavaScript value from `$slot1` through `$slot4`.
-	#[must_use]
-	pub const fn new(template: &'static str) -> Self {
-		Self {
-			embed: None,
-			template,
-		}
-	}
-
-	#[must_use]
-	pub const fn with_embed(mut self, embed: (&'static str, &'static str)) -> Self {
-		self.embed = Some(embed);
-		self
-	}
-}
-
-impl FromJsConv {
-	/// Produces `ABI` slots from `$value`.
-	#[must_use]
-	pub const fn slot1(template: &'static str) -> Self {
-		Self {
-			embed: None,
-			templates: [template, "", "", ""],
-			sret: None,
-		}
-	}
-
-	#[must_use]
-	pub const fn slot2(mut self, template: &'static str) -> Self {
-		self.templates[1] = template;
-		self
-	}
-
-	#[must_use]
-	pub const fn slot3(mut self, template: &'static str) -> Self {
-		self.templates[2] = template;
-		self
-	}
-
-	#[must_use]
-	pub const fn slot4(mut self, template: &'static str) -> Self {
-		self.templates[3] = template;
-		self
-	}
-
-	/// Stores the slots in an indirect return area.
-	///
-	/// The function receives every non-empty slot in order, followed by the
-	/// indirect return pointer.
-	#[must_use]
-	pub const fn sret(mut self, function: &'static str) -> Self {
-		self.sret = Some(function);
-		self
-	}
-
-	#[must_use]
-	pub const fn with_embed(mut self, embed: (&'static str, &'static str)) -> Self {
-		self.embed = Some(embed);
-		self
-	}
-}
+// JavaScript-to-Rust conversions.
 
 /// # Safety
 ///
@@ -363,85 +380,187 @@ impl FromJsConv {
 /// from a JavaScript value to a Rust value. `JS_CONV` produces the primitive
 /// slots and `from_abi` reconstructs the Rust value. Multi-slot `ABI`
 /// representations must define one slot template for every non-empty slot.
-/// Indirect return `ABIs` must define an `sret` function.
 pub unsafe trait FromJS {
 	const JS_CONV: Option<FromJsConv> = None;
 
-	type Abi: ReturnAbi;
+	type Abi: WasmAbi;
 
 	fn from_abi(raw: Self::Abi) -> Self;
 }
 
+/// Describes how an [`Option`] is decoded for a value using this `ABI` carrier.
+///
+/// This is implemented on the carrier rather than the Rust value so types that
+/// share a carrier can also share their optional representation.
+///
+/// # Safety
+///
+/// `Abi`, `from_option_abi`, and `JS_CONV` must describe one consistent
+/// conversion from a JavaScript value to `Option<T>`.
+#[doc(hidden)]
+pub unsafe trait OptionFromAbi<T: FromJS>: WasmAbi {
+	const JS_CONV: Option<FromJsConv> = T::JS_CONV;
+
+	type Abi: WasmAbi;
+
+	fn from_option_abi(raw: Self::Abi) -> Option<T>;
+}
+
+// SAFETY: Delegated to the optional representation of `T`'s `ABI` carrier.
+unsafe impl<T: FromJS> FromJS for Option<T>
+where
+	T::Abi: OptionFromAbi<T>,
+{
+	const JS_CONV: Option<FromJsConv> = <T::Abi as OptionFromAbi<T>>::JS_CONV;
+
+	type Abi = <T::Abi as OptionFromAbi<T>>::Abi;
+
+	fn from_abi(raw: Self::Abi) -> Self {
+		<T::Abi as OptionFromAbi<T>>::from_option_abi(raw)
+	}
+}
+
 /// Converts the return value of a JavaScript import into its Rust result.
 ///
-/// `Abi` describes the successful return value. The raw carrier may be
-/// uninitialized when JavaScript throws, so implementations that catch
-/// exceptions must inspect the exception state before decoding it.
+/// `Abi` describes the successful return value and must support the Rust
+/// return `ABI`. Indirect returns must define an `sret` conversion. The raw
+/// carrier may be uninitialized when JavaScript throws, so implementations
+/// that catch exceptions must inspect the exception state before decoding it.
 pub trait ReturnFromJS {
 	const JS_CONV: ReturnConv<FromJsConv>;
 
 	type Abi: ReturnAbi;
 
-	fn return_from_abi(raw: MaybeUninit<WasmRet<Self::Abi>>) -> Self;
+	fn from_return_abi(raw: MaybeUninit<WasmRet<Self::Abi>>) -> Self;
 }
 
 impl<T> ReturnFromJS for T
 where
 	T: FromJS,
+	T::Abi: ReturnAbi,
 {
 	const JS_CONV: ReturnConv<FromJsConv> = ReturnConv::Value(T::JS_CONV);
 
 	type Abi = T::Abi;
 
-	fn return_from_abi(raw: MaybeUninit<WasmRet<Self::Abi>>) -> Self {
+	fn from_return_abi(raw: MaybeUninit<WasmRet<Self::Abi>>) -> Self {
 		// SAFETY: An ordinary JavaScript import always initializes its return
-		// value before the adapter returns.
+		// value before the shim returns.
 		T::from_abi(unsafe { raw.assume_init() }.join())
 	}
 }
 
+// Result returns.
+
 /// The return `ABI` for exporting [`Result`] to JavaScript.
 ///
-/// The first two slots carry the error and its presence tag. The remaining two
-/// slots carry the successful value.
+/// The first two slots carry the successful value. The remaining two carry the
+/// error discriminant and table index.
 #[doc(hidden)]
 pub struct ResultIntoJsAbi<T: WasmAbi> {
 	value: Result<T, <JsValue as IntoJS>::Abi>,
 }
 
-// SAFETY: The first slot transfers an error `externref`, the second is the
-// error tag, and the remaining slots match the successful value's `ABI`.
+const RESULT_DISCRIMINANT_LOCAL: &str = "  (local $js_sys.result.discriminant i32)";
+const RESULT_ERROR_WAT_CONV: &str = "\
+  local.set $js_sys.externref.index
+  local.get $js_sys.result.discriminant
+  if (result externref)
+    local.get $js_sys.externref.index
+    table.get $js_sys.import.externref.table (@reloc)
+    local.get $js_sys.externref.index
+    i32.const 2
+    i32.ge_u
+    if
+      local.get $js_sys.externref.index
+      call $js_sys.externref.release (@reloc)
+    end
+  else
+    ref.null extern
+  end";
+
+/// The discriminant of an exported [`Result`].
+#[doc(hidden)]
+#[repr(transparent)]
+pub struct ResultDiscriminantAbi(u32);
+
+// SAFETY: The transparent `i32` discriminant is also recorded in a local for
+// the following error slot conversion.
+unsafe impl Slot for ResultDiscriminantAbi {
+	const WAT_TYPE: &'static str = "i32";
+	const INTO_JS_WAT_CONV: Option<WatConv> = Some(WatConv {
+		imports: None,
+		locals: Some(RESULT_DISCRIMINANT_LOCAL),
+		conv: "local.tee $js_sys.result.discriminant",
+		r#type: "i32",
+	});
+}
+
+/// An owned `externref` table index transferred by a [`Result`] error.
+///
+/// The preceding [`ResultDiscriminantAbi`] controls whether the index is taken
+/// from the table. Successful results produce a null placeholder without
+/// accessing the table.
+#[doc(hidden)]
+#[repr(transparent)]
+pub struct ResultErrorAbi(<JsValue as IntoJS>::Abi);
+
+// SAFETY: `JsValue` uses a transparent `i32` table index as its Rust `ABI`. The
+// preceding result discriminant is recorded before this conversion runs.
+unsafe impl Slot for ResultErrorAbi {
+	const WAT_TYPE: &'static str = "i32";
+	const INTO_JS_WAT_CONV: Option<WatConv> = Some(WatConv {
+		imports: Some(WAT_TAKE_IMPORTS),
+		locals: Some(WAT_INDEX_LOCAL),
+		conv: RESULT_ERROR_WAT_CONV,
+		r#type: "externref",
+	});
+}
+
+// SAFETY: The first two slots match the successful value's `ABI`. The third
+// is the error discriminant and the fourth transfers an owned error table
+// index.
 unsafe impl<T> WasmAbi for ResultIntoJsAbi<T>
 where
 	T: WasmAbi<Slot3 = EmptySlot, Slot4 = EmptySlot>,
 	T::Slot1: Default,
 	T::Slot2: Default,
 {
-	type Slot1 = <JsValue as IntoJS>::Abi;
-	type Slot2 = u32;
-	type Slot3 = T::Slot1;
-	type Slot4 = T::Slot2;
+	type Slot1 = T::Slot1;
+	type Slot2 = T::Slot2;
+	type Slot3 = ResultDiscriminantAbi;
+	type Slot4 = ResultErrorAbi;
 
 	fn split(self) -> (Self::Slot1, Self::Slot2, Self::Slot3, Self::Slot4) {
 		match self.value {
 			Ok(value) => {
 				let (slot1, slot2, _, _) = value.split();
-				(JsValue::UNDEFINED.into_abi(), 0, slot1, slot2)
+				(
+					slot1,
+					slot2,
+					ResultDiscriminantAbi(0),
+					ResultErrorAbi(JsValue::UNDEFINED.into_abi()),
+				)
 			}
-			Err(error) => (error, 1, Default::default(), Default::default()),
+			Err(error) => (
+				Default::default(),
+				Default::default(),
+				ResultDiscriminantAbi(1),
+				ResultErrorAbi(error),
+			),
 		}
 	}
 
 	fn join(
-		error: Self::Slot1,
-		is_error: Self::Slot2,
-		slot1: Self::Slot3,
-		slot2: Self::Slot4,
+		slot1: Self::Slot1,
+		slot2: Self::Slot2,
+		is_error: Self::Slot3,
+		error: Self::Slot4,
 	) -> Self {
-		let value = if is_error == 0 {
+		let value = if is_error.0 == 0 {
 			Ok(T::join(slot1, slot2, EmptySlot::new(), EmptySlot::new()))
 		} else {
-			Err(error)
+			Err(error.0)
 		};
 
 		Self { value }
@@ -462,7 +581,7 @@ impl<T, E> ReturnIntoJS for Result<T, E>
 where
 	T: IntoJS,
 	E: Into<JsValue>,
-	T::Abi: ReturnAbi<Slot3 = EmptySlot, Slot4 = EmptySlot>,
+	T::Abi: WasmAbi<Slot3 = EmptySlot, Slot4 = EmptySlot>,
 	<T::Abi as WasmAbi>::Slot1: Default,
 	<T::Abi as WasmAbi>::Slot2: Default,
 {
@@ -470,7 +589,7 @@ where
 
 	type Abi = ResultIntoJsAbi<T::Abi>;
 
-	fn return_into_abi(self) -> Self::Abi {
+	fn into_return_abi(self) -> Self::Abi {
 		let value = match self {
 			Ok(value) => Ok(value.into_abi()),
 			Err(error) => Err(error.into().into_abi()),
@@ -483,12 +602,13 @@ where
 impl<T> ReturnFromJS for Result<T, JsValue>
 where
 	T: FromJS,
+	T::Abi: ReturnAbi,
 {
 	const JS_CONV: ReturnConv<FromJsConv> = ReturnConv::Result(T::JS_CONV);
 
 	type Abi = T::Abi;
 
-	fn return_from_abi(raw: MaybeUninit<WasmRet<Self::Abi>>) -> Self {
+	fn from_return_abi(raw: MaybeUninit<WasmRet<Self::Abi>>) -> Self {
 		if let Some(error) = crate::exception::take() {
 			#[cfg(not(target_feature = "exception-handling"))]
 			if <T::Abi as ReturnAbi>::MODE.is_direct() {
@@ -505,6 +625,8 @@ where
 		}
 	}
 }
+
+// Borrowed and cast JavaScript values.
 
 /// A type that can be borrowed from an owned JavaScript conversion.
 ///

@@ -123,11 +123,6 @@ macro_rules! const_integer_str {
 }
 
 #[must_use]
-pub const fn separator(value: &str) -> &'static str {
-	if value.is_empty() { "" } else { " " }
-}
-
-#[must_use]
 pub const fn separator_between(left: &str, right: &str) -> &'static str {
 	if left.is_empty() || right.is_empty() {
 		""

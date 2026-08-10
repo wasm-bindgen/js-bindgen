@@ -9,7 +9,7 @@ use crate::Hygiene;
 
 pub struct Type {
 	pub r#struct: ItemStruct,
-	pub impls: [ItemImpl; 5],
+	pub impls: [ItemImpl; 4],
 }
 
 impl Type {
@@ -32,7 +32,6 @@ impl Type {
 		let js_value = hygiene.js_value(&cfgs, span);
 		let js_cast = hygiene.js_cast(&cfgs, span);
 		let into_js = hygiene.js_into(&cfgs, span);
-		let option_into_js = hygiene.js_option_into(&cfgs, span);
 		let as_ref = hygiene.as_ref(span);
 		let from = hygiene.from(span);
 
@@ -90,16 +89,6 @@ impl Type {
 					}
 				}
 			},
-			parse_quote_spanned! {span=>
-				#(#cfgs)*
-				unsafe impl #gen_impl #option_into_js for #ident #gen_type #gen_where {
-					type OptionAbi = <#js_value as #option_into_js>::OptionAbi;
-
-					fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
-						#option_into_js::option_into_abi(value.map(#js_value::from))
-					}
-				}
-			},
 		];
 
 		item_attrs.append(&mut cfgs);
@@ -121,17 +110,16 @@ impl Type {
 
 impl IntoIterator for Type {
 	type Item = Item;
-	type IntoIter = array::IntoIter<Item, 6>;
+	type IntoIter = array::IntoIter<Item, 5>;
 
 	fn into_iter(self) -> Self::IntoIter {
-		let [impl_1, impl_2, impl_3, impl_4, impl_5] = self.impls;
+		let [impl_1, impl_2, impl_3, impl_4] = self.impls;
 		[
 			Item::from(self.r#struct),
 			impl_1.into(),
 			impl_2.into(),
 			impl_3.into(),
 			impl_4.into(),
-			impl_5.into(),
 		]
 		.into_iter()
 	}

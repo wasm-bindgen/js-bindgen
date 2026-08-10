@@ -9,7 +9,7 @@ use crate::util::PtrLength;
 pub(super) fn js_value_partial_eq(value1: &JsValue, value2: &JsValue) -> bool {
 	js_bindgen::unsafe_global_wat! {
 		"{}", interpolate r#macro::wat_import!(module = "js_sys", import = "js_value_partial_eq",
-		adapter = "js_sys.js_value_partial_eq", inputs = [("arg0", & JsValue), ("arg1", & JsValue)],
+		shim = "js_sys.js_value_partial_eq", inputs = [("arg0", & JsValue), ("arg1", & JsValue)],
 		output = bool,),
 	}
 

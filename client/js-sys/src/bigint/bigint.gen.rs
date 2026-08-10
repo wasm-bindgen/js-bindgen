@@ -3,7 +3,7 @@
 #![allow(warnings)]
 
 use crate::JsValue;
-use crate::hazard::{IntoJS, JsCast, OptionIntoJS};
+use crate::hazard::{IntoJS, JsCast};
 
 #[repr(transparent)]
 pub struct JsBigInt(JsValue);
@@ -27,13 +27,5 @@ unsafe impl IntoJS for JsBigInt {
 
 	fn into_abi(self) -> Self::Abi {
 		IntoJS::into_abi(JsValue::from(self))
-	}
-}
-
-unsafe impl OptionIntoJS for JsBigInt {
-	type OptionAbi = <JsValue as OptionIntoJS>::OptionAbi;
-
-	fn option_into_abi(value: ::core::option::Option<Self>) -> Self::OptionAbi {
-		OptionIntoJS::option_into_abi(value.map(JsValue::from))
 	}
 }

@@ -17,6 +17,8 @@ fn main() {
 	// ;; (() => { const value = exports["usize_max"](); return value === (typeof value === "bigint" ? 0xffff_ffff_ffff_ffffn : 0xffff_ffff) })()
 	// ;; exports["option_bool"](undefined) === undefined
 	// ;; exports["option_bool"](false) === true
+	// ;; exports["option_unit"](undefined) === undefined
+	// ;; exports["option_unit"](true) === true
 	// ;; exports["option_i16"](undefined) === undefined
 	// ;; exports["option_i16"](-32_768) === -32_767
 	// ;; exports["option_u32"](undefined) === undefined
@@ -37,6 +39,18 @@ fn main() {
 	// ;; exports["option_u128"]((1n << 128n) - 2n) === (1n << 128n) - 1n
 	// ;; exports["option_i128"](undefined) === undefined
 	// ;; exports["option_i128"](-(1n << 127n)) === -(1n << 127n) + 1n
+	// ;; (() => { const value = {}; return exports["js_value_identity"](value) === value })()
+	// ;; exports["option_js_value"](undefined) === undefined
+	// ;; exports["option_js_value"](null) === undefined
+	// ;; (() => { const value = {}; return exports["option_js_value"](value) === value })()
+	// ;; exports["import_option_i32"](undefined) === undefined
+	// ;; exports["import_option_i32"](42) === 42
+	// ;; exports["import_option_unit"](undefined) === undefined
+	// ;; exports["import_option_unit"](true) === true
+	// ;; exports["result_unit"](true) === undefined
+	// ;; (() => { try { exports["result_unit"](false); return false } catch (error) { return error === "unit error" } })()
+	// ;; exports["import_result_unit"](true) === undefined
+	// ;; (() => { try { exports["import_result_unit"](false); return false } catch (error) { return error === "unit error" } })()
 	// ;; exports["checked_add_u128"](1n << 96n, 3n) === (1n << 96n) + 3n
 	// ;; (() => { try { exports["checked_add_u128"]((1n << 128n) - 1n, 1n); return false } catch (error) { return error === "overflow" } })()
 	// ;; exports["import_result_i64"](41n) === 42n
@@ -50,6 +64,20 @@ fn main() {
 use js_sys::{JsString, JsValue, js_sys};
 
 type JsResult<T> = Result<T, JsString>;
+
+js_sys::js_bindgen::embed_js!(
+	module = "primitive",
+	name = "option.i32",
+	"(value) => value",
+);
+
+js_sys::js_bindgen::embed_js!(
+	module = "primitive",
+	name = "result.unit",
+	"(ok) => {{",
+	"	if (!ok) throw 'unit error'",
+	"}}",
+);
 
 js_sys::js_bindgen::embed_js!(
 	module = "primitive",
@@ -73,6 +101,15 @@ js_sys::js_bindgen::embed_js!(
 
 #[js_sys]
 extern "js-sys" {
+	#[js_sys(js_embed = "option.i32")]
+	fn import_option_i32_raw(value: Option<i32>) -> Option<i32>;
+
+	#[js_sys(js_embed = "option.i32")]
+	fn import_option_unit_raw(value: Option<()>) -> Option<()>;
+
+	#[js_sys(js_embed = "result.unit")]
+	fn import_result_unit_raw(ok: bool) -> Result<(), JsValue>;
+
 	#[js_sys(js_embed = "result.i64")]
 	fn import_result_i64_raw(value: i64) -> Result<i64, JsValue>;
 
@@ -169,6 +206,11 @@ fn option_bool(value: Option<bool>) -> Option<bool> {
 }
 
 #[js_sys]
+fn option_unit(value: Option<()>) -> Option<()> {
+	value
+}
+
+#[js_sys]
 fn option_i16(value: Option<i16>) -> Option<i16> {
 	value.map(|value| value + 1)
 }
@@ -216,6 +258,36 @@ fn option_u128(value: Option<u128>) -> Option<u128> {
 #[js_sys]
 fn option_i128(value: Option<i128>) -> Option<i128> {
 	value.map(|value| value + 1)
+}
+
+#[js_sys]
+fn js_value_identity(value: JsValue) -> JsValue {
+	value
+}
+
+#[js_sys]
+fn option_js_value(value: Option<JsValue>) -> Option<JsValue> {
+	value
+}
+
+#[js_sys]
+fn import_option_i32(value: Option<i32>) -> Option<i32> {
+	import_option_i32_raw(value)
+}
+
+#[js_sys]
+fn import_option_unit(value: Option<()>) -> Option<()> {
+	import_option_unit_raw(value)
+}
+
+#[js_sys]
+fn result_unit(ok: bool) -> JsResult<()> {
+	ok.then_some(()).ok_or_else(|| JsString::from("unit error"))
+}
+
+#[js_sys]
+fn import_result_unit(ok: bool) -> Result<(), JsValue> {
+	import_result_unit_raw(ok)
 }
 
 #[js_sys]
