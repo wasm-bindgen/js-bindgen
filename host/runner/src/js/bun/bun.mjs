@@ -1,5 +1,5 @@
 import { run } from "../shared/shared.mjs";
-import { colorText } from "../shared/shared-terminal.mjs";
+import { colorText, keepAlive } from "../shared/shared-terminal.mjs";
 import { JsBindgen } from "../imports.mjs";
 const wasmFile = Bun.file(new URL("../wasm.wasm", import.meta.url));
 const wasmResponse = new Response(wasmFile, {
@@ -7,12 +7,13 @@ const wasmResponse = new Response(wasmFile, {
 });
 const module = await WebAssembly.compileStreaming(wasmResponse);
 let pendingWrite = Promise.resolve();
-const status = await run(module, JsBindgen, (stream, text) => {
+const runPromise = run(module, JsBindgen, (stream, text) => {
     const output = colorText(text);
     const destination = stream === 0 /* Stream.Stdout */ ? Bun.stdout : Bun.stderr;
     pendingWrite = pendingWrite.then(async () => {
         await Bun.write(destination, output);
     });
 });
+const status = await keepAlive(runPromise);
 await pendingWrite;
 process.exit(status);

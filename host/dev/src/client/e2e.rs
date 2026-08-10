@@ -202,21 +202,26 @@ impl Example {
 				self.name
 			),
 		};
+		// A pending `Atomics.waitAsync` does not keep a command-line event loop
+		// alive: https://github.com/denoland/deno/issues/15358. Keep the whole
+		// example alive instead of adding work to each Future suspension.
 		let mut script = format!(
 			"import {{ JsBindgen }} from './{}.mjs'\n\n{read}\nconst module = await \
 			 WebAssembly.compile(bytes)\nconst {{ instance, exports }} = await new \
 			 JsBindgen(module).instantiate()\n\nfunction assert(value, expression) {{\n    if \
-			 (!value) throw new Error(`assertion failed: ${{expression}}`)\n}}\n",
+			 (!value) throw new Error(`assertion failed: ${{expression}}`)\n}}\n\nconst timer = \
+			 globalThis.setInterval(() => {{}}, 0x7fffffff)\ntry {{\n",
 			self.name
 		);
 
 		for test in &self.tests {
-			script.push_str("\nassert(");
+			script.push_str("    assert(");
 			script.push_str(test);
 			script.push_str(", ");
 			write!(script, "{test:?}").unwrap();
-			script.push_str(")\n");
+			script.push_str(")\n\n");
 		}
+		script.push_str("} finally {\n    globalThis.clearInterval(timer)\n}\n");
 
 		script
 	}
