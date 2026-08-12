@@ -127,9 +127,7 @@ impl Function {
 
 		let mut foreign_call =
 			quote_spanned!(span=> unsafe { #ident(#(#input::into_raw(#intern_input_names)),*) });
-		if output_ty.is_empty() {
-			foreign_call.extend(quote_spanned!(span=> ;));
-		} else {
+		if !output_ty.is_empty() {
 			foreign_call = quote_spanned! (span=> #output::from_raw(#foreign_call));
 		}
 

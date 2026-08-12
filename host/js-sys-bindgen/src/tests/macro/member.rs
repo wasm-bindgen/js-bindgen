@@ -43,7 +43,7 @@ fn method() {
 						fn test(this: <&::js_sys::JsValue as ::js_sys::hazard::Input>::Type);
 					}
 
-					unsafe { test(::js_sys::hazard::Input::into_raw(self)) };
+					unsafe { test(::js_sys::hazard::Input::into_raw(self)) }
 				}
 			}
 		},
@@ -126,7 +126,7 @@ fn method_par() {
 							::js_sys::hazard::Input::into_raw(par1),
 							::js_sys::hazard::Input::into_raw(par2),
 						)
-					};
+					}
 				}
 			}
 		},
@@ -288,7 +288,7 @@ fn setter() {
 							::js_sys::hazard::Input::into_raw(self),
 							::js_sys::hazard::Input::into_raw(value),
 						)
-					};
+					}
 				}
 			}
 		},

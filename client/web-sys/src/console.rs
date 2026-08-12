@@ -1,5 +1,5 @@
-use js_sys::JsValue;
 use js_sys::hazard::JsCast;
+use js_sys::{JsValue, js_sys};
 
 #[js_sys(namespace = "console")]
 extern "js-sys" {

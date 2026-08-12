@@ -12,15 +12,12 @@ test = false
 
 [dependencies]
 js-bindgen = { workspace = true }
-js-sys-macro = { workspace = true, optional = true }
+js-sys-macro = { workspace = true }
 
 [dev-dependencies]
 js-bindgen-test = { workspace = true }
 paste = { workspace = true }
 web-sys = { workspace = true }
-
-[features]
-macro = ["dep:js-sys-macro"]
 
 [lints]
 workspace = true

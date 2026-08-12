@@ -37,8 +37,6 @@ tempfile = { workspace = true }
 wasmparser = { workspace = true }
 
 [features]
-file = ["macro"]
-macro = []
 web-idl = ["dep:weedle2"]
 
 [lints]

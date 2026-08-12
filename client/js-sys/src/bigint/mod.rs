@@ -1,5 +1,4 @@
-#[rustfmt::skip]
-#[path ="bigint.gen.rs"]
-mod bigint;
-
-pub use self::bigint::JsBigInt;
+#[crate::js_sys(js_sys = crate)]
+extern "js-sys" {
+	pub type JsBigInt;
+}
