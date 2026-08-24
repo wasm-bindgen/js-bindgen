@@ -42,7 +42,7 @@ argfile = { version = "1", features = ["response"] }
 axum = { version = "0.8", default-features = false, features = ["http1", "http2", "json", "tokio"] }
 cargo_metadata = "0.23"
 clap = { version = "4", features = ["derive"] }
-clap-cargo = { version = "0.18", features = ["cargo_metadata"] }
+clap-cargo = { version = "0.19", features = ["cargo_metadata"] }
 dtor = { version = "1", default-features = false, features = ["proc_macro"] }
 fantoccini = { version = "0.22", default-features = false, features = ["rustls-tls"] }
 foldhash = { version = "0.2", default-features = false }
@@ -59,7 +59,7 @@ js-sys-bindgen = { path = "js-sys-bindgen" }
 memmap2 = "0.9"
 mime = "0.3"
 nix = "0.31"
-object = { version = "0.39", default-features = false, features = ["archive", "read_core", "std"] }
+object = { version = "0.40", default-features = false, features = ["archive", "read_core", "std"] }
 paste = "1"
 postcard = { version = "1", default-features = false }
 prettyplease = { version = "0.2", features = ["verbatim"] }
@@ -73,14 +73,14 @@ serde_repr = "0.1"
 shlex = { version = "2", default-features = false }
 similar-asserts = "2"
 strum = { version = "0.28", default-features = false, features = ["derive"] }
-syn = { version = "2", default-features = false }
+syn = { version = "3", default-features = false }
 tempfile = "3"
 tokio = { version = "1", features = ["parking_lot"] }
 tower-http = "0.7"
 ui_test = { version = "0.30", default-features = false, features = ["rustc"] }
 url = { version = "2", default-features = false }
-wasm-encoder = { version = "0.253", default-features = false, features = ["wasmparser"] }
-wasmparser = { version = "0.253", default-features = false }
+wasm-encoder = { version = "0.257", default-features = false, features = ["wasmparser"] }
+wasmparser = { version = "0.257", default-features = false }
 weedle2 = "5"
 windows-sys = "0.61"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
