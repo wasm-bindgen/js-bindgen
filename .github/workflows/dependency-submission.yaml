@@ -43,6 +43,6 @@ jobs:
         working-directory: host
         run: cargo generate-lockfile
       - name: Component Detection
-        uses: advanced-security/component-detection-dependency-submission-action@v0.1.4
+        uses: advanced-security/component-detection-dependency-submission-action@v0.1.6
         with:
           detectorsCategories: Rust
